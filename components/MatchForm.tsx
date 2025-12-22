@@ -8,35 +8,44 @@ interface MatchFormProps {
   initialData?: MatchData | null;
 }
 
+// Função para criar MatchData vazio
+const createEmptyMatchData = (): MatchData => ({
+  homeTeam: '',
+  awayTeam: '',
+  oddOver15: undefined,
+  homeGoalsScoredAvg: 0,
+  homeGoalsConcededAvg: 0,
+  awayGoalsScoredAvg: 0,
+  awayGoalsConcededAvg: 0,
+  homeXG: 0,
+  awayXG: 0,
+  homeShotsOnTarget: 0,
+  awayShotsOnTarget: 0,
+  homeOver15Freq: 0,
+  awayOver15Freq: 0,
+  homeBTTSFreq: 0,
+  awayBTTSFreq: 0,
+  homeCleanSheetFreq: 0,
+  awayCleanSheetFreq: 0,
+  h2hOver15Freq: 0,
+  matchImportance: 0,
+  keyAbsences: 'none',
+  homeHistory: [],
+  awayHistory: []
+});
+
 const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
   const [showFirstGoal, setShowFirstGoal] = useState(false);
-  const [formData, setFormData] = useState<MatchData>(initialData || {
-    homeTeam: '',
-    awayTeam: '',
-    oddOver15: 1.45,
-    homeGoalsScoredAvg: 1.6,
-    homeGoalsConcededAvg: 1.1,
-    awayGoalsScoredAvg: 1.2,
-    awayGoalsConcededAvg: 1.4,
-    homeXG: 1.7,
-    awayXG: 1.3,
-    homeShotsOnTarget: 5.2,
-    awayShotsOnTarget: 4.1,
-    homeOver15Freq: 80,
-    awayOver15Freq: 75,
-    homeBTTSFreq: 60,
-    awayBTTSFreq: 55,
-    homeCleanSheetFreq: 20,
-    awayCleanSheetFreq: 15,
-    h2hOver15Freq: 70,
-    matchImportance: 7,
-    keyAbsences: 'none',
-    homeHistory: [],
-    awayHistory: []
-  });
+  const [formData, setFormData] = useState<MatchData>(initialData || createEmptyMatchData());
 
   useEffect(() => {
-    if (initialData) setFormData(initialData);
+    if (initialData) {
+      setFormData(initialData);
+    } else {
+      // Resetar para vazio quando não há initialData (nova partida)
+      setFormData(createEmptyMatchData());
+      setShowFirstGoal(false); // Resetar também a seção colapsável
+    }
   }, [initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
