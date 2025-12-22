@@ -40,28 +40,66 @@ self.addEventListener('activate', (event) => {
 
 // Estratégia: Network First, fallback para Cache
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Ignorar requisições que não podem ser cacheadas
+  if (
+    request.method !== 'GET' ||
+    url.protocol === 'chrome-extension:' ||
+    url.protocol === 'chrome:' ||
+    url.protocol === 'moz-extension:' ||
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1'
+  ) {
+    // Apenas fazer fetch sem cachear
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // Ignorar requisições para APIs externas (Supabase, etc.)
+  if (url.hostname.includes('supabase.co') || url.hostname.includes('cdn.')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   event.respondWith(
-    fetch(event.request)
+    fetch(request)
       .then((response) => {
-        // Clonar a resposta para cache
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME)
-          .then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+        // Só cachear respostas válidas e GET
+        if (response && response.status === 200 && request.method === 'GET') {
+          // Verificar se é uma resposta que pode ser clonada
+          if (response.type === 'basic' || response.type === 'cors') {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                try {
+                  cache.put(request, responseToCache);
+                } catch (error) {
+                  // Ignorar erros de cache silenciosamente
+                  console.warn('Service Worker: Erro ao cachear', error);
+                }
+              })
+              .catch(() => {
+                // Ignorar erros de cache
+              });
+          }
+        }
         return response;
       })
       .catch(() => {
         // Se falhar, tentar buscar do cache
-        return caches.match(event.request)
+        return caches.match(request)
           .then((response) => {
             if (response) {
               return response;
             }
             // Se não encontrar no cache, retornar página offline
-            if (event.request.destination === 'document') {
+            if (request.destination === 'document') {
               return caches.match('/index.html');
             }
+            // Para outros recursos, retornar erro
+            return new Response('Offline', { status: 503 });
           });
       })
   );
