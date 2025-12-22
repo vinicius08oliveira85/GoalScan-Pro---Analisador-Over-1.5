@@ -19,10 +19,30 @@ function calculateFormTrend(history: RecentMatch[]): number {
 }
 
 export function performAnalysis(data: MatchData): AnalysisResult {
-  const homeAttack = (data.homeGoalsScoredAvg * 0.4) + (data.homeXG * 0.6);
-  const awayDefense = (data.awayGoalsConcededAvg * 0.5) + (data.awayXG * 0.5);
-  const awayAttack = (data.awayGoalsScoredAvg * 0.4) + (data.awayXG * 0.6);
-  const homeDefense = (data.homeGoalsConcededAvg * 0.5) + (data.homeXG * 0.5);
+  // FASE 1: Usar desempenho casa/fora se disponível, senão usar médias gerais
+  const homeGoalsScored = data.homeGoalsScoredAtHome ?? data.homeGoalsScoredAvg;
+  const homeGoalsConceded = data.homeGoalsConcededAtHome ?? data.homeGoalsConcededAvg;
+  const awayGoalsScored = data.awayGoalsScoredAway ?? data.awayGoalsScoredAvg;
+  const awayGoalsConceded = data.awayGoalsConcededAway ?? data.awayGoalsConcededAvg;
+  
+  // FASE 1: Incorporar xA na estimativa de ataque (complementa xG)
+  const homeXGWithXA = data.homeXG + (data.homeXA ?? 0) * 0.3; // xA contribui 30% do peso do xG
+  const awayXGWithXA = data.awayXG + (data.awayXA ?? 0) * 0.3;
+  
+  // FASE 1: Ajustar ataque baseado em passes progressivos/chave
+  let homeAttackBoost = 0;
+  let awayAttackBoost = 0;
+  if (data.homeProgressivePasses && data.homeKeyPasses) {
+    homeAttackBoost = (data.homeProgressivePasses / 100) * 0.1 + (data.homeKeyPasses / 10) * 0.15;
+  }
+  if (data.awayProgressivePasses && data.awayKeyPasses) {
+    awayAttackBoost = (data.awayProgressivePasses / 100) * 0.1 + (data.awayKeyPasses / 10) * 0.15;
+  }
+  
+  const homeAttack = (homeGoalsScored * 0.4) + (homeXGWithXA * 0.6) + homeAttackBoost;
+  const awayDefense = (awayGoalsConceded * 0.5) + (homeXGWithXA * 0.5); // Defesa do visitante = gols sofridos + xG do mandante
+  const awayAttack = (awayGoalsScored * 0.4) + (awayXGWithXA * 0.6) + awayAttackBoost;
+  const homeDefense = (homeGoalsConceded * 0.5) + (awayXGWithXA * 0.5); // Defesa do mandante = gols sofridos + xG do visitante
 
   const lambdaHome = (homeAttack + awayDefense) / 2;
   const lambdaAway = (awayAttack + homeDefense) / 2;
@@ -52,7 +72,21 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const totalTrend = homeTrend + awayTrend;
   prob += totalTrend;
 
-  const historicalOver = (data.homeOver15Freq + data.awayOver15Freq + data.h2hOver15Freq) / 3;
+  // FASE 1: Usar H2H detalhado se disponível
+  let h2hWeight = data.h2hOver15Freq;
+  if (data.h2hAvgGoals !== undefined) {
+    // Ajustar baseado na média de gols H2H
+    const h2hGoalBasedProb = Math.min(95, Math.max(5, (data.h2hAvgGoals - 0.5) * 50));
+    h2hWeight = (h2hWeight * 0.6) + (h2hGoalBasedProb * 0.4);
+  }
+  if (data.h2hMatches && data.h2hMatches.length > 0) {
+    // Calcular tendência dos últimos H2H
+    const recentH2HOver = data.h2hMatches.filter(m => m.totalGoals >= 2).length / data.h2hMatches.length;
+    const h2hTrendProb = recentH2HOver * 100;
+    h2hWeight = (h2hWeight * 0.5) + (h2hTrendProb * 0.5);
+  }
+  
+  const historicalOver = (data.homeOver15Freq + data.awayOver15Freq + h2hWeight) / 3;
   prob = (prob * 0.65) + (historicalOver * 0.35);
 
   prob = Math.min(Math.max(prob, 2), 98);
