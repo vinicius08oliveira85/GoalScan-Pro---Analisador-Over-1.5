@@ -109,23 +109,44 @@ const App: React.FC = () => {
                     <div 
                       key={match.id}
                       onClick={() => handleOpenSaved(match)}
-                      className="group custom-card p-4 hover:border-primary/50 cursor-pointer transition-all active:scale-95 flex flex-col gap-2 relative overflow-hidden"
+                      className="group custom-card p-4 hover:border-primary/50 cursor-pointer transition-all active:scale-95 flex flex-col gap-3 relative overflow-hidden"
                     >
+                      {/* Header: Data e Times */}
                       <div className="flex justify-between items-start">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col flex-1 min-w-0">
                            <span className="text-[9px] font-black opacity-30 uppercase">{new Date(match.timestamp).toLocaleDateString()}</span>
-                           <span className="text-xs font-black uppercase truncate max-w-[150px]">{match.data.homeTeam} x {match.data.awayTeam}</span>
+                           <span className="text-xs font-black uppercase truncate">{match.data.homeTeam} x {match.data.awayTeam}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                           <span className="text-sm font-black text-teal-400">{match.result.probabilityOver15.toFixed(0)}%</span>
-                           <button onClick={(e) => handleDeleteSaved(e, match.id)} className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error transition-opacity">×</button>
+                        <button onClick={(e) => handleDeleteSaved(e, match.id)} className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error transition-opacity flex-shrink-0">×</button>
+                      </div>
+
+                      {/* Métricas Principais: Probabilidade, Odd e EV */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-col items-center">
+                          <span className="text-[8px] font-bold opacity-40 uppercase mb-1">Prob</span>
+                          <span className="text-sm font-black text-teal-400">{match.result.probabilityOver15.toFixed(0)}%</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[8px] font-bold opacity-40 uppercase mb-1">Odd</span>
+                          <span className="text-sm font-black text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[8px] font-bold opacity-40 uppercase mb-1">EV</span>
+                          <span className={`text-sm font-black ${
+                            match.result.ev > 0 ? 'text-success' : 
+                            match.result.ev < 0 ? 'text-error' : 
+                            'opacity-50'
+                          }`}>
+                            {match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%
+                          </span>
                         </div>
                       </div>
+
+                      {/* Barra de Progresso */}
                       <div className="flex items-center gap-2 mt-1">
                         <div className={`h-1 flex-1 rounded-full overflow-hidden bg-base-300`}>
                           <div className="h-full bg-primary" style={{ width: `${match.result.probabilityOver15}%` }}></div>
                         </div>
-                        {match.result.ev > 0 && <span className="text-[9px] font-black text-success">EV+</span>}
                       </div>
                     </div>
                   ))
