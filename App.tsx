@@ -4,6 +4,7 @@ import MatchForm from './components/MatchForm';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import { performAnalysis } from './services/analysisEngine';
 import { MatchData, AnalysisResult, SavedAnalysis } from './types';
+import { TrendingUp, TrendingDown, Calendar, X, Save } from 'lucide-react';
 
 const App: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -57,10 +58,10 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20">
-      <header className="bg-base-200 border-b border-base-300 py-4 mb-8 sticky top-0 z-50">
+      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-4 mb-8 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-content font-black italic text-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-xl shadow-lg">
               G
             </div>
             <div>
@@ -68,8 +69,14 @@ const App: React.FC = () => {
               <span className="text-[10px] uppercase font-bold tracking-widest text-primary opacity-80">AI Goal Analysis Engine</span>
             </div>
           </div>
-          <div className="hidden md:flex gap-4">
-            <span className="badge badge-outline badge-sm">v3.8.2 Elite Edition</span>
+          <div className="hidden md:flex gap-4 items-center">
+            {analysisResult && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                <span className="text-xs font-bold text-primary">Análise Ativa</span>
+              </div>
+            )}
+            <span className="badge badge-outline badge-sm font-bold">v3.8.2 Elite Edition</span>
           </div>
         </div>
       </header>
@@ -109,44 +116,74 @@ const App: React.FC = () => {
                     <div 
                       key={match.id}
                       onClick={() => handleOpenSaved(match)}
-                      className="group custom-card p-4 hover:border-primary/50 cursor-pointer transition-all active:scale-95 flex flex-col gap-3 relative overflow-hidden"
+                      className="group custom-card p-4 hover:border-primary/50 hover:shadow-lg cursor-pointer transition-all duration-300 active:scale-[0.98] flex flex-col gap-3 relative overflow-hidden"
                     >
                       {/* Header: Data e Times */}
                       <div className="flex justify-between items-start">
                         <div className="flex flex-col flex-1 min-w-0">
-                           <span className="text-[9px] font-black opacity-30 uppercase">{new Date(match.timestamp).toLocaleDateString()}</span>
-                           <span className="text-xs font-black uppercase truncate">{match.data.homeTeam} x {match.data.awayTeam}</span>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Calendar className="w-3 h-3 opacity-40" />
+                            <span className="text-[9px] font-black opacity-30 uppercase">{new Date(match.timestamp).toLocaleDateString()}</span>
+                          </div>
+                          <span className="text-xs font-black uppercase truncate">{match.data.homeTeam} x {match.data.awayTeam}</span>
                         </div>
-                        <button onClick={(e) => handleDeleteSaved(e, match.id)} className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error transition-opacity flex-shrink-0">×</button>
+                        <button 
+                          onClick={(e) => handleDeleteSaved(e, match.id)} 
+                          className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
 
                       {/* Métricas Principais: Probabilidade, Odd e EV */}
                       <div className="grid grid-cols-3 gap-2">
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-2 rounded-lg bg-teal-500/5 border border-teal-500/10 group-hover:border-teal-500/20 transition-colors">
                           <span className="text-[8px] font-bold opacity-40 uppercase mb-1">Prob</span>
                           <span className="text-sm font-black text-teal-400">{match.result.probabilityOver15.toFixed(0)}%</span>
                         </div>
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-2 rounded-lg bg-primary/5 border border-primary/10 group-hover:border-primary/20 transition-colors">
                           <span className="text-[8px] font-bold opacity-40 uppercase mb-1">Odd</span>
                           <span className="text-sm font-black text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</span>
                         </div>
-                        <div className="flex flex-col items-center">
+                        <div className={`flex flex-col items-center p-2 rounded-lg border transition-colors ${
+                          match.result.ev > 0 
+                            ? 'bg-success/5 border-success/10 group-hover:border-success/20' 
+                            : match.result.ev < 0 
+                            ? 'bg-error/5 border-error/10 group-hover:border-error/20'
+                            : 'bg-base-300/5 border-base-300/10'
+                        }`}>
                           <span className="text-[8px] font-bold opacity-40 uppercase mb-1">EV</span>
-                          <span className={`text-sm font-black ${
-                            match.result.ev > 0 ? 'text-success' : 
-                            match.result.ev < 0 ? 'text-error' : 
-                            'opacity-50'
-                          }`}>
-                            {match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%
-                          </span>
+                          <div className="flex items-center gap-1">
+                            {match.result.ev > 0 ? (
+                              <TrendingUp className="w-3 h-3 text-success" />
+                            ) : match.result.ev < 0 ? (
+                              <TrendingDown className="w-3 h-3 text-error" />
+                            ) : null}
+                            <span className={`text-sm font-black ${
+                              match.result.ev > 0 ? 'text-success' : 
+                              match.result.ev < 0 ? 'text-error' : 
+                              'opacity-50'
+                            }`}>
+                              {match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%
+                            </span>
+                          </div>
                         </div>
                       </div>
 
                       {/* Barra de Progresso */}
                       <div className="flex items-center gap-2 mt-1">
-                        <div className={`h-1 flex-1 rounded-full overflow-hidden bg-base-300`}>
-                          <div className="h-full bg-primary" style={{ width: `${match.result.probabilityOver15}%` }}></div>
+                        <div className={`h-1.5 flex-1 rounded-full overflow-hidden bg-base-300`}>
+                          <div 
+                            className="h-full bg-gradient-to-r from-primary to-teal-400 transition-all duration-500" 
+                            style={{ width: `${match.result.probabilityOver15}%` }}
+                          ></div>
                         </div>
+                        {match.result.ev > 0 && (
+                          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 border border-success/20">
+                            <Save className="w-2.5 h-2.5 text-success" />
+                            <span className="text-[8px] font-bold text-success">EV+</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
