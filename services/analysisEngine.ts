@@ -19,11 +19,33 @@ function calculateFormTrend(history: RecentMatch[]): number {
 }
 
 export function performAnalysis(data: MatchData): AnalysisResult {
-  // FASE 1: Usar desempenho casa/fora se disponível, senão usar médias gerais
-  const homeGoalsScored = data.homeGoalsScoredAtHome ?? data.homeGoalsScoredAvg;
-  const homeGoalsConceded = data.homeGoalsConcededAtHome ?? data.homeGoalsConcededAvg;
-  const awayGoalsScored = data.awayGoalsScoredAway ?? data.awayGoalsScoredAvg;
-  const awayGoalsConceded = data.awayGoalsConcededAway ?? data.awayGoalsConcededAvg;
+  // NOVO MODELO: Priorizar estatísticas dos últimos 10 jogos (Home/Away/Global)
+  // Para time da casa: usar estatísticas "home" (jogos em casa)
+  // Para time visitante: usar estatísticas "away" (jogos fora)
+  let homeGoalsScored: number;
+  let homeGoalsConceded: number;
+  let awayGoalsScored: number;
+  let awayGoalsConceded: number;
+
+  if (data.homeTeamStats?.gols?.home?.avgScored) {
+    // Usar estatísticas do novo modelo (últimos 10 jogos em casa)
+    homeGoalsScored = data.homeTeamStats.gols.home.avgScored;
+    homeGoalsConceded = data.homeTeamStats.gols.home.avgConceded;
+  } else {
+    // Fallback para modelo antigo
+    homeGoalsScored = data.homeGoalsScoredAtHome ?? data.homeGoalsScoredAvg;
+    homeGoalsConceded = data.homeGoalsConcededAtHome ?? data.homeGoalsConcededAvg;
+  }
+
+  if (data.awayTeamStats?.gols?.away?.avgScored) {
+    // Usar estatísticas do novo modelo (últimos 10 jogos fora)
+    awayGoalsScored = data.awayTeamStats.gols.away.avgScored;
+    awayGoalsConceded = data.awayTeamStats.gols.away.avgConceded;
+  } else {
+    // Fallback para modelo antigo
+    awayGoalsScored = data.awayGoalsScoredAway ?? data.awayGoalsScoredAvg;
+    awayGoalsConceded = data.awayGoalsConcededAway ?? data.awayGoalsConcededAvg;
+  }
   
   // FASE 1: Incorporar xA na estimativa de ataque (complementa xG)
   const homeXGWithXA = data.homeXG + (data.homeXA ?? 0) * 0.3; // xA contribui 30% do peso do xG
@@ -61,16 +83,38 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   if (totalShotsOnTarget > 10) prob += 5;
   if (totalShotsOnTarget < 6) prob -= 5;
 
-  const avgBTTS = (data.homeBTTSFreq + data.awayBTTSFreq) / 2;
-  if (avgBTTS > 65) prob += 4;
-
-  const avgCleanSheet = (data.homeCleanSheetFreq + data.awayCleanSheetFreq) / 2;
+  // NOVO MODELO: Usar percentuais de clean sheet das novas estatísticas
+  let avgCleanSheet: number;
+  if (data.homeTeamStats?.gols?.home?.cleanSheetPct && data.awayTeamStats?.gols?.away?.cleanSheetPct) {
+    avgCleanSheet = (data.homeTeamStats.gols.home.cleanSheetPct + data.awayTeamStats.gols.away.cleanSheetPct) / 2;
+  } else {
+    avgCleanSheet = (data.homeCleanSheetFreq + data.awayCleanSheetFreq) / 2;
+  }
   if (avgCleanSheet > 40) prob -= 6;
 
+  // BTTS: Calcular a partir de clean sheet (se não sofreu, não teve BTTS)
+  const avgBTTS = 100 - avgCleanSheet;
+  if (avgBTTS > 65) prob += 4;
+
+  // NOVO MODELO: Usar sequências de percurso para ajustar probabilidade
+  let percursoAdjustment = 0;
+  if (data.homeTeamStats?.percurso?.home && data.awayTeamStats?.percurso?.away) {
+    // Ajuste baseado em sequências de vitórias (time em casa)
+    if (data.homeTeamStats.percurso.home.winStreak >= 3) percursoAdjustment += 2;
+    if (data.homeTeamStats.percurso.home.withoutLoss >= 5) percursoAdjustment += 1.5;
+    if (data.homeTeamStats.percurso.home.withoutWin >= 3) percursoAdjustment -= 2;
+    
+    // Ajuste baseado em sequências do visitante
+    if (data.awayTeamStats.percurso.away.winStreak >= 3) percursoAdjustment += 1.5;
+    if (data.awayTeamStats.percurso.away.withoutLoss >= 5) percursoAdjustment += 1;
+    if (data.awayTeamStats.percurso.away.withoutWin >= 3) percursoAdjustment -= 1.5;
+  }
+  
+  // Manter cálculo de tendência do histórico antigo como fallback
   const homeTrend = calculateFormTrend(data.homeHistory);
   const awayTrend = calculateFormTrend(data.awayHistory);
   const totalTrend = homeTrend + awayTrend;
-  prob += totalTrend;
+  prob += totalTrend + percursoAdjustment;
 
   // FASE 1: Usar H2H detalhado se disponível
   let h2hWeight = data.h2hOver15Freq;
@@ -86,7 +130,21 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     h2hWeight = (h2hWeight * 0.5) + (h2hTrendProb * 0.5);
   }
   
-  const historicalOver = (data.homeOver15Freq + data.awayOver15Freq + h2hWeight) / 3;
+  // NOVO MODELO: Usar Over 2.5% das novas estatísticas se disponível
+  let homeOverFreq: number;
+  let awayOverFreq: number;
+  
+  if (data.homeTeamStats?.gols?.home?.over25Pct !== undefined && data.awayTeamStats?.gols?.away?.over25Pct !== undefined) {
+    // Converter Over 2.5 para Over 1.5 (aproximação: Over 1.5 é ~20-30% maior que Over 2.5)
+    homeOverFreq = Math.min(100, data.homeTeamStats.gols.home.over25Pct * 1.25);
+    awayOverFreq = Math.min(100, data.awayTeamStats.gols.away.over25Pct * 1.25);
+  } else {
+    // Fallback para campos antigos
+    homeOverFreq = data.homeOver15Freq;
+    awayOverFreq = data.awayOver15Freq;
+  }
+  
+  const historicalOver = (homeOverFreq + awayOverFreq + h2hWeight) / 3;
   prob = (prob * 0.65) + (historicalOver * 0.35);
 
   prob = Math.min(Math.max(prob, 2), 98);

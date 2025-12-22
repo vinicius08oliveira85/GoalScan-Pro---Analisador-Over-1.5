@@ -12,6 +12,57 @@ export interface H2HMatch {
   totalGoals: number;
 }
 
+// Estatísticas de Percurso (Sequências)
+export interface PercursoStats {
+  winStreak: number; // Sequência de Vitórias corrente
+  drawStreak: number; // Sequência de Empates corrente
+  lossStreak: number; // Sequência de Derrotas corrente
+  withoutWin: number; // Não ganha há... (0 se não aplicável)
+  withoutDraw: number; // Não empata há... (0 se não aplicável)
+  withoutLoss: number; // Não perde há... (0 se não aplicável)
+}
+
+// Estatísticas de Gols
+export interface GolsStats {
+  avgScored: number; // Média de gols marcados por jogo
+  avgConceded: number; // Média de gols sofridos por jogo
+  avgTotal: number; // Média de gols marcados+sofridos
+  cleanSheetPct: number; // Jogos sem sofrer (%)
+  noGoalsPct: number; // Jogos sem marcar gols (%)
+  over25Pct: number; // Jogos com Mais de 2,5 Gols (%)
+  under25Pct: number; // Jogos com menos de 2,5 Gols (%)
+}
+
+// Estatísticas de Abre Marcador
+export interface FirstGoalStats {
+  opensScorePct: number; // Abre marcador (qualquer altura) - %
+  opensScoreCount: number; // Abre marcador - quantidade
+  winningAtHT: number; // E está a vencer ao intervalo - %
+  winningAtHTCount: number; // E está a vencer ao intervalo - quantidade
+  winsFinal: number; // E vence no final - %
+  winsFinalCount: number; // E vence no final - quantidade
+  comebacks?: number; // Reviravoltas (opcional, apenas para time visitante)
+}
+
+// Estatísticas completas de um time (últimos 10 jogos)
+export interface TeamStatistics {
+  percurso: {
+    home: PercursoStats;
+    away: PercursoStats;
+    global: PercursoStats;
+  };
+  gols: {
+    home: GolsStats;
+    away: GolsStats;
+    global: GolsStats;
+  };
+  firstGoal?: {
+    home: FirstGoalStats;
+    away: FirstGoalStats;
+    global: FirstGoalStats;
+  };
+}
+
 export interface MatchData {
   homeTeam: string;
   awayTeam: string;
@@ -65,6 +116,10 @@ export interface MatchData {
   // Histórico Recente
   homeHistory: RecentMatch[];
   awayHistory: RecentMatch[];
+
+  // Estatísticas Detalhadas (Últimos 10 Jogos) - Novo modelo
+  homeTeamStats?: TeamStatistics;
+  awayTeamStats?: TeamStatistics;
 }
 
 export interface AnalysisResult {
