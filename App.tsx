@@ -4,8 +4,9 @@ import MatchForm from './components/MatchForm';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import MainScreen from './components/MainScreen';
 import { performAnalysis } from './services/analysisEngine';
+import { loadSavedAnalyses, saveOrUpdateAnalysis, deleteAnalysis } from './services/supabaseService';
 import { MatchData, AnalysisResult, SavedAnalysis } from './types';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader } from 'lucide-react';
 
 type View = 'home' | 'analysis';
 
@@ -15,19 +16,37 @@ const App: React.FC = () => {
   const [currentMatchData, setCurrentMatchData] = useState<MatchData | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [savedMatches, setSavedMatches] = useState<SavedAnalysis[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
-  // Carregar do localStorage na inicialização
+  // Carregar do Supabase na inicialização
   useEffect(() => {
-    const stored = localStorage.getItem('goalscan_saved');
-    if (stored) {
-      setSavedMatches(JSON.parse(stored));
-    }
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        setSyncError(null);
+        const matches = await loadSavedAnalyses();
+        setSavedMatches(matches);
+      } catch (error) {
+        console.error('Erro ao carregar partidas do Supabase:', error);
+        setSyncError('Erro ao sincronizar com o servidor. Tentando novamente...');
+        // Tentar carregar do localStorage como fallback
+        const stored = localStorage.getItem('goalscan_saved');
+        if (stored) {
+          try {
+            setSavedMatches(JSON.parse(stored));
+          } catch (e) {
+            console.error('Erro ao carregar do localStorage:', e);
+          }
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
-
-  // Salvar no localStorage sempre que mudar
-  useEffect(() => {
-    localStorage.setItem('goalscan_saved', JSON.stringify(savedMatches));
-  }, [savedMatches]);
 
   // Funções de Navegação
   const handleNavigateToHome = () => {
@@ -65,48 +84,174 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSaveMatch = () => {
+  const handleSaveMatch = async () => {
     if (analysisResult && currentMatchData) {
-      // Se já existe uma partida selecionada, atualizar ela
-      if (selectedMatch) {
-        const updatedMatch: SavedAnalysis = {
-          ...selectedMatch,
-          data: currentMatchData,
-          result: analysisResult,
-          timestamp: Date.now() // Atualizar timestamp
-        };
-        setSavedMatches(prev => prev.map(m => m.id === selectedMatch.id ? updatedMatch : m));
-      } else {
-        // Criar nova partida
-        const newSaved: SavedAnalysis = {
-          id: Math.random().toString(36).substr(2, 9),
-          timestamp: Date.now(),
-          data: currentMatchData,
-          result: analysisResult
-        };
-        setSavedMatches(prev => [newSaved, ...prev]);
+      try {
+        setIsSaving(true);
+        setSyncError(null);
+
+        let matchToSave: SavedAnalysis;
+
+        // Se já existe uma partida selecionada, atualizar ela
+        if (selectedMatch) {
+          matchToSave = {
+            ...selectedMatch,
+            data: currentMatchData,
+            result: analysisResult,
+            timestamp: Date.now() // Atualizar timestamp
+          };
+        } else {
+          // Criar nova partida
+          matchToSave = {
+            id: Math.random().toString(36).substr(2, 9),
+            timestamp: Date.now(),
+            data: currentMatchData,
+            result: analysisResult
+          };
+        }
+
+        // Salvar no Supabase
+        const savedMatch = await saveOrUpdateAnalysis(matchToSave);
+
+        // Atualizar estado local
+        if (selectedMatch) {
+          setSavedMatches(prev => prev.map(m => m.id === selectedMatch.id ? savedMatch : m));
+        } else {
+          setSavedMatches(prev => [savedMatch, ...prev]);
+        }
+
+        // Salvar também no localStorage como backup
+        try {
+          const allMatches = selectedMatch
+            ? savedMatches.map(m => m.id === selectedMatch.id ? savedMatch : m)
+            : [savedMatch, ...savedMatches];
+          localStorage.setItem('goalscan_saved', JSON.stringify(allMatches));
+        } catch (e) {
+          console.warn('Erro ao salvar no localStorage (backup):', e);
+        }
+
+        // Voltar para home após salvar
+        setTimeout(() => {
+          handleNavigateToHome();
+        }, 300);
+      } catch (error) {
+        console.error('Erro ao salvar partida:', error);
+        setSyncError('Erro ao salvar no servidor. Os dados foram salvos localmente.');
+        // Salvar no localStorage como fallback
+        try {
+          if (selectedMatch) {
+            const updatedMatch: SavedAnalysis = {
+              ...selectedMatch,
+              data: currentMatchData,
+              result: analysisResult,
+              timestamp: Date.now()
+            };
+            setSavedMatches(prev => prev.map(m => m.id === selectedMatch.id ? updatedMatch : m));
+            localStorage.setItem('goalscan_saved', JSON.stringify(savedMatches.map(m => m.id === selectedMatch.id ? updatedMatch : m)));
+          } else {
+            const newSaved: SavedAnalysis = {
+              id: Math.random().toString(36).substr(2, 9),
+              timestamp: Date.now(),
+              data: currentMatchData,
+              result: analysisResult
+            };
+            setSavedMatches(prev => [newSaved, ...prev]);
+            localStorage.setItem('goalscan_saved', JSON.stringify([newSaved, ...savedMatches]));
+          }
+        } catch (e) {
+          console.error('Erro ao salvar no localStorage:', e);
+        }
+      } finally {
+        setIsSaving(false);
       }
-      // Voltar para home após salvar
-      setTimeout(() => {
-        handleNavigateToHome();
-      }, 300);
     }
   };
 
-  const handleDeleteSaved = (e: React.MouseEvent, id: string) => {
+  const handleDeleteSaved = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setSavedMatches(prev => prev.filter(m => m.id !== id));
+    try {
+      setSyncError(null);
+      // Deletar do Supabase
+      await deleteAnalysis(id);
+      // Atualizar estado local
+      setSavedMatches(prev => prev.filter(m => m.id !== id));
+      // Atualizar localStorage como backup
+      try {
+        const updated = savedMatches.filter(m => m.id !== id);
+        localStorage.setItem('goalscan_saved', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Erro ao atualizar localStorage:', e);
+      }
+    } catch (error) {
+      console.error('Erro ao deletar partida:', error);
+      setSyncError('Erro ao deletar no servidor. A partida foi removida localmente.');
+      // Remover localmente mesmo em caso de erro
+      setSavedMatches(prev => prev.filter(m => m.id !== id));
+      try {
+        const updated = savedMatches.filter(m => m.id !== id);
+        localStorage.setItem('goalscan_saved', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Erro ao atualizar localStorage:', e);
+      }
+    }
   };
 
   // Renderizar tela principal ou tela de análise
   if (view === 'home') {
     return (
-      <MainScreen
-        savedMatches={savedMatches}
-        onMatchClick={handleNavigateToAnalysis}
-        onNewMatch={handleNewMatch}
-        onDeleteMatch={handleDeleteSaved}
-      />
+      <div className="min-h-screen pb-20">
+        <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-4 mb-8 sticky top-0 z-50 shadow-sm">
+          <div className="container mx-auto px-4 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-xl shadow-lg">
+                G
+              </div>
+              <div>
+                <h1 className="text-xl font-black tracking-tighter leading-none">GOALSCAN PRO</h1>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-primary opacity-80">AI Goal Analysis Engine</span>
+              </div>
+            </div>
+            <div className="hidden md:flex gap-4 items-center">
+              {isLoading && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
+                  <Loader className="w-3 h-3 text-info animate-spin" />
+                  <span className="text-xs font-bold text-info">Sincronizando...</span>
+                </div>
+              )}
+              {syncError && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg">
+                  <span className="text-xs font-bold text-warning">{syncError}</span>
+                </div>
+              )}
+              <span className="badge badge-outline badge-sm font-bold">v3.8.2 Elite Edition</span>
+            </div>
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
+              <p className="text-sm opacity-60">Carregando partidas salvas...</p>
+            </div>
+          ) : (
+            <MainScreen
+              savedMatches={savedMatches}
+              onMatchClick={handleNavigateToAnalysis}
+              onNewMatch={handleNewMatch}
+              onDeleteMatch={handleDeleteSaved}
+            />
+          )}
+        </main>
+
+        <footer className="fixed bottom-0 left-0 right-0 bg-base-300 border-t border-base-100 p-2 md:hidden">
+          <div className="flex justify-center gap-4 text-[10px] font-bold opacity-50 uppercase tracking-widest">
+            <span>Poisson v3.8</span>
+            <span>•</span>
+            <span>EV Analysis</span>
+          </div>
+        </footer>
+      </div>
     );
   }
 
@@ -132,7 +277,18 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="hidden md:flex gap-4 items-center">
-            {analysisResult && (
+            {isSaving && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
+                <Loader2 className="w-3 h-3 text-info animate-spin" />
+                <span className="text-xs font-bold text-info">Salvando...</span>
+              </div>
+            )}
+            {syncError && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg">
+                <span className="text-xs font-bold text-warning">{syncError}</span>
+              </div>
+            )}
+            {analysisResult && !isSaving && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
                 <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                 <span className="text-xs font-bold text-primary">Análise Ativa</span>

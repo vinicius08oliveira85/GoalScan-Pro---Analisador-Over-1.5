@@ -15,6 +15,8 @@ export interface H2HMatch {
 export interface MatchData {
   homeTeam: string;
   awayTeam: string;
+  matchDate?: string; // Data da partida (YYYY-MM-DD)
+  matchTime?: string; // Hora da partida (HH:mm)
   oddOver15?: number; // Nova: Odd do mercado
   // Médias Reais
   homeGoalsScoredAvg: number;

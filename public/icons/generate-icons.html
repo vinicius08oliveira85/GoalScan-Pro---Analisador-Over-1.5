@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Ícones PWA - GoalScan Pro</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1e1e2e;
+      color: #fff;
+    }
+    canvas {
+      border: 1px solid #333;
+      margin: 10px;
+    }
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #4f46e5;
+    }
+    .icon-preview {
+      display: inline-block;
+      margin: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Gerador de Ícones PWA - GoalScan Pro</h1>
+  <p>Clique no botão abaixo para gerar todos os ícones necessários para o PWA.</p>
+  <button onclick="generateAllIcons()">Gerar Todos os Ícones</button>
+  <div id="previews"></div>
+
+  <script>
+    const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#6366f1');
+      gradient.addColorStop(1, '#4f46e5');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      
+      // Rounded corners
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.beginPath();
+      const radius = size * 0.234; // ~120px para 512px
+      ctx.roundRect(0, 0, size, size, radius);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      
+      // Letter G
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${size * 0.625}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fontStyle = 'italic';
+      ctx.fillText('G', size / 2, size * 0.703); // Ajustado para centralizar melhor
+      
+      // Decorative circles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      const circleSize = size * 0.047; // ~24px para 512px
+      ctx.beginPath();
+      ctx.arc(size * 0.25, size * 0.25, circleSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(size * 0.75, size * 0.25, circleSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(size * 0.25, size * 0.75, circleSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(size * 0.75, size * 0.75, circleSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function generateIcon(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      drawIcon(canvas, size);
+      
+      // Download
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `icon-${size}x${size}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+      
+      return canvas;
+    }
+
+    function generateAllIcons() {
+      const previews = document.getElementById('previews');
+      previews.innerHTML = '<h2>Gerando ícones...</h2>';
+      
+      sizes.forEach((size, index) => {
+        setTimeout(() => {
+          const canvas = generateIcon(size);
+          const preview = document.createElement('div');
+          preview.className = 'icon-preview';
+          preview.innerHTML = `
+            <canvas width="${size}" height="${size}" style="max-width: 128px; height: auto;"></canvas>
+            <p>${size}x${size}</p>
+          `;
+          const previewCanvas = preview.querySelector('canvas');
+          const ctx = previewCanvas.getContext('2d');
+          previewCanvas.width = size;
+          previewCanvas.height = size;
+          drawIcon(previewCanvas, size);
+          previews.appendChild(preview);
+        }, index * 200);
+      });
+    }
+
+    // Polyfill para roundRect (para navegadores mais antigos)
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+        this.beginPath();
+        this.moveTo(x + radius, y);
+        this.lineTo(x + width - radius, y);
+        this.quadraticCurveTo(x + width, y, x + width, y + radius);
+        this.lineTo(x + width, y + height - radius);
+        this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        this.lineTo(x + radius, y + height);
+        this.quadraticCurveTo(x, y + height, x, y + height - radius);
+        this.lineTo(x, y + radius);
+        this.quadraticCurveTo(x, y, x + radius, y);
+        this.closePath();
+      };
+    }
+  </script>
+</body>
+</html>
+

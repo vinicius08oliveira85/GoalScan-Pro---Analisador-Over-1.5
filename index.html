@@ -3,8 +3,26 @@
 <html lang="pt-br" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GoalScan Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="description" content="Análise inteligente de partidas de futebol com cálculo de EV (Expected Value) e probabilidades usando algoritmo Poisson v3.8" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="GoalScan Pro" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>GoalScan Pro - Analisador Over 1.5</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-128x128.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-128x128.png" />
     <script type="importmap">
 {
   "imports": {
@@ -14,7 +32,8 @@
     "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
     "recharts": "https://esm.sh/recharts@2.15.0?external=react,react-dom",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.0"
   }
 }
 </script>
@@ -96,5 +115,34 @@
   <body>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
+    <script>
+      // Registrar Service Worker para PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('Service Worker registrado com sucesso:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('Falha ao registrar Service Worker:', error);
+            });
+        });
+      }
+      
+      // Detectar se está sendo executado como PWA
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        document.documentElement.setAttribute('data-pwa', 'true');
+      }
+      
+      // Prevenir zoom duplo toque no iOS
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', (event) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, false);
+    </script>
   </body>
 </html>

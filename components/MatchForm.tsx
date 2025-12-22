@@ -41,7 +41,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: isNaN(Number(value)) || name === 'homeTeam' || name === 'awayTeam' || name === 'keyAbsences' 
+      [name]: isNaN(Number(value)) || name === 'homeTeam' || name === 'awayTeam' || name === 'keyAbsences' || name === 'matchDate' || name === 'matchTime'
         ? value 
         : value === '' ? undefined : Number(value)
     }));
@@ -162,6 +162,35 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
         <div className="form-control">
           <label className="label ml-2"><span className="label-text font-bold">Time Fora</span></label>
           <input name="awayTeam" value={formData.awayTeam} onChange={handleChange} className="input w-full" placeholder="Ex: Real Madrid" required />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="form-control">
+          <label className="label ml-2 flex items-center">
+            <span className="label-text font-bold">Data da Partida</span>
+            <InfoIcon text="Data em que a partida será realizada." />
+          </label>
+          <input 
+            type="date" 
+            name="matchDate" 
+            value={formData.matchDate || ''} 
+            onChange={handleChange} 
+            className="input w-full" 
+          />
+        </div>
+        <div className="form-control">
+          <label className="label ml-2 flex items-center">
+            <span className="label-text font-bold">Hora da Partida</span>
+            <InfoIcon text="Horário de início da partida (formato 24h)." />
+          </label>
+          <input 
+            type="time" 
+            name="matchTime" 
+            value={formData.matchTime || ''} 
+            onChange={handleChange} 
+            className="input w-full" 
+          />
         </div>
       </div>
 

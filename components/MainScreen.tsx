@@ -119,15 +119,26 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                 {/* Header: Data e Times */}
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-2">
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                       <Calendar className="w-4 h-4 opacity-40" />
-                      <span className="text-[10px] font-black opacity-30 uppercase">
-                        {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
-                          day: '2-digit', 
-                          month: 'short', 
-                          year: 'numeric' 
-                        })}
-                      </span>
+                      {match.data.matchDate ? (
+                        <span className="text-[10px] font-black opacity-30 uppercase">
+                          {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: 'short', 
+                            year: 'numeric' 
+                          })}
+                          {match.data.matchTime && ` • ${match.data.matchTime}`}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black opacity-30 uppercase">
+                          {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: 'short', 
+                            year: 'numeric' 
+                          })}
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-base font-black uppercase leading-tight">
                       {match.data.homeTeam} <span className="text-primary opacity-60">vs</span> {match.data.awayTeam}
