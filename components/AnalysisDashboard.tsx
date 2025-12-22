@@ -50,11 +50,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onS
         <div className="custom-card p-6 flex flex-col items-center justify-center text-center relative overflow-hidden hover:shadow-xl transition-all duration-300">
           <div className="absolute top-2 right-4 flex items-center gap-1.5">
             <Target className="w-3 h-3 opacity-30" />
-            <span className="text-[10px] font-bold opacity-30 uppercase">Algoritmo v3.8</span>
+            <span className="text-[10px] font-bold opacity-30 uppercase">ALGORITMO V3.8</span>
           </div>
           <div className="flex items-center gap-2 mb-4">
-            <Target className="w-4 h-4 text-teal-400 opacity-60" />
-            <h3 className="text-sm font-black opacity-60 uppercase tracking-widest">Probabilidade Over 1.5</h3>
+            <Target className="w-4 h-4 text-teal-400" />
+            <h3 className="text-sm font-black uppercase tracking-widest">PROBABILIDADE OVER 1.5</h3>
           </div>
           <div className="w-full h-48 relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -68,7 +68,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onS
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-4xl md:text-5xl font-black text-teal-400 leading-none">{result.probabilityOver15.toFixed(1)}%</span>
-              <span className="text-[10px] font-bold opacity-40 mt-1 uppercase">Confiança</span>
+              <span className="text-[10px] font-bold opacity-40 mt-1 uppercase">CONFIANÇA</span>
             </div>
           </div>
           

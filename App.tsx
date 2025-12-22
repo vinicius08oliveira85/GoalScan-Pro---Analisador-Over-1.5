@@ -2,13 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import MatchForm from './components/MatchForm';
 import AnalysisDashboard from './components/AnalysisDashboard';
+import MainScreen from './components/MainScreen';
 import { performAnalysis } from './services/analysisEngine';
 import { MatchData, AnalysisResult, SavedAnalysis } from './types';
-import { TrendingUp, TrendingDown, Calendar, X, Save } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+
+type View = 'home' | 'analysis';
 
 const App: React.FC = () => {
+  const [view, setView] = useState<View>('home');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [currentMatchData, setCurrentMatchData] = useState<MatchData | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [savedMatches, setSavedMatches] = useState<SavedAnalysis[]>([]);
 
   // Carregar do localStorage na inicialização
@@ -24,6 +29,33 @@ const App: React.FC = () => {
     localStorage.setItem('goalscan_saved', JSON.stringify(savedMatches));
   }, [savedMatches]);
 
+  // Funções de Navegação
+  const handleNavigateToHome = () => {
+    setView('home');
+    setAnalysisResult(null);
+    setCurrentMatchData(null);
+    setSelectedMatch(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
+    if (match) {
+      setSelectedMatch(match);
+      setCurrentMatchData(match.data);
+      setAnalysisResult(match.result);
+    } else {
+      setSelectedMatch(null);
+      setCurrentMatchData(null);
+      setAnalysisResult(null);
+    }
+    setView('analysis');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNewMatch = () => {
+    handleNavigateToAnalysis(null);
+  };
+
   const handleAnalyze = (data: MatchData) => {
     const result = performAnalysis(data);
     setAnalysisResult(result);
@@ -35,20 +67,30 @@ const App: React.FC = () => {
 
   const handleSaveMatch = () => {
     if (analysisResult && currentMatchData) {
-      const newSaved: SavedAnalysis = {
-        id: Math.random().toString(36).substr(2, 9),
-        timestamp: Date.now(),
-        data: currentMatchData,
-        result: analysisResult
-      };
-      setSavedMatches(prev => [newSaved, ...prev]);
+      // Se já existe uma partida selecionada, atualizar ela
+      if (selectedMatch) {
+        const updatedMatch: SavedAnalysis = {
+          ...selectedMatch,
+          data: currentMatchData,
+          result: analysisResult,
+          timestamp: Date.now() // Atualizar timestamp
+        };
+        setSavedMatches(prev => prev.map(m => m.id === selectedMatch.id ? updatedMatch : m));
+      } else {
+        // Criar nova partida
+        const newSaved: SavedAnalysis = {
+          id: Math.random().toString(36).substr(2, 9),
+          timestamp: Date.now(),
+          data: currentMatchData,
+          result: analysisResult
+        };
+        setSavedMatches(prev => [newSaved, ...prev]);
+      }
+      // Voltar para home após salvar
+      setTimeout(() => {
+        handleNavigateToHome();
+      }, 300);
     }
-  };
-
-  const handleOpenSaved = (match: SavedAnalysis) => {
-    setCurrentMatchData(match.data);
-    setAnalysisResult(match.result);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteSaved = (e: React.MouseEvent, id: string) => {
@@ -56,11 +98,31 @@ const App: React.FC = () => {
     setSavedMatches(prev => prev.filter(m => m.id !== id));
   };
 
+  // Renderizar tela principal ou tela de análise
+  if (view === 'home') {
+    return (
+      <MainScreen
+        savedMatches={savedMatches}
+        onMatchClick={handleNavigateToAnalysis}
+        onNewMatch={handleNewMatch}
+        onDeleteMatch={handleDeleteSaved}
+      />
+    );
+  }
+
+  // Tela de Análise
   return (
     <div className="min-h-screen pb-20">
       <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-4 mb-8 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleNavigateToHome}
+              className="btn btn-sm btn-ghost gap-2 hover:bg-base-300/50"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Voltar</span>
+            </button>
             <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-xl shadow-lg">
               G
             </div>
@@ -93,7 +155,7 @@ const App: React.FC = () => {
               </h2>
               {analysisResult && (
                 <button 
-                  onClick={() => { setAnalysisResult(null); setCurrentMatchData(null); }}
+                  onClick={() => { setAnalysisResult(null); setCurrentMatchData(null); setSelectedMatch(null); }}
                   className="btn btn-xs btn-ghost text-error"
                 >
                   Limpar
@@ -101,95 +163,6 @@ const App: React.FC = () => {
               )}
             </div>
             <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
-            
-            {/* Galeria de Salvos */}
-            <div className="flex flex-col gap-4 mt-4">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <span className="w-2 h-6 bg-accent rounded-full"></span>
-                Partidas Salvas
-              </h2>
-              <div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                {savedMatches.length === 0 ? (
-                  <p className="text-[10px] uppercase opacity-30 font-black text-center py-8 border-2 border-dashed rounded-3xl border-white/5">Nenhuma partida salva</p>
-                ) : (
-                  savedMatches.map(match => (
-                    <div 
-                      key={match.id}
-                      onClick={() => handleOpenSaved(match)}
-                      className="group custom-card p-4 hover:border-primary/50 hover:shadow-lg cursor-pointer transition-all duration-300 active:scale-[0.98] flex flex-col gap-3 relative overflow-hidden"
-                    >
-                      {/* Header: Data e Times */}
-                      <div className="flex justify-between items-start">
-                        <div className="flex flex-col flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Calendar className="w-3 h-3 opacity-40" />
-                            <span className="text-[9px] font-black opacity-30 uppercase">{new Date(match.timestamp).toLocaleDateString()}</span>
-                          </div>
-                          <span className="text-xs font-black uppercase truncate">{match.data.homeTeam} x {match.data.awayTeam}</span>
-                        </div>
-                        <button 
-                          onClick={(e) => handleDeleteSaved(e, match.id)} 
-                          className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Métricas Principais: Probabilidade, Odd e EV */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="flex flex-col items-center p-2 rounded-lg bg-teal-500/5 border border-teal-500/10 group-hover:border-teal-500/20 transition-colors">
-                          <span className="text-[8px] font-bold opacity-40 uppercase mb-1">Prob</span>
-                          <span className="text-sm font-black text-teal-400">{match.result.probabilityOver15.toFixed(0)}%</span>
-                        </div>
-                        <div className="flex flex-col items-center p-2 rounded-lg bg-primary/5 border border-primary/10 group-hover:border-primary/20 transition-colors">
-                          <span className="text-[8px] font-bold opacity-40 uppercase mb-1">Odd</span>
-                          <span className="text-sm font-black text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</span>
-                        </div>
-                        <div className={`flex flex-col items-center p-2 rounded-lg border transition-colors ${
-                          match.result.ev > 0 
-                            ? 'bg-success/5 border-success/10 group-hover:border-success/20' 
-                            : match.result.ev < 0 
-                            ? 'bg-error/5 border-error/10 group-hover:border-error/20'
-                            : 'bg-base-300/5 border-base-300/10'
-                        }`}>
-                          <span className="text-[8px] font-bold opacity-40 uppercase mb-1">EV</span>
-                          <div className="flex items-center gap-1">
-                            {match.result.ev > 0 ? (
-                              <TrendingUp className="w-3 h-3 text-success" />
-                            ) : match.result.ev < 0 ? (
-                              <TrendingDown className="w-3 h-3 text-error" />
-                            ) : null}
-                            <span className={`text-sm font-black ${
-                              match.result.ev > 0 ? 'text-success' : 
-                              match.result.ev < 0 ? 'text-error' : 
-                              'opacity-50'
-                            }`}>
-                              {match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Barra de Progresso */}
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className={`h-1.5 flex-1 rounded-full overflow-hidden bg-base-300`}>
-                          <div 
-                            className="h-full bg-gradient-to-r from-primary to-teal-400 transition-all duration-500" 
-                            style={{ width: `${match.result.probabilityOver15}%` }}
-                          ></div>
-                        </div>
-                        {match.result.ev > 0 && (
-                          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 border border-success/20">
-                            <Save className="w-2.5 h-2.5 text-success" />
-                            <span className="text-[8px] font-bold text-success">EV+</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
           </aside>
 
           {/* Main Content: Results */}
