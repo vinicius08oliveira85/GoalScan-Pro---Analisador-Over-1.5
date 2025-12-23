@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence } from 'framer-motion';
 import Toast, { Toast as ToastType } from './Toast';
 
 interface ToastContainerProps {
@@ -16,9 +17,11 @@ const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onClose }) => {
       aria-label="Notificações"
     >
       <div className="pointer-events-auto">
-        {toasts.map((toast) => (
-          <Toast key={toast.id} toast={toast} onClose={onClose} />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {toasts.map((toast) => (
+            <Toast key={toast.id} toast={toast} onClose={onClose} />
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   );

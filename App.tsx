@@ -1,14 +1,19 @@
 
 import React, { useState, lazy, Suspense } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import MatchForm from './components/MatchForm';
 import BankSettings from './components/BankSettings';
 import InAppNotification from './components/InAppNotification';
 import ToastContainer from './components/ToastContainer';
+import Breadcrumb from './components/Breadcrumb';
+import CommandPalette from './components/CommandPalette';
+import MobileNav from './components/MobileNav';
 import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
-import { Loader } from 'lucide-react';
+import { Loader, Plus, Settings, Home, Wallet } from 'lucide-react';
+import { animations } from './utils/animations';
 
 // Lazy loading de componentes pesados para code splitting
 const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
@@ -34,6 +39,7 @@ const App: React.FC = () => {
   const [currentMatchData, setCurrentMatchData] = useState<MatchData | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [showBankSettings, setShowBankSettings] = useState<boolean>(false);
+  const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
 
 
   // Funções de Navegação
@@ -243,10 +249,82 @@ const App: React.FC = () => {
     }
   };
 
+  // Keyboard shortcut para Command Palette (⌘K ou Ctrl+K)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Ações do Command Palette
+  const commandActions = [
+    {
+      id: 'new-match',
+      label: 'Nova Análise',
+      description: 'Criar uma nova análise de partida',
+      icon: <Plus className="w-4 h-4" />,
+      shortcut: '⌘N',
+      action: () => {
+        handleNewMatch();
+        setShowCommandPalette(false);
+      },
+      category: 'Ações'
+    },
+    {
+      id: 'home',
+      label: 'Ir para Início',
+      description: 'Voltar para a tela principal',
+      icon: <Home className="w-4 h-4" />,
+      shortcut: '⌘H',
+      action: () => {
+        handleNavigateToHome();
+        setShowCommandPalette(false);
+      },
+      category: 'Navegação'
+    },
+    {
+      id: 'bank-settings',
+      label: 'Configurar Banca',
+      description: 'Abrir configurações da banca',
+      icon: <Wallet className="w-4 h-4" />,
+      shortcut: '⌘B',
+      action: () => {
+        setShowBankSettings(true);
+        setShowCommandPalette(false);
+      },
+      category: 'Configurações'
+    },
+    {
+      id: 'settings',
+      label: 'Configurações',
+      description: 'Abrir configurações gerais',
+      icon: <Settings className="w-4 h-4" />,
+      shortcut: '⌘,',
+      action: () => {
+        // Placeholder para configurações futuras
+        setShowCommandPalette(false);
+      },
+      category: 'Configurações'
+    }
+  ];
+
   // Renderizar tela principal ou tela de análise
   if (view === 'home') {
     return (
       <div className="min-h-screen pb-12 md:pb-20">
+        {/* Command Palette */}
+        <CommandPalette
+          isOpen={showCommandPalette}
+          onClose={() => setShowCommandPalette(false)}
+          actions={commandActions}
+        />
+        
         {/* Toast Notifications */}
         <ToastContainer toasts={toasts} onClose={removeToast} />
         
@@ -371,42 +449,61 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {isLoading ? (
+          <Suspense fallback={
             <div className="flex flex-col items-center justify-center py-20">
               <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
-              <p className="text-sm opacity-60">Carregando partidas salvas...</p>
+              <p className="text-sm opacity-60">Carregando...</p>
             </div>
-          ) : (
-            <Suspense fallback={
-              <div className="flex flex-col items-center justify-center py-20">
-                <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
-                <p className="text-sm opacity-60">Carregando...</p>
-              </div>
-            }>
-              <MainScreen
-                savedMatches={savedMatches}
-                onMatchClick={handleNavigateToAnalysis}
-                onNewMatch={handleNewMatch}
-                onDeleteMatch={handleDeleteSaved}
-              />
-            </Suspense>
-          )}
+          }>
+            <MainScreen
+              savedMatches={savedMatches}
+              onMatchClick={handleNavigateToAnalysis}
+              onNewMatch={handleNewMatch}
+              onDeleteMatch={handleDeleteSaved}
+              isLoading={isLoading}
+            />
+          </Suspense>
         </main>
 
-        <footer className="fixed bottom-0 left-0 right-0 bg-base-300 border-t border-base-100 p-2 md:hidden z-40">
-          <div className="flex justify-center gap-4 text-[10px] font-bold opacity-50 uppercase tracking-widest">
-            <span>Poisson v3.8</span>
-            <span>•</span>
-            <span>EV Analysis</span>
-          </div>
-        </footer>
+        {/* Mobile Navigation */}
+        <MobileNav
+          items={[
+            {
+              id: 'home',
+              label: 'Início',
+              icon: <Home className="w-5 h-5" />,
+              onClick: handleNavigateToHome,
+              active: view === 'home'
+            },
+            {
+              id: 'new',
+              label: 'Nova',
+              icon: <Plus className="w-5 h-5" />,
+              onClick: handleNewMatch
+            }
+          ]}
+          onBankClick={() => setShowBankSettings(true)}
+          bankLabel={bankSettings ? `${getCurrencySymbol(bankSettings.currency)} ${bankSettings.totalBank.toFixed(0)}` : 'Banca'}
+        />
       </div>
     );
   }
 
   // Tela de Análise
   return (
-    <div className="min-h-screen pb-12 md:pb-20">
+    <motion.div 
+      className="min-h-screen pb-12 md:pb-20"
+      variants={animations.fadeInUp}
+      initial="initial"
+      animate="animate"
+    >
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        actions={commandActions}
+      />
+      
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
       
@@ -501,6 +598,12 @@ const App: React.FC = () => {
       </header>
 
       <main className="container mx-auto px-4">
+        <Breadcrumb
+          items={[
+            { label: 'Início', onClick: handleNavigateToHome },
+            { label: currentMatchData ? `${currentMatchData.homeTeam} vs ${currentMatchData.awayTeam}` : 'Nova Análise' }
+          ]}
+        />
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
           
           {/* Sidebar: Entry Form */}
@@ -568,7 +671,7 @@ const App: React.FC = () => {
           <span>EV Analysis</span>
         </div>
       </footer>
-    </div>
+    </motion.div>
   );
 };
 

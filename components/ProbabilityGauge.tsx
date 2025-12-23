@@ -1,6 +1,8 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Target, TrendingUp, TrendingDown } from 'lucide-react';
+import { animations } from '../utils/animations';
 
 interface ProbabilityGaugeProps {
   probability: number;
@@ -37,36 +39,97 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
           <h3 className="text-sm font-black uppercase tracking-widest">PROBABILIDADE OVER 1.5</h3>
         </div>
 
-        {/* Gauge */}
+        {/* Gauge com Probability Ring */}
         <div className="w-full h-48 relative mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie 
-                data={chartData} 
-                cx="50%" 
-                cy="50%" 
-                innerRadius={65} 
-                outerRadius={85} 
-                paddingAngle={5} 
-                dataKey="value"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+          {/* SVG Probability Ring */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+              {/* Background ring */}
+              <circle
+                cx="100"
+                cy="100"
+                r="80"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="12"
+                className="text-base-300"
+                opacity="0.3"
+              />
+              {/* Progress ring com gradiente */}
+              <motion.circle
+                cx="100"
+                cy="100"
+                r="80"
+                fill="none"
+                stroke="url(#probabilityGradient)"
+                strokeWidth="12"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 80}`}
+                initial={{ strokeDashoffset: 2 * Math.PI * 80 }}
+                animate={{ 
+                  strokeDashoffset: 2 * Math.PI * 80 * (1 - probability / 100)
+                }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 50, 
+                  damping: 15,
+                  duration: 1.5
+                }}
+              />
+              <defs>
+                <linearGradient id="probabilityGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="hsl(var(--p))" />
+                  <stop offset="50%" stopColor="hsl(var(--s))" />
+                  <stop offset="100%" stopColor="#2dd4bf" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          
+          {/* Pie Chart (mantido para compatibilidade visual) */}
+          <div className="absolute inset-0 opacity-30">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie 
+                  data={chartData} 
+                  cx="50%" 
+                  cy="50%" 
+                  innerRadius={65} 
+                  outerRadius={85} 
+                  paddingAngle={5} 
+                  dataKey="value"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          
+          {/* Valor central animado */}
+          <motion.div 
+            className="absolute inset-0 flex flex-col items-center justify-center"
+            variants={animations.scaleIn}
+            initial="initial"
+            animate="animate"
+          >
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-teal-400 leading-none tracking-tight">
+              <motion.span 
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-teal-400 leading-none tracking-tight"
+                key={probability}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", bounce: 0.5 }}
+              >
                 {probability.toFixed(1)}
-              </span>
+              </motion.span>
               <span className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-teal-400 opacity-80">
                 %
               </span>
             </div>
             <span className="text-[10px] font-bold opacity-40 mt-1 uppercase">CONFIANÇA</span>
-          </div>
+          </motion.div>
         </div>
 
         {/* Odd and EV */}

@@ -69,6 +69,29 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* Classe utilitária para focus ring acessível */
+@layer utilities {
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-base-100 rounded-lg;
+  }
+  
+  .focus-ring-sm {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 focus:ring-offset-base-100 rounded;
+  }
+  
+  /* Respeitar prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -82,6 +105,14 @@ a:focus-visible {
   20%, 40%, 60%, 80% { transform: translateX(4px); }
 }
 .animate-shake { animation: shake 0.5s ease-in-out; }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;

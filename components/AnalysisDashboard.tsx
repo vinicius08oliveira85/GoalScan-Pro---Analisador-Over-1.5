@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { AnalysisResult, MatchData, BetInfo, BankSettings } from '../types';
 import { TrendingUp, TrendingDown, AlertCircle, Calculator, CheckCircle, XCircle, Clock, Ban, Zap, Shield, Target, Sparkles } from 'lucide-react';
 import BetManager from './BetManager';
 import ProbabilityGauge from './ProbabilityGauge';
 import MetricCard from './MetricCard';
 import { getCurrencySymbol } from '../utils/currency';
+import { animations } from '../utils/animations';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
@@ -28,21 +30,36 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   const [showBetManager, setShowBetManager] = useState(false);
 
   return (
-    <div className="flex flex-col gap-6 animate-in">
+    <motion.div 
+      className="flex flex-col gap-6"
+      variants={animations.fadeInUp}
+      initial="initial"
+      animate="animate"
+    >
       {/* Layout Principal: Gauge (1/3) + Info (2/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Card Principal de Probabilidade */}
-        <div className="lg:col-span-1">
+        <motion.div 
+          className="lg:col-span-1"
+          variants={animations.scaleIn}
+          initial="initial"
+          animate="animate"
+        >
           <ProbabilityGauge 
             probability={result.probabilityOver15}
             odd={data.oddOver15}
             ev={result.ev}
           />
-        </div>
+        </motion.div>
 
         {/* Card de Informações da Partida */}
-        <div className="lg:col-span-2 group relative overflow-hidden rounded-2xl md:rounded-3xl p-4 md:p-6 bg-gradient-to-br from-primary/10 via-base-200/50 to-base-200/50 backdrop-blur-xl border border-primary/20 hover:border-primary/40 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/20">
+        <motion.div 
+          className="lg:col-span-2 group relative overflow-hidden rounded-2xl md:rounded-3xl p-4 md:p-6 bg-gradient-to-br from-primary/10 via-base-200/50 to-base-200/50 backdrop-blur-xl border border-primary/20 hover:border-primary/40 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/20"
+          variants={animations.slideInRight}
+          initial="initial"
+          animate="animate"
+        >
           {/* Glassmorphism overlay */}
           <div className="absolute inset-0 bg-base-200/40 backdrop-blur-md" />
           
@@ -86,37 +103,50 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             </div>
 
             {/* Grid de 4 Métricas Essenciais */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-              <MetricCard
-                title="Ataque (10j)"
-                value={result.advancedMetrics.offensiveVolume}
-                icon={Zap}
-                color="primary"
-                progress={result.advancedMetrics.offensiveVolume}
-              />
-              <MetricCard
-                title="Defesa (10j)"
-                value={result.advancedMetrics.defensiveLeaking}
-                icon={Shield}
-                color="secondary"
-                progress={result.advancedMetrics.defensiveLeaking}
-              />
-              <MetricCard
-                title="Tendência (5j)"
-                value={result.advancedMetrics.formTrend >= 0 ? 'SUBINDO' : 'CAINDO'}
-                icon={result.advancedMetrics.formTrend >= 0 ? TrendingUp : TrendingDown}
-                color={result.advancedMetrics.formTrend >= 0 ? 'success' : 'error'}
-                trend={result.advancedMetrics.formTrend >= 0 ? 'up' : 'down'}
-                trendValue={`${result.advancedMetrics.formTrend >= 0 ? '+' : ''}${result.advancedMetrics.formTrend.toFixed(1)}`}
-              />
-              <MetricCard
-                title="Qualidade"
-                value={result.confidenceScore}
-                icon={Target}
-                color="accent"
-                progress={result.confidenceScore}
-              />
-            </div>
+            <motion.div 
+              className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
+              variants={animations.staggerChildren}
+              initial="initial"
+              animate="animate"
+            >
+              <motion.div variants={animations.fadeInUp}>
+                <MetricCard
+                  title="Ataque (10j)"
+                  value={result.advancedMetrics.offensiveVolume}
+                  icon={Zap}
+                  color="primary"
+                  progress={result.advancedMetrics.offensiveVolume}
+                />
+              </motion.div>
+              <motion.div variants={animations.fadeInUp}>
+                <MetricCard
+                  title="Defesa (10j)"
+                  value={result.advancedMetrics.defensiveLeaking}
+                  icon={Shield}
+                  color="secondary"
+                  progress={result.advancedMetrics.defensiveLeaking}
+                />
+              </motion.div>
+              <motion.div variants={animations.fadeInUp}>
+                <MetricCard
+                  title="Tendência (5j)"
+                  value={result.advancedMetrics.formTrend >= 0 ? 'SUBINDO' : 'CAINDO'}
+                  icon={result.advancedMetrics.formTrend >= 0 ? TrendingUp : TrendingDown}
+                  color={result.advancedMetrics.formTrend >= 0 ? 'success' : 'error'}
+                  trend={result.advancedMetrics.formTrend >= 0 ? 'up' : 'down'}
+                  trendValue={`${result.advancedMetrics.formTrend >= 0 ? '+' : ''}${result.advancedMetrics.formTrend.toFixed(1)}`}
+                />
+              </motion.div>
+              <motion.div variants={animations.fadeInUp}>
+                <MetricCard
+                  title="Qualidade"
+                  value={result.confidenceScore}
+                  icon={Target}
+                  color="accent"
+                  progress={result.confidenceScore}
+                />
+              </motion.div>
+            </motion.div>
 
             {/* Recomendação em Destaque */}
             <div className="mt-2 p-3 md:p-5 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary/10 border border-primary/30 rounded-xl md:rounded-2xl backdrop-blur-sm relative overflow-hidden group/recommendation">

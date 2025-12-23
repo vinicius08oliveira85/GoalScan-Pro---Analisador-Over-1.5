@@ -1,15 +1,19 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { SavedAnalysis } from '../types';
 import { TrendingUp, TrendingDown, Calendar, X, Plus, Target, Activity, TrendingUp as TrendingUpIcon, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
+import { SkeletonMatchCard } from './Skeleton';
+import { cardHover, animations } from '../utils/animations';
 
 interface MainScreenProps {
   savedMatches: SavedAnalysis[];
   onMatchClick: (match: SavedAnalysis) => void;
   onNewMatch: () => void;
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
+  isLoading?: boolean;
 }
 
-const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onNewMatch, onDeleteMatch }) => {
+const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onNewMatch, onDeleteMatch, isLoading = false }) => {
   // Calcular estatísticas gerais
   const totalMatches = savedMatches.length;
   const positiveEV = savedMatches.filter(m => m.result.ev > 0).length;
@@ -73,30 +77,97 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
         </div>
 
         {/* Grid de Partidas */}
-        {savedMatches.length === 0 ? (
-          <div className="custom-card p-16 flex flex-col items-center justify-center text-center border-dashed border-2">
-            <div className="w-24 h-24 mb-6 rounded-full border-4 border-primary/20 flex items-center justify-center">
-              <Target className="w-12 h-12 text-primary opacity-40" />
-            </div>
-            <h3 className="text-2xl font-bold mb-2">Nenhuma Partida Salva</h3>
-            <p className="text-sm opacity-60 mb-6 max-w-md">
-              Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida.
-            </p>
-            <button
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <SkeletonMatchCard key={index} />
+            ))}
+          </div>
+        ) : savedMatches.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
+            className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2 relative overflow-hidden"
+          >
+            {/* Background gradient */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-50" />
+            
+            {/* Animated icon */}
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", bounce: 0.6, delay: 0.2 }}
+              className="relative mb-6"
+            >
+              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center shadow-lg">
+                <Target className="w-16 h-16 md:w-20 md:h-20 text-primary opacity-60" />
+              </div>
+              {/* Pulsing ring */}
+              <motion.div
+                className="absolute inset-0 rounded-full border-4 border-primary/20"
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 0, 0.5]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+            </motion.div>
+            
+            <motion.h3
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="text-2xl md:text-3xl font-black mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
+            >
+              Nenhuma Partida Salva
+            </motion.h3>
+            
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-sm md:text-base opacity-70 mb-8 max-w-md leading-relaxed"
+            >
+              Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida e começar a usar o GoalScan Pro.
+            </motion.p>
+            
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={onNewMatch}
-              className="btn btn-primary btn-lg gap-2"
+              className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl focus-ring"
             >
               <Plus className="w-5 h-5" />
               Adicionar Primeira Partida
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {savedMatches.map(match => (
-              <div
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+            variants={animations.staggerChildren}
+            initial="initial"
+            animate="animate"
+          >
+            {savedMatches.map((match, index) => (
+              <motion.div
                 key={match.id}
                 onClick={() => onMatchClick(match)}
-                className="group custom-card p-4 md:p-6 hover:border-primary/50 hover:shadow-xl cursor-pointer transition-all duration-300 active:scale-[0.98] flex flex-col gap-3 md:gap-4 relative overflow-hidden"
+                variants={animations.fadeInUp}
+                custom={index}
+                initial="initial"
+                animate="animate"
+                whileHover="hover"
+                whileTap="tap"
+                variants={cardHover}
+                className="group custom-card p-4 md:p-6 hover:border-primary/50 hover:shadow-xl cursor-pointer flex flex-col gap-3 md:gap-4 relative overflow-hidden"
               >
                 {/* Header: Data e Times */}
                 <div className="flex justify-between items-start gap-2">
@@ -263,9 +334,9 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                     </span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
     </div>
   );

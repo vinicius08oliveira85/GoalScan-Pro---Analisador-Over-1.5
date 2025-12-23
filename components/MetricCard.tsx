@@ -1,5 +1,6 @@
 import React from 'react';
-import { LucideIcon } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface MetricCardProps {
   title: string;
@@ -8,7 +9,9 @@ interface MetricCardProps {
   color: 'primary' | 'secondary' | 'success' | 'error' | 'warning' | 'accent';
   progress?: number;
   trend?: 'up' | 'down' | 'neutral';
-  trendValue?: string;
+  trendValue?: string | number;
+  sparklineData?: number[];
+  change?: number;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ 
@@ -18,7 +21,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
   color, 
   progress,
   trend,
-  trendValue 
+  trendValue,
+  sparklineData,
+  change
 }) => {
   const colorClasses = {
     primary: {
@@ -87,21 +92,56 @@ const MetricCard: React.FC<MetricCardProps> = ({
           </div>
         </div>
         
-        {progress !== undefined ? (
-          <>
-            <progress className={`progress ${colors.progress} w-full h-2 mb-1`} value={progress} max="100"></progress>
-            <p className={`text-xs font-bold ${colors.text}`}>{typeof value === 'number' ? value.toFixed(0) : value}%</p>
-          </>
-        ) : (
-          <div className="space-y-1">
-            <p className={`text-sm font-black ${colors.text}`}>{value}</p>
-            {trend && trendValue && (
-              <div className={`flex items-center gap-1 text-xs ${trend === 'up' ? 'text-success' : trend === 'down' ? 'text-error' : 'text-muted-foreground'}`}>
-                <span>{trendValue}</span>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            {progress !== undefined ? (
+              <>
+                <progress className={`progress ${colors.progress} w-full h-2 mb-1`} value={progress} max="100"></progress>
+                <p className={`text-xs font-bold ${colors.text}`}>{typeof value === 'number' ? value.toFixed(0) : value}%</p>
+              </>
+            ) : (
+              <div className="space-y-1">
+                <p className={`text-lg sm:text-xl font-black bg-gradient-to-r ${colors.text} bg-clip-text text-transparent`}>
+                  {typeof value === 'number' ? value.toFixed(1) : value}
+                </p>
+                {(trend && trendValue) || change !== undefined ? (
+                  <div className={`flex items-center gap-1 text-xs ${change !== undefined ? (change > 0 ? 'text-success' : change < 0 ? 'text-error' : 'opacity-60') : (trend === 'up' ? 'text-success' : trend === 'down' ? 'text-error' : 'opacity-60')}`}>
+                    {change !== undefined ? (
+                      <>
+                        {change > 0 ? <TrendingUp className="w-3 h-3" /> : change < 0 ? <TrendingDown className="w-3 h-3" /> : null}
+                        <span>{change > 0 ? '+' : ''}{change.toFixed(1)}%</span>
+                      </>
+                    ) : (
+                      <>
+                        {trend === 'up' && <TrendingUp className="w-3 h-3" />}
+                        {trend === 'down' && <TrendingDown className="w-3 h-3" />}
+                        <span>{trendValue}</span>
+                      </>
+                    )}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
-        )}
+          
+          {/* Sparkline */}
+          {sparklineData && sparklineData.length > 0 && (
+            <div className="w-16 h-8 opacity-50 group-hover:opacity-100 transition-opacity">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={sparklineData.map((val, idx) => ({ value: val, index: idx }))}>
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke={colors.text.replace('text-', 'hsl(var(--'))}
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={true}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Shine effect on hover */}

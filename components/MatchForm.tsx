@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { MatchData, TeamStatistics, GolsStats } from '../types';
 import { validateMatchData } from '../utils/validation';
 import { errorService } from '../services/errorService';
+import { animations } from '../utils/animations';
 
 interface MatchFormProps {
   onAnalyze: (data: MatchData) => void;
@@ -131,7 +133,13 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData, onError }
   );
 
   return (
-    <form onSubmit={handleSubmit} className="custom-card p-4 md:p-6 lg:p-8 flex flex-col gap-4 md:gap-6">
+    <motion.form 
+      onSubmit={handleSubmit} 
+      className="custom-card p-4 md:p-6 lg:p-8 flex flex-col gap-4 md:gap-6"
+      variants={animations.fadeInUp}
+      initial="initial"
+      animate="animate"
+    >
       {/* Informações Básicas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="form-control">
@@ -434,7 +442,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData, onError }
       <button type="submit" className="btn btn-primary btn-lg mt-4 uppercase font-black tracking-widest shadow-2xl hover:scale-[1.01] active:scale-95 transition-all min-h-[44px] text-base md:text-lg w-full sm:w-auto">
         PROCESSAR ALGORITMO GOALSCAN
       </button>
-    </form>
+    </motion.form>
   );
 };
 

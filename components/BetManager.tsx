@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { BetInfo, BankSettings } from '../types';
 import { Calculator, TrendingUp, DollarSign, Percent, X, Lightbulb, Sparkles, AlertCircle } from 'lucide-react';
 import { validateBetInfo } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { getCurrencySymbol } from '../utils/currency';
 import { suggestBetAmount, calculateEV, MIN_BET_AMOUNT } from '../utils/betSuggestion';
+import { animations } from '../utils/animations';
 
 interface BetManagerProps {
   odd: number;
@@ -105,7 +107,12 @@ const BetManager: React.FC<BetManagerProps> = ({
   };
 
   return (
-    <div className="custom-card p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20">
+    <motion.div 
+      className="custom-card p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20"
+      variants={animations.fadeInUp}
+      initial="initial"
+      animate="animate"
+    >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Calculator className="w-5 h-5 text-primary" />
@@ -335,7 +342,7 @@ const BetManager: React.FC<BetManagerProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
