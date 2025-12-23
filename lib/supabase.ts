@@ -69,14 +69,30 @@ export const getSupabaseClient = async () => {
     throw error;
   }
 
-  // Validar formato da chave (deve ter pelo menos 100 caracteres)
-  if (SUPABASE_ANON_KEY.length < 50) {
+  // Validar formato da chave (deve ter pelo menos 20 caracteres e começar com formato válido)
+  // Chaves do Supabase podem ser:
+  // - Formato JWT (eyJ...): ~200+ caracteres
+  // - Formato publishable (sb_publishable_...): ~40-50 caracteres
+  // - Formato anon tradicional: ~100+ caracteres
+  if (SUPABASE_ANON_KEY.length < 20) {
     const error = new Error(
       'Chave anônima do Supabase parece inválida (muito curta). ' +
-      'Verifique se VITE_SUPABASE_ANON_KEY está correta no arquivo .env'
+      'Verifique se VITE_SUPABASE_ANON_KEY está correta e completa no Vercel.'
     );
     console.error('[Supabase] ❌ Erro de validação:', error.message);
     throw error;
+  }
+  
+  // Verificar se a chave parece estar completa (não cortada)
+  // Chaves publishable começam com "sb_publishable_"
+  // Chaves JWT começam com "eyJ"
+  const isValidFormat = 
+    SUPABASE_ANON_KEY.startsWith('sb_') ||
+    SUPABASE_ANON_KEY.startsWith('eyJ') ||
+    SUPABASE_ANON_KEY.length >= 50;
+  
+  if (!isValidFormat && SUPABASE_ANON_KEY.length < 50) {
+    console.warn('[Supabase] ⚠️  Aviso: Chave anônima pode estar incompleta. Verifique se copiou a chave completa no Vercel.');
   }
 
   try {
