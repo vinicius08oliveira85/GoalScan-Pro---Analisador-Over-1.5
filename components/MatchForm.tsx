@@ -159,7 +159,24 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
           value={formData.competitionAvg || ''} 
           onChange={handleChange} 
           className="input w-full" 
-          placeholder="Ex: 2.5" 
+          placeholder="Ex: 76.87" 
+        />
+      </div>
+
+      {/* Odd Over 1.5 */}
+      <div className="form-control">
+        <label className="label ml-2 flex items-center">
+          <span className="label-text font-bold">Odd Over 1.5</span>
+          <InfoIcon text="Insira a odd atual do mercado Over 1.5 para calcular o EV (Valor Esperado)." />
+        </label>
+        <input 
+          type="number" 
+          step="0.01" 
+          name="oddOver15" 
+          value={formData.oddOver15 || ''} 
+          onChange={handleChange} 
+          className="input w-full" 
+          placeholder="Ex: 1.50" 
         />
       </div>
 
@@ -169,11 +186,11 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
           <div className="flex items-center">
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">Estatísticas Globais - {formData.homeTeam || 'Time Casa'}</span>
             <InfoIcon text="Estatísticas de gols baseadas nos últimos 10 jogos (Geral)." />
-          </div>
-        </div>
-        
+              </div>
+            </div>
+            
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="form-control">
+                <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Média Marcados</span></label>
             <input 
               type="number" 
@@ -183,8 +200,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0.00" 
             />
-          </div>
-          <div className="form-control">
+                </div>
+                <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Média Sofridos</span></label>
             <input 
               type="number" 
@@ -194,8 +211,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0.00" 
             />
-          </div>
-          <div className="form-control">
+                </div>
+                <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Média Total</span></label>
             <input 
               type="number" 
@@ -205,8 +222,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0.00" 
             />
-          </div>
-          <div className="form-control">
+                </div>
+                <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Sem Sofrer %</span></label>
             <input 
               type="number" 
@@ -216,8 +233,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
-          </div>
-          <div className="form-control">
+                </div>
+                <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Sem Marcar %</span></label>
             <input 
               type="number" 
@@ -227,8 +244,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
-          </div>
-          <div className="form-control">
+                </div>
+                <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Over 2.5 %</span></label>
             <input 
               type="number" 
@@ -238,8 +255,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
-          </div>
-          <div className="form-control">
+                </div>
+                <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Under 2.5 %</span></label>
             <input 
               type="number" 
@@ -249,8 +266,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
-          </div>
-          <div className="form-control">
+                </div>
+                <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Over 1.5 %</span></label>
             <input 
               type="number" 
@@ -261,9 +278,9 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Estatísticas Globais - Time Visitante */}
       <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10">
@@ -271,11 +288,11 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
           <div className="flex items-center">
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">Estatísticas Globais - {formData.awayTeam || 'Time Visitante'}</span>
             <InfoIcon text="Estatísticas de gols baseadas nos últimos 10 jogos (Geral)." />
-          </div>
         </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="form-control">
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Média Marcados</span></label>
             <input 
               type="number" 
@@ -285,8 +302,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0.00" 
             />
-          </div>
-          <div className="form-control">
+        </div>
+        <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Média Sofridos</span></label>
             <input 
               type="number" 
@@ -296,8 +313,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0.00" 
             />
-          </div>
-          <div className="form-control">
+        </div>
+        <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Média Total</span></label>
             <input 
               type="number" 
@@ -307,8 +324,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0.00" 
             />
-          </div>
-          <div className="form-control">
+        </div>
+        <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Sem Sofrer %</span></label>
             <input 
               type="number" 
@@ -318,8 +335,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
-          </div>
-          <div className="form-control">
+                    </div>
+                    <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Sem Marcar %</span></label>
             <input 
               type="number" 
@@ -329,8 +346,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
-          </div>
-          <div className="form-control">
+                    </div>
+                    <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Over 2.5 %</span></label>
             <input 
               type="number" 
@@ -340,11 +357,11 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
-          </div>
-          <div className="form-control">
+                    </div>
+                    <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Under 2.5 %</span></label>
-            <input 
-              type="number" 
+              <input 
+                type="number" 
               step="1" 
               value={formData.awayTeamStats?.gols.global.under25Pct || ''} 
               onChange={(e) => updateTeamStats('away', 'under25Pct', e.target.value ? Number(e.target.value) : undefined)} 
@@ -354,8 +371,8 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
           </div>
           <div className="form-control">
             <label className="label py-0"><span className="label-text text-[10px] font-bold">Over 1.5 %</span></label>
-            <input 
-              type="number" 
+              <input 
+                type="number" 
               step="1" 
               name="awayOver15Freq" 
               value={formData.awayOver15Freq} 
@@ -363,7 +380,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               className="input input-sm text-center" 
               placeholder="0" 
             />
-          </div>
+            </div>
         </div>
       </div>
 
