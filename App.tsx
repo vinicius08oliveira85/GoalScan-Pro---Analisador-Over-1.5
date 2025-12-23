@@ -559,7 +559,7 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <main className="container mx-auto px-4">
+        <main className="container mx-auto px-4 pt-0">
           {/* Configurações de Banca */}
           {showBankSettings && (
             <div className="mb-6">
@@ -588,7 +588,7 @@ const App: React.FC = () => {
           )}
         </main>
 
-        <footer className="fixed bottom-0 left-0 right-0 bg-base-300 border-t border-base-100 p-2 md:hidden">
+        <footer className="fixed bottom-0 left-0 right-0 bg-base-300 border-t border-base-100 p-2 md:hidden z-40">
           <div className="flex justify-center gap-4 text-[10px] font-bold opacity-50 uppercase tracking-widest">
             <span>Poisson v3.8</span>
             <span>•</span>

@@ -22,25 +22,6 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
 
   return (
     <div>
-      {/* Header */}
-      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-4 mb-8 sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-xl shadow-lg">
-              G
-            </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tighter leading-none">GOALSCAN PRO</h1>
-              <span className="text-[10px] uppercase font-bold tracking-widest text-primary opacity-80">AI Goal Analysis Engine</span>
-            </div>
-          </div>
-          <div className="hidden md:flex gap-4 items-center">
-            <span className="badge badge-outline badge-sm font-bold">v3.8.2 Elite Edition</span>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4">
         {/* Estatísticas Gerais */}
         {totalMatches > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
@@ -284,15 +265,6 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
             ))}
           </div>
         )}
-      </main>
-
-      <footer className="fixed bottom-0 left-0 right-0 bg-base-300 border-t border-base-100 p-2 md:hidden">
-        <div className="flex justify-center gap-4 text-[10px] font-bold opacity-50 uppercase tracking-widest">
-          <span>Poisson v3.8</span>
-          <span>•</span>
-          <span>EV Analysis</span>
-        </div>
-      </footer>
     </div>
   );
 };
