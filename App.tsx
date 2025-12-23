@@ -7,6 +7,7 @@ import BankSettings from './components/BankSettings';
 import { performAnalysis } from './services/analysisEngine';
 import { loadSavedAnalyses, saveOrUpdateAnalysis, deleteAnalysis } from './services/supabaseService';
 import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
+import { calculateBankUpdate } from './utils/bankCalculator';
 import { ArrowLeft, Loader, Wallet } from 'lucide-react';
 
 type View = 'home' | 'analysis';
@@ -190,6 +191,37 @@ const App: React.FC = () => {
   };
 
   const handleSaveBetInfo = async (betInfo: BetInfo) => {
+    // Atualizar banca se status mudou e há banca configurada
+    if (bankSettings && betInfo.betAmount > 0) {
+      const oldStatus = selectedMatch?.betInfo?.status || 'pending';
+      const newStatus = betInfo.status;
+      
+      // Calcular diferença na banca
+      const bankDifference = calculateBankUpdate(
+        oldStatus,
+        newStatus,
+        betInfo.betAmount,
+        betInfo.potentialReturn
+      );
+
+      // Se houve mudança que afeta a banca, atualizar
+      if (bankDifference !== 0) {
+        const updatedBank = bankSettings.totalBank + bankDifference;
+        const newBankSettings: BankSettingsType = {
+          ...bankSettings,
+          totalBank: Math.max(0, updatedBank), // Banca não pode ser negativa
+          updatedAt: Date.now()
+        };
+        setBankSettings(newBankSettings);
+        localStorage.setItem('goalscan_bank_settings', JSON.stringify(newBankSettings));
+      }
+
+      // Atualizar resultAt quando status muda para won/lost
+      if ((newStatus === 'won' || newStatus === 'lost') && !betInfo.resultAt) {
+        betInfo.resultAt = Date.now();
+      }
+    }
+
     if (selectedMatch && currentMatchData && analysisResult) {
       try {
         const updatedMatch: SavedAnalysis = {

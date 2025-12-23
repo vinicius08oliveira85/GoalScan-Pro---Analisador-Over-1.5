@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AnalysisResult, MatchData, RecentMatch, BetInfo, BankSettings } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Shield, Activity, Zap, AlertCircle, Calculator } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Shield, Activity, Zap, AlertCircle, Calculator, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
 import BetManager from './BetManager';
 
 interface AnalysisDashboardProps {
@@ -68,15 +68,15 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             <Target className="w-4 h-4 text-teal-400" />
             <h3 className="text-sm font-black uppercase tracking-widest">PROBABILIDADE OVER 1.5</h3>
           </div>
-          <div className="w-full h-40 sm:h-44 md:h-48 relative">
+          <div className="w-full h-48 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie 
                   data={chartData} 
                   cx="50%" 
                   cy="50%" 
-                  innerRadius="45%" 
-                  outerRadius="60%" 
+                  innerRadius={65} 
+                  outerRadius={85} 
                   paddingAngle={5} 
                   dataKey="value"
                 >
@@ -87,7 +87,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl sm:text-3xl md:text-4xl font-black text-teal-400 leading-none">{result.probabilityOver15.toFixed(1)}%</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-teal-400 leading-none tracking-tight">
+                  {result.probabilityOver15.toFixed(1)}
+                </span>
+                <span className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-teal-400 opacity-80">
+                  %
+                </span>
+              </div>
               <span className="text-[10px] font-bold opacity-40 mt-1 uppercase">CONFIANÇA</span>
             </div>
           </div>
@@ -262,6 +269,33 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               
               {betInfo && betInfo.betAmount > 0 ? (
                 <div className="mt-4 bg-base-100/50 p-4 rounded-xl border border-white/5">
+                  {/* Status Badge Destacado */}
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold opacity-60 uppercase">Status da Aposta</span>
+                    </div>
+                    <div className={`badge gap-2 px-4 py-2 font-bold text-xs uppercase tracking-wider ${
+                      betInfo.status === 'won' 
+                        ? 'bg-success/20 text-success border-success/30' 
+                        : betInfo.status === 'lost'
+                        ? 'bg-error/20 text-error border-error/30'
+                        : betInfo.status === 'pending'
+                        ? 'bg-warning/20 text-warning border-warning/30'
+                        : 'bg-base-300/20 text-base-content/60 border-base-300/30'
+                    }`}>
+                      {betInfo.status === 'won' && <CheckCircle className="w-4 h-4" />}
+                      {betInfo.status === 'lost' && <XCircle className="w-4 h-4" />}
+                      {betInfo.status === 'pending' && <Clock className="w-4 h-4" />}
+                      {betInfo.status === 'cancelled' && <Ban className="w-4 h-4" />}
+                      <span>
+                        {betInfo.status === 'won' ? 'Ganhou' :
+                         betInfo.status === 'lost' ? 'Perdeu' :
+                         betInfo.status === 'pending' ? 'Pendente' :
+                         'Cancelada'}
+                      </span>
+                    </div>
+                  </div>
+                  
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <span className="text-xs opacity-60">Valor Apostado</span>
@@ -269,24 +303,40 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                         {bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
                       </p>
                     </div>
+                    {betInfo.status === 'pending' ? (
+                      <div>
+                        <span className="text-xs opacity-60">Retorno Potencial</span>
+                        <p className="font-bold text-lg text-primary">
+                          {bankSettings?.currency || 'R$'} {betInfo.potentialReturn.toFixed(2)}
+                        </p>
+                      </div>
+                    ) : betInfo.status === 'won' ? (
+                      <div>
+                        <span className="text-xs opacity-60">Ganho Realizado</span>
+                        <p className="font-bold text-lg text-success">
+                          +{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
+                        </p>
+                      </div>
+                    ) : betInfo.status === 'lost' ? (
+                      <div>
+                        <span className="text-xs opacity-60">Perda</span>
+                        <p className="font-bold text-lg text-error">
+                          -{bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    ) : null}
+                    {betInfo.status === 'pending' && (
+                      <div>
+                        <span className="text-xs opacity-60">Lucro Potencial</span>
+                        <p className={`font-bold text-lg ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
+                          {betInfo.potentialProfit >= 0 ? '+' : ''}{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
+                        </p>
+                      </div>
+                    )}
                     <div>
-                      <span className="text-xs opacity-60">Retorno Potencial</span>
-                      <p className="font-bold text-lg text-primary">
-                        {bankSettings?.currency || 'R$'} {betInfo.potentialReturn.toFixed(2)}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-xs opacity-60">Lucro Potencial</span>
-                      <p className={`font-bold text-lg ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                        {betInfo.potentialProfit >= 0 ? '+' : ''}{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-xs opacity-60">Status</span>
+                      <span className="text-xs opacity-60">% da Banca</span>
                       <p className="font-bold text-lg">
-                        {betInfo.status === 'pending' ? 'Pendente' : 
-                         betInfo.status === 'won' ? 'Ganhou' : 
-                         betInfo.status === 'lost' ? 'Perdeu' : 'Cancelada'}
+                        {betInfo.bankPercentage.toFixed(1)}%
                       </p>
                     </div>
                   </div>

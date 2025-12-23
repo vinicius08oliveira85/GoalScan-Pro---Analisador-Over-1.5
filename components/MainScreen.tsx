@@ -1,6 +1,6 @@
 import React from 'react';
 import { SavedAnalysis } from '../types';
-import { TrendingUp, TrendingDown, Calendar, X, Plus, Target, Activity, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, X, Plus, Target, Activity, TrendingUp as TrendingUpIcon, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
 
 interface MainScreenProps {
   savedMatches: SavedAnalysis[];
@@ -144,13 +144,76 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                       {match.data.homeTeam} <span className="text-primary opacity-60">vs</span> {match.data.awayTeam}
                     </h3>
                   </div>
-                  <button
-                    onClick={(e) => onDeleteMatch(e, match.id)}
-                    className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-start gap-2">
+                    {/* Status da Aposta */}
+                    {match.betInfo && match.betInfo.betAmount > 0 && (
+                      <div className={`badge gap-1.5 px-2.5 py-2 font-bold text-[10px] uppercase tracking-wider flex-shrink-0 ${
+                        match.betInfo.status === 'won' 
+                          ? 'bg-success/20 text-success border-success/30' 
+                          : match.betInfo.status === 'lost'
+                          ? 'bg-error/20 text-error border-error/30'
+                          : match.betInfo.status === 'pending'
+                          ? 'bg-warning/20 text-warning border-warning/30'
+                          : 'bg-base-300/20 text-base-content/60 border-base-300/30'
+                      }`}>
+                        {match.betInfo.status === 'won' && <CheckCircle className="w-3 h-3" />}
+                        {match.betInfo.status === 'lost' && <XCircle className="w-3 h-3" />}
+                        {match.betInfo.status === 'pending' && <Clock className="w-3 h-3" />}
+                        {match.betInfo.status === 'cancelled' && <Ban className="w-3 h-3" />}
+                        <span>
+                          {match.betInfo.status === 'won' ? 'Ganhou' :
+                           match.betInfo.status === 'lost' ? 'Perdeu' :
+                           match.betInfo.status === 'pending' ? 'Pendente' :
+                           'Cancelada'}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={(e) => onDeleteMatch(e, match.id)}
+                      className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Informações da Aposta */}
+                {match.betInfo && match.betInfo.betAmount > 0 && (
+                  <div className="bg-base-100/30 p-3 rounded-xl border border-white/5">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-[9px] font-bold opacity-40 uppercase">Valor Apostado</span>
+                        <p className="font-black text-sm mt-0.5">
+                          {match.betInfo.betAmount.toFixed(2)}
+                        </p>
+                      </div>
+                      {match.betInfo.status === 'won' && (
+                        <div>
+                          <span className="text-[9px] font-bold opacity-40 uppercase">Ganho</span>
+                          <p className="font-black text-sm text-success mt-0.5">
+                            +{match.betInfo.potentialProfit.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                      {match.betInfo.status === 'lost' && (
+                        <div>
+                          <span className="text-[9px] font-bold opacity-40 uppercase">Perda</span>
+                          <p className="font-black text-sm text-error mt-0.5">
+                            -{match.betInfo.betAmount.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                      {match.betInfo.status === 'pending' && (
+                        <div>
+                          <span className="text-[9px] font-bold opacity-40 uppercase">Retorno Potencial</span>
+                          <p className="font-black text-sm text-primary mt-0.5">
+                            {match.betInfo.potentialReturn.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Métricas Principais */}
                 <div className="grid grid-cols-3 gap-3">
