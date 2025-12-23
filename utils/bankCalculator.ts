@@ -29,17 +29,22 @@ export function calculateBankUpdate(
   // Calcular impacto do status anterior
   let oldImpact = 0;
   if (oldStatus === 'won') {
-    oldImpact = potentialReturn; // Se estava ganho, tinha adicionado o retorno
+    // Se estava ganho, tinha adicionado apenas o lucro (retorno - aposta)
+    oldImpact = potentialReturn - betAmount;
   } else if (oldStatus === 'lost') {
-    oldImpact = -betAmount; // Se estava perdido, tinha subtraído o valor apostado
+    // Se estava perdido, tinha subtraído o valor apostado
+    oldImpact = -betAmount;
   }
 
   // Calcular impacto do novo status
   let newImpact = 0;
   if (newStatus === 'won') {
-    newImpact = potentialReturn; // Ganhou = adiciona retorno total
+    // Ganhou = adiciona apenas o lucro (retorno - valor apostado)
+    // O valor apostado já foi descontado quando a aposta foi feita
+    newImpact = potentialReturn - betAmount;
   } else if (newStatus === 'lost') {
-    newImpact = -betAmount; // Perdeu = subtrai valor apostado
+    // Perdeu = subtrai valor apostado (confirma a perda)
+    newImpact = -betAmount;
   }
 
   // Retorna a diferença (novo impacto - impacto anterior)
@@ -60,8 +65,11 @@ export function calculateCurrentBank(
 
   allBets.forEach(({ betInfo }) => {
     if (betInfo.status === 'won') {
-      currentBank += betInfo.potentialReturn;
+      // Adiciona apenas o lucro (retorno - valor apostado)
+      // O valor apostado já foi descontado quando a aposta foi feita
+      currentBank += (betInfo.potentialReturn - betInfo.betAmount);
     } else if (betInfo.status === 'lost') {
+      // Subtrai o valor apostado (confirma a perda)
       currentBank -= betInfo.betAmount;
     }
     // pending e cancelled não alteram a banca
