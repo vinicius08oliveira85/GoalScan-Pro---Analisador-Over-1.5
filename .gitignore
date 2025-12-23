@@ -27,3 +27,12 @@ dist-ssr
 android/
 ios/
 .capacitor/
+
+# Exceções: arquivos customizados de widgets que devem ser versionados
+!android/app/src/main/java/com/goalscanpro/app/widget/
+!android/app/src/main/java/com/goalscanpro/app/WidgetSyncPlugin.java
+!android/app/src/main/res/layout/widget_*.xml
+!android/app/src/main/res/xml/widget_*.xml
+!android/app/src/main/AndroidManifest.xml
+!android/app/src/main/java/com/goalscanpro/app/MainActivity.java
+!android/app/src/main/res/values/strings.xml

@@ -118,13 +118,59 @@ Para publicar na Play Store, você precisará assinar o APK:
    ./gradlew assembleRelease
    ```
 
+## Widgets Android
+
+O GoalScan Pro inclui 4 widgets nativos para Android que permitem visualizar informações importantes diretamente na tela inicial:
+
+### Widgets Disponíveis
+
+1. **Widget de Banca** - Exibe o saldo atual da sua banca
+   - Tamanho pequeno (2x1): Saldo atual
+   - Tamanho médio (3x1): Saldo + variação diária
+
+2. **Widget de Próximas Partidas** - Mostra as partidas agendadas
+   - Tamanho pequeno (2x2): Próxima partida com times, horário, probabilidade e EV
+   - Tamanho médio (4x2): Lista de múltiplas partidas próximas
+
+3. **Widget de Resultados Recentes** - Exibe os resultados das apostas
+   - Tamanho pequeno (2x2): Resumo de vitórias e derrotas
+   - Tamanho médio (4x3): Lista detalhada com taxa de acerto
+
+4. **Widget de Estatísticas Rápidas** - Métricas agregadas do app
+   - Tamanho pequeno (2x1): Total de partidas e EV positivo
+   - Tamanho médio (2x2): Grid com 4 métricas (Total, Taxa de Acerto, EV Positivo, ROI)
+
+### Como Adicionar Widgets
+
+1. **No dispositivo Android:**
+   - Mantenha pressionado uma área vazia na tela inicial
+   - Toque em "Widgets" ou "Widget"
+   - Procure por "GoalScan Pro"
+   - Arraste o widget desejado para a tela inicial
+   - Redimensione conforme necessário
+
+2. **Os widgets são atualizados automaticamente:**
+   - Quando você salva/atualiza partidas no app
+   - Quando você atualiza a banca
+   - Periodicamente (a cada hora)
+
+### Design
+
+Os widgets seguem os princípios do Material Design 3:
+- Adaptam-se ao tema claro/escuro do sistema
+- Cores semânticas (verde para ganhos, vermelho para perdas)
+- Tipografia clara e hierarquia visual
+- Cantos arredondados e espaçamento adequado
+
 ## Estrutura do Projeto
 
 - `components/` - Componentes React
 - `services/` - Serviços e lógica de negócio
+  - `widgetSyncService.ts` - Sincronização de dados com widgets Android
 - `utils/` - Utilitários
 - `public/` - Arquivos estáticos (ícones, manifest, service worker)
 - `android/` - Projeto Android nativo (gerado pelo Capacitor)
+  - `app/src/main/java/com/goalscanpro/app/widget/` - Implementação dos widgets
 - `capacitor.config.ts` - Configuração do Capacitor
 
 ## Tecnologias
@@ -134,3 +180,4 @@ Para publicar na Play Store, você precisará assinar o APK:
 - Capacitor (para Android)
 - TypeScript
 - Tailwind CSS + DaisyUI
+- Android App Widgets (para widgets nativos)

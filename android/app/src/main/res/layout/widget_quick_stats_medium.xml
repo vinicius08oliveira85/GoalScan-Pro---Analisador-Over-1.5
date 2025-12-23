@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_stats_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@android:color/transparent"
+    android:clickable="true"
+    android:focusable="true">
+
+    <TextView
+        android:id="@+id/widget_stats_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Estatísticas"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="12dp" />
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:columnCount="2"
+        android:rowCount="2"
+        android:alignmentMode="alignMargins"
+        android:useDefaultMargins="false">
+
+        <!-- Total Matches (Top Left) -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="12dp"
+            android:background="#1AFFFFFF"
+            android:layout_gravity="fill">
+
+            <TextView
+                android:id="@+id/widget_stats_total_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Total"
+                android:textSize="11sp"
+                android:textColor="#999999"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/widget_stats_total_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF" />
+
+        </LinearLayout>
+
+        <!-- Win Rate (Top Right) -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="8dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="12dp"
+            android:background="#1AFFFFFF"
+            android:layout_gravity="fill">
+
+            <TextView
+                android:id="@+id/widget_stats_winrate_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Taxa Acerto"
+                android:textSize="11sp"
+                android:textColor="#999999"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/widget_stats_winrate_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0%"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#4CAF50" />
+
+        </LinearLayout>
+
+        <!-- Positive EV (Bottom Left) -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_marginEnd="8dp"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="12dp"
+            android:background="#1AFFFFFF"
+            android:layout_gravity="fill">
+
+            <TextView
+                android:id="@+id/widget_stats_ev_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="EV Positivo"
+                android:textSize="11sp"
+                android:textColor="#999999"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/widget_stats_ev_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#4CAF50" />
+
+        </LinearLayout>
+
+        <!-- ROI (Bottom Right) -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="12dp"
+            android:background="#1AFFFFFF"
+            android:layout_gravity="fill">
+
+            <TextView
+                android:id="@+id/widget_stats_roi_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ROI"
+                android:textSize="11sp"
+                android:textColor="#999999"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/widget_stats_roi_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0%"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#FFC107" />
+
+        </LinearLayout>
+
+    </GridLayout>
+
+</LinearLayout>
+

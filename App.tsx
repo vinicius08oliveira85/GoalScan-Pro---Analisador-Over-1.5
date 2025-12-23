@@ -14,6 +14,7 @@ import {
 } from './services/notificationService';
 import { performAnalysis } from './services/analysisEngine';
 import { loadSavedAnalyses, saveOrUpdateAnalysis, deleteAnalysis, loadBankSettings, saveBankSettings } from './services/supabaseService';
+import { syncDataToWidgets, syncMatchesToWidgets, syncBankToWidgets } from './services/widgetSyncService';
 import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { ArrowLeft, Loader, Wallet } from 'lucide-react';
@@ -84,6 +85,9 @@ const App: React.FC = () => {
           if (bank) {
             localStorage.setItem('goalscan_bank_settings', JSON.stringify(bank));
           }
+          
+          // Sincronizar com widgets Android no carregamento inicial
+          syncDataToWidgets(matches, bank);
         } catch (e) {
           console.warn('Erro ao salvar no localStorage (backup):', e);
         }
@@ -332,6 +336,9 @@ const App: React.FC = () => {
             ? savedMatches.map(m => m.id === selectedMatch.id ? savedMatch : m)
             : [savedMatch, ...savedMatches];
           localStorage.setItem('goalscan_saved', JSON.stringify(allMatches));
+          
+          // Sincronizar com widgets Android
+          syncMatchesToWidgets(allMatches);
         } catch (e) {
           console.warn('Erro ao salvar no localStorage (backup):', e);
         }
@@ -381,6 +388,9 @@ const App: React.FC = () => {
     // Mas também salvar imediatamente no localStorage como backup
     try {
       localStorage.setItem('goalscan_bank_settings', JSON.stringify(settings));
+      
+      // Sincronizar com widgets Android
+      syncBankToWidgets(settings);
     } catch (e) {
       console.warn('Erro ao salvar no localStorage:', e);
     }
@@ -449,6 +459,9 @@ const App: React.FC = () => {
         };
         setBankSettings(newBankSettings);
         localStorage.setItem('goalscan_bank_settings', JSON.stringify(newBankSettings));
+        
+        // Sincronizar com widgets Android
+        syncBankToWidgets(newBankSettings);
       }
 
       // Atualizar resultAt quando status muda para won/lost
@@ -525,7 +538,14 @@ const App: React.FC = () => {
       // Deletar do Supabase
       await deleteAnalysis(id);
       // Atualizar estado local
-      setSavedMatches(prev => prev.filter(m => m.id !== id));
+      setSavedMatches(prev => {
+        const updated = prev.filter(m => m.id !== id);
+        
+        // Sincronizar com widgets Android
+        syncMatchesToWidgets(updated);
+        
+        return updated;
+      });
       // Atualizar localStorage como backup
       try {
         const updated = savedMatches.filter(m => m.id !== id);

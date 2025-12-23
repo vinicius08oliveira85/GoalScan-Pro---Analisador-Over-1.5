@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_upcoming_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@android:color/transparent"
+    android:clickable="true"
+    android:focusable="true">
+
+    <TextView
+        android:id="@+id/widget_upcoming_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Próxima Partida"
+        android:textSize="12sp"
+        android:textColor="#999999"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/widget_upcoming_teams"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Time A vs Time B"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:id="@+id/widget_upcoming_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Hoje, 20:00"
+        android:textSize="12sp"
+        android:textColor="#999999"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_upcoming_probability"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="75%"
+            android:textSize="14sp"
+            android:textColor="#4CAF50"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/widget_upcoming_ev"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="EV: +5.2%"
+            android:textSize="12sp"
+            android:textColor="#FFC107"
+            android:background="#33FFC107"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp" />
+
+    </LinearLayout>
+
+</LinearLayout>
+

@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GoalScan Pro</string>
+    <string name="title_activity_main">GoalScan Pro</string>
+    <string name="package_name">com.goalscanpro.app</string>
+    <string name="custom_url_scheme">com.goalscanpro.app</string>
+    
+    <!-- Widget Descriptions -->
+    <string name="widget_bank_balance_description">Exibe o saldo atual da sua banca</string>
+    <string name="widget_upcoming_matches_description">Mostra as próximas partidas agendadas</string>
+    <string name="widget_recent_results_description">Exibe os resultados recentes das apostas</string>
+    <string name="widget_quick_stats_description">Estatísticas rápidas do GoalScan Pro</string>
+</resources>

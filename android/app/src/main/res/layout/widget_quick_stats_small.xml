@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_stats_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:background="@android:color/transparent"
+    android:gravity="center_vertical"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_marginEnd="8dp">
+
+        <TextView
+            android:id="@+id/widget_stats_total_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Total"
+            android:textSize="11sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/widget_stats_total_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF" />
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#333333" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_marginStart="8dp">
+
+        <TextView
+            android:id="@+id/widget_stats_ev_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="EV Positivo"
+            android:textSize="11sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/widget_stats_ev_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#4CAF50" />
+
+    </LinearLayout>
+
+</LinearLayout>
+
