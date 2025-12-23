@@ -5,12 +5,21 @@ import AnalysisDashboard from './components/AnalysisDashboard';
 import MainScreen from './components/MainScreen';
 import BankSettings from './components/BankSettings';
 import { performAnalysis } from './services/analysisEngine';
-import { loadSavedAnalyses, saveOrUpdateAnalysis, deleteAnalysis } from './services/supabaseService';
+import { loadSavedAnalyses, saveOrUpdateAnalysis, deleteAnalysis, loadBankSettings, saveBankSettings } from './services/supabaseService';
 import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { ArrowLeft, Loader, Wallet } from 'lucide-react';
 
 type View = 'home' | 'analysis';
+
+// Função de debounce para evitar muitas requisições
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
@@ -23,6 +32,8 @@ const App: React.FC = () => {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [bankSettings, setBankSettings] = useState<BankSettingsType | undefined>(undefined);
   const [showBankSettings, setShowBankSettings] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
 
   // Carregar do Supabase na inicialização
   useEffect(() => {
@@ -30,11 +41,42 @@ const App: React.FC = () => {
       try {
         setIsLoading(true);
         setSyncError(null);
-        const matches = await loadSavedAnalyses();
+        
+        // Carregar análises e banca em paralelo
+        const [matches, bank] = await Promise.all([
+          loadSavedAnalyses(),
+          loadBankSettings()
+        ]);
+        
         setSavedMatches(matches);
+        if (bank) {
+          setBankSettings(bank);
+        } else {
+          // Se não há banca no Supabase, tentar carregar do localStorage
+          const storedBank = localStorage.getItem('goalscan_bank_settings');
+          if (storedBank) {
+            try {
+              setBankSettings(JSON.parse(storedBank));
+            } catch (e) {
+              console.error('Erro ao carregar configurações de banca do localStorage:', e);
+            }
+          }
+        }
+        
+        // Salvar no localStorage como backup
+        try {
+          localStorage.setItem('goalscan_saved', JSON.stringify(matches));
+          if (bank) {
+            localStorage.setItem('goalscan_bank_settings', JSON.stringify(bank));
+          }
+        } catch (e) {
+          console.warn('Erro ao salvar no localStorage (backup):', e);
+        }
+        
+        setLastSyncTime(Date.now());
       } catch (error) {
-        console.error('Erro ao carregar partidas do Supabase:', error);
-        setSyncError('Erro ao sincronizar com o servidor. Tentando novamente...');
+        console.error('Erro ao carregar dados do Supabase:', error);
+        setSyncError('Erro ao sincronizar com o servidor. Usando dados locais...');
         // Tentar carregar do localStorage como fallback
         const stored = localStorage.getItem('goalscan_saved');
         if (stored) {
@@ -42,6 +84,14 @@ const App: React.FC = () => {
             setSavedMatches(JSON.parse(stored));
           } catch (e) {
             console.error('Erro ao carregar do localStorage:', e);
+          }
+        }
+        const storedBank = localStorage.getItem('goalscan_bank_settings');
+        if (storedBank) {
+          try {
+            setBankSettings(JSON.parse(storedBank));
+          } catch (e) {
+            console.error('Erro ao carregar configurações de banca do localStorage:', e);
           }
         }
       } finally {
@@ -52,17 +102,91 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
-  // Carregar configurações de banca do localStorage
+  // Salvamento automático de análises com debounce
   useEffect(() => {
-    const storedBank = localStorage.getItem('goalscan_bank_settings');
-    if (storedBank) {
-      try {
-        setBankSettings(JSON.parse(storedBank));
-      } catch (e) {
-        console.error('Erro ao carregar configurações de banca:', e);
-      }
+    // Não salvar na inicialização (já foi carregado)
+    if (isLoading || savedMatches.length === 0) {
+      return;
     }
-  }, []);
+
+    const debouncedSave = debounce(async () => {
+      try {
+        setIsSyncing(true);
+        setSyncError(null);
+        
+        // Salvar todas as análises no Supabase
+        const savePromises = savedMatches.map(match => saveOrUpdateAnalysis(match));
+        await Promise.all(savePromises);
+        
+        // Atualizar localStorage como backup
+        try {
+          localStorage.setItem('goalscan_saved', JSON.stringify(savedMatches));
+        } catch (e) {
+          console.warn('Erro ao salvar no localStorage (backup):', e);
+        }
+        
+        setLastSyncTime(Date.now());
+      } catch (error) {
+        console.error('Erro ao salvar análises automaticamente:', error);
+        setSyncError('Erro ao sincronizar. Dados salvos localmente.');
+        // Salvar no localStorage mesmo em caso de erro
+        try {
+          localStorage.setItem('goalscan_saved', JSON.stringify(savedMatches));
+        } catch (e) {
+          console.error('Erro ao salvar no localStorage:', e);
+        }
+      } finally {
+        setIsSyncing(false);
+      }
+    }, 2500); // 2.5 segundos de debounce
+
+    debouncedSave();
+
+    // Cleanup: cancelar debounce se componente desmontar ou dependências mudarem
+    return () => {
+      // O debounce já gerencia seu próprio cleanup via setTimeout
+    };
+  }, [savedMatches, isLoading]);
+
+  // Salvamento automático de configurações de banca com debounce
+  useEffect(() => {
+    // Não salvar se não há banca configurada ou se ainda está carregando
+    if (isLoading || !bankSettings) {
+      return;
+    }
+
+    const debouncedSave = debounce(async () => {
+      try {
+        setIsSyncing(true);
+        setSyncError(null);
+        
+        // Salvar no Supabase
+        await saveBankSettings(bankSettings);
+        
+        // Atualizar localStorage como backup
+        try {
+          localStorage.setItem('goalscan_bank_settings', JSON.stringify(bankSettings));
+        } catch (e) {
+          console.warn('Erro ao salvar no localStorage (backup):', e);
+        }
+        
+        setLastSyncTime(Date.now());
+      } catch (error) {
+        console.error('Erro ao salvar configurações de banca automaticamente:', error);
+        setSyncError('Erro ao sincronizar banca. Dados salvos localmente.');
+        // Salvar no localStorage mesmo em caso de erro
+        try {
+          localStorage.setItem('goalscan_bank_settings', JSON.stringify(bankSettings));
+        } catch (e) {
+          console.error('Erro ao salvar no localStorage:', e);
+        }
+      } finally {
+        setIsSyncing(false);
+      }
+    }, 2500); // 2.5 segundos de debounce
+
+    debouncedSave();
+  }, [bankSettings, isLoading]);
 
   // Funções de Navegação
   const handleNavigateToHome = () => {
@@ -187,7 +311,13 @@ const App: React.FC = () => {
 
   const handleSaveBankSettings = (settings: BankSettingsType) => {
     setBankSettings(settings);
-    localStorage.setItem('goalscan_bank_settings', JSON.stringify(settings));
+    // O salvamento automático será feito pelo useEffect com debounce
+    // Mas também salvar imediatamente no localStorage como backup
+    try {
+      localStorage.setItem('goalscan_bank_settings', JSON.stringify(settings));
+    } catch (e) {
+      console.warn('Erro ao salvar no localStorage:', e);
+    }
   };
 
   const handleSaveBetInfo = async (betInfo: BetInfo) => {
@@ -327,7 +457,19 @@ const App: React.FC = () => {
               {isLoading && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
                   <Loader className="w-3 h-3 text-info animate-spin" />
+                  <span className="text-xs font-bold text-info">Carregando...</span>
+                </div>
+              )}
+              {isSyncing && !isLoading && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
+                  <Loader className="w-3 h-3 text-info animate-spin" />
                   <span className="text-xs font-bold text-info">Sincronizando...</span>
+                </div>
+              )}
+              {!isSyncing && !isLoading && !syncError && lastSyncTime && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-lg" title={`Última sincronização: ${new Date(lastSyncTime).toLocaleTimeString('pt-BR')}`}>
+                  <div className="w-2 h-2 bg-success rounded-full" />
+                  <span className="text-xs font-bold text-success">Sincronizado</span>
                 </div>
               )}
               {syncError && (
@@ -420,12 +562,24 @@ const App: React.FC = () => {
                 <span className="text-xs font-bold text-info">Salvando...</span>
               </div>
             )}
+            {isSyncing && !isSaving && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
+                <Loader className="w-3 h-3 text-info animate-spin" />
+                <span className="text-xs font-bold text-info">Sincronizando...</span>
+              </div>
+            )}
+            {!isSyncing && !isSaving && !syncError && lastSyncTime && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-lg" title={`Última sincronização: ${new Date(lastSyncTime).toLocaleTimeString('pt-BR')}`}>
+                <div className="w-2 h-2 bg-success rounded-full" />
+                <span className="text-xs font-bold text-success">Sincronizado</span>
+              </div>
+            )}
             {syncError && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg">
                 <span className="text-xs font-bold text-warning">{syncError}</span>
               </div>
             )}
-            {analysisResult && !isSaving && (
+            {analysisResult && !isSaving && !isSyncing && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
                 <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                 <span className="text-xs font-bold text-primary">Análise Ativa</span>

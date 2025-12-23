@@ -1,4 +1,4 @@
-import { SavedAnalysis, MatchData, AnalysisResult, BetInfo } from '../types';
+import { SavedAnalysis, MatchData, AnalysisResult, BetInfo, BankSettings } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 
 export interface SavedAnalysisRow {
@@ -9,6 +9,14 @@ export interface SavedAnalysisRow {
   bet_info?: BetInfo;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface BankSettingsRow {
+  id: string;
+  total_bank: number;
+  currency: string;
+  updated_at?: number;
+  created_at?: string;
 }
 
 /**
@@ -173,6 +181,79 @@ export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis): Promise<Sav
     };
   } catch (error) {
     console.error('Erro ao salvar/atualizar análise:', error);
+    throw error;
+  }
+};
+
+/**
+ * Carrega as configurações de banca do Supabase
+ */
+export const loadBankSettings = async (): Promise<BankSettings | null> => {
+  try {
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase
+      .from('bank_settings')
+      .select('*')
+      .eq('id', 'default')
+      .single();
+
+    if (error) {
+      // Se não encontrar registro, retornar null (não é erro crítico)
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      console.error('Erro ao carregar configurações de banca do Supabase:', error);
+      throw error;
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    // Converter do formato do banco para BankSettings
+    return {
+      totalBank: data.total_bank,
+      currency: data.currency,
+      updatedAt: data.updated_at || Date.now(),
+    };
+  } catch (error) {
+    console.error('Erro ao carregar configurações de banca:', error);
+    // Em caso de erro, retornar null para não quebrar a aplicação
+    return null;
+  }
+};
+
+/**
+ * Salva ou atualiza as configurações de banca no Supabase
+ */
+export const saveBankSettings = async (settings: BankSettings): Promise<BankSettings> => {
+  try {
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase
+      .from('bank_settings')
+      .upsert({
+        id: 'default',
+        total_bank: settings.totalBank,
+        currency: settings.currency,
+        updated_at: settings.updatedAt,
+      }, {
+        onConflict: 'id'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao salvar configurações de banca no Supabase:', error);
+      throw error;
+    }
+
+    return {
+      totalBank: data.total_bank,
+      currency: data.currency,
+      updatedAt: data.updated_at || Date.now(),
+    };
+  } catch (error) {
+    console.error('Erro ao salvar configurações de banca:', error);
     throw error;
   }
 };
