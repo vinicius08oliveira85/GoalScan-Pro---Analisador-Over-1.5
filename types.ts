@@ -68,6 +68,7 @@ export interface MatchData {
   awayTeam: string;
   matchDate?: string; // Data da partida (YYYY-MM-DD)
   matchTime?: string; // Hora da partida (HH:mm)
+  competitionAvg?: number; // Média da competição
   oddOver15?: number; // Nova: Odd do mercado
   // Médias Reais
   homeGoalsScoredAvg: number;
