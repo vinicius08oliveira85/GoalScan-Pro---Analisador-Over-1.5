@@ -12,6 +12,7 @@ interface AnalysisDashboardProps {
   betInfo?: BetInfo;
   bankSettings?: BankSettings;
   onBetSave?: (betInfo: BetInfo) => void;
+  onError?: (message: string) => void;
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ 
@@ -20,7 +21,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   onSave, 
   betInfo, 
   bankSettings,
-  onBetSave 
+  onBetSave,
+  onError
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
 
@@ -256,6 +258,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 onBetSave(newBetInfo);
                 setShowBetManager(false);
               }}
+              onError={onError}
               onCancel={() => setShowBetManager(false)}
             />
           )}

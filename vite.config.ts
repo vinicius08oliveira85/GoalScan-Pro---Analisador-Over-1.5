@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       },
       resolve: {
         alias: {
@@ -24,7 +24,14 @@ export default defineConfig(({ mode }) => {
         outDir: 'dist',
         assetsDir: 'assets',
         rollupOptions: {
-          external: ['@supabase/supabase-js', '@capacitor/core']
+          external: ['@capacitor/core'],
+          output: {
+            manualChunks: {
+              'react-vendor': ['react', 'react-dom'],
+              'ui-vendor': ['lucide-react', 'recharts'],
+              'utils-vendor': ['zod', '@supabase/supabase-js']
+            }
+          }
         },
         // Configurações para compatibilidade com Capacitor
         emptyOutDir: true,

@@ -63,9 +63,10 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
           </div>
           <button
             onClick={onNewMatch}
-            className="btn btn-primary btn-md sm:btn-lg gap-2 shadow-lg hover:scale-105 transition-transform w-full sm:w-auto min-h-[44px]"
+            className="btn btn-primary btn-md sm:btn-lg gap-2 shadow-lg hover:scale-105 transition-transform w-full sm:w-auto min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary"
+            aria-label="Adicionar nova partida para análise"
           >
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
             <span className="hidden sm:inline">Adicionar Partida</span>
             <span className="sm:hidden">Nova Partida</span>
           </button>
@@ -151,9 +152,10 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                     )}
                     <button
                       onClick={(e) => onDeleteMatch(e, match.id)}
-                      className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0"
+                      className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-error"
+                      aria-label={`Remover partida ${match.data.homeTeam} vs ${match.data.awayTeam}`}
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
                 </div>

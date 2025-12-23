@@ -1,23 +1,32 @@
 // Service Worker para GoalScan Pro
-const CACHE_NAME = 'goalscan-pro-v1';
-const urlsToCache = [
+const CACHE_VERSION = 'v2';
+const CACHE_NAME = `goalscan-pro-${CACHE_VERSION}`;
+const RUNTIME_CACHE = 'goalscan-pro-runtime';
+const STATIC_CACHE = 'goalscan-pro-static';
+
+// Assets estáticos para cachear na instalação
+const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png',
+  '/icons/icon.svg'
 ];
 
 // Instalação do Service Worker
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
+    caches.open(STATIC_CACHE)
       .then((cache) => {
-        console.log('Service Worker: Cache aberto');
-        return cache.addAll(urlsToCache);
+        console.log('Service Worker: Cacheando assets estáticos');
+        return cache.addAll(STATIC_ASSETS);
       })
       .catch((error) => {
         console.error('Service Worker: Erro ao fazer cache', error);
       })
   );
+  // Forçar ativação imediata
   self.skipWaiting();
 });
 
@@ -27,7 +36,9 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          // Remover caches antigos que não correspondem à versão atual
+          if (cacheName !== STATIC_CACHE && cacheName !== RUNTIME_CACHE && 
+              cacheName.startsWith('goalscan-pro-')) {
             console.log('Service Worker: Removendo cache antigo', cacheName);
             return caches.delete(cacheName);
           }
@@ -35,10 +46,11 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  // Assumir controle imediato de todas as páginas
   return self.clients.claim();
 });
 
-// Estratégia: Network First, fallback para Cache
+// Estratégia de cache baseada no tipo de recurso
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -52,54 +64,98 @@ self.addEventListener('fetch', (event) => {
     url.hostname === 'localhost' ||
     url.hostname === '127.0.0.1'
   ) {
-    // Apenas fazer fetch sem cachear
     event.respondWith(fetch(request));
     return;
   }
 
-  // Ignorar requisições para APIs externas (Supabase, etc.)
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('cdn.')) {
+  // APIs externas: Network Only (não cachear)
+  if (url.hostname.includes('supabase.co') || 
+      url.hostname.includes('cdn.') ||
+      url.hostname.includes('api.')) {
     event.respondWith(fetch(request));
     return;
   }
 
+  // HTML: Network First, fallback para Cache
+  if (request.destination === 'document') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Cachear resposta válida
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(RUNTIME_CACHE)
+              .then((cache) => cache.put(request, responseToCache))
+              .catch(() => {});
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback para cache ou index.html
+          return caches.match(request)
+            .then((cachedResponse) => {
+              return cachedResponse || caches.match('/index.html');
+            });
+        })
+    );
+    return;
+  }
+
+  // Assets estáticos (JS, CSS, imagens): Cache First, fallback para Network
+  if (request.destination === 'script' || 
+      request.destination === 'style' || 
+      request.destination === 'image' ||
+      url.pathname.startsWith('/assets/') ||
+      url.pathname.startsWith('/icons/')) {
+    event.respondWith(
+      caches.match(request)
+        .then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // Se não estiver no cache, buscar da rede e cachear
+          return fetch(request)
+            .then((response) => {
+              if (response && response.status === 200) {
+                const responseToCache = response.clone();
+                const cacheToUse = url.pathname.startsWith('/assets/') || 
+                                  url.pathname.startsWith('/icons/') 
+                                  ? STATIC_CACHE 
+                                  : RUNTIME_CACHE;
+                caches.open(cacheToUse)
+                  .then((cache) => cache.put(request, responseToCache))
+                  .catch(() => {});
+              }
+              return response;
+            });
+        })
+        .catch(() => {
+          // Se tudo falhar, retornar resposta offline
+          if (request.destination === 'image') {
+            return new Response('', { status: 404 });
+          }
+          return new Response('Offline', { status: 503 });
+        })
+    );
+    return;
+  }
+
+  // Outros recursos: Network First
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Só cachear respostas válidas e GET
-        if (response && response.status === 200 && request.method === 'GET') {
-          // Verificar se é uma resposta que pode ser clonada
-          if (response.type === 'basic' || response.type === 'cors') {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                try {
-                  cache.put(request, responseToCache);
-                } catch (error) {
-                  // Ignorar erros de cache silenciosamente
-                  console.warn('Service Worker: Erro ao cachear', error);
-                }
-              })
-              .catch(() => {
-                // Ignorar erros de cache
-              });
-          }
+        if (response && response.status === 200) {
+          const responseToCache = response.clone();
+          caches.open(RUNTIME_CACHE)
+            .then((cache) => cache.put(request, responseToCache))
+            .catch(() => {});
         }
         return response;
       })
       .catch(() => {
-        // Se falhar, tentar buscar do cache
         return caches.match(request)
-          .then((response) => {
-            if (response) {
-              return response;
-            }
-            // Se não encontrar no cache, retornar página offline
-            if (request.destination === 'document') {
-              return caches.match('/index.html');
-            }
-            // Para outros recursos, retornar erro
-            return new Response('Offline', { status: 503 });
+          .then((cachedResponse) => {
+            return cachedResponse || new Response('Offline', { status: 503 });
           });
       })
   );

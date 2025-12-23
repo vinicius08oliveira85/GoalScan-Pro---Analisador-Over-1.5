@@ -2,13 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { BankSettings } from '../types';
 import { Wallet, Save, DollarSign } from 'lucide-react';
+import { validateBankSettings } from '../utils/validation';
 
 interface BankSettingsProps {
   bankSettings?: BankSettings;
   onSave: (settings: BankSettings) => void;
+  onError?: (message: string) => void;
 }
 
-const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave }) => {
+const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onError }) => {
   const [totalBank, setTotalBank] = useState<number>(bankSettings?.totalBank || 0);
   const [currency, setCurrency] = useState<string>(bankSettings?.currency || 'R$');
 
@@ -20,18 +22,28 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave }) => 
   }, [bankSettings]);
 
   const handleSave = () => {
-    if (totalBank <= 0) {
-      alert('Por favor, insira um valor de banca válido.');
-      return;
+    try {
+      const newSettings: BankSettings = {
+        totalBank,
+        currency: currency.length === 3 ? currency : currency.substring(0, 3), // Garantir 3 caracteres
+        updatedAt: Date.now()
+      };
+
+      // Validar dados antes de salvar
+      const validatedSettings = validateBankSettings(newSettings);
+      onSave(validatedSettings);
+    } catch (error) {
+      // Registrar erro no serviço centralizado
+      const errorMessage = error instanceof Error ? error.message : 'Erro de validação desconhecido';
+      errorService.logValidationError('BankSettings', { totalBank, currency }, errorMessage);
+      
+      // Mostrar erro de validação de forma amigável
+      if (onError) {
+        onError(`Erro ao validar configurações: ${errorMessage}`);
+      } else {
+        alert(`Erro ao validar configurações: ${errorMessage}`);
+      }
     }
-
-    const newSettings: BankSettings = {
-      totalBank,
-      currency,
-      updatedAt: Date.now()
-    };
-
-    onSave(newSettings);
   };
 
   return (

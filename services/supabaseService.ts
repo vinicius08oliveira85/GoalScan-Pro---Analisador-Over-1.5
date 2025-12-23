@@ -1,5 +1,6 @@
 import { SavedAnalysis, MatchData, AnalysisResult, BetInfo, BankSettings } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
+import { errorService } from './errorService';
 
 export interface SavedAnalysisRow {
   id: string;
@@ -31,7 +32,7 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
       .order('timestamp', { ascending: false });
 
     if (error) {
-      console.error('Erro ao carregar análises do Supabase:', error);
+      errorService.logApiError('loadSavedAnalyses', error.status || 500, error.message);
       throw error;
     }
 

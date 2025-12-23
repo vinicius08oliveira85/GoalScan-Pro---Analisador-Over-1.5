@@ -16,14 +16,26 @@ View your app in AI Studio: https://ai.studio/apps/drive/1_EPMzvkySu16yY9rSyIWPM
    ```bash
    npm install
    ```
-2. Configurar a chave da API Gemini no arquivo `.env.local`:
+2. Configurar variáveis de ambiente no arquivo `.env`:
    ```
    GEMINI_API_KEY=sua_chave_aqui
+   VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+   VITE_SUPABASE_ANON_KEY=sua_chave_anonima_supabase_aqui
    ```
+   
+   **Nota:** Copie o arquivo `.env.example` para `.env` e preencha com suas credenciais.
 3. Executar o app:
    ```bash
    npm run dev
    ```
+
+## Executar Testes
+
+```bash
+npm test          # Executar testes
+npm run test:ui   # Executar testes com interface
+npm run test:coverage  # Executar testes com cobertura
+```
 
 ## Instalar no Android
 

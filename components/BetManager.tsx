@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { BetInfo, BankSettings } from '../types';
 import { Calculator, TrendingUp, DollarSign, Percent, X } from 'lucide-react';
+import { validateBetInfo } from '../utils/validation';
+import { errorService } from '../services/errorService';
 
 interface BetManagerProps {
   odd: number;
@@ -10,7 +12,9 @@ interface BetManagerProps {
   bankSettings?: BankSettings;
   onSave: (betInfo: BetInfo) => void;
   onCancel?: () => void;
+  onError?: (message: string) => void;
 }
+
 
 const BetManager: React.FC<BetManagerProps> = ({ 
   odd, 
@@ -18,7 +22,8 @@ const BetManager: React.FC<BetManagerProps> = ({
   betInfo, 
   bankSettings,
   onSave, 
-  onCancel 
+  onCancel,
+  onError
 }) => {
   const [betAmount, setBetAmount] = useState<number>(betInfo?.betAmount || 0);
   const [status, setStatus] = useState<BetInfo['status']>(betInfo?.status || 'pending');
@@ -39,28 +44,33 @@ const BetManager: React.FC<BetManagerProps> = ({
   }, [betInfo]);
 
   const handleSave = () => {
-    if (betAmount <= 0) {
-      alert('Por favor, insira um valor de aposta válido.');
-      return;
+    try {
+      const newBetInfo: BetInfo = {
+        betAmount,
+        odd,
+        potentialReturn,
+        potentialProfit,
+        bankPercentage,
+        status,
+        placedAt: betInfo?.placedAt || Date.now(),
+        resultAt: betInfo?.resultAt
+      };
+
+      // Validar dados antes de salvar
+      const validatedBetInfo = validateBetInfo(newBetInfo);
+      onSave(validatedBetInfo);
+    } catch (error) {
+      // Mostrar erro de validação de forma amigável
+      const errorMessage = error instanceof Error ? error.message : 'Erro de validação desconhecido';
+      // Registrar erro no serviço centralizado
+      errorService.logValidationError('BetManager', { betAmount, odd }, errorMessage);
+      
+      if (onError) {
+        onError(`Erro ao validar aposta: ${errorMessage}`);
+      } else {
+        alert(`Erro ao validar aposta: ${errorMessage}`);
+      }
     }
-
-    if (odd <= 0) {
-      alert('Odd inválida. Verifique os dados da partida.');
-      return;
-    }
-
-    const newBetInfo: BetInfo = {
-      betAmount,
-      odd,
-      potentialReturn,
-      potentialProfit,
-      bankPercentage,
-      status,
-      placedAt: betInfo?.placedAt || Date.now(),
-      resultAt: betInfo?.resultAt
-    };
-
-    onSave(newBetInfo);
   };
 
   const handleRemove = () => {

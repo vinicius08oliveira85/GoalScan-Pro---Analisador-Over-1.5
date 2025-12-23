@@ -58,9 +58,18 @@ export function calculateBankUpdate(
     // Pending: desconta o valor apostado
     newImpact = -betAmount;
   } else if (newStatus === 'won') {
-    // Won: adiciona o retorno total (potentialReturn)
-    // O valor apostado já foi descontado quando pending
-    newImpact = potentialReturn;
+    // Won: o impacto líquido é o lucro (retorno total - valor apostado)
+    // Mas como o valor apostado já foi descontado quando pending,
+    // ao mudar de pending para won, adicionamos apenas o retorno total
+    // para compensar o desconto anterior e adicionar o lucro
+    if (oldStatus === 'pending') {
+      // Se veio de pending, adiciona apenas o retorno total
+      // (o desconto já foi aplicado, então só precisamos adicionar o retorno)
+      newImpact = potentialReturn;
+    } else {
+      // Se veio de outro status (ex: lost -> won), adiciona o retorno total
+      newImpact = potentialReturn;
+    }
   } else if (newStatus === 'lost') {
     // Lost: se veio de pending, não precisa descontar novamente (já foi descontado)
     // O impacto líquido é o mesmo de pending: -betAmount (já descontado)
@@ -68,6 +77,11 @@ export function calculateBankUpdate(
   }
 
   // Retorna a diferença (novo impacto - impacto anterior)
+  // Mas quando pending -> won, o impacto líquido é apenas o retorno total
+  if (oldStatus === 'pending' && newStatus === 'won') {
+    return potentialReturn; // Apenas o retorno total (o desconto já foi aplicado)
+  }
+  
   return newImpact - oldImpact;
 }
 

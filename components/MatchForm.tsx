@@ -1,10 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { MatchData, TeamStatistics, GolsStats } from '../types';
+import { validateMatchData } from '../utils/validation';
+import { errorService } from '../services/errorService';
 
 interface MatchFormProps {
   onAnalyze: (data: MatchData) => void;
   initialData?: MatchData | null;
+  onError?: (message: string) => void;
 }
 
 // Função para criar MatchData vazio
@@ -42,7 +45,7 @@ const createEmptyGols = (): GolsStats => ({
   under25Pct: 0
 });
 
-const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
+const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData, onError }) => {
   const [formData, setFormData] = useState<MatchData>(initialData || createEmptyMatchData());
 
   useEffect(() => {
@@ -92,12 +95,36 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAnalyze(formData);
+    try {
+      // Validar dados antes de enviar
+      const validatedData = validateMatchData(formData);
+      onAnalyze(validatedData);
+    } catch (error) {
+      // Mostrar erro de validação de forma amigável
+      const errorMessage = error instanceof Error ? error.message : 'Erro de validação desconhecido';
+      // Registrar erro no serviço centralizado
+      errorService.logValidationError('MatchForm', formData, errorMessage);
+      
+      if (onError) {
+        onError(`Erro ao validar dados: ${errorMessage}`);
+      } else {
+        alert(`Erro ao validar dados: ${errorMessage}`);
+      }
+    }
   };
 
   const InfoIcon = ({ text }: { text: string }) => (
-    <div className="tooltip tooltip-top cursor-help ml-1" data-tip={text}>
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 opacity-50 hover:opacity-100 transition-opacity">
+    <div className="tooltip tooltip-top cursor-help ml-1" data-tip={text} role="tooltip">
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        strokeWidth={1.5} 
+        stroke="currentColor" 
+        className="w-4 h-4 opacity-50 hover:opacity-100 transition-opacity"
+        aria-label={text}
+        role="img"
+      >
         <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
       </svg>
     </div>
@@ -108,12 +135,32 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
       {/* Informações Básicas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="form-control">
-          <label className="label ml-2"><span className="label-text font-bold">Time Casa</span></label>
-          <input name="homeTeam" value={formData.homeTeam} onChange={handleChange} className="input w-full min-h-[44px] text-base" placeholder="Ex: Man City" required />
+          <label htmlFor="homeTeam" className="label ml-2"><span className="label-text font-bold">Time Casa</span></label>
+          <input 
+            id="homeTeam"
+            name="homeTeam" 
+            value={formData.homeTeam} 
+            onChange={handleChange} 
+            className="input w-full min-h-[44px] text-base focus:outline-none focus:ring-2 focus:ring-primary" 
+            placeholder="Ex: Man City" 
+            required 
+            aria-required="true"
+            aria-label="Nome do time da casa"
+          />
         </div>
         <div className="form-control">
-          <label className="label ml-2"><span className="label-text font-bold">Time Visitante</span></label>
-          <input name="awayTeam" value={formData.awayTeam} onChange={handleChange} className="input w-full min-h-[44px] text-base" placeholder="Ex: Real Madrid" required />
+          <label htmlFor="awayTeam" className="label ml-2"><span className="label-text font-bold">Time Visitante</span></label>
+          <input 
+            id="awayTeam"
+            name="awayTeam" 
+            value={formData.awayTeam} 
+            onChange={handleChange} 
+            className="input w-full min-h-[44px] text-base focus:outline-none focus:ring-2 focus:ring-primary" 
+            placeholder="Ex: Real Madrid" 
+            required 
+            aria-required="true"
+            aria-label="Nome do time visitante"
+          />
         </div>
       </div>
 
