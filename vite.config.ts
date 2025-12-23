@@ -21,9 +21,16 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
+        outDir: 'dist',
+        assetsDir: 'assets',
         rollupOptions: {
           external: ['@supabase/supabase-js']
-        }
-      }
+        },
+        // Configurações para compatibilidade com Capacitor
+        emptyOutDir: true,
+        sourcemap: false
+      },
+      // Base path para compatibilidade com Capacitor
+      base: './'
     };
 });

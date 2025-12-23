@@ -2,9 +2,13 @@
 // Este script requer sharp: npm install sharp --save-dev
 // Execute: node scripts/generate-icons.js
 
-const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
+import sharp from 'sharp';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 const inputSvg = path.join(__dirname, '../public/icons/icon.svg');
