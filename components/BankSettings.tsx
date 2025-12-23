@@ -4,6 +4,7 @@ import type { BankSettings } from '../types';
 import { Wallet, Save, DollarSign } from 'lucide-react';
 import { validateBankSettings } from '../utils/validation';
 import { errorService } from '../services/errorService';
+import { normalizeCurrency, getCurrencySymbol } from '../utils/currency';
 
 interface BankSettingsProps {
   bankSettings?: BankSettings;
@@ -13,20 +14,27 @@ interface BankSettingsProps {
 
 const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onError }) => {
   const [totalBank, setTotalBank] = useState<number>(bankSettings?.totalBank || 0);
-  const [currency, setCurrency] = useState<string>(bankSettings?.currency || 'R$');
+  // Normalizar currency para código ISO (compatibilidade com dados antigos)
+  const [currency, setCurrency] = useState<string>(
+    bankSettings?.currency ? normalizeCurrency(bankSettings.currency) : 'BRL'
+  );
 
   useEffect(() => {
     if (bankSettings) {
       setTotalBank(bankSettings.totalBank);
-      setCurrency(bankSettings.currency);
+      // Normalizar currency para código ISO (compatibilidade com dados antigos)
+      setCurrency(normalizeCurrency(bankSettings.currency));
     }
   }, [bankSettings]);
 
   const handleSave = () => {
     try {
+      // Garantir que currency seja um código ISO válido
+      const normalizedCurrency = normalizeCurrency(currency);
+      
       const newSettings: BankSettings = {
         totalBank,
-        currency: currency.length === 3 ? currency : currency.substring(0, 3), // Garantir 3 caracteres
+        currency: normalizedCurrency,
         updatedAt: Date.now()
       };
 
@@ -89,10 +97,10 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
             onChange={(e) => setCurrency(e.target.value)}
             className="select select-bordered w-full min-h-[44px] text-base"
           >
-            <option value="R$">R$ (Real Brasileiro)</option>
-            <option value="$">$ (Dólar Americano)</option>
-            <option value="€">€ (Euro)</option>
-            <option value="£">£ (Libra Esterlina)</option>
+            <option value="BRL">R$ (Real Brasileiro)</option>
+            <option value="USD">$ (Dólar Americano)</option>
+            <option value="EUR">€ (Euro)</option>
+            <option value="GBP">£ (Libra Esterlina)</option>
           </select>
         </div>
 
@@ -103,7 +111,7 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
               <div className="flex justify-between">
                 <span className="opacity-60">Banca Atual:</span>
                 <span className="font-bold text-lg">
-                  {currency} {totalBank.toFixed(2)}
+                  {getCurrencySymbol(currency)} {totalBank.toFixed(2)}
                 </span>
               </div>
               {bankSettings.updatedAt && (

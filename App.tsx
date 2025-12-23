@@ -18,6 +18,7 @@ import { cancelNotification } from './services/notificationService';
 import { performAnalysis } from './services/analysisEngine';
 import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
 import { calculateBankUpdate } from './utils/bankCalculator';
+import { getCurrencySymbol } from './utils/currency';
 import { ArrowLeft, Wallet } from 'lucide-react';
 
 type View = 'home' | 'analysis';
@@ -283,7 +284,7 @@ const App: React.FC = () => {
                 >
                   <Wallet className="w-4 h-4" />
                   <span className="text-xs font-bold">
-                    {bankSettings.currency} {bankSettings.totalBank.toFixed(0)}
+                    {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(0)}
                   </span>
                 </button>
               )}
@@ -346,7 +347,7 @@ const App: React.FC = () => {
                 Banca
                 {bankSettings && (
                   <span className="badge badge-sm">
-                    {bankSettings.currency} {bankSettings.totalBank.toFixed(0)}
+                    {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(0)}
                   </span>
                 )}
               </button>
@@ -448,7 +449,7 @@ const App: React.FC = () => {
               >
                 <Wallet className="w-4 h-4" />
                 <span className="text-xs font-bold">
-                  {bankSettings.currency} {bankSettings.totalBank.toFixed(0)}
+                  {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(0)}
                 </span>
               </button>
             )}

@@ -4,6 +4,7 @@ import { BetInfo, BankSettings } from '../types';
 import { Calculator, TrendingUp, DollarSign, Percent, X } from 'lucide-react';
 import { validateBetInfo } from '../utils/validation';
 import { errorService } from '../services/errorService';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface BetManagerProps {
   odd: number;
@@ -124,7 +125,7 @@ const BetManager: React.FC<BetManagerProps> = ({
           {bankSettings && bankSettings.totalBank > 0 && (
             <label className="label">
               <span className="label-text-alt opacity-60">
-                {bankPercentage.toFixed(2)}% da sua banca ({bankSettings.currency} {bankSettings.totalBank.toFixed(2)})
+                {bankPercentage.toFixed(2)}% da sua banca ({getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(2)})
               </span>
             </label>
           )}
@@ -169,7 +170,7 @@ const BetManager: React.FC<BetManagerProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-sm opacity-80">Retorno Potencial:</span>
               <span className="font-bold text-lg text-primary">
-                {bankSettings?.currency || 'R$'} {potentialReturn.toFixed(2)}
+                {getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialReturn.toFixed(2)}
               </span>
             </div>
 
@@ -179,7 +180,7 @@ const BetManager: React.FC<BetManagerProps> = ({
                 Lucro Potencial:
               </span>
               <span className={`font-bold text-lg ${potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                {potentialProfit >= 0 ? '+' : ''}{bankSettings?.currency || 'R$'} {potentialProfit.toFixed(2)}
+                {potentialProfit >= 0 ? '+' : ''}{getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialProfit.toFixed(2)}
               </span>
             </div>
 

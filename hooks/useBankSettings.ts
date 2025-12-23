@@ -3,6 +3,7 @@ import { BankSettings } from '../types';
 import { loadBankSettings, saveBankSettings } from '../services/supabaseService';
 import { errorService } from '../services/errorService';
 import { syncBankToWidgets } from '../services/widgetSyncService';
+import { normalizeCurrency } from '../utils/currency';
 
 export const useBankSettings = (onError?: (message: string) => void) => {
   const [bankSettings, setBankSettings] = useState<BankSettings | undefined>(undefined);
@@ -20,7 +21,12 @@ export const useBankSettings = (onError?: (message: string) => void) => {
       const bank = await loadBankSettings();
       
       if (bank) {
-        setBankSettings(bank);
+        // Normalizar currency para código ISO (compatibilidade com dados antigos)
+        const normalizedBank = {
+          ...bank,
+          currency: normalizeCurrency(bank.currency)
+        };
+        setBankSettings(normalizedBank);
         try {
           localStorage.setItem('goalscan_bank_settings', JSON.stringify(bank));
           syncBankToWidgets(bank);
@@ -32,7 +38,12 @@ export const useBankSettings = (onError?: (message: string) => void) => {
         const storedBank = localStorage.getItem('goalscan_bank_settings');
         if (storedBank) {
           try {
-            setBankSettings(JSON.parse(storedBank));
+            const parsedBank = JSON.parse(storedBank);
+            // Normalizar currency para código ISO (compatibilidade com dados antigos)
+            setBankSettings({
+              ...parsedBank,
+              currency: normalizeCurrency(parsedBank.currency)
+            });
           } catch (e) {
             console.error('Erro ao carregar configurações de banca do localStorage:', e);
           }
@@ -51,7 +62,12 @@ export const useBankSettings = (onError?: (message: string) => void) => {
       const storedBank = localStorage.getItem('goalscan_bank_settings');
       if (storedBank) {
         try {
-          setBankSettings(JSON.parse(storedBank));
+          const parsedBank = JSON.parse(storedBank);
+          // Normalizar currency para código ISO (compatibilidade com dados antigos)
+          setBankSettings({
+            ...parsedBank,
+            currency: normalizeCurrency(parsedBank.currency)
+          });
         } catch (e) {
           console.error('Erro ao carregar configurações de banca do localStorage:', e);
         }
@@ -67,13 +83,19 @@ export const useBankSettings = (onError?: (message: string) => void) => {
       setIsSyncing(true);
       setSyncError(null);
       
-      await saveBankSettings(settings);
-      setBankSettings(settings);
+      // Normalizar currency para código ISO antes de salvar
+      const normalizedSettings = {
+        ...settings,
+        currency: normalizeCurrency(settings.currency)
+      };
+      
+      await saveBankSettings(normalizedSettings);
+      setBankSettings(normalizedSettings);
       
       // Salvar no localStorage como backup
       try {
-        localStorage.setItem('goalscan_bank_settings', JSON.stringify(settings));
-        syncBankToWidgets(settings);
+        localStorage.setItem('goalscan_bank_settings', JSON.stringify(normalizedSettings));
+        syncBankToWidgets(normalizedSettings);
       } catch (e) {
         console.warn('Erro ao salvar no localStorage (backup):', e);
       }
@@ -92,7 +114,12 @@ export const useBankSettings = (onError?: (message: string) => void) => {
       
       // Salvar no localStorage mesmo em caso de erro
       try {
-        localStorage.setItem('goalscan_bank_settings', JSON.stringify(settings));
+        // Normalizar currency antes de salvar no localStorage
+        const normalizedSettings = {
+          ...settings,
+          currency: normalizeCurrency(settings.currency)
+        };
+        localStorage.setItem('goalscan_bank_settings', JSON.stringify(normalizedSettings));
       } catch (e) {
         console.error('Erro ao salvar no localStorage:', e);
       }

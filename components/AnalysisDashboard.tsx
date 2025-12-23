@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, AlertCircle, Calculator, CheckCircle, XCircle
 import BetManager from './BetManager';
 import ProbabilityGauge from './ProbabilityGauge';
 import MetricCard from './MetricCard';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
@@ -195,28 +196,28 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                       <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
                         <span className="text-xs opacity-60 block mb-1">Valor Apostado</span>
                         <p className="font-bold text-lg">
-                          {bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
+                          {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.betAmount.toFixed(2)}
                         </p>
                       </div>
                       {betInfo.status === 'pending' ? (
                         <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
                           <span className="text-xs opacity-60 block mb-1">Retorno Potencial</span>
                           <p className="font-bold text-lg text-primary">
-                            {bankSettings?.currency || 'R$'} {betInfo.potentialReturn.toFixed(2)}
+                            {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialReturn.toFixed(2)}
                           </p>
                         </div>
                       ) : betInfo.status === 'won' ? (
                         <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
                           <span className="text-xs opacity-60 block mb-1">Ganho Realizado</span>
                           <p className="font-bold text-lg text-success">
-                            +{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
+                            +{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialProfit.toFixed(2)}
                           </p>
                         </div>
                       ) : betInfo.status === 'lost' ? (
                         <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
                           <span className="text-xs opacity-60 block mb-1">Perda</span>
                           <p className="font-bold text-lg text-error">
-                            -{bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
+                            -{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.betAmount.toFixed(2)}
                           </p>
                         </div>
                       ) : null}
@@ -224,7 +225,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                         <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
                           <span className="text-xs opacity-60 block mb-1">Lucro Potencial</span>
                           <p className={`font-bold text-lg ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                            {betInfo.potentialProfit >= 0 ? '+' : ''}{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
+                            {betInfo.potentialProfit >= 0 ? '+' : ''}{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialProfit.toFixed(2)}
                           </p>
                         </div>
                       )}
