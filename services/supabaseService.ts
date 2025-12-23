@@ -25,33 +25,84 @@ export interface BankSettingsRow {
  */
 export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
   try {
+    console.log('[Supabase] Iniciando carregamento de análises salvas...');
     const supabase = await getSupabaseClient();
+    
+    console.log('[Supabase] Cliente inicializado, fazendo query...');
     const { data, error } = await supabase
       .from('saved_analyses')
       .select('*')
       .order('timestamp', { ascending: false });
 
     if (error) {
+      // Log detalhado do erro
+      console.error('[Supabase] Erro ao carregar análises:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        status: error.status
+      });
+      
       errorService.logApiError('loadSavedAnalyses', error.status || 500, error.message);
+      
+      // Identificar tipo de erro específico
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        // Tabela não existe
+        console.warn('[Supabase] Tabela saved_analyses não encontrada. Verifique se a tabela foi criada no Supabase.');
+        throw new Error('Tabela saved_analyses não encontrada no Supabase. Verifique a configuração do banco de dados.');
+      } else if (error.code === '42501' || error.status === 401) {
+        // Erro de autenticação/permissão
+        console.error('[Supabase] Erro de autenticação. Verifique as credenciais (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).');
+        throw new Error('Erro de autenticação com Supabase. Verifique as variáveis de ambiente.');
+      } else if (error.status === 0 || error.message?.includes('Failed to fetch')) {
+        // Erro de conexão
+        console.error('[Supabase] Erro de conexão. Verifique sua conexão com a internet e a URL do Supabase.');
+        throw new Error('Erro de conexão com Supabase. Verifique sua conexão com a internet.');
+      }
+      
       throw error;
     }
 
     if (!data) {
+      console.log('[Supabase] Nenhum dado retornado (data é null)');
       return [];
     }
 
+    console.log(`[Supabase] ${data.length} análise(s) carregada(s) com sucesso`);
+    
     // Converter do formato do banco para SavedAnalysis
-    return data.map((row: SavedAnalysisRow) => ({
+    const analyses = data.map((row: SavedAnalysisRow) => ({
       id: row.id,
       timestamp: row.timestamp,
       data: row.match_data,
       result: row.analysis_result,
       betInfo: row.bet_info,
     }));
-  } catch (error) {
-    console.error('Erro ao carregar análises:', error);
-    // Em caso de erro, retornar array vazio para não quebrar a aplicação
-    return [];
+    
+    return analyses;
+  } catch (error: any) {
+    // Log detalhado do erro capturado
+    console.error('[Supabase] Erro capturado ao carregar análises:', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+      code: error?.code,
+      status: error?.status
+    });
+    
+    errorService.logError(
+      error instanceof Error ? error : new Error(error?.message || 'Erro desconhecido ao carregar análises'),
+      {
+        component: 'supabaseService',
+        action: 'loadSavedAnalyses',
+        errorCode: error?.code,
+        errorStatus: error?.status
+      }
+    );
+    
+    // Re-lançar o erro para que o hook possa tratá-lo adequadamente
+    throw error;
   }
 };
 

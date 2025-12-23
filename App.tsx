@@ -24,7 +24,7 @@ type View = 'home' | 'analysis';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
-  const { savedMatches, isLoading, isSaving, syncError, saveMatch, removeMatch } = useSavedMatches(showError);
+  const { savedMatches, isLoading, isSaving, syncError, isUsingLocalData, saveMatch, removeMatch } = useSavedMatches(showError);
   const { bankSettings, isSyncing, lastSyncTime, saveSettings } = useBankSettings(showError);
   const { activeNotifications, removeNotification, cancelMatchNotification } = useNotifications(savedMatches);
   
@@ -300,27 +300,42 @@ const App: React.FC = () => {
             
             {/* Versão Desktop */}
             <div className="hidden md:flex gap-4 items-center">
+              {/* Indicador de status das partidas salvas */}
               {isLoading && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
                   <Loader className="w-3 h-3 text-info animate-spin" />
-                  <span className="text-xs font-bold text-info">Carregando...</span>
+                  <span className="text-xs font-bold text-info">Carregando partidas...</span>
                 </div>
               )}
+              {!isLoading && isUsingLocalData && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg" title="Usando dados locais. Verifique a conexão com Supabase.">
+                  <div className="w-2 h-2 bg-warning rounded-full animate-pulse" />
+                  <span className="text-xs font-bold text-warning">Modo Offline</span>
+                </div>
+              )}
+              {!isLoading && !isUsingLocalData && !syncError && savedMatches.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-lg" title="Partidas sincronizadas com Supabase">
+                  <div className="w-2 h-2 bg-success rounded-full" />
+                  <span className="text-xs font-bold text-success">{savedMatches.length} partida(s)</span>
+                </div>
+              )}
+              {syncError && !isLoading && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-error/10 border border-error/20 rounded-lg" title={syncError}>
+                  <span className="text-xs font-bold text-error">Erro de sincronização</span>
+                </div>
+              )}
+              
+              {/* Indicador de status da banca */}
               {isSyncing && !isLoading && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
                   <Loader className="w-3 h-3 text-info animate-spin" />
-                  <span className="text-xs font-bold text-info">Sincronizando...</span>
+                  <span className="text-xs font-bold text-info">Sincronizando banca...</span>
                 </div>
               )}
               {!isSyncing && !isLoading && !syncError && lastSyncTime && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-lg" title={`Última sincronização: ${new Date(lastSyncTime).toLocaleTimeString('pt-BR')}`}>
                   <div className="w-2 h-2 bg-success rounded-full" />
-                  <span className="text-xs font-bold text-success">Sincronizado</span>
-                </div>
-              )}
-              {syncError && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg">
-                  <span className="text-xs font-bold text-warning">{syncError}</span>
+                  <span className="text-xs font-bold text-success">Banca sincronizada</span>
                 </div>
               )}
               <button
