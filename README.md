@@ -16,14 +16,23 @@ View your app in AI Studio: https://ai.studio/apps/drive/1_EPMzvkySu16yY9rSyIWPM
    ```bash
    npm install
    ```
-2. Configurar variáveis de ambiente no arquivo `.env`:
-   ```
-   GEMINI_API_KEY=sua_chave_aqui
-   VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-   VITE_SUPABASE_ANON_KEY=sua_chave_anonima_supabase_aqui
-   ```
+2. Configurar variáveis de ambiente:
    
-   **Nota:** Copie o arquivo `.env.example` para `.env` e preencha com suas credenciais.
+   **Para desenvolvimento local:**
+   - Crie um arquivo `.env` na raiz do projeto
+   - Copie o conteúdo de `.env.example` e preencha com suas credenciais:
+     ```
+     GEMINI_API_KEY=sua_chave_aqui
+     VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+     VITE_SUPABASE_ANON_KEY=sua_chave_anonima_supabase_aqui
+     ```
+   
+   **Para produção no Vercel:**
+   - Acesse o [Dashboard do Vercel](https://vercel.com/dashboard)
+   - Selecione seu projeto > Settings > Environment Variables
+   - Adicione as mesmas variáveis (começando com `VITE_`)
+   - Faça um novo deploy
+   - 📖 Veja o guia completo em [docs/vercel_setup.md](docs/vercel_setup.md)
 3. Executar o app:
    ```bash
    npm run dev

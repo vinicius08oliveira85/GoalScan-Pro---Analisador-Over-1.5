@@ -13,7 +13,10 @@
     "android:run": "npx cap run android",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "setup:vercel": "node scripts/setup-vercel-env.js",
+    "setup:vercel:api": "node scripts/setup-vercel-env-api.js",
+    "config:vercel": "node scripts/config-vercel-now.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

@@ -24,13 +24,35 @@ export const getSupabaseClient = async () => {
     if (!SUPABASE_URL) missingVars.push('VITE_SUPABASE_URL');
     if (!SUPABASE_ANON_KEY) missingVars.push('VITE_SUPABASE_ANON_KEY');
     
-    const error = new Error(
-      `Variáveis de ambiente do Supabase não configuradas: ${missingVars.join(', ')}. ` +
-      'Certifique-se de que VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY estão definidas no arquivo .env. ' +
-      'Após adicionar as variáveis, reinicie o servidor de desenvolvimento (npm run dev).'
-    );
+    // Detectar se está rodando em produção (Vercel)
+    const isProduction = window.location.hostname.includes('vercel.app') || 
+                         window.location.hostname.includes('vercel.com') ||
+                         process.env.NODE_ENV === 'production';
+    
+    let errorMessage = `Variáveis de ambiente do Supabase não configuradas: ${missingVars.join(', ')}.\n\n`;
+    
+    if (isProduction) {
+      errorMessage += '🔧 CONFIGURAÇÃO NO VERCEL:\n';
+      errorMessage += '1. Acesse: https://vercel.com/dashboard\n';
+      errorMessage += '2. Selecione seu projeto\n';
+      errorMessage += '3. Vá em Settings > Environment Variables\n';
+      errorMessage += '4. Adicione as seguintes variáveis:\n';
+      errorMessage += '   - VITE_SUPABASE_URL = https://seu-projeto.supabase.co\n';
+      errorMessage += '   - VITE_SUPABASE_ANON_KEY = sua_chave_anonima_aqui\n';
+      errorMessage += '5. Faça um novo deploy (ou aguarde o redeploy automático)\n\n';
+      errorMessage += '💡 As variáveis precisam começar com VITE_ para serem expostas ao cliente.';
+    } else {
+      errorMessage += '🔧 CONFIGURAÇÃO LOCAL:\n';
+      errorMessage += '1. Crie um arquivo .env na raiz do projeto\n';
+      errorMessage += '2. Adicione as seguintes variáveis:\n';
+      errorMessage += '   VITE_SUPABASE_URL=https://seu-projeto.supabase.co\n';
+      errorMessage += '   VITE_SUPABASE_ANON_KEY=sua_chave_anonima_aqui\n';
+      errorMessage += '3. Reinicie o servidor de desenvolvimento (npm run dev)';
+    }
+    
+    const error = new Error(errorMessage);
     console.error('[Supabase] ❌ Erro de configuração:', error.message);
-    console.error('[Supabase] 💡 Dica: Verifique se o arquivo .env existe na raiz do projeto e contém as variáveis necessárias.');
+    console.error('[Supabase] 💡 Dica: As variáveis de ambiente precisam estar configuradas.');
     throw error;
   }
 
