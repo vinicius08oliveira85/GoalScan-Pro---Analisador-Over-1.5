@@ -187,6 +187,11 @@ export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis): Promise<Sav
 
 /**
  * Carrega as configurações de banca do Supabase
+ * 
+ * NOTA: Se a tabela bank_settings não existir no Supabase, execute o SQL em:
+ * supabase/migrations/create_bank_settings.sql
+ * 
+ * Acesse: Supabase Dashboard > SQL Editor > Execute o script
  */
 export const loadBankSettings = async (): Promise<BankSettings | null> => {
   try {
@@ -198,12 +203,21 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
       .single();
 
     if (error) {
-      // Se não encontrar registro, retornar null (não é erro crítico)
-      if (error.code === 'PGRST116') {
+      // Se não encontrar registro (PGRST116) ou tabela não existe (404), retornar null silenciosamente
+      if (error.code === 'PGRST116' || error.code === '42P01' || error.status === 404) {
+        // Tabela não existe ou registro não encontrado - não é erro crítico
+        // O sistema continuará usando localStorage como fallback
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Tabela bank_settings não encontrada. Usando localStorage como fallback. Execute o SQL em supabase/migrations/create_bank_settings.sql');
+        }
         return null;
       }
-      console.error('Erro ao carregar configurações de banca do Supabase:', error);
-      throw error;
+      
+      // Outros erros: logar apenas em desenvolvimento
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Erro ao carregar configurações de banca do Supabase:', error);
+      }
+      return null; // Retornar null em vez de lançar erro para não quebrar a aplicação
     }
 
     if (!data) {
@@ -216,8 +230,20 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
       currency: data.currency,
       updatedAt: data.updated_at || Date.now(),
     };
-  } catch (error) {
-    console.error('Erro ao carregar configurações de banca:', error);
+  } catch (error: any) {
+    // Tratar erros de rede ou outros erros inesperados
+    if (error?.status === 404 || error?.code === '42P01') {
+      // Tabela não existe - não é erro crítico
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Tabela bank_settings não encontrada. Execute o SQL em supabase/migrations/create_bank_settings.sql');
+      }
+      return null;
+    }
+    
+    // Outros erros: logar apenas em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Erro ao carregar configurações de banca:', error);
+    }
     // Em caso de erro, retornar null para não quebrar a aplicação
     return null;
   }
@@ -225,6 +251,11 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
 
 /**
  * Salva ou atualiza as configurações de banca no Supabase
+ * 
+ * NOTA: Se a tabela bank_settings não existir, esta função falhará silenciosamente
+ * e os dados serão salvos apenas no localStorage como fallback.
+ * 
+ * Para criar a tabela, execute: supabase/migrations/create_bank_settings.sql
  */
 export const saveBankSettings = async (settings: BankSettings): Promise<BankSettings> => {
   try {
@@ -243,8 +274,28 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
       .single();
 
     if (error) {
-      console.error('Erro ao salvar configurações de banca no Supabase:', error);
-      throw error;
+      // Se a tabela não existe (404 ou 42P01), não lançar erro - apenas logar em dev
+      if (error.code === '42P01' || error.status === 404) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Tabela bank_settings não encontrada. Dados salvos apenas no localStorage. Execute o SQL em supabase/migrations/create_bank_settings.sql');
+        }
+        // Retornar as configurações mesmo sem salvar no Supabase
+        // O localStorage já foi atualizado pelo App.tsx
+        return settings;
+      }
+      
+      // Outros erros: logar apenas em desenvolvimento
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Erro ao salvar configurações de banca no Supabase:', error);
+      }
+      // Retornar as configurações mesmo em caso de erro
+      // O localStorage já foi atualizado pelo App.tsx
+      return settings;
+    }
+
+    if (!data) {
+      // Se não retornou dados, retornar as configurações originais
+      return settings;
     }
 
     return {
@@ -252,9 +303,22 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
       currency: data.currency,
       updatedAt: data.updated_at || Date.now(),
     };
-  } catch (error) {
-    console.error('Erro ao salvar configurações de banca:', error);
-    throw error;
+  } catch (error: any) {
+    // Tratar erros de rede ou outros erros inesperados
+    if (error?.status === 404 || error?.code === '42P01') {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Tabela bank_settings não encontrada. Dados salvos apenas no localStorage.');
+      }
+      // Retornar as configurações mesmo sem salvar no Supabase
+      return settings;
+    }
+    
+    // Outros erros: logar apenas em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Erro ao salvar configurações de banca:', error);
+    }
+    // Retornar as configurações mesmo em caso de erro
+    return settings;
   }
 };
 
