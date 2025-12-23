@@ -2,6 +2,9 @@
  * Utilitários para sugestão de valor de aposta
  */
 
+// Valor mínimo de aposta exigido pela casa de apostas
+export const MIN_BET_AMOUNT = 5.00;
+
 export interface BetSuggestion {
   conservative: number;      // 1% da banca (conservador)
   moderate: number;          // 2.5% da banca (moderado)
@@ -58,6 +61,19 @@ export function suggestBetAmount(
   odd: number,
   bank: number
 ): BetSuggestion {
+  // Verificar se a banca é suficiente para o valor mínimo
+  if (bank < MIN_BET_AMOUNT) {
+    return {
+      conservative: 0,
+      moderate: 0,
+      aggressive: 0,
+      kelly: 0,
+      recommended: 0,
+      method: 'conservative',
+      explanation: `Banca insuficiente. Valor mínimo: R$ ${MIN_BET_AMOUNT.toFixed(2)}`
+    };
+  }
+
   if (bank <= 0 || odd <= 1 || probability <= 0) {
     return {
       conservative: 0,
@@ -87,12 +103,27 @@ export function suggestBetAmount(
   }
 
   // Estratégias baseadas em porcentagem da banca
-  const conservative = bank * 0.01;      // 1% da banca
-  const moderate = bank * 0.025;        // 2.5% da banca
-  const aggressive = bank * 0.05;        // 5% da banca
+  let conservative = bank * 0.01;      // 1% da banca
+  let moderate = bank * 0.025;        // 2.5% da banca
+  let aggressive = bank * 0.05;        // 5% da banca
   
   // Kelly Criterion
-  const kelly = calculateKellyStake(probability, odd, bank);
+  let kelly = calculateKellyStake(probability, odd, bank);
+  
+  // Garantir que valores calculados respeitem o mínimo
+  // Se o valor for menor que o mínimo, ajustar para o mínimo (se banca permitir)
+  if (conservative < MIN_BET_AMOUNT) {
+    conservative = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
+  }
+  if (moderate < MIN_BET_AMOUNT) {
+    moderate = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
+  }
+  if (aggressive < MIN_BET_AMOUNT) {
+    aggressive = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
+  }
+  if (kelly > 0 && kelly < MIN_BET_AMOUNT) {
+    kelly = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
+  }
   
   // Recomendação inteligente baseada em EV e probabilidade
   let recommended: number;
@@ -101,28 +132,36 @@ export function suggestBetAmount(
   
   if (ev > 15 && probability > 80) {
     // EV muito alto e probabilidade alta - pode ser mais agressivo
-    recommended = Math.min(aggressive, kelly * 0.8); // 80% do Kelly ou agressivo
+    recommended = Math.min(aggressive, kelly > 0 ? kelly * 0.8 : aggressive); // 80% do Kelly ou agressivo
     method = 'aggressive';
     explanation = 'EV muito alto e alta probabilidade - pode apostar mais';
   } else if (ev > 10 && probability > 75) {
     // EV alto e boa probabilidade - moderado
-    recommended = Math.min(moderate, kelly * 0.6); // 60% do Kelly ou moderado
+    recommended = Math.min(moderate, kelly > 0 ? kelly * 0.6 : moderate); // 60% do Kelly ou moderado
     method = 'moderate';
     explanation = 'EV alto e boa probabilidade - aposta moderada recomendada';
   } else if (ev > 5 && probability > 70) {
     // EV positivo mas moderado - conservador
-    recommended = Math.min(conservative, kelly * 0.4); // 40% do Kelly ou conservador
+    recommended = Math.min(conservative, kelly > 0 ? kelly * 0.4 : conservative); // 40% do Kelly ou conservador
     method = 'conservative';
     explanation = 'EV positivo moderado - aposta conservadora recomendada';
   } else {
     // EV baixo mas positivo - muito conservador
-    recommended = conservative * 0.5; // Metade do conservador
+    recommended = Math.max(conservative * 0.5, MIN_BET_AMOUNT); // Metade do conservador ou mínimo
     method = 'conservative';
     explanation = 'EV baixo - aposta muito conservadora recomendada';
   }
   
   // Garantir que o valor recomendado não seja maior que a banca
   recommended = Math.min(recommended, bank);
+  
+  // Garantir que o valor recomendado respeite o mínimo
+  if (recommended > 0 && recommended < MIN_BET_AMOUNT) {
+    recommended = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
+    if (recommended === MIN_BET_AMOUNT) {
+      explanation += ' (ajustado para valor mínimo)';
+    }
+  }
   
   // Arredondar valores para 2 casas decimais
   return {

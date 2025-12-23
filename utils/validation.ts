@@ -70,7 +70,7 @@ export const matchDataSchema = z.object({
 
 // Schema para validação de BetInfo
 export const betInfoSchema = z.object({
-  betAmount: z.number().min(0.01, 'Valor da aposta deve ser maior que zero').max(1000000),
+  betAmount: z.number().min(5, 'Valor mínimo da aposta é R$ 5,00').max(1000000),
   odd: z.number().min(1.01, 'Odd deve ser maior que 1.00').max(1000),
   potentialReturn: z.number().min(0),
   potentialProfit: z.number(),

@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { BetInfo, BankSettings } from '../types';
-import { Calculator, TrendingUp, DollarSign, Percent, X, Lightbulb, Sparkles } from 'lucide-react';
+import { Calculator, TrendingUp, DollarSign, Percent, X, Lightbulb, Sparkles, AlertCircle } from 'lucide-react';
 import { validateBetInfo } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { getCurrencySymbol } from '../utils/currency';
-import { suggestBetAmount, calculateEV } from '../utils/betSuggestion';
+import { suggestBetAmount, calculateEV, MIN_BET_AMOUNT } from '../utils/betSuggestion';
 
 interface BetManagerProps {
   odd: number;
@@ -29,6 +29,7 @@ const BetManager: React.FC<BetManagerProps> = ({
 }) => {
   const [betAmount, setBetAmount] = useState<number>(betInfo?.betAmount || 0);
   const [status, setStatus] = useState<BetInfo['status']>(betInfo?.status || 'pending');
+  const [isValidAmount, setIsValidAmount] = useState<boolean>(true);
 
   // Calcular valores automaticamente
   const potentialReturn = betAmount > 0 && odd > 0 ? betAmount * odd : 0;
@@ -50,6 +51,15 @@ const BetManager: React.FC<BetManagerProps> = ({
       setStatus(betInfo.status);
     }
   }, [betInfo]);
+
+  // Validação em tempo real do valor mínimo
+  useEffect(() => {
+    if (betAmount > 0 && betAmount < MIN_BET_AMOUNT) {
+      setIsValidAmount(false);
+    } else {
+      setIsValidAmount(true);
+    }
+  }, [betAmount]);
 
   const handleSave = () => {
     try {
@@ -175,31 +185,50 @@ const BetManager: React.FC<BetManagerProps> = ({
               Valor da Aposta
             </span>
           </label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={betAmount || ''}
-            onChange={(e) => setBetAmount(Number(e.target.value))}
-            className={`input input-bordered w-full min-h-[44px] text-base ${
-              betSuggestion && betAmount > 0 && Math.abs(betAmount - betSuggestion.recommended) / betSuggestion.recommended < 0.1
-                ? 'border-success'
-                : ''
-            }`}
-            placeholder="Ex: 100.00"
-          />
-          {bankSettings && bankSettings.totalBank > 0 && (
-            <label className="label">
-              <span className="label-text-alt opacity-60">
-                {bankPercentage.toFixed(2)}% da sua banca ({getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(2)})
-                {betSuggestion && betSuggestion.recommended > 0 && (
-                  <span className="ml-2">
-                    • Sugestão: {getCurrencySymbol(bankSettings.currency)} {betSuggestion.recommended.toFixed(2)} ({(betSuggestion.recommended / bankSettings.totalBank * 100).toFixed(2)}%)
-                  </span>
-                )}
-              </span>
-            </label>
-          )}
+          <div className="relative">
+            <input
+              type="number"
+              step="0.01"
+              min={MIN_BET_AMOUNT}
+              value={betAmount || ''}
+              onChange={(e) => setBetAmount(Number(e.target.value))}
+              className={`input input-bordered w-full min-h-[44px] text-base ${
+                !isValidAmount && betAmount > 0
+                  ? 'border-error focus:ring-error'
+                  : betSuggestion && betAmount > 0 && Math.abs(betAmount - betSuggestion.recommended) / betSuggestion.recommended < 0.1
+                  ? 'border-success'
+                  : ''
+              }`}
+              placeholder={`Mínimo: ${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${MIN_BET_AMOUNT.toFixed(2)}`}
+              aria-label="Valor da aposta"
+              aria-invalid={!isValidAmount && betAmount > 0}
+            />
+            {!isValidAmount && betAmount > 0 && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-error">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+            )}
+          </div>
+          <label className="label">
+            <span className="label-text-alt opacity-60">
+              {!isValidAmount && betAmount > 0 ? (
+                <span className="text-error">
+                  Valor mínimo: {getCurrencySymbol(bankSettings?.currency || 'BRL')} {MIN_BET_AMOUNT.toFixed(2)}
+                </span>
+              ) : bankSettings && bankSettings.totalBank > 0 ? (
+                <>
+                  {bankPercentage.toFixed(2)}% da sua banca ({getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(2)})
+                  {betSuggestion && betSuggestion.recommended > 0 && (
+                    <span className="ml-2">
+                      • Sugestão: {getCurrencySymbol(bankSettings.currency)} {betSuggestion.recommended.toFixed(2)} ({(betSuggestion.recommended / bankSettings.totalBank * 100).toFixed(2)}%)
+                    </span>
+                  )}
+                </>
+              ) : (
+                `Valor mínimo: ${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${MIN_BET_AMOUNT.toFixed(2)}`
+              )}
+            </span>
+          </label>
         </div>
 
         {/* Status da Aposta */}
@@ -291,7 +320,8 @@ const BetManager: React.FC<BetManagerProps> = ({
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
           <button
             onClick={handleSave}
-            className="btn btn-primary flex-1 min-h-[44px] text-base"
+            disabled={!isValidAmount || betAmount < MIN_BET_AMOUNT}
+            className="btn btn-primary flex-1 min-h-[44px] text-base disabled:btn-disabled"
           >
             {betInfo ? 'Atualizar Aposta' : 'Salvar Aposta'}
           </button>
