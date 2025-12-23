@@ -480,7 +480,7 @@ const App: React.FC = () => {
   // Renderizar tela principal ou tela de análise
   if (view === 'home') {
     return (
-      <div className="min-h-screen pb-20">
+      <div className="min-h-screen pb-12 md:pb-20">
         <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-3 md:py-4 mb-6 md:mb-8 sticky top-0 z-50 shadow-sm">
           <div className="container mx-auto px-3 md:px-4 flex justify-between items-center gap-2">
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
@@ -601,7 +601,7 @@ const App: React.FC = () => {
 
   // Tela de Análise
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-12 md:pb-20">
       <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-3 md:py-4 mb-6 md:mb-8 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-3 md:px-4 flex justify-between items-center gap-2">
           <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">

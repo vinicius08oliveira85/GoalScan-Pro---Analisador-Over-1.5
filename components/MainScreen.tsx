@@ -21,7 +21,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
     : 0;
 
   return (
-    <div className="min-h-screen pb-20">
+    <div>
       {/* Header */}
       <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-4 mb-8 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 flex justify-between items-center">
