@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { BankSettings } from '../types';
+import type { BankSettings } from '../types';
 import { Wallet, Save, DollarSign } from 'lucide-react';
 import { validateBankSettings } from '../utils/validation';
+import { errorService } from '../services/errorService';
 
 interface BankSettingsProps {
   bankSettings?: BankSettings;
