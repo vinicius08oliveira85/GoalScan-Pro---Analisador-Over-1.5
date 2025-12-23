@@ -1,9 +1,128 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SavedAnalysis } from '../types';
 import { TrendingUp, TrendingDown, Calendar, X, Plus, Target, Activity, TrendingUp as TrendingUpIcon, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
 import { SkeletonMatchCard } from './Skeleton';
 import { cardHover, animations } from '../utils/animations';
+import MatchTabs, { TabCategory } from './MatchTabs';
+import { filterMatchesByCategory, getCategoryCounts } from '../utils/matchFilters';
+
+// Componente de Empty State por categoria
+const EmptyStateByCategory: React.FC<{ 
+  category: TabCategory; 
+  onNewMatch: () => void;
+  totalMatches: number;
+}> = ({ category, onNewMatch, totalMatches }) => {
+  const emptyStates = {
+    todas: {
+      icon: Target,
+      title: 'Nenhuma Partida Salva',
+      description: 'Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida e começar a usar o GoalScan Pro.',
+      showButton: true
+    },
+    hoje: {
+      icon: Calendar,
+      title: 'Nenhuma Partida Hoje',
+      description: 'Não há partidas agendadas para hoje. Verifique outras abas ou adicione uma nova partida.',
+      showButton: true
+    },
+    futuras: {
+      icon: TrendingUp,
+      title: 'Nenhuma Partida Futura',
+      description: 'Não há partidas agendadas para o futuro. Adicione novas partidas para acompanhar.',
+      showButton: true
+    },
+    pendentes: {
+      icon: Clock,
+      title: 'Nenhuma Partida Pendente',
+      description: totalMatches > 0 
+        ? 'Todas as suas partidas já foram finalizadas ou não possuem apostas pendentes.'
+        : 'Adicione partidas e registre apostas para acompanhar seus resultados.',
+      showButton: totalMatches === 0
+    },
+    finalizadas: {
+      icon: CheckCircle,
+      title: 'Nenhuma Partida Finalizada',
+      description: 'Ainda não há partidas finalizadas. As partidas aparecerão aqui após serem concluídas.',
+      showButton: false
+    }
+  };
+
+  const state = emptyStates[category];
+  const Icon = state.icon;
+
+  return (
+    <motion.div
+      key={category}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
+      className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2 relative overflow-hidden"
+    >
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-50" />
+      
+      {/* Animated icon */}
+      <motion.div
+        initial={{ scale: 0, rotate: -180 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: "spring", bounce: 0.6, delay: 0.2 }}
+        className="relative mb-6"
+      >
+        <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center shadow-lg">
+          <Icon className="w-16 h-16 md:w-20 md:h-20 text-primary opacity-60" />
+        </div>
+        {/* Pulsing ring */}
+        <motion.div
+          className="absolute inset-0 rounded-full border-4 border-primary/20"
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.5, 0, 0.5]
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      </motion.div>
+      
+      <motion.h3
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="text-2xl md:text-3xl font-black mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
+      >
+        {state.title}
+      </motion.h3>
+      
+      <motion.p
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="text-sm md:text-base opacity-70 mb-8 max-w-md leading-relaxed"
+      >
+        {state.description}
+      </motion.p>
+      
+      {state.showButton && (
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={onNewMatch}
+          className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl focus-ring"
+        >
+          <Plus className="w-5 h-5" />
+          Adicionar Partida
+        </motion.button>
+      )}
+    </motion.div>
+  );
+};
 
 interface MainScreenProps {
   savedMatches: SavedAnalysis[];
@@ -14,18 +133,36 @@ interface MainScreenProps {
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onNewMatch, onDeleteMatch, isLoading = false }) => {
-  // Calcular estatísticas gerais
-  const totalMatches = savedMatches.length;
-  const positiveEV = savedMatches.filter(m => m.result.ev > 0).length;
-  const avgProbability = savedMatches.length > 0 
-    ? savedMatches.reduce((sum, m) => sum + m.result.probabilityOver15, 0) / savedMatches.length 
+  // Estado da aba ativa
+  const [activeTab, setActiveTab] = useState<TabCategory>('todas');
+  
+  // Contadores por categoria
+  const categoryCounts = useMemo(() => getCategoryCounts(savedMatches), [savedMatches]);
+  
+  // Filtrar partidas baseado na aba ativa
+  const filteredMatches = useMemo(() => {
+    return filterMatchesByCategory(savedMatches, activeTab);
+  }, [savedMatches, activeTab]);
+  
+  // Calcular estatísticas gerais (baseadas nas partidas filtradas)
+  const totalMatches = filteredMatches.length;
+  const positiveEV = filteredMatches.filter(m => m.result.ev > 0).length;
+  const avgProbability = filteredMatches.length > 0 
+    ? filteredMatches.reduce((sum, m) => sum + m.result.probabilityOver15, 0) / filteredMatches.length 
     : 0;
-  const avgEV = savedMatches.length > 0
-    ? savedMatches.reduce((sum, m) => sum + m.result.ev, 0) / savedMatches.length
+  const avgEV = filteredMatches.length > 0
+    ? filteredMatches.reduce((sum, m) => sum + m.result.ev, 0) / filteredMatches.length
     : 0;
 
   return (
     <div>
+        {/* Sistema de Abas */}
+        <MatchTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          counts={categoryCounts}
+        />
+        
         {/* Estatísticas Gerais */}
         {totalMatches > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
@@ -149,14 +286,23 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
               Adicionar Primeira Partida
             </motion.button>
           </motion.div>
+        ) : filteredMatches.length === 0 ? (
+          <EmptyStateByCategory 
+            category={activeTab} 
+            onNewMatch={onNewMatch}
+            totalMatches={savedMatches.length}
+          />
         ) : (
-          <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
-            variants={animations.staggerChildren}
-            initial="initial"
-            animate="animate"
-          >
-            {savedMatches.map((match, index) => (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+              variants={animations.staggerChildren}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              {filteredMatches.map((match, index) => (
               <motion.div
                 key={match.id}
                 onClick={() => onMatchClick(match)}
@@ -334,8 +480,9 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                   </div>
                 </div>
               </motion.div>
-            ))}
-          </motion.div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
         )}
     </div>
   );
