@@ -167,7 +167,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
           {/* Shine effect on hover */}
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-1000" />
-        </div>
+        </motion.div>
       </div>
 
       {/* Seção de Aposta - Design Moderno e Compacto */}
@@ -295,7 +295,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           )}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
