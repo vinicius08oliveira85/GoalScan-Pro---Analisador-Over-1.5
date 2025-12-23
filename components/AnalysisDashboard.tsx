@@ -1,16 +1,28 @@
 
-import React from 'react';
-import { AnalysisResult, MatchData, RecentMatch } from '../types';
+import React, { useState } from 'react';
+import { AnalysisResult, MatchData, RecentMatch, BetInfo, BankSettings } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Shield, Activity, Zap, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Shield, Activity, Zap, AlertCircle, Calculator } from 'lucide-react';
+import BetManager from './BetManager';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
   data: MatchData;
   onSave?: () => void;
+  betInfo?: BetInfo;
+  bankSettings?: BankSettings;
+  onBetSave?: (betInfo: BetInfo) => void;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onSave }) => {
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ 
+  result, 
+  data, 
+  onSave, 
+  betInfo, 
+  bankSettings,
+  onBetSave 
+}) => {
+  const [showBetManager, setShowBetManager] = useState(false);
   const chartData = [
     { name: 'Over 1.5', value: result.probabilityOver15 },
     { name: 'Under 1.5', value: 100 - result.probabilityOver15 },
@@ -56,10 +68,18 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onS
             <Target className="w-4 h-4 text-teal-400" />
             <h3 className="text-sm font-black uppercase tracking-widest">PROBABILIDADE OVER 1.5</h3>
           </div>
-          <div className="w-full h-48 relative">
+          <div className="w-full h-40 sm:h-44 md:h-48 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={chartData} cx="50%" cy="50%" innerRadius={65} outerRadius={85} paddingAngle={5} dataKey="value">
+                <Pie 
+                  data={chartData} 
+                  cx="50%" 
+                  cy="50%" 
+                  innerRadius="45%" 
+                  outerRadius="60%" 
+                  paddingAngle={5} 
+                  dataKey="value"
+                >
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                   ))}
@@ -67,7 +87,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onS
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl md:text-5xl font-black text-teal-400 leading-none">{result.probabilityOver15.toFixed(1)}%</span>
+              <span className="text-2xl sm:text-3xl md:text-4xl font-black text-teal-400 leading-none">{result.probabilityOver15.toFixed(1)}%</span>
               <span className="text-[10px] font-bold opacity-40 mt-1 uppercase">CONFIANÇA</span>
             </div>
           </div>
@@ -221,6 +241,77 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onS
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Seção de Aposta */}
+      {onBetSave && (
+        <div>
+          {!showBetManager ? (
+            <div className="custom-card p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-black uppercase">Gerenciar Aposta</h3>
+                </div>
+                <button
+                  onClick={() => setShowBetManager(true)}
+                  className="btn btn-primary btn-sm"
+                >
+                  {betInfo && betInfo.betAmount > 0 ? 'Editar Aposta' : 'Registrar Aposta'}
+                </button>
+              </div>
+              
+              {betInfo && betInfo.betAmount > 0 ? (
+                <div className="mt-4 bg-base-100/50 p-4 rounded-xl border border-white/5">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-xs opacity-60">Valor Apostado</span>
+                      <p className="font-bold text-lg">
+                        {bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs opacity-60">Retorno Potencial</span>
+                      <p className="font-bold text-lg text-primary">
+                        {bankSettings?.currency || 'R$'} {betInfo.potentialReturn.toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs opacity-60">Lucro Potencial</span>
+                      <p className={`font-bold text-lg ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
+                        {betInfo.potentialProfit >= 0 ? '+' : ''}{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs opacity-60">Status</span>
+                      <p className="font-bold text-lg">
+                        {betInfo.status === 'pending' ? 'Pendente' : 
+                         betInfo.status === 'won' ? 'Ganhou' : 
+                         betInfo.status === 'lost' ? 'Perdeu' : 'Cancelada'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-4 text-sm opacity-60">
+                  Clique em "Registrar Aposta" para adicionar informações sobre sua aposta nesta partida.
+                </p>
+              )}
+            </div>
+          ) : (
+            <BetManager
+              odd={data.oddOver15 || 0}
+              probability={result.probabilityOver15}
+              betInfo={betInfo}
+              bankSettings={bankSettings}
+              onSave={(newBetInfo) => {
+                onBetSave(newBetInfo);
+                setShowBetManager(false);
+              }}
+              onCancel={() => setShowBetManager(false)}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };

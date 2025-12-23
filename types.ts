@@ -140,9 +140,29 @@ export interface AnalysisResult {
   };
 }
 
+// Informações de Aposta
+export interface BetInfo {
+  betAmount: number;        // Valor apostado
+  odd: number;              // Odd da aposta
+  potentialReturn: number;  // Retorno potencial (calculado)
+  potentialProfit: number;  // Lucro potencial (calculado)
+  bankPercentage: number;   // % da banca usado
+  status: 'pending' | 'won' | 'lost' | 'cancelled';
+  placedAt?: number;        // Timestamp quando apostou
+  resultAt?: number;        // Timestamp quando resultado saiu
+}
+
+// Configurações de Banca
+export interface BankSettings {
+  totalBank: number;        // Banca total
+  currency: string;         // Moeda (R$, $, €)
+  updatedAt: number;        // Última atualização
+}
+
 export interface SavedAnalysis {
   id: string;
   timestamp: number;
   data: MatchData;
   result: AnalysisResult;
+  betInfo?: BetInfo;        // Informações da aposta (opcional)
 }

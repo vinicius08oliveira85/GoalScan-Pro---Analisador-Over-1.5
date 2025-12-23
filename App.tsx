@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import MatchForm from './components/MatchForm';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import MainScreen from './components/MainScreen';
+import BankSettings from './components/BankSettings';
 import { performAnalysis } from './services/analysisEngine';
 import { loadSavedAnalyses, saveOrUpdateAnalysis, deleteAnalysis } from './services/supabaseService';
-import { MatchData, AnalysisResult, SavedAnalysis } from './types';
-import { ArrowLeft, Loader } from 'lucide-react';
+import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
+import { ArrowLeft, Loader, Wallet } from 'lucide-react';
 
 type View = 'home' | 'analysis';
 
@@ -19,6 +20,8 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [bankSettings, setBankSettings] = useState<BankSettingsType | undefined>(undefined);
+  const [showBankSettings, setShowBankSettings] = useState<boolean>(false);
 
   // Carregar do Supabase na inicialização
   useEffect(() => {
@@ -46,6 +49,18 @@ const App: React.FC = () => {
     };
 
     loadData();
+  }, []);
+
+  // Carregar configurações de banca do localStorage
+  useEffect(() => {
+    const storedBank = localStorage.getItem('goalscan_bank_settings');
+    if (storedBank) {
+      try {
+        setBankSettings(JSON.parse(storedBank));
+      } catch (e) {
+        console.error('Erro ao carregar configurações de banca:', e);
+      }
+    }
   }, []);
 
   // Funções de Navegação
@@ -98,6 +113,7 @@ const App: React.FC = () => {
             ...selectedMatch,
             data: currentMatchData,
             result: analysisResult,
+            betInfo: selectedMatch.betInfo, // Manter betInfo se existir
             timestamp: Date.now() // Atualizar timestamp
           };
         } else {
@@ -106,7 +122,8 @@ const App: React.FC = () => {
             id: Math.random().toString(36).substr(2, 9),
             timestamp: Date.now(),
             data: currentMatchData,
-            result: analysisResult
+            result: analysisResult,
+            betInfo: selectedMatch?.betInfo // Incluir betInfo se existir
           };
         }
 
@@ -167,6 +184,69 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSaveBankSettings = (settings: BankSettingsType) => {
+    setBankSettings(settings);
+    localStorage.setItem('goalscan_bank_settings', JSON.stringify(settings));
+  };
+
+  const handleSaveBetInfo = async (betInfo: BetInfo) => {
+    if (selectedMatch && currentMatchData && analysisResult) {
+      try {
+        const updatedMatch: SavedAnalysis = {
+          ...selectedMatch,
+          data: currentMatchData,
+          result: analysisResult,
+          betInfo,
+          timestamp: Date.now()
+        };
+
+        // Salvar no Supabase
+        const savedMatch = await saveOrUpdateAnalysis(updatedMatch);
+        
+        // Atualizar estado local
+        setSavedMatches(prev => prev.map(m => m.id === selectedMatch.id ? savedMatch : m));
+        setSelectedMatch(savedMatch);
+
+        // Salvar também no localStorage como backup
+        try {
+          const allMatches = savedMatches.map(m => m.id === selectedMatch.id ? savedMatch : m);
+          localStorage.setItem('goalscan_saved', JSON.stringify(allMatches));
+        } catch (e) {
+          console.warn('Erro ao salvar no localStorage (backup):', e);
+        }
+      } catch (error) {
+        console.error('Erro ao salvar aposta:', error);
+        // Salvar localmente mesmo em caso de erro
+        const updatedMatch: SavedAnalysis = {
+          ...selectedMatch,
+          data: currentMatchData,
+          result: analysisResult,
+          betInfo,
+          timestamp: Date.now()
+        };
+        setSavedMatches(prev => prev.map(m => m.id === selectedMatch.id ? updatedMatch : m));
+        setSelectedMatch(updatedMatch);
+        try {
+          const allMatches = savedMatches.map(m => m.id === selectedMatch.id ? updatedMatch : m);
+          localStorage.setItem('goalscan_saved', JSON.stringify(allMatches));
+        } catch (e) {
+          console.error('Erro ao salvar no localStorage:', e);
+        }
+      }
+    } else if (currentMatchData && analysisResult) {
+      // Se não há partida salva ainda, apenas atualizar o estado local
+      // A aposta será salva quando o usuário salvar a partida
+      const tempMatch: SavedAnalysis = {
+        id: selectedMatch?.id || Math.random().toString(36).substr(2, 9),
+        timestamp: selectedMatch?.timestamp || Date.now(),
+        data: currentMatchData,
+        result: analysisResult,
+        betInfo
+      };
+      setSelectedMatch(tempMatch);
+    }
+  };
+
   const handleDeleteSaved = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
@@ -223,12 +303,37 @@ const App: React.FC = () => {
                   <span className="text-xs font-bold text-warning">{syncError}</span>
                 </div>
               )}
+              <button
+                onClick={() => setShowBankSettings(!showBankSettings)}
+                className="btn btn-sm btn-outline btn-secondary flex items-center gap-2"
+              >
+                <Wallet className="w-4 h-4" />
+                Banca
+                {bankSettings && (
+                  <span className="badge badge-sm">
+                    {bankSettings.currency} {bankSettings.totalBank.toFixed(0)}
+                  </span>
+                )}
+              </button>
               <span className="badge badge-outline badge-sm font-bold">v3.8.2 Elite Edition</span>
             </div>
           </div>
         </header>
 
         <main className="container mx-auto px-4">
+          {/* Configurações de Banca */}
+          {showBankSettings && (
+            <div className="mb-6">
+              <BankSettings
+                bankSettings={bankSettings}
+                onSave={(settings) => {
+                  handleSaveBankSettings(settings);
+                  setShowBankSettings(false);
+                }}
+              />
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
@@ -333,6 +438,9 @@ const App: React.FC = () => {
                 result={analysisResult} 
                 data={currentMatchData} 
                 onSave={handleSaveMatch}
+                betInfo={selectedMatch?.betInfo}
+                bankSettings={bankSettings}
+                onBetSave={handleSaveBetInfo}
               />
             ) : (
               <div className="custom-card p-12 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2">

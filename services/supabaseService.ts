@@ -1,4 +1,4 @@
-import { SavedAnalysis, MatchData, AnalysisResult } from '../types';
+import { SavedAnalysis, MatchData, AnalysisResult, BetInfo } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 
 export interface SavedAnalysisRow {
@@ -6,6 +6,7 @@ export interface SavedAnalysisRow {
   timestamp: number;
   match_data: MatchData;
   analysis_result: AnalysisResult;
+  bet_info?: BetInfo;
   created_at?: string;
   updated_at?: string;
 }
@@ -36,6 +37,7 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
       timestamp: row.timestamp,
       data: row.match_data,
       result: row.analysis_result,
+      betInfo: row.bet_info,
     }));
   } catch (error) {
     console.error('Erro ao carregar análises:', error);
@@ -57,6 +59,7 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
         timestamp: analysis.timestamp,
         match_data: analysis.data,
         analysis_result: analysis.result,
+        bet_info: analysis.betInfo,
       })
       .select()
       .single();
@@ -71,6 +74,7 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
       timestamp: data.timestamp,
       data: data.match_data,
       result: data.analysis_result,
+      betInfo: data.bet_info,
     };
   } catch (error) {
     console.error('Erro ao salvar análise:', error);
@@ -90,6 +94,7 @@ export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnal
         timestamp: analysis.timestamp,
         match_data: analysis.data,
         analysis_result: analysis.result,
+        bet_info: analysis.betInfo,
       })
       .eq('id', analysis.id)
       .select()
@@ -105,6 +110,7 @@ export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnal
       timestamp: data.timestamp,
       data: data.match_data,
       result: data.analysis_result,
+      betInfo: data.bet_info,
     };
   } catch (error) {
     console.error('Erro ao atualizar análise:', error);
@@ -146,6 +152,7 @@ export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis): Promise<Sav
         timestamp: analysis.timestamp,
         match_data: analysis.data,
         analysis_result: analysis.result,
+        bet_info: analysis.betInfo,
       }, {
         onConflict: 'id'
       })
@@ -162,6 +169,7 @@ export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis): Promise<Sav
       timestamp: data.timestamp,
       data: data.match_data,
       result: data.analysis_result,
+      betInfo: data.bet_info,
     };
   } catch (error) {
     console.error('Erro ao salvar/atualizar análise:', error);
