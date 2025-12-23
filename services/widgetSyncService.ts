@@ -1,21 +1,58 @@
-import { Capacitor } from '@capacitor/core';
-import { registerPlugin } from '@capacitor/core';
-
 export interface WidgetSyncPlugin {
   syncData(options: { savedMatches?: string; bankSettings?: string }): Promise<{ success: boolean }>;
 }
 
-const WidgetSync = registerPlugin<WidgetSyncPlugin>('WidgetSync', {
-  web: () => import('./widgetSyncService.web').then(m => new m.WidgetSyncWeb()),
-});
+// Verificar se estamos em ambiente web (build Vercel) ou nativo
+const isWebBuild = typeof window === 'undefined' || !(window as any).Capacitor;
+
+// Importação condicional do Capacitor (apenas disponível no ambiente nativo)
+let Capacitor: any = null;
+let WidgetSync: WidgetSyncPlugin | null = null;
+
+// Função para inicializar Capacitor de forma segura
+async function initCapacitor() {
+  // Se for build web, não tentar importar Capacitor
+  if (isWebBuild) {
+    Capacitor = { getPlatform: () => 'web' };
+    return;
+  }
+
+  try {
+    // Importação dinâmica apenas no runtime, não durante o build
+    const capacitorModule = await import('@capacitor/core');
+    Capacitor = capacitorModule.Capacitor;
+    const { registerPlugin } = capacitorModule;
+    
+    WidgetSync = registerPlugin<WidgetSyncPlugin>('WidgetSync', {
+      web: () => import('./widgetSyncService.web').then(m => new m.WidgetSyncWeb()),
+    });
+  } catch (e) {
+    // Capacitor não disponível - usar fallback
+    Capacitor = { getPlatform: () => 'web' };
+  }
+}
+
+// Inicializar na primeira chamada
+let initPromise: Promise<void> | null = null;
 
 /**
  * Sincroniza dados com os widgets Android
  * Deve ser chamado sempre que os dados forem salvos/atualizados
  */
 export const syncDataToWidgets = async (savedMatches?: any[], bankSettings?: any) => {
+  // Inicializar Capacitor se ainda não foi inicializado
+  if (!initPromise) {
+    initPromise = initCapacitor();
+  }
+  await initPromise;
+
   // Apenas sincronizar no Android
-  if (Capacitor.getPlatform() !== 'android') {
+  if (!Capacitor || Capacitor.getPlatform() !== 'android') {
+    return;
+  }
+
+  // Se plugin não estiver disponível, retornar silenciosamente
+  if (!WidgetSync) {
     return;
   }
 

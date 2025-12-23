@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
         outDir: 'dist',
         assetsDir: 'assets',
         rollupOptions: {
-          external: ['@supabase/supabase-js']
+          external: ['@supabase/supabase-js', '@capacitor/core']
         },
         // Configurações para compatibilidade com Capacitor
         emptyOutDir: true,
