@@ -78,6 +78,16 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   const colors = colorClasses[color];
 
+  // Mapeamento de cores CSS para sparklines
+  const sparklineColors = {
+    primary: 'hsl(var(--p))',
+    secondary: 'hsl(var(--s))',
+    success: 'hsl(var(--su))',
+    error: 'hsl(var(--er))',
+    warning: 'hsl(var(--wa))',
+    accent: 'hsl(var(--a))'
+  };
+
   return (
     <div className={`group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br ${colors.bg} backdrop-blur-xl border ${colors.border} hover:${colors.border.replace('/20', '/40')} transition-all duration-300 hover:shadow-lg hover:scale-[1.02]`}>
       {/* Glassmorphism overlay */}
@@ -132,7 +142,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
                   <Line
                     type="monotone"
                     dataKey="value"
-                    stroke={colors.text.replace('text-', 'hsl(var(--'))}
+                    stroke={sparklineColors[color]}
                     strokeWidth={2}
                     dot={false}
                     isAnimationActive={true}

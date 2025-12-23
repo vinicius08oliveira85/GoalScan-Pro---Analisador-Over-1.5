@@ -160,7 +160,6 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
               <motion.div
                 key={match.id}
                 onClick={() => onMatchClick(match)}
-                variants={animations.fadeInUp}
                 custom={index}
                 initial="initial"
                 animate="animate"
