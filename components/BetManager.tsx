@@ -108,7 +108,7 @@ const BetManager: React.FC<BetManagerProps> = ({
             min="0"
             value={betAmount || ''}
             onChange={(e) => setBetAmount(Number(e.target.value))}
-            className="input input-bordered w-full"
+            className="input input-bordered w-full min-h-[44px] text-base"
             placeholder="Ex: 100.00"
           />
           {bankSettings && bankSettings.totalBank > 0 && (
@@ -128,7 +128,7 @@ const BetManager: React.FC<BetManagerProps> = ({
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as BetInfo['status'])}
-            className="select select-bordered w-full"
+            className="select select-bordered w-full min-h-[44px] text-base"
           >
             <option value="pending">Pendente</option>
             <option value="won">Ganhou</option>
@@ -193,17 +193,17 @@ const BetManager: React.FC<BetManagerProps> = ({
         )}
 
         {/* Botões de Ação */}
-        <div className="flex gap-2 pt-2">
+        <div className="flex flex-col sm:flex-row gap-2 pt-2">
           <button
             onClick={handleSave}
-            className="btn btn-primary flex-1"
+            className="btn btn-primary flex-1 min-h-[44px] text-base"
           >
             {betInfo ? 'Atualizar Aposta' : 'Salvar Aposta'}
           </button>
           {betInfo && betInfo.betAmount > 0 && (
             <button
               onClick={handleRemove}
-              className="btn btn-error btn-outline"
+              className="btn btn-error btn-outline min-h-[44px] text-base"
             >
               Remover
             </button>

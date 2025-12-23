@@ -43,50 +43,50 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
       <main className="container mx-auto px-4">
         {/* Estatísticas Gerais */}
         {totalMatches > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div className="custom-card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-                <Activity className="w-6 h-6 text-primary" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
+            <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
+              <div className="p-2 md:p-3 rounded-xl bg-primary/10 border border-primary/20 flex-shrink-0">
+                <Activity className="w-5 h-5 md:w-6 md:h-6 text-primary" />
               </div>
-              <div>
-                <p className="text-xs font-bold opacity-40 uppercase mb-1">Total de Partidas</p>
-                <p className="text-2xl font-black">{totalMatches}</p>
-              </div>
-            </div>
-            <div className="custom-card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-success/10 border border-success/20">
-                <Target className="w-6 h-6 text-success" />
-              </div>
-              <div>
-                <p className="text-xs font-bold opacity-40 uppercase mb-1">EV Positivo</p>
-                <p className="text-2xl font-black text-success">{positiveEV}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] md:text-xs font-bold opacity-40 uppercase mb-1">Total de Partidas</p>
+                <p className="text-xl md:text-2xl font-black">{totalMatches}</p>
               </div>
             </div>
-            <div className="custom-card p-4 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/20">
-                <TrendingUpIcon className="w-6 h-6 text-teal-400" />
+            <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
+              <div className="p-2 md:p-3 rounded-xl bg-success/10 border border-success/20 flex-shrink-0">
+                <Target className="w-5 h-5 md:w-6 md:h-6 text-success" />
               </div>
-              <div>
-                <p className="text-xs font-bold opacity-40 uppercase mb-1">Prob. Média</p>
-                <p className="text-2xl font-black text-teal-400">{avgProbability.toFixed(1)}%</p>
+              <div className="min-w-0">
+                <p className="text-[10px] md:text-xs font-bold opacity-40 uppercase mb-1">EV Positivo</p>
+                <p className="text-xl md:text-2xl font-black text-success">{positiveEV}</p>
+              </div>
+            </div>
+            <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
+              <div className="p-2 md:p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 flex-shrink-0">
+                <TrendingUpIcon className="w-5 h-5 md:w-6 md:h-6 text-teal-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] md:text-xs font-bold opacity-40 uppercase mb-1">Prob. Média</p>
+                <p className="text-xl md:text-2xl font-black text-teal-400">{avgProbability.toFixed(1)}%</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Título e Botão Adicionar */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-black tracking-tighter mb-1">Partidas Salvas</h2>
-            <p className="text-sm opacity-60">Gerencie suas análises e resultados</p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-6">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tighter mb-1">Partidas Salvas</h2>
+            <p className="text-xs sm:text-sm opacity-60">Gerencie suas análises e resultados</p>
           </div>
           <button
             onClick={onNewMatch}
-            className="btn btn-primary btn-lg gap-2 shadow-lg hover:scale-105 transition-transform"
+            className="btn btn-primary btn-md sm:btn-lg gap-2 shadow-lg hover:scale-105 transition-transform w-full sm:w-auto min-h-[44px]"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="hidden sm:inline">Adicionar Partida</span>
-            <span className="sm:hidden">Nova</span>
+            <span className="sm:hidden">Nova Partida</span>
           </button>
         </div>
 
@@ -109,20 +109,20 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {savedMatches.map(match => (
               <div
                 key={match.id}
                 onClick={() => onMatchClick(match)}
-                className="group custom-card p-6 hover:border-primary/50 hover:shadow-xl cursor-pointer transition-all duration-300 active:scale-[0.98] flex flex-col gap-4 relative overflow-hidden"
+                className="group custom-card p-4 md:p-6 hover:border-primary/50 hover:shadow-xl cursor-pointer transition-all duration-300 active:scale-[0.98] flex flex-col gap-3 md:gap-4 relative overflow-hidden"
               >
                 {/* Header: Data e Times */}
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-2">
                   <div className="flex flex-col flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                      <Calendar className="w-4 h-4 opacity-40" />
+                      <Calendar className="w-3 h-3 md:w-4 md:h-4 opacity-40 flex-shrink-0" />
                       {match.data.matchDate ? (
-                        <span className="text-[10px] font-black opacity-30 uppercase">
+                        <span className="text-[9px] md:text-[10px] font-black opacity-30 uppercase break-words">
                           {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
                             day: '2-digit', 
                             month: 'short', 
@@ -131,7 +131,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                           {match.data.matchTime && ` • ${match.data.matchTime}`}
                         </span>
                       ) : (
-                        <span className="text-[10px] font-black opacity-30 uppercase">
+                        <span className="text-[9px] md:text-[10px] font-black opacity-30 uppercase break-words">
                           {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
                             day: '2-digit', 
                             month: 'short', 
@@ -140,8 +140,8 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                         </span>
                       )}
                     </div>
-                    <h3 className="text-base font-black uppercase leading-tight">
-                      {match.data.homeTeam} <span className="text-primary opacity-60">vs</span> {match.data.awayTeam}
+                    <h3 className="text-sm md:text-base font-black uppercase leading-tight break-words">
+                      <span className="break-words">{match.data.homeTeam}</span> <span className="text-primary opacity-60">vs</span> <span className="break-words">{match.data.awayTeam}</span>
                     </h3>
                   </div>
                   <div className="flex items-start gap-2">
@@ -216,30 +216,30 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                 )}
 
                 {/* Métricas Principais */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="flex flex-col items-center p-3 rounded-xl bg-teal-500/5 border border-teal-500/10 group-hover:border-teal-500/20 transition-colors">
-                    <span className="text-[9px] font-bold opacity-40 uppercase mb-1">Prob</span>
-                    <span className="text-lg font-black text-teal-400">{match.result.probabilityOver15.toFixed(0)}%</span>
+                <div className="grid grid-cols-3 gap-2 md:gap-3">
+                  <div className="flex flex-col items-center p-2 md:p-3 rounded-xl bg-teal-500/5 border border-teal-500/10 group-hover:border-teal-500/20 transition-colors">
+                    <span className="text-[8px] md:text-[9px] font-bold opacity-40 uppercase mb-1">Prob</span>
+                    <span className="text-base md:text-lg font-black text-teal-400">{match.result.probabilityOver15.toFixed(0)}%</span>
                   </div>
-                  <div className="flex flex-col items-center p-3 rounded-xl bg-primary/5 border border-primary/10 group-hover:border-primary/20 transition-colors">
-                    <span className="text-[9px] font-bold opacity-40 uppercase mb-1">Odd</span>
-                    <span className="text-lg font-black text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</span>
+                  <div className="flex flex-col items-center p-2 md:p-3 rounded-xl bg-primary/5 border border-primary/10 group-hover:border-primary/20 transition-colors">
+                    <span className="text-[8px] md:text-[9px] font-bold opacity-40 uppercase mb-1">Odd</span>
+                    <span className="text-base md:text-lg font-black text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</span>
                   </div>
-                  <div className={`flex flex-col items-center p-3 rounded-xl border transition-colors ${
+                  <div className={`flex flex-col items-center p-2 md:p-3 rounded-xl border transition-colors ${
                     match.result.ev > 0
                       ? 'bg-success/5 border-success/10 group-hover:border-success/20'
                       : match.result.ev < 0
                       ? 'bg-error/5 border-error/10 group-hover:border-error/20'
                       : 'bg-base-300/5 border-base-300/10'
                   }`}>
-                    <span className="text-[9px] font-bold opacity-40 uppercase mb-1">EV</span>
+                    <span className="text-[8px] md:text-[9px] font-bold opacity-40 uppercase mb-1">EV</span>
                     <div className="flex items-center gap-1">
                       {match.result.ev > 0 ? (
-                        <TrendingUp className="w-4 h-4 text-success" />
+                        <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-success" />
                       ) : match.result.ev < 0 ? (
-                        <TrendingDown className="w-4 h-4 text-error" />
+                        <TrendingDown className="w-3 h-3 md:w-4 md:h-4 text-error" />
                       ) : null}
-                      <span className={`text-lg font-black ${
+                      <span className={`text-base md:text-lg font-black ${
                         match.result.ev > 0 ? 'text-success' :
                         match.result.ev < 0 ? 'text-error' :
                         'opacity-50'

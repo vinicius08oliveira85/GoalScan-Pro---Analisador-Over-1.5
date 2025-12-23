@@ -104,16 +104,16 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="custom-card p-8 flex flex-col gap-6">
+    <form onSubmit={handleSubmit} className="custom-card p-4 md:p-6 lg:p-8 flex flex-col gap-4 md:gap-6">
       {/* Informações Básicas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="form-control">
           <label className="label ml-2"><span className="label-text font-bold">Time Casa</span></label>
-          <input name="homeTeam" value={formData.homeTeam} onChange={handleChange} className="input w-full" placeholder="Ex: Man City" required />
+          <input name="homeTeam" value={formData.homeTeam} onChange={handleChange} className="input w-full min-h-[44px] text-base" placeholder="Ex: Man City" required />
         </div>
         <div className="form-control">
           <label className="label ml-2"><span className="label-text font-bold">Time Visitante</span></label>
-          <input name="awayTeam" value={formData.awayTeam} onChange={handleChange} className="input w-full" placeholder="Ex: Real Madrid" required />
+          <input name="awayTeam" value={formData.awayTeam} onChange={handleChange} className="input w-full min-h-[44px] text-base" placeholder="Ex: Real Madrid" required />
         </div>
       </div>
 
@@ -128,7 +128,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
             name="matchDate" 
             value={formData.matchDate || ''} 
             onChange={handleChange} 
-            className="input w-full" 
+            className="input w-full min-h-[44px] text-base" 
           />
         </div>
         <div className="form-control">
@@ -141,7 +141,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
             name="matchTime" 
             value={formData.matchTime || ''} 
             onChange={handleChange} 
-            className="input w-full" 
+            className="input w-full min-h-[44px] text-base" 
           />
         </div>
       </div>
@@ -197,7 +197,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="0.01" 
               value={formData.homeTeamStats?.gols.global.avgScored || ''} 
               onChange={(e) => updateTeamStats('home', 'avgScored', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
             />
                 </div>
@@ -208,7 +208,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="0.01" 
               value={formData.homeTeamStats?.gols.global.avgConceded || ''} 
               onChange={(e) => updateTeamStats('home', 'avgConceded', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
             />
                 </div>
@@ -219,7 +219,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="0.01" 
               value={formData.homeTeamStats?.gols.global.avgTotal || ''} 
               onChange={(e) => updateTeamStats('home', 'avgTotal', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
             />
                 </div>
@@ -230,7 +230,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="1" 
               value={formData.homeTeamStats?.gols.global.cleanSheetPct || ''} 
               onChange={(e) => updateTeamStats('home', 'cleanSheetPct', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
                 </div>
@@ -241,7 +241,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="1" 
               value={formData.homeTeamStats?.gols.global.noGoalsPct || ''} 
               onChange={(e) => updateTeamStats('home', 'noGoalsPct', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
                 </div>
@@ -252,7 +252,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="1" 
               value={formData.homeTeamStats?.gols.global.over25Pct || ''} 
               onChange={(e) => updateTeamStats('home', 'over25Pct', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
                 </div>
@@ -263,7 +263,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="1" 
               value={formData.homeTeamStats?.gols.global.under25Pct || ''} 
               onChange={(e) => updateTeamStats('home', 'under25Pct', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
                 </div>
@@ -275,7 +275,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               name="homeOver15Freq" 
               value={formData.homeOver15Freq} 
               onChange={handleChange} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
             </div>
@@ -299,7 +299,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="0.01" 
               value={formData.awayTeamStats?.gols.global.avgScored || ''} 
               onChange={(e) => updateTeamStats('away', 'avgScored', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
             />
         </div>
@@ -310,7 +310,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="0.01" 
               value={formData.awayTeamStats?.gols.global.avgConceded || ''} 
               onChange={(e) => updateTeamStats('away', 'avgConceded', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
             />
         </div>
@@ -321,7 +321,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="0.01" 
               value={formData.awayTeamStats?.gols.global.avgTotal || ''} 
               onChange={(e) => updateTeamStats('away', 'avgTotal', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
             />
         </div>
@@ -332,7 +332,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="1" 
               value={formData.awayTeamStats?.gols.global.cleanSheetPct || ''} 
               onChange={(e) => updateTeamStats('away', 'cleanSheetPct', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
                     </div>
@@ -343,7 +343,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="1" 
               value={formData.awayTeamStats?.gols.global.noGoalsPct || ''} 
               onChange={(e) => updateTeamStats('away', 'noGoalsPct', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
                     </div>
@@ -354,7 +354,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="1" 
               value={formData.awayTeamStats?.gols.global.over25Pct || ''} 
               onChange={(e) => updateTeamStats('away', 'over25Pct', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
                     </div>
@@ -365,7 +365,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               step="1" 
               value={formData.awayTeamStats?.gols.global.under25Pct || ''} 
               onChange={(e) => updateTeamStats('away', 'under25Pct', e.target.value ? Number(e.target.value) : undefined)} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
           </div>
@@ -377,14 +377,14 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData }) => {
               name="awayOver15Freq" 
               value={formData.awayOver15Freq} 
               onChange={handleChange} 
-              className="input input-sm text-center" 
+              className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
             />
             </div>
         </div>
       </div>
 
-      <button type="submit" className="btn btn-primary btn-lg mt-4 uppercase font-black tracking-widest shadow-2xl hover:scale-[1.01] active:scale-95 transition-all">
+      <button type="submit" className="btn btn-primary btn-lg mt-4 uppercase font-black tracking-widest shadow-2xl hover:scale-[1.01] active:scale-95 transition-all min-h-[44px] text-base md:text-lg w-full sm:w-auto">
         PROCESSAR ALGORITMO GOALSCAN
       </button>
     </form>

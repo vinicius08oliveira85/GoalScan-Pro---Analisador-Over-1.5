@@ -321,18 +321,57 @@ const App: React.FC = () => {
   };
 
   const handleSaveBetInfo = async (betInfo: BetInfo) => {
-    // Atualizar banca se status mudou e há banca configurada
-    if (bankSettings && betInfo.betAmount > 0) {
-      const oldStatus = selectedMatch?.betInfo?.status || 'pending';
+    // Atualizar banca se há banca configurada
+    if (bankSettings) {
+      // Detectar se é uma nova aposta ou remoção
+      const oldBetInfo = selectedMatch?.betInfo;
+      const isNewBet = !oldBetInfo || oldBetInfo.betAmount === 0;
+      const isRemovingBet = betInfo.betAmount === 0 || betInfo.status === 'cancelled';
+      
+      // Determinar oldStatus corretamente
+      let oldStatus: BetInfo['status'] | undefined;
+      let oldBetAmount = 0;
+      
+      if (isNewBet) {
+        // Nova aposta: oldStatus é undefined
+        oldStatus = undefined;
+      } else {
+        // Aposta existente: usar status e valor anterior
+        oldStatus = oldBetInfo.status;
+        oldBetAmount = oldBetInfo.betAmount;
+      }
+      
       const newStatus = betInfo.status;
+      const newBetAmount = betInfo.betAmount;
+      
+      // Se está removendo a aposta, usar valores antigos para calcular devolução
+      const betAmountForCalc = isRemovingBet ? oldBetAmount : newBetAmount;
+      const potentialReturnForCalc = isRemovingBet 
+        ? (oldBetInfo?.potentialReturn || 0)
+        : betInfo.potentialReturn;
+      
+      // Tratar mudança de valor da aposta (quando não é nova e não está removendo)
+      let valueChangeAdjustment = 0;
+      if (!isNewBet && !isRemovingBet && oldBetAmount !== newBetAmount && oldStatus) {
+        // Se o valor mudou, precisa ajustar a diferença
+        if (oldStatus === 'pending') {
+          // Estava pending: reverter desconto antigo e aplicar novo desconto
+          valueChangeAdjustment = oldBetAmount - newBetAmount;
+        } else if (oldStatus === 'won') {
+          // Estava won: reverter retorno antigo e aplicar novo retorno
+          const oldReturn = oldBetInfo.potentialReturn || 0;
+          valueChangeAdjustment = betInfo.potentialReturn - oldReturn;
+        }
+        // Se estava lost, não precisa ajustar (já estava descontado)
+      }
       
       // Calcular diferença na banca
       const bankDifference = calculateBankUpdate(
         oldStatus,
         newStatus,
-        betInfo.betAmount,
-        betInfo.potentialReturn
-      );
+        betAmountForCalc,
+        potentialReturnForCalc
+      ) + valueChangeAdjustment;
 
       // Se houve mudança que afeta a banca, atualizar
       if (bankDifference !== 0) {
@@ -442,17 +481,43 @@ const App: React.FC = () => {
   if (view === 'home') {
     return (
       <div className="min-h-screen pb-20">
-        <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-4 mb-8 sticky top-0 z-50 shadow-sm">
-          <div className="container mx-auto px-4 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-xl shadow-lg">
+        <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-3 md:py-4 mb-6 md:mb-8 sticky top-0 z-50 shadow-sm">
+          <div className="container mx-auto px-3 md:px-4 flex justify-between items-center gap-2">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
                 G
               </div>
-              <div>
-                <h1 className="text-xl font-black tracking-tighter leading-none">GOALSCAN PRO</h1>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-primary opacity-80">AI Goal Analysis Engine</span>
+              <div className="min-w-0">
+                <h1 className="text-lg md:text-xl font-black tracking-tighter leading-none truncate">GOALSCAN PRO</h1>
+                <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline">AI Goal Analysis Engine</span>
               </div>
             </div>
+            {/* Versão Mobile - Banca Compacta */}
+            <div className="flex md:hidden items-center gap-2">
+              {bankSettings && (
+                <button
+                  onClick={() => setShowBankSettings(!showBankSettings)}
+                  className="btn btn-sm btn-outline btn-secondary flex items-center gap-1.5 px-2"
+                  title="Banca"
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span className="text-xs font-bold">
+                    {bankSettings.currency} {bankSettings.totalBank.toFixed(0)}
+                  </span>
+                </button>
+              )}
+              {!bankSettings && (
+                <button
+                  onClick={() => setShowBankSettings(!showBankSettings)}
+                  className="btn btn-sm btn-outline btn-secondary flex items-center gap-1.5 px-2"
+                  title="Configurar Banca"
+                >
+                  <Wallet className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {/* Versão Desktop */}
             <div className="hidden md:flex gap-4 items-center">
               {isLoading && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
@@ -537,24 +602,50 @@ const App: React.FC = () => {
   // Tela de Análise
   return (
     <div className="min-h-screen pb-20">
-      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-4 mb-8 sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-3 md:py-4 mb-6 md:mb-8 sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-3 md:px-4 flex justify-between items-center gap-2">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
             <button
               onClick={handleNavigateToHome}
-              className="btn btn-sm btn-ghost gap-2 hover:bg-base-300/50"
+              className="btn btn-sm btn-ghost gap-1 md:gap-2 hover:bg-base-300/50 flex-shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Voltar</span>
             </button>
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-xl shadow-lg">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
               G
             </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tighter leading-none">GOALSCAN PRO</h1>
-              <span className="text-[10px] uppercase font-bold tracking-widest text-primary opacity-80">AI Goal Analysis Engine</span>
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-xl font-black tracking-tighter leading-none truncate">GOALSCAN PRO</h1>
+              <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline">AI Goal Analysis Engine</span>
             </div>
           </div>
+          {/* Versão Mobile - Banca Compacta */}
+          <div className="flex md:hidden items-center gap-2">
+            {bankSettings && (
+              <button
+                onClick={() => setShowBankSettings(!showBankSettings)}
+                className="btn btn-sm btn-outline btn-secondary flex items-center gap-1.5 px-2"
+                title="Banca"
+              >
+                <Wallet className="w-4 h-4" />
+                <span className="text-xs font-bold">
+                  {bankSettings.currency} {bankSettings.totalBank.toFixed(0)}
+                </span>
+              </button>
+            )}
+            {!bankSettings && (
+              <button
+                onClick={() => setShowBankSettings(!showBankSettings)}
+                className="btn btn-sm btn-outline btn-secondary flex items-center gap-1.5 px-2"
+                title="Configurar Banca"
+              >
+                <Wallet className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          
+          {/* Versão Desktop */}
           <div className="hidden md:flex gap-4 items-center">
             {isSaving && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">

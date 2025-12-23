@@ -35,17 +35,17 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave }) => 
   };
 
   return (
-    <div className="custom-card p-6 bg-gradient-to-br from-secondary/10 to-accent/10 border border-secondary/20">
+    <div className="custom-card p-4 md:p-6 bg-gradient-to-br from-secondary/10 to-accent/10 border border-secondary/20">
       <div className="flex items-center gap-2 mb-4">
-        <Wallet className="w-5 h-5 text-secondary" />
-        <h3 className="text-lg font-black uppercase">Configurações de Banca</h3>
+        <Wallet className="w-4 h-4 md:w-5 md:h-5 text-secondary" />
+        <h3 className="text-base md:text-lg font-black uppercase">Configurações de Banca</h3>
       </div>
 
       <div className="space-y-4">
         {/* Valor da Banca */}
         <div className="form-control">
           <label className="label">
-            <span className="label-text font-bold flex items-center gap-2">
+            <span className="label-text font-bold flex items-center gap-2 text-sm md:text-base">
               <DollarSign className="w-4 h-4" />
               Banca Total
             </span>
@@ -56,11 +56,11 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave }) => 
             min="0"
             value={totalBank || ''}
             onChange={(e) => setTotalBank(Number(e.target.value))}
-            className="input input-bordered w-full"
+            className="input input-bordered w-full min-h-[44px] text-base"
             placeholder="Ex: 1000.00"
           />
           <label className="label">
-            <span className="label-text-alt opacity-60">
+            <span className="label-text-alt opacity-60 text-xs">
               Capital total disponível para apostas
             </span>
           </label>
@@ -69,12 +69,12 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave }) => 
         {/* Moeda */}
         <div className="form-control">
           <label className="label">
-            <span className="label-text font-bold">Moeda</span>
+            <span className="label-text font-bold text-sm md:text-base">Moeda</span>
           </label>
           <select
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="select select-bordered w-full"
+            className="select select-bordered w-full min-h-[44px] text-base"
           >
             <option value="R$">R$ (Real Brasileiro)</option>
             <option value="$">$ (Dólar Americano)</option>
@@ -106,7 +106,7 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave }) => 
         {/* Botão Salvar */}
         <button
           onClick={handleSave}
-          className="btn btn-secondary w-full flex items-center gap-2"
+          className="btn btn-secondary w-full flex items-center gap-2 min-h-[44px] text-base"
         >
           <Save className="w-4 h-4" />
           Salvar Configurações
