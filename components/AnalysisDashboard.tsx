@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
-import { AnalysisResult, MatchData, RecentMatch, BetInfo, BankSettings } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Shield, Activity, Zap, AlertCircle, Calculator, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
+import { AnalysisResult, MatchData, BetInfo, BankSettings } from '../types';
+import { TrendingUp, TrendingDown, AlertCircle, Calculator, CheckCircle, XCircle, Clock, Ban, Zap, Shield, Target, Sparkles } from 'lucide-react';
 import BetManager from './BetManager';
+import ProbabilityGauge from './ProbabilityGauge';
+import MetricCard from './MetricCard';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
@@ -23,329 +23,228 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   onBetSave 
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
-  const chartData = [
-    { name: 'Over 1.5', value: result.probabilityOver15 },
-    { name: 'Under 1.5', value: 100 - result.probabilityOver15 },
-  ];
-
-  const poissonData = result.poissonHome.map((val, idx) => ({
-    goals: idx,
-    home: Number((val * 100).toFixed(1)),
-    away: Number((result.poissonAway[idx] * 100).toFixed(1)),
-  }));
-
-  const COLORS = ['#2dd4bf', '#f87171'];
-
-  const renderHistoryStrip = (history: RecentMatch[]) => {
-    return (
-      <div className="flex gap-1 mt-2">
-        {history.map((m, i) => {
-          const total = m.homeScore + m.awayScore;
-          const isOver = total >= 2;
-          return (
-            <div key={i} className={`tooltip flex flex-col items-center`} data-tip={`${m.date}: ${m.homeScore}x${m.awayScore}`}>
-              <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${isOver ? 'bg-success text-success-content' : 'bg-base-300 opacity-50'}`}>
-                {isOver ? 'O' : 'U'}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   return (
     <div className="flex flex-col gap-6 animate-in">
+      {/* Layout Principal: Gauge (1/3) + Info (2/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Probabilidade Principal */}
-        <div className="custom-card p-6 flex flex-col items-center justify-center text-center relative overflow-hidden hover:shadow-xl transition-all duration-300">
-          <div className="absolute top-2 right-4 flex items-center gap-1.5">
-            <Target className="w-3 h-3 opacity-30" />
-            <span className="text-[10px] font-bold opacity-30 uppercase">ALGORITMO V3.8</span>
-          </div>
-          <div className="flex items-center gap-2 mb-4">
-            <Target className="w-4 h-4 text-teal-400" />
-            <h3 className="text-sm font-black uppercase tracking-widest">PROBABILIDADE OVER 1.5</h3>
-          </div>
-          <div className="w-full h-48 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie 
-                  data={chartData} 
-                  cx="50%" 
-                  cy="50%" 
-                  innerRadius={65} 
-                  outerRadius={85} 
-                  paddingAngle={5} 
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-teal-400 leading-none tracking-tight">
-                  {result.probabilityOver15.toFixed(1)}
-                </span>
-                <span className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-teal-400 opacity-80">
-                  %
-                </span>
-              </div>
-              <span className="text-[10px] font-bold opacity-40 mt-1 uppercase">CONFIANÇA</span>
-            </div>
-          </div>
+        {/* Card Principal de Probabilidade */}
+        <div className="lg:col-span-1">
+          <ProbabilityGauge 
+            probability={result.probabilityOver15}
+            odd={data.oddOver15}
+            ev={result.ev}
+          />
+        </div>
+
+        {/* Card de Informações da Partida */}
+        <div className="lg:col-span-2 group relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-primary/10 via-base-200/50 to-base-200/50 backdrop-blur-xl border border-primary/20 hover:border-primary/40 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/20">
+          {/* Glassmorphism overlay */}
+          <div className="absolute inset-0 bg-base-200/40 backdrop-blur-md" />
           
-          <div className="flex justify-between w-full mt-4 px-2 pt-4 border-t border-white/5 gap-4">
-            <div className="text-center flex-1">
-               <p className="text-[9px] font-bold opacity-40 uppercase mb-1">Odd Atual</p>
-               <p className="text-lg md:text-xl font-black">{data.oddOver15?.toFixed(2) || '-'}</p>
-            </div>
-            <div className="text-center flex-1">
-               <p className="text-[9px] font-bold opacity-40 uppercase mb-1">EV %</p>
-               <div className="flex items-center justify-center gap-1">
-                 {result.ev > 0 ? (
-                   <TrendingUp className="w-4 h-4 text-success" />
-                 ) : result.ev < 0 ? (
-                   <TrendingDown className="w-4 h-4 text-error" />
-                 ) : null}
-                 <p className={`text-lg md:text-xl font-black ${result.ev > 0 ? 'text-success' : result.ev < 0 ? 'text-error' : ''}`}>
-                   {result.ev > 0 ? '+' : ''}{result.ev.toFixed(1)}%
-                 </p>
-               </div>
-            </div>
-          </div>
-        </div>
+          {/* Animated gradient orb */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity duration-700" />
 
-        {/* Painel de Veredito */}
-        <div className="custom-card p-6 lg:col-span-2 flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                 <h3 className="text-2xl font-black tracking-tighter uppercase">{data.homeTeam} <span className="text-primary">vs</span> {data.awayTeam}</h3>
+          {/* Content */}
+          <div className="relative z-10 flex flex-col gap-6">
+            {/* Header: Times + Badge de Risco + Botão Salvar */}
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-2xl font-black tracking-tighter uppercase">
+                    {data.homeTeam} <span className="text-primary opacity-60">vs</span> {data.awayTeam}
+                  </h3>
+                </div>
+                <p className="text-xs font-bold opacity-40 uppercase tracking-widest">Análise de Probabilidade Over 1.5</p>
               </div>
-              <p className="text-xs font-bold opacity-40 uppercase tracking-widest mt-1">Comparativo de Momentum (5j)</p>
-              
-              <div className="flex gap-8 mt-4">
-                <div>
-                   <span className="text-[9px] font-black uppercase opacity-40">Status {data.homeTeam}</span>
-                   {renderHistoryStrip(data.homeHistory)}
+              <div className="flex flex-col items-end gap-2">
+                <div className={`badge badge-lg p-3 font-black border-none shadow-lg flex items-center gap-2 ${
+                  result.riskLevel === 'Baixo' 
+                    ? 'bg-success/20 text-success border-success/30' 
+                    : result.riskLevel === 'Moderado' 
+                    ? 'bg-warning/20 text-warning border-warning/30' 
+                    : result.riskLevel === 'Alto' 
+                    ? 'bg-error/20 text-error border-error/30' 
+                    : 'bg-error/30 text-error border-error/40'
+                }`}>
+                  <AlertCircle className="w-4 h-4" />
+                  RISCO: {result.riskLevel}
                 </div>
-                <div>
-                   <span className="text-[9px] font-black uppercase opacity-40">Status {data.awayTeam}</span>
-                   {renderHistoryStrip(data.awayHistory)}
-                </div>
+                {onSave && (
+                  <button 
+                    onClick={onSave} 
+                    className="btn btn-sm btn-primary uppercase font-bold tracking-tighter hover:scale-105 transition-transform"
+                  >
+                    Salvar Partida
+                  </button>
+                )}
               </div>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className={`badge badge-lg p-4 font-black border-none shadow-lg flex items-center gap-2 ${result.riskLevel === 'Baixo' ? 'bg-success text-success-content' : result.riskLevel === 'Moderado' ? 'bg-warning text-warning-content' : result.riskLevel === 'Alto' ? 'bg-error text-error-content' : 'bg-error/80 text-error-content'}`}>
-                <AlertCircle className="w-4 h-4" />
-                RISCO: {result.riskLevel}
-              </div>
-              {onSave && (
-                <button onClick={onSave} className="btn btn-xs btn-outline btn-primary uppercase font-bold tracking-tighter hover:scale-105 transition-transform">
-                  Salvar Partida
-                </button>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-6">
-            <div className="bg-base-100/50 p-4 rounded-2xl border border-white/5 hover:border-primary/30 transition-all duration-300 hover:shadow-lg">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[9px] font-black uppercase opacity-40">Ataque (10j)</p>
-                <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
-                  <Zap className="w-3.5 h-3.5 text-primary" />
-                </div>
-              </div>
-              <progress className="progress progress-primary w-full h-2 mb-1" value={result.advancedMetrics.offensiveVolume} max="100"></progress>
-              <p className="text-xs font-bold text-primary">{result.advancedMetrics.offensiveVolume.toFixed(0)}%</p>
-            </div>
-            <div className="bg-base-100/50 p-4 rounded-2xl border border-white/5 hover:border-secondary/30 transition-all duration-300 hover:shadow-lg">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[9px] font-black uppercase opacity-40">Defesa (10j)</p>
-                <div className="p-1.5 rounded-lg bg-secondary/10 border border-secondary/20">
-                  <Shield className="w-3.5 h-3.5 text-secondary" />
-                </div>
-              </div>
-              <progress className="progress progress-secondary w-full h-2 mb-1" value={result.advancedMetrics.defensiveLeaking} max="100"></progress>
-              <p className="text-xs font-bold text-secondary">{result.advancedMetrics.defensiveLeaking.toFixed(0)}%</p>
-            </div>
-            <div className="bg-base-100/50 p-4 rounded-2xl border border-white/5 hover:border-accent/30 transition-all duration-300 hover:shadow-lg">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[9px] font-black uppercase opacity-40">Tendência (5j)</p>
-                <div className={`p-1.5 rounded-lg ${result.advancedMetrics.formTrend >= 0 ? 'bg-success/10 border border-success/20' : 'bg-error/10 border border-error/20'}`}>
-                  {result.advancedMetrics.formTrend >= 0 ? (
-                    <TrendingUp className={`w-3.5 h-3.5 text-success`} />
-                  ) : (
-                    <TrendingDown className={`w-3.5 h-3.5 text-error`} />
-                  )}
-                </div>
-              </div>
-              <div className={`text-sm font-black flex items-center gap-1 ${result.advancedMetrics.formTrend >= 0 ? 'text-success' : 'text-error'}`}>
-                {result.advancedMetrics.formTrend >= 0 ? 'SUBINDO' : 'CAINDO'}
-                <span className="text-xs opacity-70">({result.advancedMetrics.formTrend >= 0 ? '+' : ''}{result.advancedMetrics.formTrend.toFixed(1)})</span>
-              </div>
-            </div>
-            <div className="bg-base-100/50 p-4 rounded-2xl border border-white/5 hover:border-accent/30 transition-all duration-300 hover:shadow-lg">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[9px] font-black uppercase opacity-40">Qualidade</p>
-                <div className="p-1.5 rounded-lg bg-accent/10 border border-accent/20">
-                  <Target className="w-3.5 h-3.5 text-accent" />
-                </div>
-              </div>
-              <div className="text-sm font-black text-secondary">{result.confidenceScore.toFixed(0)}%</div>
-              <div className="h-1.5 bg-base-300 rounded-full overflow-hidden mt-2">
-                <div className="h-full bg-gradient-to-r from-accent to-secondary" style={{ width: `${result.confidenceScore}%` }}></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 p-4 bg-primary/10 border border-primary/30 rounded-3xl">
-            <p className="text-sm font-bold italic leading-tight">"{result.recommendation}"</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Gráfico de Distribuição */}
-      <div className="custom-card p-8 hover:shadow-xl transition-all duration-300">
-        <div className="flex items-center gap-2 mb-8">
-          <Activity className="w-5 h-5 text-primary" />
-          <h3 className="text-lg font-black uppercase tracking-tight">Distribuição Poisson Híbrida</h3>
-        </div>
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={poissonData}>
-              <defs>
-                <linearGradient id="homeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-                </linearGradient>
-                <linearGradient id="awayGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-secondary)" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="var(--color-secondary)" stopOpacity={0.3} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="goals" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
-              <YAxis hide />
-              <Tooltip 
-                cursor={{fill: 'rgba(255,255,255,0.05)'}} 
-                contentStyle={{
-                  backgroundColor: 'var(--color-base-200)', 
-                  borderRadius: '1rem', 
-                  border: '1px solid var(--color-base-300)', 
-                  fontWeight: 'bold',
-                  padding: '12px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
-                }} 
+            {/* Grid de 4 Métricas Essenciais */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <MetricCard
+                title="Ataque (10j)"
+                value={result.advancedMetrics.offensiveVolume}
+                icon={Zap}
+                color="primary"
+                progress={result.advancedMetrics.offensiveVolume}
               />
-              <Bar name="Casa" dataKey="home" fill="url(#homeGradient)" radius={[10, 10, 0, 0]} />
-              <Bar name="Fora" dataKey="away" fill="url(#awayGradient)" radius={[10, 10, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+              <MetricCard
+                title="Defesa (10j)"
+                value={result.advancedMetrics.defensiveLeaking}
+                icon={Shield}
+                color="secondary"
+                progress={result.advancedMetrics.defensiveLeaking}
+              />
+              <MetricCard
+                title="Tendência (5j)"
+                value={result.advancedMetrics.formTrend >= 0 ? 'SUBINDO' : 'CAINDO'}
+                icon={result.advancedMetrics.formTrend >= 0 ? TrendingUp : TrendingDown}
+                color={result.advancedMetrics.formTrend >= 0 ? 'success' : 'error'}
+                trend={result.advancedMetrics.formTrend >= 0 ? 'up' : 'down'}
+                trendValue={`${result.advancedMetrics.formTrend >= 0 ? '+' : ''}${result.advancedMetrics.formTrend.toFixed(1)}`}
+              />
+              <MetricCard
+                title="Qualidade"
+                value={result.confidenceScore}
+                icon={Target}
+                color="accent"
+                progress={result.confidenceScore}
+              />
+            </div>
+
+            {/* Recomendação em Destaque */}
+            <div className="mt-2 p-5 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary/10 border border-primary/30 rounded-2xl backdrop-blur-sm relative overflow-hidden group/recommendation">
+              <div className="absolute top-2 right-2 opacity-20 group-hover/recommendation:opacity-40 transition-opacity">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-black uppercase text-primary opacity-80">Recomendação</span>
+                </div>
+                <p className="text-sm font-bold italic leading-tight text-base-content/90">
+                  "{result.recommendation}"
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Shine effect on hover */}
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-1000" />
         </div>
       </div>
 
-      {/* Seção de Aposta */}
+      {/* Seção de Aposta - Design Moderno e Compacto */}
       {onBetSave && (
         <div>
           {!showBetManager ? (
-            <div className="custom-card p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calculator className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-black uppercase">Gerenciar Aposta</h3>
-                </div>
-                <button
-                  onClick={() => setShowBetManager(true)}
-                  className="btn btn-primary btn-sm"
-                >
-                  {betInfo && betInfo.betAmount > 0 ? 'Editar Aposta' : 'Registrar Aposta'}
-                </button>
-              </div>
+            <div className="group relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-primary/10 via-base-200/50 to-base-200/50 backdrop-blur-xl border border-primary/20 hover:border-primary/40 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/20">
+              {/* Glassmorphism overlay */}
+              <div className="absolute inset-0 bg-base-200/40 backdrop-blur-md" />
               
-              {betInfo && betInfo.betAmount > 0 ? (
-                <div className="mt-4 bg-base-100/50 p-4 rounded-xl border border-white/5">
-                  {/* Status Badge Destacado */}
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold opacity-60 uppercase">Status da Aposta</span>
+              {/* Content */}
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                      <Calculator className="w-5 h-5 text-primary" />
                     </div>
-                    <div className={`badge gap-2 px-4 py-2 font-bold text-xs uppercase tracking-wider ${
-                      betInfo.status === 'won' 
-                        ? 'bg-success/20 text-success border-success/30' 
-                        : betInfo.status === 'lost'
-                        ? 'bg-error/20 text-error border-error/30'
-                        : betInfo.status === 'pending'
-                        ? 'bg-warning/20 text-warning border-warning/30'
-                        : 'bg-base-300/20 text-base-content/60 border-base-300/30'
-                    }`}>
-                      {betInfo.status === 'won' && <CheckCircle className="w-4 h-4" />}
-                      {betInfo.status === 'lost' && <XCircle className="w-4 h-4" />}
-                      {betInfo.status === 'pending' && <Clock className="w-4 h-4" />}
-                      {betInfo.status === 'cancelled' && <Ban className="w-4 h-4" />}
-                      <span>
-                        {betInfo.status === 'won' ? 'Ganhou' :
-                         betInfo.status === 'lost' ? 'Perdeu' :
-                         betInfo.status === 'pending' ? 'Pendente' :
-                         'Cancelada'}
-                      </span>
-                    </div>
+                    <h3 className="text-lg font-black uppercase">Gerenciar Aposta</h3>
                   </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-xs opacity-60">Valor Apostado</span>
-                      <p className="font-bold text-lg">
-                        {bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
-                      </p>
-                    </div>
-                    {betInfo.status === 'pending' ? (
-                      <div>
-                        <span className="text-xs opacity-60">Retorno Potencial</span>
-                        <p className="font-bold text-lg text-primary">
-                          {bankSettings?.currency || 'R$'} {betInfo.potentialReturn.toFixed(2)}
-                        </p>
-                      </div>
-                    ) : betInfo.status === 'won' ? (
-                      <div>
-                        <span className="text-xs opacity-60">Ganho Realizado</span>
-                        <p className="font-bold text-lg text-success">
-                          +{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
-                        </p>
-                      </div>
-                    ) : betInfo.status === 'lost' ? (
-                      <div>
-                        <span className="text-xs opacity-60">Perda</span>
-                        <p className="font-bold text-lg text-error">
-                          -{bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
-                        </p>
-                      </div>
-                    ) : null}
-                    {betInfo.status === 'pending' && (
-                      <div>
-                        <span className="text-xs opacity-60">Lucro Potencial</span>
-                        <p className={`font-bold text-lg ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                          {betInfo.potentialProfit >= 0 ? '+' : ''}{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-xs opacity-60">% da Banca</span>
-                      <p className="font-bold text-lg">
-                        {betInfo.bankPercentage.toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
+                  <button
+                    onClick={() => setShowBetManager(true)}
+                    className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform"
+                  >
+                    {betInfo && betInfo.betAmount > 0 ? 'Editar Aposta' : 'Registrar Aposta'}
+                  </button>
                 </div>
-              ) : (
-                <p className="mt-4 text-sm opacity-60">
-                  Clique em "Registrar Aposta" para adicionar informações sobre sua aposta nesta partida.
-                </p>
-              )}
+                
+                {betInfo && betInfo.betAmount > 0 ? (
+                  <div className="bg-base-100/50 p-5 rounded-2xl border border-white/10 backdrop-blur-sm">
+                    {/* Status Badge Destacado */}
+                    <div className="mb-4 flex items-center justify-between">
+                      <span className="text-xs font-bold opacity-60 uppercase">Status da Aposta</span>
+                      <div className={`badge gap-2 px-4 py-2 font-bold text-xs uppercase tracking-wider ${
+                        betInfo.status === 'won' 
+                          ? 'bg-success/20 text-success border-success/30' 
+                          : betInfo.status === 'lost'
+                          ? 'bg-error/20 text-error border-error/30'
+                          : betInfo.status === 'pending'
+                          ? 'bg-warning/20 text-warning border-warning/30'
+                          : 'bg-base-300/20 text-base-content/60 border-base-300/30'
+                      }`}>
+                        {betInfo.status === 'won' && <CheckCircle className="w-4 h-4" />}
+                        {betInfo.status === 'lost' && <XCircle className="w-4 h-4" />}
+                        {betInfo.status === 'pending' && <Clock className="w-4 h-4" />}
+                        {betInfo.status === 'cancelled' && <Ban className="w-4 h-4" />}
+                        <span>
+                          {betInfo.status === 'won' ? 'Ganhou' :
+                           betInfo.status === 'lost' ? 'Perdeu' :
+                           betInfo.status === 'pending' ? 'Pendente' :
+                           'Cancelada'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
+                        <span className="text-xs opacity-60 block mb-1">Valor Apostado</span>
+                        <p className="font-bold text-lg">
+                          {bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
+                        </p>
+                      </div>
+                      {betInfo.status === 'pending' ? (
+                        <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
+                          <span className="text-xs opacity-60 block mb-1">Retorno Potencial</span>
+                          <p className="font-bold text-lg text-primary">
+                            {bankSettings?.currency || 'R$'} {betInfo.potentialReturn.toFixed(2)}
+                          </p>
+                        </div>
+                      ) : betInfo.status === 'won' ? (
+                        <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
+                          <span className="text-xs opacity-60 block mb-1">Ganho Realizado</span>
+                          <p className="font-bold text-lg text-success">
+                            +{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
+                          </p>
+                        </div>
+                      ) : betInfo.status === 'lost' ? (
+                        <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
+                          <span className="text-xs opacity-60 block mb-1">Perda</span>
+                          <p className="font-bold text-lg text-error">
+                            -{bankSettings?.currency || 'R$'} {betInfo.betAmount.toFixed(2)}
+                          </p>
+                        </div>
+                      ) : null}
+                      {betInfo.status === 'pending' && (
+                        <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
+                          <span className="text-xs opacity-60 block mb-1">Lucro Potencial</span>
+                          <p className={`font-bold text-lg ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
+                            {betInfo.potentialProfit >= 0 ? '+' : ''}{bankSettings?.currency || 'R$'} {betInfo.potentialProfit.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                      <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
+                        <span className="text-xs opacity-60 block mb-1">% da Banca</span>
+                        <p className="font-bold text-lg">
+                          {betInfo.bankPercentage.toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-base-100/30 p-5 rounded-2xl border border-white/10 backdrop-blur-sm text-center">
+                    <p className="text-sm opacity-60">
+                      Clique em "Registrar Aposta" para adicionar informações sobre sua aposta nesta partida.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Shine effect on hover */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-1000" />
             </div>
           ) : (
             <BetManager
