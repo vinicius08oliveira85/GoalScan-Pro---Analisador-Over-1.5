@@ -15,6 +15,41 @@ O aplicativo utiliza duas tabelas no Supabase:
 1. **saved_analyses**: Armazena análises de partidas salvas
 2. **bank_settings**: Armazena configurações globais de banca (valor total e moeda)
 
+## Estrutura da Tabela saved_analyses
+
+A tabela `saved_analyses` armazena todas as análises de partidas realizadas. Sua estrutura é:
+
+- `id` (TEXT, PRIMARY KEY) - Identificador único da análise
+- `timestamp` (BIGINT) - Timestamp da análise
+- `match_data` (JSONB) - Dados da partida (times, estatísticas, etc.)
+- `analysis_result` (JSONB) - Resultado da análise (probabilidades, EV, etc.)
+- `bet_info` (JSONB, opcional) - Informações da aposta associada
+- `created_at` (TIMESTAMP) - Data de criação
+- `updated_at` (TIMESTAMP) - Data de última atualização
+
+### Adicionando a Coluna bet_info
+
+Se a tabela `saved_analyses` já existe mas não possui a coluna `bet_info`, execute o script de migração:
+
+1. No SQL Editor do Supabase, clique em **New Query**
+2. Copie e cole o conteúdo do arquivo `supabase/migrations/add_bet_info_to_saved_analyses.sql`
+3. Clique em **Run** (ou pressione `Ctrl+Enter`)
+
+O script irá:
+- Adicionar a coluna `bet_info` como JSONB (permite NULL)
+- Adicionar comentário descritivo na coluna
+
+**Estrutura do JSON bet_info:**
+```json
+{
+  "betAmount": 100,           // Valor da aposta
+  "odd": 1.85,                // Odd da aposta
+  "potentialReturn": 185,     // Retorno potencial
+  "profit": 85,                // Lucro potencial
+  "status": "pending"         // Status: "pending" | "won" | "lost"
+}
+```
+
 ## Criando a Tabela bank_settings
 
 ### Passo 1: Acessar o Supabase Dashboard
@@ -66,6 +101,14 @@ A tabela `bank_settings` utiliza Row Level Security (RLS) com uma política que 
 **Importante**: Se você planeja adicionar autenticação no futuro, será necessário atualizar as políticas RLS para restringir o acesso adequadamente.
 
 ## Troubleshooting
+
+### Erro PGRST204 - Coluna bet_info não encontrada
+
+Se você verificar erros `PGRST204` no console indicando que a coluna `bet_info` não foi encontrada:
+
+1. **Verifique se a coluna existe**: Acesse Table Editor > `saved_analyses` e verifique as colunas
+2. **Execute o script de migração**: Execute `supabase/migrations/add_bet_info_to_saved_analyses.sql`
+3. **Recarregue a página**: Após executar o script, recarregue o aplicativo
 
 ### Erro 404 ao Carregar/Salvar Configurações
 
