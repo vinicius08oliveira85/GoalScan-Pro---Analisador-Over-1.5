@@ -4,6 +4,14 @@ import MatchForm from './components/MatchForm';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import MainScreen from './components/MainScreen';
 import BankSettings from './components/BankSettings';
+import InAppNotification from './components/InAppNotification';
+import { 
+  scheduleNotificationsForMatches, 
+  cancelNotification, 
+  restoreScheduledNotifications,
+  getMatchesWithinNotificationWindow,
+  requestNotificationPermission
+} from './services/notificationService';
 import { performAnalysis } from './services/analysisEngine';
 import { loadSavedAnalyses, saveOrUpdateAnalysis, deleteAnalysis, loadBankSettings, saveBankSettings } from './services/supabaseService';
 import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
@@ -34,6 +42,7 @@ const App: React.FC = () => {
   const [showBankSettings, setShowBankSettings] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+  const [activeNotifications, setActiveNotifications] = useState<SavedAnalysis[]>([]);
 
   // Carregar do Supabase na inicialização
   useEffect(() => {
@@ -62,6 +71,12 @@ const App: React.FC = () => {
             }
           }
         }
+
+        // Agendar notificações para as partidas carregadas
+        await restoreScheduledNotifications(matches);
+        
+        // Solicitar permissão de notificações na primeira vez
+        await requestNotificationPermission();
         
         // Salvar no localStorage como backup
         try {
@@ -188,6 +203,47 @@ const App: React.FC = () => {
     debouncedSave();
   }, [bankSettings, isLoading]);
 
+  // Verificação periódica de notificações in-app
+  useEffect(() => {
+    const checkNotifications = () => {
+      const matchesToNotify = getMatchesWithinNotificationWindow(savedMatches);
+      
+      setActiveNotifications(prev => {
+        // Filtrar apenas partidas que ainda não estão sendo exibidas
+        const newNotifications = matchesToNotify.filter(
+          match => !prev.some(n => n.id === match.id)
+        );
+        
+        // Combinar notificações existentes com novas
+        const allNotifications = [...prev, ...newNotifications];
+
+        // Remover notificações de partidas que já passaram
+        return allNotifications.filter(match => {
+          const matchTimestamp = match.data.matchDate && match.data.matchTime
+            ? new Date(`${match.data.matchDate}T${match.data.matchTime}:00`).getTime()
+            : null;
+          if (!matchTimestamp) return false;
+          return matchTimestamp > Date.now();
+        });
+      });
+    };
+
+    // Verificar imediatamente
+    checkNotifications();
+
+    // Verificar a cada minuto
+    const interval = setInterval(checkNotifications, 60000);
+
+    return () => clearInterval(interval);
+  }, [savedMatches]);
+
+  // Atualizar notificações quando partidas mudarem
+  useEffect(() => {
+    if (!isLoading && savedMatches.length > 0) {
+      scheduleNotificationsForMatches(savedMatches);
+    }
+  }, [savedMatches, isLoading]);
+
   // Funções de Navegação
   const handleNavigateToHome = () => {
     setView('home');
@@ -213,6 +269,14 @@ const App: React.FC = () => {
 
   const handleNewMatch = () => {
     handleNavigateToAnalysis(null);
+  };
+
+  const handleRemoveNotification = (matchId: string) => {
+    setActiveNotifications(prev => prev.filter(n => n.id !== matchId));
+  };
+
+  const handleNotificationClick = (match: SavedAnalysis) => {
+    handleNavigateToAnalysis(match);
   };
 
   const handleAnalyze = (data: MatchData) => {
@@ -271,6 +335,8 @@ const App: React.FC = () => {
         } catch (e) {
           console.warn('Erro ao salvar no localStorage (backup):', e);
         }
+
+        // Reagendar notificações será feito pelo useEffect que monitora savedMatches
 
         // Voltar para home após salvar
         setTimeout(() => {
@@ -452,6 +518,10 @@ const App: React.FC = () => {
     e.stopPropagation();
     try {
       setSyncError(null);
+      // Cancelar notificação da partida
+      cancelNotification(id);
+      // Remover notificação in-app se estiver ativa
+      setActiveNotifications(prev => prev.filter(n => n.id !== id));
       // Deletar do Supabase
       await deleteAnalysis(id);
       // Atualizar estado local
@@ -481,6 +551,19 @@ const App: React.FC = () => {
   if (view === 'home') {
     return (
       <div className="min-h-screen pb-12 md:pb-20">
+        {/* Notificações In-App */}
+        <div className="fixed top-20 left-4 right-4 md:left-auto md:right-4 md:w-96 z-[100] space-y-3 pointer-events-none">
+          {activeNotifications.map((match) => (
+            <div key={match.id} className="pointer-events-auto">
+              <InAppNotification
+                match={match}
+                onClose={() => handleRemoveNotification(match.id)}
+                onClick={() => handleNotificationClick(match)}
+              />
+            </div>
+          ))}
+        </div>
+
         <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-3 md:py-4 mb-6 md:mb-8 sticky top-0 z-50 shadow-sm">
           <div className="container mx-auto px-3 md:px-4 flex justify-between items-center gap-2">
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
@@ -602,6 +685,17 @@ const App: React.FC = () => {
   // Tela de Análise
   return (
     <div className="min-h-screen pb-12 md:pb-20">
+      {/* Notificações In-App */}
+      {activeNotifications.map((match, index) => (
+        <div key={match.id} style={{ top: `${80 + index * 120}px` }} className="fixed left-4 right-4 md:left-auto md:right-4 md:w-96 z-[100]">
+          <InAppNotification
+            match={match}
+            onClose={() => handleRemoveNotification(match.id)}
+            onClick={() => handleNotificationClick(match)}
+          />
+        </div>
+      ))}
+
       <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 py-3 md:py-4 mb-6 md:mb-8 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-3 md:px-4 flex justify-between items-center gap-2">
           <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
