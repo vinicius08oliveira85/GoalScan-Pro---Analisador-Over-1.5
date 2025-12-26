@@ -7,10 +7,19 @@ type AiOver15Result = {
 };
 
 function getGeminiApiKey(): string | null {
-  const key =
-    (typeof process !== 'undefined' && (process.env.GEMINI_API_KEY || process.env.API_KEY)) ||
-    null;
-  return key && key.trim().length > 0 ? key.trim() : null;
+  // Preferência:
+  // 1) `VITE_GEMINI_API_KEY` (padrão Vite)
+  // 2) `GEMINI_API_KEY` / `API_KEY` (inject via build/define)
+  const fromVite = (import.meta as any)?.env?.VITE_GEMINI_API_KEY as string | undefined;
+  const fromProcess =
+    typeof process !== 'undefined'
+      ? ((process.env.VITE_GEMINI_API_KEY ||
+          process.env.GEMINI_API_KEY ||
+          process.env.API_KEY) as string | undefined)
+      : undefined;
+
+  const key = fromVite || fromProcess || null;
+  return typeof key === 'string' && key.trim().length > 0 ? key.trim() : null;
 }
 
 function safeNumber(n: unknown): number | null {
