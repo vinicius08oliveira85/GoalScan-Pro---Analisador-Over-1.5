@@ -5,6 +5,7 @@ import { MatchData, TeamStatistics, GolsStats } from '../types';
 import { validateMatchData } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
+import AiOver15Insights from './AiOver15Insights';
 
 interface MatchFormProps {
   onAnalyze: (data: MatchData) => void;
@@ -242,6 +243,7 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData, onError }
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">Estatísticas Globais - {formData.homeTeam || 'Time Casa'}</span>
             <InfoIcon text="Estatísticas de gols baseadas nos últimos 10 jogos (Geral)." />
               </div>
+          <AiOver15Insights data={formData} onError={onError} />
             </div>
             
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
