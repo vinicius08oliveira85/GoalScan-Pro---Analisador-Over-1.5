@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
       env.VITE_GEMINI_API_KEY ||
       env.GEMINI_API_KEY ||
       env.API_KEY;
+    const geminiApiKeyForDefine = geminiApiKey ?? '';
     return {
       server: {
         port: 3000,
@@ -20,9 +21,9 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         // Compat: o app lê `process.env.*` (injetado em build) e/ou `import.meta.env.VITE_*`.
-        'process.env.API_KEY': JSON.stringify(geminiApiKey),
-        'process.env.GEMINI_API_KEY': JSON.stringify(geminiApiKey),
-        'process.env.VITE_GEMINI_API_KEY': JSON.stringify(geminiApiKey),
+        'process.env.API_KEY': JSON.stringify(geminiApiKeyForDefine),
+        'process.env.GEMINI_API_KEY': JSON.stringify(geminiApiKeyForDefine),
+        'process.env.VITE_GEMINI_API_KEY': JSON.stringify(geminiApiKeyForDefine),
       },
       resolve: {
         alias: {
