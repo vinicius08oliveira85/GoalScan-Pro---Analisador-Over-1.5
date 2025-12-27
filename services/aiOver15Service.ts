@@ -1,10 +1,15 @@
 import { MatchData } from '../types';
 import { performAnalysis } from './analysisEngine';
-import { generateGeminiContent, getGeminiSettings } from './geminiClient';
+import { generateGeminiContent, getGeminiSettings, toGeminiFriendlyError } from './geminiClient';
 
 type AiOver15Result = {
   reportMarkdown: string;
   provider: 'gemini' | 'local';
+  notice?: {
+    kind: 'info' | 'warning' | 'error';
+    title: string;
+    message: string;
+  };
 };
 
 function safeNumber(n: unknown): number | null {
@@ -92,13 +97,20 @@ function buildPrompt(data: MatchData): string {
   ].join('\n');
 }
 
-function localFallbackReport(data: MatchData): AiOver15Result {
+function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice']): AiOver15Result {
   const ctx = buildContext(data);
   const p = ctx.modelBaseline.probabilityOver15Pct ?? 0;
   const c = ctx.modelBaseline.confidenceScorePct ?? 0;
   const ev = ctx.modelBaseline.evPct;
 
   const md = [
+    ...(notice
+      ? [
+          `> **${notice.title}**`,
+          `> ${notice.message}`,
+          '>'
+        ]
+      : []),
     '## Resumo (Over 1.5)',
     `- **Probabilidade (IA)**: ${p.toFixed(0)}%`,
     `- **Confiança (IA)**: ${c.toFixed(0)}%`,
@@ -123,15 +135,35 @@ function localFallbackReport(data: MatchData): AiOver15Result {
     '- Para destravar a IA online, configure `VITE_GEMINI_API_KEY` no ambiente (sem comitar a chave).'
   ].join('\n');
 
-  return { reportMarkdown: md, provider: 'local' };
+  return { reportMarkdown: md, provider: 'local', notice };
 }
 
 export async function generateAiOver15Report(data: MatchData): Promise<AiOver15Result> {
   const apiKey = getGeminiSettings().apiKey;
-  if (!apiKey) return localFallbackReport(data);
+  if (!apiKey) {
+    return localFallbackReport(data, {
+      kind: 'info',
+      title: 'IA online desativada',
+      message: 'Nenhuma chave do Gemini foi encontrada no ambiente. Usando análise local (modelo atual).'
+    });
+  }
 
   const prompt = buildPrompt(data);
-  const reportMarkdown = await generateGeminiContent(prompt, apiKey);
-  return { reportMarkdown, provider: 'gemini' };
+  try {
+    const reportMarkdown = await generateGeminiContent(prompt, apiKey);
+    return { reportMarkdown, provider: 'gemini' };
+  } catch (e) {
+    const friendly = toGeminiFriendlyError(e);
+    const retryHint =
+      friendly?.retryAfterSeconds != null && friendly.retryAfterSeconds > 0
+        ? ` (tente novamente em ~${friendly.retryAfterSeconds}s)`
+        : '';
+
+    return localFallbackReport(data, {
+      kind: friendly?.kind === 'quota_exceeded' ? 'warning' : 'warning',
+      title: friendly?.title ?? 'Falha ao chamar IA online',
+      message: `${friendly?.message ?? 'Não foi possível usar o Gemini agora.'}${retryHint} Usando fallback local.`
+    });
+  }
 }
 

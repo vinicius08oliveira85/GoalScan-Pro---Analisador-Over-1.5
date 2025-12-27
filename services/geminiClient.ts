@@ -9,14 +9,23 @@ type GeminiSettings = {
 class GeminiCallError extends Error {
   status: number;
   raw: string;
+  retryAfterSeconds: number | null;
   apiVersion: GeminiApiVersion;
   model: string;
 
-  constructor(opts: { status: number; raw: string; apiVersion: GeminiApiVersion; model: string; message: string }) {
+  constructor(opts: {
+    status: number;
+    raw: string;
+    retryAfterSeconds: number | null;
+    apiVersion: GeminiApiVersion;
+    model: string;
+    message: string;
+  }) {
     super(opts.message);
     this.name = 'GeminiCallError';
     this.status = opts.status;
     this.raw = opts.raw;
+    this.retryAfterSeconds = opts.retryAfterSeconds;
     this.apiVersion = opts.apiVersion;
     this.model = opts.model;
   }
@@ -109,6 +118,9 @@ async function callGeminiOnce(opts: {
 
   if (!res.ok) {
     const raw = await res.text().catch(() => '');
+    const retryAfterHeader = res.headers.get('retry-after');
+    const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : null;
+    const retryAfter = Number.isFinite(retryAfterSeconds as number) ? (retryAfterSeconds as number) : null;
     let message = raw;
     try {
       const parsed = raw ? (JSON.parse(raw) as any) : null;
@@ -120,6 +132,7 @@ async function callGeminiOnce(opts: {
     throw new GeminiCallError({
       status: res.status,
       raw,
+      retryAfterSeconds: retryAfter,
       apiVersion: opts.apiVersion,
       model: opts.model,
       message: `Falha ao chamar Gemini (${res.status}). ${message}`.trim()
@@ -140,6 +153,107 @@ function isModelNotFoundError(err: unknown): err is GeminiCallError {
     err.status === 404 &&
     /not found|NOT_FOUND|models\//i.test(err.message)
   );
+}
+
+export type GeminiErrorKind =
+  | 'quota_exceeded'
+  | 'rate_limited'
+  | 'invalid_key'
+  | 'forbidden'
+  | 'bad_request'
+  | 'server_error'
+  | 'unknown';
+
+export type GeminiFriendlyError = {
+  kind: GeminiErrorKind;
+  title: string;
+  message: string;
+  retryAfterSeconds?: number;
+};
+
+function isQuotaExceededMessage(msg: string): boolean {
+  const m = msg.toLowerCase();
+  return (
+    m.includes('exceeded your current quota') ||
+    m.includes('quota exceeded') ||
+    m.includes('limit: 0') ||
+    m.includes('billing') ||
+    m.includes('check your plan') ||
+    m.includes('ai.dev/usage') ||
+    m.includes('rate-limits')
+  );
+}
+
+export function toGeminiFriendlyError(err: unknown): GeminiFriendlyError | null {
+  if (!(err instanceof GeminiCallError)) return null;
+
+  const base = {
+    retryAfterSeconds: err.retryAfterSeconds ?? undefined
+  };
+
+  if (err.status === 429) {
+    if (isQuotaExceededMessage(err.message)) {
+      return {
+        kind: 'quota_exceeded',
+        title: 'Gemini indisponível (quota excedida)',
+        message:
+          'Sua chave atingiu o limite/quotas do Gemini (ou o plano atual não permite requisições). Verifique billing/planos no Google AI Studio e tente novamente depois.',
+        ...base
+      };
+    }
+    return {
+      kind: 'rate_limited',
+      title: 'Gemini temporariamente limitado (429)',
+      message:
+        'Muitas requisições em pouco tempo. Aguarde alguns segundos e tente novamente. Se persistir, revise limites e billing do projeto no Google AI Studio.',
+      ...base
+    };
+  }
+
+  if (err.status === 401) {
+    return {
+      kind: 'invalid_key',
+      title: 'Gemini não autorizado (401)',
+      message:
+        'A chave do Gemini parece inválida/expirada. Confirme `VITE_GEMINI_API_KEY` no ambiente e se a API está habilitada no projeto.',
+      ...base
+    };
+  }
+
+  if (err.status === 403) {
+    return {
+      kind: 'forbidden',
+      title: 'Gemini bloqueado (403)',
+      message:
+        'Acesso negado (projeto sem permissão, billing ausente ou restrição de API). Verifique o billing e as permissões/chave no Google AI Studio.',
+      ...base
+    };
+  }
+
+  if (err.status === 400) {
+    return {
+      kind: 'bad_request',
+      title: 'Requisição inválida ao Gemini (400)',
+      message: 'O Gemini rejeitou a requisição. Tente novamente; se persistir, revise o payload/modelo configurado.',
+      ...base
+    };
+  }
+
+  if (err.status >= 500) {
+    return {
+      kind: 'server_error',
+      title: `Gemini instável (${err.status})`,
+      message: 'O serviço do Gemini parece instável no momento. Tente novamente em instantes.',
+      ...base
+    };
+  }
+
+  return {
+    kind: 'unknown',
+    title: `Falha ao chamar Gemini (${err.status})`,
+    message: err.message || 'Erro desconhecido ao chamar o Gemini.',
+    ...base
+  };
 }
 
 function uniqueAttempts(attempts: Array<{ apiVersion: GeminiApiVersion; model: string }>) {
