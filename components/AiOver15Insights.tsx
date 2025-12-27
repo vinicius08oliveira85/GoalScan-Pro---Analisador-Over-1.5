@@ -24,6 +24,9 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError }) => {
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState<'gemini' | 'local' | null>(null);
   const [report, setReport] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: 'info' | 'warning' | 'error'; title: string; message: string } | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
 
   const canRun = useMemo(() => {
@@ -36,11 +39,13 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError }) => {
     setOpen(true);
     setLoading(true);
     setError(null);
+    setNotice(null);
 
     try {
       const res = await generateAiOver15Report(data);
       setProvider(res.provider);
       setReport(res.reportMarkdown);
+      setNotice(res.notice ?? null);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Falha ao gerar análise com IA.';
       setError(message);
@@ -95,6 +100,15 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError }) => {
           {error && (
             <div className="mt-3 alert alert-error">
               <span className="text-sm font-bold">{error}</span>
+            </div>
+          )}
+
+          {notice && !error && (
+            <div className={`mt-3 alert ${notice.kind === 'error' ? 'alert-error' : notice.kind === 'info' ? 'alert-info' : 'alert-warning'}`}>
+              <div className="min-w-0">
+                <p className="text-sm font-black">{notice.title}</p>
+                <p className="text-xs opacity-80 whitespace-pre-wrap">{notice.message}</p>
+              </div>
             </div>
           )}
 
