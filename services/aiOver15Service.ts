@@ -6,10 +6,23 @@ type AiOver15Result = {
   provider: 'gemini' | 'local';
 };
 
+function getGeminiApiKeyFromLocalStorage(): string | null {
+  try {
+    const v = localStorage.getItem('goalscan_gemini_api_key');
+    if (!v) return null;
+    const trimmed = v.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
 function getGeminiApiKey(): string | null {
   // Preferência:
+  // 0) Chave salva pelo usuário (localStorage)
   // 1) `VITE_GEMINI_API_KEY` (padrão Vite)
   // 2) `GEMINI_API_KEY` / `API_KEY` (inject via build/define)
+  const fromLocalStorage = typeof window !== 'undefined' ? getGeminiApiKeyFromLocalStorage() : null;
   const fromVite = (import.meta as any)?.env?.VITE_GEMINI_API_KEY as string | undefined;
   const fromProcess =
     typeof process !== 'undefined'
@@ -18,7 +31,7 @@ function getGeminiApiKey(): string | null {
           process.env.API_KEY) as string | undefined)
       : undefined;
 
-  const key = fromVite || fromProcess || null;
+  const key = fromLocalStorage || fromVite || fromProcess || null;
   return typeof key === 'string' && key.trim().length > 0 ? key.trim() : null;
 }
 

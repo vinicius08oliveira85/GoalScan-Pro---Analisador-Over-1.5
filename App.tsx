@@ -8,6 +8,7 @@ import ToastContainer from './components/ToastContainer';
 import Breadcrumb from './components/Breadcrumb';
 import CommandPalette from './components/CommandPalette';
 import MobileNav from './components/MobileNav';
+import SettingsScreen from './components/SettingsScreen';
 import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
@@ -26,7 +27,7 @@ import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
 import { ArrowLeft, Wallet } from 'lucide-react';
 
-type View = 'home' | 'analysis';
+type View = 'home' | 'analysis' | 'settings';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
@@ -67,6 +68,11 @@ const App: React.FC = () => {
 
   const handleNewMatch = () => {
     handleNavigateToAnalysis(null);
+  };
+
+  const handleNavigateToSettings = () => {
+    setView('settings');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleRemoveNotification = (matchId: string) => {
@@ -307,7 +313,7 @@ const App: React.FC = () => {
       icon: <Settings className="w-4 h-4" />,
       shortcut: '⌘,',
       action: () => {
-        // Placeholder para configurações futuras
+        handleNavigateToSettings();
         setShowCommandPalette(false);
       },
       category: 'Configurações'
@@ -354,6 +360,14 @@ const App: React.FC = () => {
             </div>
             {/* Versão Mobile - Banca Compacta */}
             <div className="flex md:hidden items-center gap-2">
+              <button
+                onClick={handleNavigateToSettings}
+                className="btn btn-sm btn-ghost px-2"
+                title="Configurações"
+                aria-label="Configurações"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
               {bankSettings && (
                 <button
                   onClick={() => setShowBankSettings(!showBankSettings)}
@@ -429,6 +443,14 @@ const App: React.FC = () => {
                   </span>
                 )}
               </button>
+              <button
+                onClick={handleNavigateToSettings}
+                className="btn btn-sm btn-outline flex items-center gap-2"
+                aria-label="Abrir configurações"
+              >
+                <Settings className="w-4 h-4" />
+                Configurações
+              </button>
               <span className="badge badge-outline badge-sm font-bold">v3.8.2 Elite Edition</span>
             </div>
           </div>
@@ -482,10 +504,53 @@ const App: React.FC = () => {
               onClick: handleNewMatch
             }
           ]}
+          menuItems={[
+            {
+              id: 'home',
+              label: 'Início',
+              icon: <Home className="w-5 h-5" />,
+              onClick: handleNavigateToHome,
+              active: view === 'home'
+            },
+            {
+              id: 'new',
+              label: 'Nova Análise',
+              icon: <Plus className="w-5 h-5" />,
+              onClick: handleNewMatch
+            },
+            {
+              id: 'settings',
+              label: 'Configurações',
+              icon: <Settings className="w-5 h-5" />,
+              onClick: handleNavigateToSettings
+            }
+          ]}
           onBankClick={() => setShowBankSettings(true)}
           bankLabel={bankSettings ? `${getCurrencySymbol(bankSettings.currency)} ${bankSettings.totalBank.toFixed(0)}` : 'Banca'}
         />
       </div>
+    );
+  }
+
+  if (view === 'settings') {
+    return (
+      <>
+        {/* Command Palette */}
+        <CommandPalette
+          isOpen={showCommandPalette}
+          onClose={() => setShowCommandPalette(false)}
+          actions={commandActions}
+        />
+
+        {/* Toast Notifications */}
+        <ToastContainer toasts={toasts} onClose={removeToast} />
+
+        <SettingsScreen
+          onBack={handleNavigateToHome}
+          onSuccess={showSuccess}
+          onError={showError}
+        />
+      </>
     );
   }
 
@@ -538,6 +603,14 @@ const App: React.FC = () => {
           </div>
           {/* Versão Mobile - Banca Compacta */}
           <div className="flex md:hidden items-center gap-2">
+            <button
+              onClick={handleNavigateToSettings}
+              className="btn btn-sm btn-ghost px-2"
+              title="Configurações"
+              aria-label="Configurações"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             {bankSettings && (
               <button
                 onClick={() => setShowBankSettings(!showBankSettings)}

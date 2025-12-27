@@ -13,6 +13,7 @@ interface MobileNavItem {
 
 interface MobileNavProps {
   items: MobileNavItem[];
+  menuItems?: MobileNavItem[];
   onBankClick?: () => void;
   bankLabel?: string;
   className?: string;
@@ -20,11 +21,13 @@ interface MobileNavProps {
 
 const MobileNav: React.FC<MobileNavProps> = ({ 
   items, 
+  menuItems,
   onBankClick, 
   bankLabel,
   className = '' 
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const drawerItems = menuItems ?? items;
 
   return (
     <>
@@ -116,7 +119,7 @@ const MobileNav: React.FC<MobileNavProps> = ({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
-                  {items.map((item) => (
+                  {drawerItems.map((item) => (
                     <motion.button
                       key={item.id}
                       onClick={() => {
