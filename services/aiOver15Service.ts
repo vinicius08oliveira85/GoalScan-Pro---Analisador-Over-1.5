@@ -120,7 +120,7 @@ function localFallbackReport(data: MatchData): AiOver15Result {
     '## Observações',
     `- **Risco**: ${ctx.modelBaseline.riskLevel}.`,
     `- **EV**: ${typeof ev === 'number' ? `${ev.toFixed(1)}%` : 'indisponível (odd não informada).'}`,
-    '- Para destravar a IA online, configure `GEMINI_API_KEY` no ambiente (sem comitar a chave).'
+    '- Para destravar a IA online, configure `VITE_GEMINI_API_KEY` no ambiente (sem comitar a chave).'
   ].join('\n');
 
   return { reportMarkdown: md, provider: 'local' };
