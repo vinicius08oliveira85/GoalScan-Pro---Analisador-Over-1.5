@@ -12,6 +12,18 @@ export default defineConfig(({ mode }) => {
       env.GEMINI_API_KEY ||
       env.API_KEY;
     const geminiApiKeyForDefine = geminiApiKey ?? '';
+
+    const geminiModel =
+      process.env.VITE_GEMINI_MODEL || process.env.GEMINI_MODEL || env.VITE_GEMINI_MODEL || env.GEMINI_MODEL;
+    const geminiModelForDefine = geminiModel ?? '';
+
+    const geminiApiVersion =
+      process.env.VITE_GEMINI_API_VERSION ||
+      process.env.GEMINI_API_VERSION ||
+      env.VITE_GEMINI_API_VERSION ||
+      env.GEMINI_API_VERSION;
+    const geminiApiVersionForDefine = geminiApiVersion ?? '';
+
     return {
       server: {
         port: 3000,
@@ -24,6 +36,12 @@ export default defineConfig(({ mode }) => {
         'process.env.API_KEY': JSON.stringify(geminiApiKeyForDefine),
         'process.env.GEMINI_API_KEY': JSON.stringify(geminiApiKeyForDefine),
         'process.env.VITE_GEMINI_API_KEY': JSON.stringify(geminiApiKeyForDefine),
+
+        'process.env.GEMINI_MODEL': JSON.stringify(geminiModelForDefine),
+        'process.env.VITE_GEMINI_MODEL': JSON.stringify(geminiModelForDefine),
+
+        'process.env.GEMINI_API_VERSION': JSON.stringify(geminiApiVersionForDefine),
+        'process.env.VITE_GEMINI_API_VERSION': JSON.stringify(geminiApiVersionForDefine),
       },
       resolve: {
         alias: {
