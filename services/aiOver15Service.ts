@@ -24,6 +24,25 @@ function getGeminiApiKey(): string | null {
   return typeof key === 'string' && key.trim().length > 0 ? key.trim() : null;
 }
 
+function getGeminiModel(): string {
+  // Permitimos configurar o modelo via env, mas mantemos um default.
+  // Em geral, os endpoints modernos aceitam `gemini-1.5-flash` em `v1`.
+  const fromVite = (import.meta as any)?.env?.VITE_GEMINI_MODEL as string | undefined;
+  const fromProcess = (process.env.VITE_GEMINI_MODEL || process.env.GEMINI_MODEL) as string | undefined;
+  const model = (fromVite || fromProcess || 'gemini-1.5-flash').trim();
+  return model.length > 0 ? model : 'gemini-1.5-flash';
+}
+
+function getGeminiApiVersion(): 'v1' | 'v1beta' {
+  // Corrige o 404 reportado: `v1beta` pode não listar/aceitar alguns modelos/métodos.
+  // Default seguro: `v1`.
+  const fromVite = (import.meta as any)?.env?.VITE_GEMINI_API_VERSION as string | undefined;
+  const fromProcess = (process.env.VITE_GEMINI_API_VERSION ||
+    process.env.GEMINI_API_VERSION) as string | undefined;
+  const v = (fromVite || fromProcess || 'v1').trim();
+  return v === 'v1beta' ? 'v1beta' : 'v1';
+}
+
 function safeNumber(n: unknown): number | null {
   if (typeof n !== 'number' || !Number.isFinite(n)) return null;
   return n;
@@ -110,8 +129,12 @@ function buildPrompt(data: MatchData): string {
 }
 
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
+  const apiVersion = getGeminiApiVersion();
+  const model = getGeminiModel();
   const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+    `https://generativelanguage.googleapis.com/${apiVersion}/models/${encodeURIComponent(
+      model
+    )}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const res = await fetch(url, {
     method: 'POST',
@@ -127,8 +150,18 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Falha ao chamar Gemini (${res.status}). ${text}`.trim());
+    // A API pode retornar JSON com { error: { message } }. Se falhar, caímos para texto cru.
+    const raw = await res.text().catch(() => '');
+    try {
+      const parsed = raw ? (JSON.parse(raw) as any) : null;
+      const msg: unknown = parsed?.error?.message;
+      if (typeof msg === 'string' && msg.trim().length > 0) {
+        throw new Error(`Falha ao chamar Gemini (${res.status}). ${msg}`.trim());
+      }
+    } catch {
+      // ignore parse errors; handled below
+    }
+    throw new Error(`Falha ao chamar Gemini (${res.status}). ${raw}`.trim());
   }
 
   const json = (await res.json()) as any;
