@@ -11,12 +11,14 @@ function getGeminiApiKey(): string | null {
   // 1) `VITE_GEMINI_API_KEY` (padrão Vite)
   // 2) `GEMINI_API_KEY` / `API_KEY` (inject via build/define)
   const fromVite = (import.meta as any)?.env?.VITE_GEMINI_API_KEY as string | undefined;
-  const fromProcess =
-    typeof process !== 'undefined'
-      ? ((process.env.VITE_GEMINI_API_KEY ||
-          process.env.GEMINI_API_KEY ||
-          process.env.API_KEY) as string | undefined)
-      : undefined;
+  // Importante:
+  // No frontend, `process` normalmente NÃO existe em runtime. Porém, o Vite pode substituir
+  // `process.env.X` por literais no build via `define` (ver `vite.config.ts`).
+  // Portanto, não podemos usar `typeof process !== 'undefined'` aqui, senão a chave injetada
+  // nunca é lida em produção.
+  const fromProcess = (process.env.VITE_GEMINI_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    process.env.API_KEY) as string | undefined;
 
   const key = fromVite || fromProcess || null;
   return typeof key === 'string' && key.trim().length > 0 ? key.trim() : null;
