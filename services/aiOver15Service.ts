@@ -150,6 +150,33 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
   return text.trim();
 }
 
+function canUseServerProxy(): boolean {
+  if (typeof window === 'undefined') return false;
+  // No Capacitor (file://) não existe /api do Vercel.
+  if (window.location?.protocol === 'file:') return false;
+  return true;
+}
+
+async function callGeminiViaServer(prompt: string): Promise<string> {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Falha ao chamar IA no servidor (${res.status}). ${text}`.trim());
+  }
+
+  const json = (await res.json()) as any;
+  const text: unknown = json?.text;
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    throw new Error('Resposta inválida do servidor (sem texto).');
+  }
+  return text.trim();
+}
+
 function localFallbackReport(data: MatchData): AiOver15Result {
   const ctx = buildContext(data);
   const p = ctx.modelBaseline.probabilityOver15Pct ?? 0;
@@ -185,10 +212,22 @@ function localFallbackReport(data: MatchData): AiOver15Result {
 }
 
 export async function generateAiOver15Report(data: MatchData): Promise<AiOver15Result> {
+  const prompt = buildPrompt(data);
+
+  // 1) Preferir servidor (não expõe chave no client).
+  if (canUseServerProxy()) {
+    try {
+      const reportMarkdown = await callGeminiViaServer(prompt);
+      return { reportMarkdown, provider: 'gemini' };
+    } catch {
+      // Se o backend não existir/falhar, cair para as opções abaixo.
+    }
+  }
+
+  // 2) Fallback: chamada direta (usa chave do usuário/env do client).
   const apiKey = getGeminiApiKey();
   if (!apiKey) return localFallbackReport(data);
 
-  const prompt = buildPrompt(data);
   const reportMarkdown = await callGemini(prompt, apiKey);
   return { reportMarkdown, provider: 'gemini' };
 }

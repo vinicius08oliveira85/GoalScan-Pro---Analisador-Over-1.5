@@ -4,13 +4,6 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
-    const geminiApiKey =
-      process.env.VITE_GEMINI_API_KEY ||
-      process.env.GEMINI_API_KEY ||
-      process.env.API_KEY ||
-      env.VITE_GEMINI_API_KEY ||
-      env.GEMINI_API_KEY ||
-      env.API_KEY;
     return {
       server: {
         port: 3000,
@@ -18,12 +11,8 @@ export default defineConfig(({ mode }) => {
       },
       publicDir: 'public',
       plugins: [react()],
-      define: {
-        // Compat: o app lê `process.env.*` (injetado em build) e/ou `import.meta.env.VITE_*`.
-        'process.env.API_KEY': JSON.stringify(geminiApiKey),
-        'process.env.GEMINI_API_KEY': JSON.stringify(geminiApiKey),
-        'process.env.VITE_GEMINI_API_KEY': JSON.stringify(geminiApiKey),
-      },
+      // IMPORTANTE (segurança):
+      // Não injetar a chave do Gemini no bundle. Em produção, use /api/gemini (server-side).
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
