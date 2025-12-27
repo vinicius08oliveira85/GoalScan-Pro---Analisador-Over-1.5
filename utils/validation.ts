@@ -4,8 +4,16 @@ import { z } from 'zod';
 export const matchDataSchema = z.object({
   homeTeam: z.string().min(1, 'Nome do time da casa é obrigatório').max(100),
   awayTeam: z.string().min(1, 'Nome do time visitante é obrigatório').max(100),
-  matchDate: z.string().optional(),
-  matchTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido (HH:mm)').optional(),
+  matchDate: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().optional()
+  ),
+  matchTime: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido (HH:mm)')
+      .optional()
+  ),
   competitionAvg: z.number().min(0).max(100).optional(),
   oddOver15: z.number().min(1.01, 'Odd deve ser maior que 1.00').max(50).optional(),
   

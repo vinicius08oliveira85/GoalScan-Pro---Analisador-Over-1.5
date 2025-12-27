@@ -63,9 +63,14 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData, onError }
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: isNaN(Number(value)) || name === 'homeTeam' || name === 'awayTeam' || name === 'matchDate' || name === 'matchTime'
-        ? value 
-        : value === '' ? undefined : Number(value)
+      [name]:
+        name === 'matchDate' || name === 'matchTime'
+          ? (value === '' ? undefined : value)
+          : isNaN(Number(value)) || name === 'homeTeam' || name === 'awayTeam'
+            ? value
+            : value === ''
+              ? undefined
+              : Number(value)
     }));
   };
 
