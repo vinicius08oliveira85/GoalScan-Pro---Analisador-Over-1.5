@@ -82,7 +82,10 @@ export const betInfoSchema = z.object({
   odd: z.number().min(1.01, 'Odd deve ser maior que 1.00').max(1000),
   potentialReturn: z.number().min(0),
   potentialProfit: z.number(),
-  bankPercentage: z.number().min(0).max(100),
+  bankPercentage: z
+    .number()
+    .min(0, '% da banca não pode ser negativo')
+    .max(100, '% da banca deve ser no máximo 100%'),
   status: z.enum(['pending', 'won', 'lost', 'cancelled']),
   placedAt: z.number().optional(),
   resultAt: z.number().optional()
