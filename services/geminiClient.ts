@@ -22,25 +22,43 @@ class GeminiCallError extends Error {
   }
 }
 
-function readEnvString(key: string): string | undefined {
-  const fromVite = (import.meta as any)?.env?.[key] as string | undefined;
-  const fromProcess = (process.env as any)?.[key] as string | undefined;
-  const v = (fromVite || fromProcess || '').trim();
-  return v.length > 0 ? v : undefined;
+function normalizeEnvValue(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const trimmed = v.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 export function getGeminiSettings(): GeminiSettings {
-  // Preferência:
-  // - `VITE_*` (padrão Vite)
-  // - `process.env.*` (injetado via `define` no build; ver `vite.config.ts`)
-  const apiKey = readEnvString('VITE_GEMINI_API_KEY') || readEnvString('GEMINI_API_KEY') || readEnvString('API_KEY') || null;
+  /**
+   * Importante (Vite):
+   * - `import.meta.env.*` funciona para variáveis `VITE_*`
+   * - `define: { 'process.env.X': '...' }` só substitui acessos ESTÁTICOS (`process.env.X`)
+   *
+   * Logo, não podemos usar `process.env[key]` (dinâmico), senão o build não injeta os valores
+   * e a IA "some" em produção (especialmente quando a chave é configurada como `GEMINI_API_KEY`).
+   */
+  const viteEnv = (import.meta as any)?.env ?? {};
 
-  const apiVersionRaw = (readEnvString('VITE_GEMINI_API_VERSION') || readEnvString('GEMINI_API_VERSION') || 'v1beta')
-    .trim()
+  // Preferência: `VITE_*` (padrão Vite), mas aceita compat via `process.env.*` (injetado no build).
+  const apiKey =
+    normalizeEnvValue(viteEnv.VITE_GEMINI_API_KEY) ||
+    normalizeEnvValue((process.env as any)?.VITE_GEMINI_API_KEY) ||
+    normalizeEnvValue((process.env as any)?.GEMINI_API_KEY) ||
+    normalizeEnvValue((process.env as any)?.API_KEY) ||
+    null;
+
+  const apiVersionRaw = (normalizeEnvValue(viteEnv.VITE_GEMINI_API_VERSION) ||
+    normalizeEnvValue((process.env as any)?.VITE_GEMINI_API_VERSION) ||
+    normalizeEnvValue((process.env as any)?.GEMINI_API_VERSION) ||
+    'v1beta')
     .toLowerCase();
   const apiVersion: GeminiApiVersion = apiVersionRaw === 'v1' ? 'v1' : 'v1beta';
 
-  const modelRaw = (readEnvString('VITE_GEMINI_MODEL') || readEnvString('GEMINI_MODEL') || 'gemini-1.5-flash-latest').trim();
+  const modelRaw =
+    normalizeEnvValue(viteEnv.VITE_GEMINI_MODEL) ||
+    normalizeEnvValue((process.env as any)?.VITE_GEMINI_MODEL) ||
+    normalizeEnvValue((process.env as any)?.GEMINI_MODEL) ||
+    'gemini-1.5-flash-latest';
   const model = normalizeGeminiModel(modelRaw);
 
   return { apiKey, apiVersion, model };
