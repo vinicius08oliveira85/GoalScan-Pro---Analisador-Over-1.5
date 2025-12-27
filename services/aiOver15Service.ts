@@ -1,47 +1,11 @@
 import { MatchData } from '../types';
 import { performAnalysis } from './analysisEngine';
+import { generateGeminiContent, getGeminiSettings } from './geminiClient';
 
 type AiOver15Result = {
   reportMarkdown: string;
   provider: 'gemini' | 'local';
 };
-
-function getGeminiApiKey(): string | null {
-  // Preferência:
-  // 1) `VITE_GEMINI_API_KEY` (padrão Vite)
-  // 2) `GEMINI_API_KEY` / `API_KEY` (inject via build/define)
-  const fromVite = (import.meta as any)?.env?.VITE_GEMINI_API_KEY as string | undefined;
-  // Importante:
-  // No frontend, `process` normalmente NÃO existe em runtime. Porém, o Vite pode substituir
-  // `process.env.X` por literais no build via `define` (ver `vite.config.ts`).
-  // Portanto, não podemos usar `typeof process !== 'undefined'` aqui, senão a chave injetada
-  // nunca é lida em produção.
-  const fromProcess = (process.env.VITE_GEMINI_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    process.env.API_KEY) as string | undefined;
-
-  const key = fromVite || fromProcess || null;
-  return typeof key === 'string' && key.trim().length > 0 ? key.trim() : null;
-}
-
-function getGeminiModel(): string {
-  // Permitimos configurar o modelo via env, mas mantemos um default.
-  // Em geral, os endpoints modernos aceitam `gemini-1.5-flash` em `v1`.
-  const fromVite = (import.meta as any)?.env?.VITE_GEMINI_MODEL as string | undefined;
-  const fromProcess = (process.env.VITE_GEMINI_MODEL || process.env.GEMINI_MODEL) as string | undefined;
-  const model = (fromVite || fromProcess || 'gemini-1.5-flash').trim();
-  return model.length > 0 ? model : 'gemini-1.5-flash';
-}
-
-function getGeminiApiVersion(): 'v1' | 'v1beta' {
-  // Corrige o 404 reportado: `v1beta` pode não listar/aceitar alguns modelos/métodos.
-  // Default seguro: `v1`.
-  const fromVite = (import.meta as any)?.env?.VITE_GEMINI_API_VERSION as string | undefined;
-  const fromProcess = (process.env.VITE_GEMINI_API_VERSION ||
-    process.env.GEMINI_API_VERSION) as string | undefined;
-  const v = (fromVite || fromProcess || 'v1').trim();
-  return v === 'v1beta' ? 'v1beta' : 'v1';
-}
 
 function safeNumber(n: unknown): number | null {
   if (typeof n !== 'number' || !Number.isFinite(n)) return null;
@@ -128,50 +92,6 @@ function buildPrompt(data: MatchData): string {
   ].join('\n');
 }
 
-async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  const apiVersion = getGeminiApiVersion();
-  const model = getGeminiModel();
-  const url =
-    `https://generativelanguage.googleapis.com/${apiVersion}/models/${encodeURIComponent(
-      model
-    )}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.35,
-        topP: 0.9,
-        maxOutputTokens: 900
-      }
-    })
-  });
-
-  if (!res.ok) {
-    // A API pode retornar JSON com { error: { message } }. Se falhar, caímos para texto cru.
-    const raw = await res.text().catch(() => '');
-    try {
-      const parsed = raw ? (JSON.parse(raw) as any) : null;
-      const msg: unknown = parsed?.error?.message;
-      if (typeof msg === 'string' && msg.trim().length > 0) {
-        throw new Error(`Falha ao chamar Gemini (${res.status}). ${msg}`.trim());
-      }
-    } catch {
-      // ignore parse errors; handled below
-    }
-    throw new Error(`Falha ao chamar Gemini (${res.status}). ${raw}`.trim());
-  }
-
-  const json = (await res.json()) as any;
-  const text: unknown = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof text !== 'string' || text.trim().length === 0) {
-    throw new Error('Resposta inválida do Gemini (sem texto).');
-  }
-  return text.trim();
-}
-
 function localFallbackReport(data: MatchData): AiOver15Result {
   const ctx = buildContext(data);
   const p = ctx.modelBaseline.probabilityOver15Pct ?? 0;
@@ -207,11 +127,11 @@ function localFallbackReport(data: MatchData): AiOver15Result {
 }
 
 export async function generateAiOver15Report(data: MatchData): Promise<AiOver15Result> {
-  const apiKey = getGeminiApiKey();
+  const apiKey = getGeminiSettings().apiKey;
   if (!apiKey) return localFallbackReport(data);
 
   const prompt = buildPrompt(data);
-  const reportMarkdown = await callGemini(prompt, apiKey);
+  const reportMarkdown = await generateGeminiContent(prompt, apiKey);
   return { reportMarkdown, provider: 'gemini' };
 }
 
