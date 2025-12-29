@@ -102,6 +102,45 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               </div>
             </div>
 
+            {/* Probabilidades (Estatística, IA, Final) */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Calculator className="w-4 h-4 text-primary opacity-60" />
+                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">Probabilidades</h4>
+              </div>
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4"
+                variants={animations.staggerChildren}
+                initial="initial"
+                animate="animate"
+              >
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Prob. Estatística"
+                    value={`${result.probabilityOver15.toFixed(1)}%`}
+                    icon={Calculator}
+                    color="secondary"
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Prob. IA"
+                    value={result.aiProbability != null ? `${Number(result.aiProbability).toFixed(1)}%` : '—'}
+                    icon={Sparkles}
+                    color="accent"
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Prob. Final"
+                    value={`${(result.combinedProbability ?? result.probabilityOver15).toFixed(1)}%`}
+                    icon={Target}
+                    color="success"
+                  />
+                </motion.div>
+              </motion.div>
+            </div>
+
             {/* Grid de 4 Métricas Essenciais */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">

@@ -87,40 +87,42 @@ const App: React.FC = () => {
   };
 
   const handleAiAnalysisGenerated = (
+    data: MatchData,
     aiMarkdown: string,
     aiProbability: number | null,
     aiConfidence: number | null
   ) => {
-    if (!currentMatchData) return;
+    // Garantir que a partida atual esteja no estado do App (mesmo se o usuário não clicou em "Analisar")
+    setCurrentMatchData(data);
 
     // Recalcular análise com probabilidade da IA
-    const updatedResult = performAnalysis(currentMatchData, aiProbability, aiConfidence);
-    
+    const updatedResult = performAnalysis(data, aiProbability, aiConfidence);
+
     // Atualizar resultado com análise da IA incluída
     setAnalysisResult(updatedResult);
-    
+
     // Salvar automaticamente (criar nova ou atualizar existente)
-    const matchToSave: SavedAnalysis = selectedMatch ? {
-      ...selectedMatch,
-      data: currentMatchData,
-      result: updatedResult,
-      aiAnalysis: aiMarkdown,
-      timestamp: Date.now()
-    } : {
-      id: Math.random().toString(36).slice(2, 11),
-      timestamp: Date.now(),
-      data: currentMatchData,
-      result: updatedResult,
-      aiAnalysis: aiMarkdown
-    };
-    
+    const matchToSave: SavedAnalysis = selectedMatch
+      ? {
+          ...selectedMatch,
+          data,
+          result: updatedResult,
+          aiAnalysis: aiMarkdown,
+          timestamp: Date.now()
+        }
+      : {
+          id: Math.random().toString(36).slice(2, 11),
+          timestamp: Date.now(),
+          data,
+          result: updatedResult,
+          aiAnalysis: aiMarkdown
+        };
+
     // Salvar automaticamente em background com validação parcial
     saveMatchPartial(matchToSave)
       .then((savedMatch) => {
-        // Atualizar selectedMatch se foi criada nova
-        if (!selectedMatch) {
-          setSelectedMatch(savedMatch);
-        }
+        // Sempre manter o selectedMatch atualizado com o retorno do save
+        setSelectedMatch(savedMatch);
         // Mostrar feedback de sucesso
         showSuccess('Análise da IA salva automaticamente!');
       })
@@ -703,10 +705,11 @@ const App: React.FC = () => {
                 </button>
               )}
             </div>
-            <MatchForm 
-              onAnalyze={handleAnalyze} 
-              initialData={currentMatchData} 
+            <MatchForm
+              onAnalyze={handleAnalyze}
+              initialData={currentMatchData}
               onAiAnalysisGenerated={handleAiAnalysisGenerated}
+              savedAiAnalysis={selectedMatch?.aiAnalysis ?? null}
             />
           </aside>
 

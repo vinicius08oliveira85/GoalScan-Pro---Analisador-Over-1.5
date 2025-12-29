@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Sparkles, Loader2, X } from 'lucide-react';
+import { Sparkles, Loader2, X, RefreshCw } from 'lucide-react';
 import { MatchData } from '../types';
 import { generateAiOver15Report, extractProbabilityFromMarkdown, extractConfidenceFromMarkdown } from '../services/aiOver15Service';
 
@@ -7,7 +7,13 @@ type Props = {
   data: MatchData;
   className?: string;
   onError?: (message: string) => void;
-  onAiAnalysisGenerated?: (markdown: string, aiProbability: number | null, aiConfidence: number | null) => void;
+  onAiAnalysisGenerated?: (
+    data: MatchData,
+    markdown: string,
+    aiProbability: number | null,
+    aiConfidence: number | null
+  ) => void;
+  savedReportMarkdown?: string | null;
 };
 
 function renderMarkdownLight(md: string) {
@@ -67,7 +73,7 @@ function renderMarkdownLight(md: string) {
   });
 }
 
-const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnalysisGenerated }) => {
+const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnalysisGenerated, savedReportMarkdown }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState<'gemini' | 'local' | null>(null);
@@ -81,7 +87,19 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
     return Boolean(data.homeTeam?.trim()) && Boolean(data.awayTeam?.trim());
   }, [data.homeTeam, data.awayTeam]);
 
-  const handleRun = async () => {
+  const hasSavedReport = Boolean(savedReportMarkdown && savedReportMarkdown.trim().length > 0);
+
+  const openSavedReport = () => {
+    if (!hasSavedReport) return;
+    setOpen(true);
+    setLoading(false);
+    setError(null);
+    setNotice(null);
+    setProvider(null);
+    setReport(savedReportMarkdown ?? null);
+  };
+
+  const handleGenerate = async () => {
     if (!canRun) return;
 
     setOpen(true);
@@ -94,14 +112,14 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
       setProvider(res.provider);
       setReport(res.reportMarkdown);
       setNotice(res.notice ?? null);
-      
+
       // Extrair probabilidade e confiança da análise
       const aiProbability = extractProbabilityFromMarkdown(res.reportMarkdown);
       const aiConfidence = extractConfidenceFromMarkdown(res.reportMarkdown);
-      
+
       // Chamar callback para processar e salvar análise
       if (onAiAnalysisGenerated) {
-        onAiAnalysisGenerated(res.reportMarkdown, aiProbability, aiConfidence);
+        onAiAnalysisGenerated(data, res.reportMarkdown, aiProbability, aiConfidence);
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Falha ao gerar análise com IA.';
@@ -112,15 +130,37 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
     }
   };
 
+  const handlePrimaryClick = () => {
+    if (!canRun || loading) return;
+    // Se já há report carregado na UI, só abrir o painel.
+    if (report) {
+      setOpen(true);
+      return;
+    }
+    // Se existe relatório salvo na partida, abrir sem gerar novamente.
+    if (hasSavedReport) {
+      openSavedReport();
+      return;
+    }
+    // Caso contrário, gerar.
+    void handleGenerate();
+  };
+
   return (
     <div className={className}>
       <button
         type="button"
-        onClick={handleRun}
+        onClick={handlePrimaryClick}
         disabled={!canRun || loading}
         className="btn btn-xs md:btn-sm btn-primary gap-2 min-h-[36px] md:min-h-[44px]"
         aria-disabled={!canRun || loading}
-        title={!canRun ? 'Preencha os nomes dos times para analisar.' : 'Gerar análise com IA para Over 1.5'}
+        title={
+          !canRun
+            ? 'Preencha os nomes dos times para analisar.'
+            : hasSavedReport
+              ? 'Abrir análise salva de IA (sem gerar novamente)'
+              : 'Gerar análise com IA para Over 1.5'
+        }
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
         IA Over 1.5
@@ -138,20 +178,36 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
                   ? 'Fonte: Gemini'
                   : provider === 'local'
                     ? 'Fonte: fallback local (modelo atual)'
-                    : loading
-                      ? 'Gerando...'
-                      : ''}
+                    : hasSavedReport && report
+                      ? 'Fonte: salva'
+                      : loading
+                        ? 'Gerando...'
+                        : ''}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="btn btn-ghost btn-xs"
-              aria-label="Fechar análise"
-              title="Fechar"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              {hasSavedReport && (
+                <button
+                  type="button"
+                  onClick={() => void handleGenerate()}
+                  disabled={!canRun || loading}
+                  className="btn btn-outline btn-xs gap-1"
+                  title="Gerar novamente e salvar por cima"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  Atualizar IA
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="btn btn-ghost btn-xs"
+                aria-label="Fechar análise"
+                title="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {error && (

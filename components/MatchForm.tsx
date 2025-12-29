@@ -11,7 +11,13 @@ interface MatchFormProps {
   onAnalyze: (data: MatchData) => void;
   initialData?: MatchData | null;
   onError?: (message: string) => void;
-  onAiAnalysisGenerated?: (markdown: string, aiProbability: number | null, aiConfidence: number | null) => void;
+  onAiAnalysisGenerated?: (
+    data: MatchData,
+    markdown: string,
+    aiProbability: number | null,
+    aiConfidence: number | null
+  ) => void;
+  savedAiAnalysis?: string | null;
 }
 
 // Função para criar MatchData vazio
@@ -49,7 +55,13 @@ const createEmptyGols = (): GolsStats => ({
   under25Pct: 0
 });
 
-const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData, onError, onAiAnalysisGenerated }) => {
+const MatchForm: React.FC<MatchFormProps> = ({
+  onAnalyze,
+  initialData,
+  onError,
+  onAiAnalysisGenerated,
+  savedAiAnalysis
+}) => {
   const [formData, setFormData] = useState<MatchData>(initialData || createEmptyMatchData());
 
   useEffect(() => {
@@ -249,7 +261,12 @@ const MatchForm: React.FC<MatchFormProps> = ({ onAnalyze, initialData, onError, 
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">Estatísticas Globais - {formData.homeTeam || 'Time Casa'}</span>
             <InfoIcon text="Estatísticas de gols baseadas nos últimos 10 jogos (Geral)." />
               </div>
-          <AiOver15Insights data={formData} onError={onError} onAiAnalysisGenerated={onAiAnalysisGenerated} />
+      <AiOver15Insights
+        data={formData}
+        onError={onError}
+        onAiAnalysisGenerated={onAiAnalysisGenerated}
+        savedReportMarkdown={savedAiAnalysis ?? null}
+      />
             </div>
             
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
