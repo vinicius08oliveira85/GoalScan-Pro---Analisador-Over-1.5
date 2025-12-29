@@ -107,11 +107,13 @@ const MetricCard: React.FC<MetricCardProps> = ({
             {progress !== undefined ? (
               <>
                 <progress className={`progress ${colors.progress} w-full h-2 mb-1`} value={progress} max="100"></progress>
-                <p className={`text-xs font-bold ${colors.text}`}>{typeof value === 'number' ? value.toFixed(0) : value}%</p>
+                <p className="text-xs font-bold text-base-content">
+                  {typeof value === 'number' ? `${value.toFixed(0)}%` : value}
+                </p>
               </>
             ) : (
               <div className="space-y-1">
-                <p className={`text-lg sm:text-xl font-black bg-gradient-to-r ${colors.text} bg-clip-text text-transparent`}>
+                <p className="text-lg sm:text-xl font-black text-base-content">
                   {typeof value === 'number' ? value.toFixed(1) : value}
                 </p>
                 {(trend && trendValue) || change !== undefined ? (
