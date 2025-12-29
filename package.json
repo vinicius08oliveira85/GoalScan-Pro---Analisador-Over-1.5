@@ -11,8 +11,7 @@
     "android:open": "npx cap open android",
     "android:sync": "npx cap sync android",
     "android:run": "npx cap run android",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "setup:vercel": "node scripts/setup-vercel-env.js",
@@ -20,15 +19,12 @@
     "config:vercel": "node scripts/config-vercel-now.js"
   },
   "dependencies": {
-<<<<<<< Updated upstream
-    "@supabase/supabase-js": "^2.39.0",
-    "framer-motion": "^12.23.26",
-    "lucide-react": "^0.562.0",
-=======
     "@capacitor/android": "^8.0.0",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
->>>>>>> Stashed changes
+    "@supabase/supabase-js": "^2.39.0",
+    "framer-motion": "^12.23.26",
+    "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "recharts": "^2.15.0",
@@ -40,16 +36,13 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
-<<<<<<< Updated upstream
     "@vitest/ui": "^2.1.8",
     "autoprefixer": "^10.4.20",
     "daisyui": "^4.12.10",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.17",
-=======
     "sharp": "^0.34.5",
->>>>>>> Stashed changes
+    "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vitest": "^2.1.8"
