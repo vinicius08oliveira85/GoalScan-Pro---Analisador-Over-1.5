@@ -324,15 +324,25 @@ export async function generateAiOver15Report(data: MatchData): Promise<AiOver15R
     return { reportMarkdown, provider: 'gemini' };
   } catch (e) {
     const friendly = toGeminiFriendlyError(e);
+    
+    // Se o erro não for um GeminiCallError, mas contém mensagem sobre modelos não disponíveis
+    if (!friendly && e instanceof Error && e.message.includes('Nenhum modelo Gemini disponível')) {
+      return localFallbackReport(data, {
+        kind: 'warning',
+        title: 'Modelos Gemini não disponíveis (404)',
+        message: e.message + '\n\nO sistema usará análise local (fallback) até que a API key seja configurada corretamente.'
+      });
+    }
+    
     const retryHint =
       friendly?.retryAfterSeconds != null && friendly.retryAfterSeconds > 0
         ? ` (tente novamente em ~${friendly.retryAfterSeconds}s)`
         : '';
 
     return localFallbackReport(data, {
-      kind: friendly?.kind === 'quota_exceeded' ? 'warning' : 'warning',
+      kind: friendly?.kind === 'quota_exceeded' ? 'warning' : friendly?.kind === 'invalid_key' || friendly?.kind === 'forbidden' ? 'error' : 'warning',
       title: friendly?.title ?? 'Falha ao chamar IA online',
-      message: `${friendly?.message ?? 'Não foi possível usar o Gemini agora.'}${retryHint} Usando fallback local.`
+      message: `${friendly?.message ?? (e instanceof Error ? e.message : 'Não foi possível usar o Gemini agora.')}${retryHint} Usando fallback local.`
     });
   }
 }

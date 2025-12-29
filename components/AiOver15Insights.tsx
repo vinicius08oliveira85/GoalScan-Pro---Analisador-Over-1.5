@@ -212,7 +212,10 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
 
           {error && (
             <div className="mt-3 alert alert-error">
-              <span className="text-sm font-bold">{error}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-black">Erro ao gerar análise</p>
+                <p className="text-xs opacity-90 whitespace-pre-wrap mt-1">{error}</p>
+              </div>
             </div>
           )}
 
@@ -220,7 +223,7 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
             <div className={`mt-3 alert ${notice.kind === 'error' ? 'alert-error' : notice.kind === 'info' ? 'alert-info' : 'alert-warning'}`}>
               <div className="min-w-0">
                 <p className="text-sm font-black">{notice.title}</p>
-                <p className="text-xs opacity-80 whitespace-pre-wrap">{notice.message}</p>
+                <p className="text-xs opacity-80 whitespace-pre-wrap mt-1">{notice.message}</p>
               </div>
             </div>
           )}

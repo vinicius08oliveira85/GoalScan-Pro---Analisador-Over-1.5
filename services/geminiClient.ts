@@ -283,6 +283,31 @@ export function toGeminiFriendlyError(err: unknown): GeminiFriendlyError | null 
     retryAfterSeconds: err.retryAfterSeconds ?? undefined
   };
 
+  if (err.status === 404) {
+    // Verificar se é erro de modelo não encontrado
+    if (isModelNotFoundError(err)) {
+      return {
+        kind: 'unknown',
+        title: 'Modelo Gemini não disponível (404)',
+        message:
+          'Nenhum modelo Gemini está disponível com esta API key. ' +
+          'Possíveis causas:\n' +
+          '• A API key não tem acesso aos modelos - Verifique no Google AI Studio (https://aistudio.google.com/app/apikey)\n' +
+          '• Os modelos podem não estar disponíveis na sua região\n' +
+          '• A API key pode estar inválida ou expirada\n' +
+          '• Pode ser necessário habilitar a API do Gemini no Google Cloud Console\n\n' +
+          'O sistema usará análise local (fallback) até que a API key seja configurada corretamente.',
+        ...base
+      };
+    }
+    return {
+      kind: 'unknown',
+      title: 'Recurso não encontrado (404)',
+      message: 'O recurso solicitado não foi encontrado. Verifique a configuração da API key e do modelo.',
+      ...base
+    };
+  }
+
   if (err.status === 429) {
     if (isQuotaExceededMessage(err.message)) {
       return {
