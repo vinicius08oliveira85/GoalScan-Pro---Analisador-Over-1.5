@@ -210,6 +210,65 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
     loadMatches();
   }, [loadMatches]);
 
+  // Salvar partida com validação parcial (para salvamento automático da IA)
+  const saveMatchPartial = useCallback(async (match: SavedAnalysis) => {
+    try {
+      setIsSaving(true);
+      setSyncError(null);
+      
+      // Usar validação parcial (apenas campos críticos)
+      const savedMatch = await saveOrUpdateAnalysis(match, false);
+      
+      setSavedMatches(prev => {
+        const existingIndex = prev.findIndex(m => m.id === match.id);
+        const updated = existingIndex >= 0
+          ? prev.map(m => m.id === match.id ? savedMatch : m)
+          : [savedMatch, ...prev];
+        
+        // Sincronizar com widgets
+        syncMatchesToWidgets(updated);
+        
+        // Salvar no localStorage
+        try {
+          localStorage.setItem('goalscan_saved', JSON.stringify(updated));
+        } catch (e) {
+          logger.warn('Erro ao salvar no localStorage:', e);
+        }
+        
+        return updated;
+      });
+      
+      return savedMatch;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      errorService.logError(error instanceof Error ? error : new Error(errorMessage), {
+        component: 'useSavedMatches',
+        action: 'saveMatchPartial'
+      });
+      setSyncError('Erro ao salvar no servidor. Os dados foram salvos localmente.');
+      
+      // Salvar localmente como fallback
+      setSavedMatches(prev => {
+        const existingIndex = prev.findIndex(m => m.id === match.id);
+        const updated = existingIndex >= 0
+          ? prev.map(m => m.id === match.id ? match : m)
+          : [match, ...prev];
+        
+        try {
+          localStorage.setItem('goalscan_saved', JSON.stringify(updated));
+        } catch (e) {
+          logger.error('Erro ao salvar no localStorage:', e);
+        }
+        
+        return updated;
+      });
+      
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   return {
     savedMatches,
     isLoading,
@@ -217,6 +276,7 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
     syncError,
     isUsingLocalData,
     saveMatch,
+    saveMatchPartial,
     removeMatch,
     reloadMatches: loadMatches
   };

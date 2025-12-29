@@ -100,10 +100,29 @@ export const bankSettingsSchema = z.object({
   updatedAt: z.number()
 });
 
+// Schema para validação parcial (apenas campos críticos)
+const matchDataPartialSchema = z.object({
+  homeTeam: z.string().min(1, 'Nome do time da casa é obrigatório').max(100),
+  awayTeam: z.string().min(1, 'Nome do time visitante é obrigatório').max(100),
+}).passthrough(); // Permite campos adicionais sem validar
+
 // Função helper para validar e sanitizar dados
 export function validateMatchData(data: unknown) {
   try {
     return matchDataSchema.parse(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error(`Erro de validação: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+    }
+    throw error;
+  }
+}
+
+// Função para validação parcial (apenas campos críticos)
+// Útil quando salvando automaticamente após gerar análise da IA
+export function validateMatchDataPartial(data: unknown) {
+  try {
+    return matchDataPartialSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(`Erro de validação: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);

@@ -24,12 +24,13 @@ import { performAnalysis } from './services/analysisEngine';
 import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
+import { logger } from './utils/logger';
 
 type View = 'home' | 'analysis';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
-  const { savedMatches, isLoading, isSaving, syncError, isUsingLocalData, saveMatch, removeMatch } = useSavedMatches(showError);
+  const { savedMatches, isLoading, isSaving, syncError, isUsingLocalData, saveMatch, saveMatchPartial, removeMatch } = useSavedMatches(showError);
   const { bankSettings, isSyncing, lastSyncTime, saveSettings } = useBankSettings(showError);
   const { activeNotifications, removeNotification, cancelMatchNotification } = useNotifications(savedMatches);
   
@@ -113,16 +114,25 @@ const App: React.FC = () => {
       aiAnalysis: aiMarkdown
     };
     
-    // Salvar automaticamente em background (sem mostrar mensagem)
-    saveMatch(matchToSave)
+    // Salvar automaticamente em background com validação parcial
+    saveMatchPartial(matchToSave)
       .then((savedMatch) => {
         // Atualizar selectedMatch se foi criada nova
         if (!selectedMatch) {
           setSelectedMatch(savedMatch);
         }
+        // Mostrar feedback de sucesso
+        showSuccess('Análise da IA salva automaticamente!');
       })
       .catch((error) => {
-        console.warn('Erro ao salvar análise da IA automaticamente:', error);
+        logger.error('Erro ao salvar análise da IA automaticamente:', error);
+        // Mostrar erro ao usuário
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        if (errorMessage.includes('validação') || errorMessage.includes('Dados inválidos')) {
+          showError('Erro ao salvar análise da IA: dados inválidos. Verifique os campos obrigatórios.');
+        } else {
+          showError('Erro ao salvar análise da IA. Tente salvar manualmente.');
+        }
       });
   };
 

@@ -2,7 +2,7 @@ import { SavedAnalysis, MatchData, AnalysisResult, BetInfo, BankSettings } from 
 import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
-import { validateMatchData, validateBetInfo, validateBankSettings } from '../utils/validation';
+import { validateMatchData, validateMatchDataPartial, validateBetInfo, validateBankSettings } from '../utils/validation';
 
 export interface SavedAnalysisRow {
   id: string;
@@ -181,7 +181,7 @@ export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnal
       betInfo: data.bet_info,
     };
   } catch (error) {
-    console.error('Erro ao atualizar análise:', error);
+    logger.error('Erro ao atualizar análise:', error);
     throw error;
   }
 };
@@ -210,17 +210,29 @@ export const deleteAnalysis = async (id: string): Promise<void> => {
 /**
  * Salva ou atualiza uma análise (upsert)
  */
-export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalysis> => {
+export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis, strictValidation: boolean = false): Promise<SavedAnalysis> => {
   try {
     // Validar dados antes de salvar
+    // Se strictValidation for false, usa validação parcial (apenas campos críticos)
+    // Isso permite salvar análises da IA mesmo com alguns campos opcionais inválidos
     try {
-      validateMatchData(analysis.data);
+      if (strictValidation) {
+        validateMatchData(analysis.data);
+      } else {
+        validateMatchDataPartial(analysis.data);
+      }
       if (analysis.betInfo) {
         validateBetInfo(analysis.betInfo);
       }
     } catch (validationError) {
       logger.error('Erro de validação ao salvar análise:', validationError);
-      throw new Error(`Dados inválidos: ${validationError instanceof Error ? validationError.message : 'Erro desconhecido'}`);
+      const errorMessage = validationError instanceof Error ? validationError.message : 'Erro desconhecido';
+      logger.error('Detalhes da validação:', {
+        homeTeam: analysis.data.homeTeam,
+        awayTeam: analysis.data.awayTeam,
+        error: errorMessage
+      });
+      throw new Error(`Dados inválidos: ${errorMessage}`);
     }
 
     const supabase = await getSupabaseClient();
