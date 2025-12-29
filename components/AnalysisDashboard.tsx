@@ -7,6 +7,8 @@ import ProbabilityGauge from './ProbabilityGauge';
 import MetricCard from './MetricCard';
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
+import { getPrimaryProbability } from '../utils/probability';
+import { getEdgePp } from '../utils/betMetrics';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
@@ -28,6 +30,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   onError
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
+  const primaryProb = getPrimaryProbability(result);
+  const edgePp = data.oddOver15 ? getEdgePp(primaryProb, data.oddOver15) : null;
 
   return (
     <motion.div 
@@ -46,8 +50,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           initial="initial"
           animate="animate"
         >
-          <ProbabilityGauge 
-            probability={result.combinedProbability ?? result.probabilityOver15}
+            <ProbabilityGauge 
+              probability={primaryProb}
             odd={data.oddOver15}
             ev={result.ev}
           />
@@ -109,7 +113,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">Probabilidades</h4>
               </div>
               <motion.div
-                className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4"
+                className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4"
                 variants={animations.staggerChildren}
                 initial="initial"
                 animate="animate"
@@ -136,6 +140,18 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={`${(result.combinedProbability ?? result.probabilityOver15).toFixed(1)}%`}
                     icon={Target}
                     color="success"
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Edge (pp)"
+                    value={
+                      edgePp == null
+                        ? '—'
+                        : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`
+                    }
+                    icon={TrendingUp}
+                    color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
                   />
                 </motion.div>
               </motion.div>
