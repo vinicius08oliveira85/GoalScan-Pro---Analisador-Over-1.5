@@ -12,11 +12,58 @@ type Props = {
 function renderMarkdownLight(md: string) {
   // Renderização leve (sem dependências): preserva quebras e bullets.
   // Se quiser markdown completo no futuro, trocar por um renderer dedicado.
-  return md.split('\n').map((line, idx) => (
-    <p key={idx} className="whitespace-pre-wrap leading-relaxed">
-      {line.length === 0 ? '\u00A0' : line}
-    </p>
-  ));
+  return md.split('\n').map((line, idx) => {
+    // Detectar separadores (---) e renderizar como linha horizontal
+    if (line.trim() === '---') {
+      return <hr key={idx} className="my-4 border-t border-primary/20" />;
+    }
+    
+    // Detectar títulos (## ou ###)
+    if (line.startsWith('##')) {
+      const level = line.match(/^#+/)?.[0].length || 2;
+      const text = line.replace(/^#+\s*/, '');
+      const HeadingTag = `h${Math.min(level, 6)}` as keyof JSX.IntrinsicElements;
+      return (
+        <HeadingTag
+          key={idx}
+          className={`font-bold mt-6 mb-3 ${
+            level === 2 ? 'text-lg' : level === 3 ? 'text-base' : 'text-sm'
+          }`}
+        >
+          {text}
+        </HeadingTag>
+      );
+    }
+    
+    // Detectar listas (- ou *)
+    if (line.trim().startsWith('-') || line.trim().startsWith('*')) {
+      const text = line.replace(/^[-*]\s+/, '');
+      // Detectar negrito (**texto**)
+      const parts = text.split(/(\*\*.*?\*\*)/g);
+      return (
+        <li key={idx} className="ml-4 mb-1 list-disc">
+          {parts.map((part, partIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={partIdx}>{part.slice(2, -2)}</strong>;
+            }
+            return <span key={partIdx}>{part}</span>;
+          })}
+        </li>
+      );
+    }
+    
+    // Linha vazia
+    if (line.length === 0) {
+      return <br key={idx} />;
+    }
+    
+    // Texto normal
+    return (
+      <p key={idx} className="whitespace-pre-wrap leading-relaxed mb-2">
+        {line}
+      </p>
+    );
+  });
 }
 
 const AiOver15Insights: React.FC<Props> = ({ data, className, onError }) => {
