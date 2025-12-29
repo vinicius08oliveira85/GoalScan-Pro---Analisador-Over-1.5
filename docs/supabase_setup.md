@@ -24,6 +24,7 @@ A tabela `saved_analyses` armazena todas as análises de partidas realizadas. Su
 - `match_data` (JSONB) - Dados da partida (times, estatísticas, etc.)
 - `analysis_result` (JSONB) - Resultado da análise (probabilidades, EV, etc.)
 - `bet_info` (JSONB, opcional) - Informações da aposta associada
+- `ai_analysis` (TEXT, opcional) - Markdown completo da análise gerada pela IA (Gemini)
 - `created_at` (TIMESTAMP) - Data de criação
 - `updated_at` (TIMESTAMP) - Data de última atualização
 
@@ -49,6 +50,27 @@ O script irá:
   "status": "pending"         // Status: "pending" | "won" | "lost"
 }
 ```
+
+### Adicionando a Coluna ai_analysis
+
+Se a tabela `saved_analyses` já existe mas não possui a coluna `ai_analysis`, execute o script de migração:
+
+1. No SQL Editor do Supabase, clique em **New Query**
+2. Copie e cole o conteúdo do arquivo `supabase/migrations/add_ai_analysis_to_saved_analyses.sql`
+3. Clique em **Run** (ou pressione `Ctrl+Enter`)
+
+O script irá:
+- Adicionar a coluna `ai_analysis` como TEXT (permite NULL)
+- Adicionar comentário descritivo na coluna
+
+**Conteúdo da coluna ai_analysis:**
+A coluna armazena o texto completo da análise gerada pela IA (Gemini) em formato Markdown, incluindo todas as seções:
+- Painel de Resultados e EV
+- Análise Quantitativa
+- Sinais a Favor
+- Red Flags (Contra)
+- Plano de Entrada
+- Observações e Limitações
 
 ## Criando a Tabela bank_settings
 
@@ -102,12 +124,22 @@ A tabela `bank_settings` utiliza Row Level Security (RLS) com uma política que 
 
 ## Troubleshooting
 
-### Erro PGRST204 - Coluna bet_info não encontrada
+### Erro PGRST204 - Coluna bet_info ou ai_analysis não encontrada
 
-Se você verificar erros `PGRST204` no console indicando que a coluna `bet_info` não foi encontrada:
+Se você verificar erros `PGRST204` no console indicando que a coluna `bet_info` ou `ai_analysis` não foi encontrada:
 
 1. **Verifique se a coluna existe**: Acesse Table Editor > `saved_analyses` e verifique as colunas
-2. **Execute o script de migração**: Execute `supabase/migrations/add_bet_info_to_saved_analyses.sql`
+2. **Execute o script de migração apropriado**:
+   - Para `bet_info`: Execute `supabase/migrations/add_bet_info_to_saved_analyses.sql`
+   - Para `ai_analysis`: Execute `supabase/migrations/add_ai_analysis_to_saved_analyses.sql`
+3. **Recarregue a página**: Após executar o script, recarregue o aplicativo
+
+### Erro 400 ao Salvar Análise com IA
+
+Se você verificar erros 400 no console ao tentar salvar uma análise que inclui dados da IA:
+
+1. **Verifique se a coluna ai_analysis existe**: Acesse Table Editor > `saved_analyses` e verifique as colunas
+2. **Execute o script de migração**: Execute `supabase/migrations/add_ai_analysis_to_saved_analyses.sql`
 3. **Recarregue a página**: Após executar o script, recarregue o aplicativo
 
 ### Erro 404 ao Carregar/Salvar Configurações

@@ -358,30 +358,37 @@ function uniqueAttempts(attempts: Array<{ apiVersion: GeminiApiVersion; model: s
 export async function generateGeminiContent(prompt: string, apiKey: string): Promise<string> {
   const { apiVersion, model } = getGeminiSettings();
 
-  // Obter modelos válidos para a versão configurada
-  const configuredVersionModels = getFallbackOrderForVersion(model, apiVersion);
+  // Priorizar v1 primeiro (mais estável), depois v1beta
+  // Isso ajuda quando a API key não tem acesso a modelos mais novos
+  const primaryVersion: GeminiApiVersion = 'v1';
+  const secondaryVersion: GeminiApiVersion = apiVersion === 'v1beta' ? 'v1beta' : 'v1';
   
-  // Obter versão alternativa para fallback
-  const fallbackVersion: GeminiApiVersion = apiVersion === 'v1beta' ? 'v1' : 'v1beta';
-  const fallbackVersionModels = getFallbackOrderForVersion(model, fallbackVersion);
+  // Obter modelos válidos para cada versão
+  const primaryVersionModels = getFallbackOrderForVersion(model, primaryVersion);
+  const secondaryVersionModels = getFallbackOrderForVersion(model, secondaryVersion);
 
-  // Construir lista de tentativas: primeiro versão configurada, depois fallback
+  // Construir lista de tentativas: primeiro v1 (estável), depois versão configurada
   const attempts: Array<{ apiVersion: GeminiApiVersion; model: string }> = [];
   
-  // 1. Primeiro tentar com a versão configurada (usando apenas modelos válidos para essa versão)
-  for (const m of configuredVersionModels) {
-    attempts.push({ apiVersion, model: m });
+  // 1. Primeiro tentar com v1 (versão mais estável)
+  for (const m of primaryVersionModels) {
+    attempts.push({ apiVersion: primaryVersion, model: m });
   }
   
-  // 2. Se todos falharem na versão configurada, tentar versão alternativa (usando apenas modelos válidos para essa versão)
-  for (const m of fallbackVersionModels) {
-    attempts.push({ apiVersion: fallbackVersion, model: m });
+  // 2. Se todos falharem na v1, tentar versão alternativa (v1beta se configurado)
+  if (secondaryVersion !== primaryVersion) {
+    for (const m of secondaryVersionModels) {
+      attempts.push({ apiVersion: secondaryVersion, model: m });
+    }
   }
 
   const uniqueAttemptsList = uniqueAttempts(attempts);
 
   let lastErr: unknown = null;
+  let attemptedModels: string[] = [];
+  
   for (const a of uniqueAttemptsList) {
+    attemptedModels.push(`${a.apiVersion}/${a.model}`);
     try {
       return await callGeminiOnce({ prompt, apiKey, apiVersion: a.apiVersion, model: a.model });
     } catch (err) {
@@ -389,6 +396,14 @@ export async function generateGeminiContent(prompt: string, apiKey: string): Pro
       // Só tenta fallback automático se for claramente "modelo não encontrado".
       if (!isModelNotFoundError(err)) throw err;
     }
+  }
+
+  // Se todos os modelos falharam com 404, fornecer mensagem mais útil
+  if (lastErr instanceof GeminiCallError && lastErr.status === 404) {
+    const errorMsg = `Nenhum modelo Gemini disponível. Tentados: ${attemptedModels.join(', ')}. ` +
+      `Verifique se a API key tem acesso aos modelos ou se os modelos estão disponíveis na sua região. ` +
+      `Acesse https://ai.google.dev/ para verificar os modelos disponíveis.`;
+    throw new Error(errorMsg);
   }
 
   throw lastErr instanceof Error ? lastErr : new Error('Falha ao chamar Gemini.');
