@@ -167,7 +167,7 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
       </button>
 
       {open && (
-        <div className="mt-4 rounded-2xl border border-primary/20 bg-base-100/40 backdrop-blur p-4">
+        <div className="mt-4 surface surface-hover p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest opacity-60">

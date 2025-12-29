@@ -59,19 +59,12 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
         {/* Card de Informações da Partida */}
         <motion.div 
-          className="lg:col-span-2 group relative overflow-hidden rounded-2xl md:rounded-3xl p-4 md:p-6 bg-gradient-to-br from-primary/10 via-base-200/50 to-base-200/50 backdrop-blur-xl border border-primary/20 hover:border-primary/40 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/20"
+          className="lg:col-span-2 surface surface-hover p-4 md:p-6"
           variants={animations.slideInRight}
           initial="initial"
           animate="animate"
         >
-          {/* Glassmorphism overlay */}
-          <div className="absolute inset-0 bg-base-200/40 backdrop-blur-md" />
-          
-          {/* Animated gradient orb */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity duration-700" />
-
-          {/* Content */}
-          <div className="relative z-10 flex flex-col gap-4 md:gap-6">
+          <div className="flex flex-col gap-4 md:gap-6">
             {/* Header: Times + Badge de Risco + Botão Salvar */}
             <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0">
               <div className="flex-1 min-w-0">
@@ -218,24 +211,16 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             </div>
 
             {/* Recomendação em Destaque */}
-            <div className="mt-4 p-4 md:p-6 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary/10 border-2 border-primary/40 rounded-xl md:rounded-2xl backdrop-blur-sm relative overflow-hidden group/recommendation shadow-lg">
-              <div className="absolute top-3 right-3 opacity-30 group-hover/recommendation:opacity-60 transition-opacity">
-                <Sparkles className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+            <div className="mt-4 surface surface-hover p-4 md:p-6 border-l-4 border-l-primary/60">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                <span className="text-xs md:text-sm font-black uppercase text-primary tracking-wide">Recomendação</span>
               </div>
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-3">
-                  <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-                  <span className="text-xs md:text-sm font-black uppercase text-primary tracking-wide">Recomendação</span>
-                </div>
-                <p className="text-sm md:text-base font-semibold leading-relaxed text-base-content/95 italic">
-                  "{result.recommendation}"
-                </p>
-              </div>
+              <p className="text-sm md:text-base font-semibold leading-relaxed text-base-content/95 italic">
+                "{result.recommendation}"
+              </p>
             </div>
           </div>
-
-          {/* Shine effect on hover */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-1000" />
         </motion.div>
       </div>
 
@@ -243,15 +228,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
       {onBetSave && (
         <div>
           {!showBetManager ? (
-            <div className="group relative overflow-hidden rounded-2xl md:rounded-3xl p-4 md:p-6 bg-gradient-to-br from-primary/10 via-base-200/50 to-base-200/50 backdrop-blur-xl border border-primary/20 hover:border-primary/40 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/20">
-              {/* Glassmorphism overlay */}
-              <div className="absolute inset-0 bg-base-200/40 backdrop-blur-md" />
-              
-              {/* Content */}
-              <div className="relative z-10">
+            <div className="surface surface-hover p-4 md:p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-primary/10 border-2 border-primary/30">
+                    <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
                       <Calculator className="w-6 h-6 text-primary" />
                     </div>
                     <h3 className="text-xl font-black uppercase tracking-tight">Gerenciar Aposta</h3>
@@ -265,9 +245,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 </div>
                 
                 {betInfo && betInfo.betAmount > 0 ? (
-                  <div className="bg-base-100/50 p-5 rounded-2xl border border-white/10 backdrop-blur-sm">
+                  <div className="surface-muted p-5">
                     {/* Status Badge Destacado */}
-                    <div className="mb-6 flex items-center justify-between p-4 bg-base-200/30 rounded-xl border border-white/10">
+                    <div className="mb-6 flex items-center justify-between p-4 rounded-xl border border-base-300/60 bg-base-300/20">
                       <span className="text-sm font-bold opacity-70 uppercase tracking-wide">Status da Aposta</span>
                       <div className={`badge gap-2 px-5 py-3 font-black text-sm uppercase tracking-wider border-2 shadow-lg ${
                         betInfo.status === 'won' 
@@ -293,7 +273,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     
                     {/* Botões Rápidos para Marcar Resultado (apenas se pendente) */}
                     {betInfo.status === 'pending' && onBetSave && (
-                      <div className="mb-6 p-4 bg-warning/10 border-2 border-warning/30 rounded-xl">
+                      <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-xl">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                           <span className="text-sm font-bold opacity-80 uppercase tracking-wide">Marcar Resultado</span>
                           <div className="flex gap-3 w-full sm:w-auto">
@@ -333,14 +313,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     )}
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                      <div className="bg-base-200/40 p-4 rounded-xl border-2 border-white/10">
+                      <div className="surface-muted p-4 rounded-xl">
                         <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Valor Apostado</span>
                         <p className="font-black text-xl font-mono">
                           {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.betAmount.toFixed(2)}
                         </p>
                       </div>
                       {betInfo.status === 'pending' ? (
-                        <div className="bg-base-200/40 p-4 rounded-xl border-2 border-primary/30">
+                        <div className="surface-muted p-4 rounded-xl border border-primary/30">
                           <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Retorno Potencial</span>
                           <p className="font-black text-xl text-primary font-mono">
                             {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialReturn.toFixed(2)}
@@ -369,7 +349,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                           </p>
                         </div>
                       )}
-                      <div className="bg-base-200/40 p-4 rounded-xl border-2 border-white/10">
+                      <div className="surface-muted p-4 rounded-xl">
                         <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">% da Banca</span>
                         <p className="font-black text-xl font-mono">
                           {betInfo.bankPercentage.toFixed(1)}%
@@ -378,16 +358,12 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-base-100/30 p-5 rounded-2xl border border-white/10 backdrop-blur-sm text-center">
+                  <div className="surface-muted p-5 text-center">
                     <p className="text-sm opacity-60">
                       Clique em "Registrar Aposta" para adicionar informações sobre sua aposta nesta partida.
                     </p>
                   </div>
                 )}
-              </div>
-
-              {/* Shine effect on hover */}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-1000" />
             </div>
           ) : (
             <BetManager

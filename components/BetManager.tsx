@@ -109,7 +109,7 @@ const BetManager: React.FC<BetManagerProps> = ({
 
   return (
     <motion.div 
-      className="custom-card p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20"
+      className="surface surface-hover p-6"
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
@@ -132,7 +132,7 @@ const BetManager: React.FC<BetManagerProps> = ({
       <div className="space-y-4">
         {/* Sugestão de Valor de Aposta */}
         {betSuggestion && betSuggestion.recommended > 0 && (
-          <div className="custom-card p-4 bg-gradient-to-br from-accent/10 to-primary/10 border border-accent/20 animate-in">
+          <div className="surface-muted p-4 border border-accent/20">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-accent/20 text-accent">
                 <Lightbulb className="w-4 h-4" />

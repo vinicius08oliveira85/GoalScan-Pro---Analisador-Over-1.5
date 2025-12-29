@@ -92,6 +92,29 @@ a:focus-visible {
   }
 }
 
+/* Superfícies sólidas (estilo dashboard esportivo moderno) */
+@layer components {
+  .surface {
+    @apply bg-base-200/95 border border-base-300/70 rounded-2xl shadow-lg shadow-black/25;
+  }
+
+  .surface-muted {
+    @apply bg-base-300/40 border border-base-300/60 rounded-2xl;
+  }
+
+  .surface-hover {
+    @apply transition-all duration-200 hover:border-base-300/90 hover:shadow-black/35;
+  }
+
+  .kpi-label {
+    @apply text-[10px] md:text-xs font-bold uppercase tracking-widest text-base-content/60;
+  }
+
+  .kpi-value {
+    @apply text-2xl md:text-3xl font-black font-mono text-base-content tracking-tight;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

@@ -399,7 +399,7 @@ const App: React.FC = () => {
   // Renderizar tela principal ou tela de análise
   if (view === 'home') {
     return (
-      <div className="min-h-screen pb-24 md:pb-20">
+      <div className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-20">
         {/* Command Palette */}
         <CommandPalette
           isOpen={showCommandPalette}
@@ -575,7 +575,7 @@ const App: React.FC = () => {
   // Tela de Análise
   return (
     <motion.div 
-      className="min-h-screen pb-24 md:pb-20"
+      className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-20"
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
