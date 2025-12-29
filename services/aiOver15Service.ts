@@ -17,6 +17,66 @@ function safeNumber(n: unknown): number | null {
   return n;
 }
 
+/**
+ * Extrai a probabilidade da análise da IA do markdown.
+ * Procura por padrões como "**Probabilidade (IA)**: XX%" ou "Probabilidade (IA): XX%"
+ */
+export function extractProbabilityFromMarkdown(markdown: string): number | null {
+  if (!markdown || typeof markdown !== 'string') return null;
+  
+  // Padrões possíveis:
+  // - **Probabilidade (IA)**: XX%
+  // - Probabilidade (IA): XX%
+  // - **Probabilidade (IA)**: XX,XX%
+  const patterns = [
+    /\*\*Probabilidade\s*\(?IA\)?\*\*:\s*([\d,]+\.?\d*)\s*%/i,
+    /Probabilidade\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
+    /Probabilidade.*?IA.*?:\s*([\d,]+\.?\d*)\s*%/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = markdown.match(pattern);
+    if (match && match[1]) {
+      const value = parseFloat(match[1].replace(',', '.'));
+      if (!isNaN(value) && value >= 0 && value <= 100) {
+        return value;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Extrai a confiança da análise da IA do markdown.
+ * Procura por padrões como "**Confiança (IA)**: XX%" ou "Confiança (IA): XX%"
+ */
+export function extractConfidenceFromMarkdown(markdown: string): number | null {
+  if (!markdown || typeof markdown !== 'string') return null;
+  
+  // Padrões possíveis:
+  // - **Confiança (IA)**: XX%
+  // - Confiança (IA): XX%
+  // - **Confiança (IA)**: XX,XX%
+  const patterns = [
+    /\*\*Confiança\s*\(?IA\)?\*\*:\s*([\d,]+\.?\d*)\s*%/i,
+    /Confiança\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
+    /Confiança.*?IA.*?:\s*([\d,]+\.?\d*)\s*%/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = markdown.match(pattern);
+    if (match && match[1]) {
+      const value = parseFloat(match[1].replace(',', '.'));
+      if (!isNaN(value) && value >= 0 && value <= 100) {
+        return value;
+      }
+    }
+  }
+  
+  return null;
+}
+
 function buildContext(data: MatchData) {
   const result = performAnalysis(data);
 

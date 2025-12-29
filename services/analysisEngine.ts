@@ -8,7 +8,42 @@ function poissonProbability(k: number, lambda: number): number {
   return (Math.pow(lambda, k) * exp) / factorial;
 }
 
-export function performAnalysis(data: MatchData): AnalysisResult {
+/**
+ * Combina probabilidade estatística com probabilidade da IA usando média ponderada.
+ * O peso da IA é baseado na confiança da IA.
+ * 
+ * @param statisticalProb - Probabilidade calculada pelas estatísticas (0-100)
+ * @param aiProb - Probabilidade calculada pela IA (0-100) ou null
+ * @param aiConfidence - Confiança da IA (0-100) ou null
+ * @returns Probabilidade combinada (0-100)
+ */
+export function combineProbabilities(
+  statisticalProb: number,
+  aiProb: number | null,
+  aiConfidence: number | null
+): number {
+  // Se não há probabilidade da IA, retornar apenas estatística
+  if (aiProb === null || aiProb === undefined) {
+    return statisticalProb;
+  }
+  
+  // Se não há confiança da IA, usar média simples
+  if (aiConfidence === null || aiConfidence === undefined || aiConfidence <= 0) {
+    return (statisticalProb + aiProb) / 2;
+  }
+  
+  // Normalizar confiança para 0-1
+  const aiWeight = Math.min(Math.max(aiConfidence / 100, 0), 1);
+  const statisticalWeight = 1 - aiWeight;
+  
+  // Calcular média ponderada
+  const combined = (aiProb * aiWeight) + (statisticalProb * statisticalWeight);
+  
+  // Limitar entre 15% e 95%
+  return Math.min(Math.max(combined, 15), 95);
+}
+
+export function performAnalysis(data: MatchData, aiProbability?: number | null, aiConfidence?: number | null): AnalysisResult {
   // NOVO ALGORITMO SIMPLIFICADO: Baseado apenas em estatísticas globais disponíveis
   
   // 1. Obter Over 1.5% de cada time (dado mais importante)
@@ -118,21 +153,35 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   if (avgTotal > 0) confidence += 15;
   confidence = Math.min(100, confidence);
   
-  let riskLevel: AnalysisResult['riskLevel'] = 'Moderado';
-  if (prob > 88) riskLevel = 'Baixo';
-  else if (prob > 78) riskLevel = 'Moderado';
-  else if (prob > 68) riskLevel = 'Alto';
-  else riskLevel = 'Muito Alto';
+  // Calcular probabilidade combinada se IA disponível
+  const combinedProb = combineProbabilities(prob, aiProbability ?? null, aiConfidence ?? null);
   
+  // Usar probabilidade combinada para cálculos de risco e recomendações
+  const finalProb = combinedProb;
+  
+  let riskLevel: AnalysisResult['riskLevel'] = 'Moderado';
+  if (finalProb > 88) riskLevel = 'Baixo';
+  else if (finalProb > 78) riskLevel = 'Moderado';
+  else if (finalProb > 68) riskLevel = 'Alto';
+  else riskLevel = 'Muito Alto';
+
+  // Recalcular EV com probabilidade combinada se odd disponível
+  let finalEv = ev;
+  if (data.oddOver15 && data.oddOver15 > 1) {
+    finalEv = ((finalProb / 100) * data.oddOver15 - 1) * 100;
+  }
+
   return {
-    probabilityOver15: prob,
+    probabilityOver15: prob, // Probabilidade estatística pura
+    aiProbability: aiProbability ?? null, // Probabilidade da IA
+    combinedProbability: combinedProb, // Probabilidade final combinada
     confidenceScore: confidence,
     poissonHome: pHome,
     poissonAway: pAway,
     riskLevel,
-    ev,
-    verdict: prob > 80 ? "ALTA CONFIANÇA EM GOLS" : prob > 70 ? "CENÁRIO FAVORÁVEL" : "JOGO TRANCADO",
-    recommendation: prob > 82 
+    ev: finalEv,
+    verdict: finalProb > 80 ? "ALTA CONFIANÇA EM GOLS" : finalProb > 70 ? "CENÁRIO FAVORÁVEL" : "JOGO TRANCADO",
+    recommendation: finalProb > 82 
       ? "Entrada recomendada pré-live ou Over 1.0 HT no minuto 15." 
       : "Aguarde o Live. Só entre se houver 3 chutes a gol nos primeiros 10 minutos.",
     advancedMetrics: {

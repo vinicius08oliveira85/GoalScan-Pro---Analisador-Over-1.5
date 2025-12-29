@@ -47,7 +47,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           animate="animate"
         >
           <ProbabilityGauge 
-            probability={result.probabilityOver15}
+            probability={result.combinedProbability ?? result.probabilityOver15}
             odd={data.oddOver15}
             ev={result.ev}
           />
@@ -329,7 +329,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           ) : (
             <BetManager
               odd={data.oddOver15 || 0}
-              probability={result.probabilityOver15}
+              probability={result.combinedProbability ?? result.probabilityOver15}
               betInfo={betInfo}
               bankSettings={bankSettings}
               onSave={(newBetInfo) => {

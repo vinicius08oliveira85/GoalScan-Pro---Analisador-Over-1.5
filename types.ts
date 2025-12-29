@@ -124,7 +124,9 @@ export interface MatchData {
 }
 
 export interface AnalysisResult {
-  probabilityOver15: number;
+  probabilityOver15: number;        // Probabilidade estatística pura
+  aiProbability?: number | null;    // Probabilidade da IA (se disponível)
+  combinedProbability?: number;     // Probabilidade final combinada (IA + estatística)
   confidenceScore: number;
   poissonHome: number[];
   poissonAway: number[];
@@ -164,5 +166,6 @@ export interface SavedAnalysis {
   timestamp: number;
   data: MatchData;
   result: AnalysisResult;
+  aiAnalysis?: string;      // Markdown completo da análise da IA (opcional)
   betInfo?: BetInfo;        // Informações da aposta (opcional)
 }

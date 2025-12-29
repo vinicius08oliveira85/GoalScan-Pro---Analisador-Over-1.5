@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { Sparkles, Loader2, X } from 'lucide-react';
 import { MatchData } from '../types';
-import { generateAiOver15Report } from '../services/aiOver15Service';
+import { generateAiOver15Report, extractProbabilityFromMarkdown, extractConfidenceFromMarkdown } from '../services/aiOver15Service';
 
 type Props = {
   data: MatchData;
   className?: string;
   onError?: (message: string) => void;
+  onAiAnalysisGenerated?: (markdown: string, aiProbability: number | null, aiConfidence: number | null) => void;
 };
 
 function renderMarkdownLight(md: string) {
@@ -66,7 +67,7 @@ function renderMarkdownLight(md: string) {
   });
 }
 
-const AiOver15Insights: React.FC<Props> = ({ data, className, onError }) => {
+const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnalysisGenerated }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState<'gemini' | 'local' | null>(null);
@@ -93,6 +94,15 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError }) => {
       setProvider(res.provider);
       setReport(res.reportMarkdown);
       setNotice(res.notice ?? null);
+      
+      // Extrair probabilidade e confiança da análise
+      const aiProbability = extractProbabilityFromMarkdown(res.reportMarkdown);
+      const aiConfidence = extractConfidenceFromMarkdown(res.reportMarkdown);
+      
+      // Chamar callback para processar e salvar análise
+      if (onAiAnalysisGenerated) {
+        onAiAnalysisGenerated(res.reportMarkdown, aiProbability, aiConfidence);
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Falha ao gerar análise com IA.';
       setError(message);

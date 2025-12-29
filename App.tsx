@@ -86,6 +86,47 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAiAnalysisGenerated = (
+    aiMarkdown: string,
+    aiProbability: number | null,
+    aiConfidence: number | null
+  ) => {
+    if (!currentMatchData) return;
+
+    // Recalcular análise com probabilidade da IA
+    const updatedResult = performAnalysis(currentMatchData, aiProbability, aiConfidence);
+    
+    // Atualizar resultado com análise da IA incluída
+    setAnalysisResult(updatedResult);
+    
+    // Salvar automaticamente (criar nova ou atualizar existente)
+    const matchToSave: SavedAnalysis = selectedMatch ? {
+      ...selectedMatch,
+      data: currentMatchData,
+      result: updatedResult,
+      aiAnalysis: aiMarkdown,
+      timestamp: Date.now()
+    } : {
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: Date.now(),
+      data: currentMatchData,
+      result: updatedResult,
+      aiAnalysis: aiMarkdown
+    };
+    
+    // Salvar automaticamente em background (sem mostrar mensagem)
+    saveMatch(matchToSave)
+      .then((savedMatch) => {
+        // Atualizar selectedMatch se foi criada nova
+        if (!selectedMatch) {
+          setSelectedMatch(savedMatch);
+        }
+      })
+      .catch((error) => {
+        console.warn('Erro ao salvar análise da IA automaticamente:', error);
+      });
+  };
+
   const handleSaveMatch = async () => {
     if (analysisResult && currentMatchData) {
       try {
@@ -97,6 +138,7 @@ const App: React.FC = () => {
             ...selectedMatch,
             data: currentMatchData,
             result: analysisResult,
+            aiAnalysis: selectedMatch.aiAnalysis, // Manter análise da IA se existir
             betInfo: selectedMatch.betInfo, // Manter betInfo se existir
             timestamp: Date.now() // Atualizar timestamp
           };
@@ -107,6 +149,7 @@ const App: React.FC = () => {
             timestamp: Date.now(),
             data: currentMatchData,
             result: analysisResult,
+            aiAnalysis: undefined, // Será preenchido quando análise da IA for gerada
             betInfo: selectedMatch?.betInfo // Incluir betInfo se existir
           };
         }
@@ -651,7 +694,11 @@ const App: React.FC = () => {
                 </button>
               )}
             </div>
-            <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
+            <MatchForm 
+              onAnalyze={handleAnalyze} 
+              initialData={currentMatchData} 
+              onAiAnalysisGenerated={handleAiAnalysisGenerated}
+            />
           </aside>
 
           {/* Main Content: Results */}
