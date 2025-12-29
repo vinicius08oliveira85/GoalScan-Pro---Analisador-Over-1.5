@@ -12,6 +12,7 @@ interface MetricCardProps {
   trendValue?: string | number;
   sparklineData?: number[];
   change?: number;
+  tooltip?: string; // Descrição explicativa para o tooltip
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ 
@@ -23,7 +24,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
   trend,
   trendValue,
   sparklineData,
-  change
+  change,
+  tooltip
 }) => {
   const colorClasses = {
     primary: {
@@ -88,8 +90,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
     accent: 'hsl(var(--a))'
   };
 
-  return (
-    <div className={`group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br ${colors.bg} backdrop-blur-xl border ${colors.border} hover:${colors.border.replace('/20', '/40')} transition-all duration-300 hover:shadow-lg hover:scale-[1.02]`}>
+  const cardContent = (
+    <div className={`group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br ${colors.bg} backdrop-blur-xl border ${colors.border} hover:${colors.border.replace('/20', '/40')} transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${tooltip ? 'cursor-help' : ''}`}>
       {/* Glassmorphism overlay */}
       <div className="absolute inset-0 bg-base-200/30 backdrop-blur-sm" />
       
@@ -160,6 +162,17 @@ const MetricCard: React.FC<MetricCardProps> = ({
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-all duration-700" />
     </div>
   );
+
+  // Se há tooltip, envolver com tooltip do DaisyUI
+  if (tooltip) {
+    return (
+      <div className="tooltip tooltip-top w-full" data-tip={tooltip}>
+        {cardContent}
+      </div>
+    );
+  }
+
+  return cardContent;
 };
 
 export default MetricCard;
