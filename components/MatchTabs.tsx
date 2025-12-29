@@ -32,6 +32,12 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       count: counts.todas
     },
     {
+      id: 'pendentes',
+      label: 'Pendentes',
+      icon: <Clock className="w-4 h-4" />,
+      count: counts.pendentes
+    },
+    {
       id: 'hoje',
       label: 'Hoje',
       icon: <Calendar className="w-4 h-4" />,
@@ -42,12 +48,6 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       label: 'Futuras',
       icon: <TrendingUp className="w-4 h-4" />,
       count: counts.futuras
-    },
-    {
-      id: 'pendentes',
-      label: 'Pendentes',
-      icon: <Clock className="w-4 h-4" />,
-      count: counts.pendentes
     },
     {
       id: 'finalizadas',
@@ -97,6 +97,8 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                     ${
                       activeTab === tab.id
                         ? 'bg-white/20 text-white'
+                        : tab.id === 'pendentes' && tab.count > 0
+                        ? 'bg-warning/20 text-warning border border-warning/30'
                         : 'bg-base-300 text-base-content/60'
                     }
                   `}
@@ -148,6 +150,8 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                       ${
                         activeTab === tab.id
                           ? 'bg-white/20 text-white'
+                          : tab.id === 'pendentes' && tab.count > 0
+                          ? 'bg-warning/20 text-warning border border-warning/30'
                           : 'bg-base-300 text-base-content/60'
                       }
                     `}

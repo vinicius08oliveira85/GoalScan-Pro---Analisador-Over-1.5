@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SavedAnalysis } from '../types';
 import { TrendingUp, TrendingDown, Calendar, X, Plus, Target, Activity, TrendingUp as TrendingUpIcon, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
@@ -133,11 +133,14 @@ interface MainScreenProps {
 }
 
 const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onNewMatch, onDeleteMatch, isLoading = false }) => {
-  // Estado da aba ativa
-  const [activeTab, setActiveTab] = useState<TabCategory>('todas');
-  
   // Contadores por categoria
   const categoryCounts = useMemo(() => getCategoryCounts(savedMatches), [savedMatches]);
+  
+  // Estado da aba ativa - inicia com 'pendentes' se houver partidas pendentes, senão 'todas'
+  const [activeTab, setActiveTab] = useState<TabCategory>(() => {
+    const counts = getCategoryCounts(savedMatches);
+    return counts.pendentes > 0 ? 'pendentes' : 'todas';
+  });
   
   // Filtrar partidas baseado na aba ativa
   const filteredMatches = useMemo(() => {
@@ -302,185 +305,187 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
               animate="animate"
               exit="exit"
             >
-              {filteredMatches.map((match, index) => (
-              <motion.div
-                key={match.id}
-                onClick={() => onMatchClick(match)}
-                custom={index}
-                initial="initial"
-                animate="animate"
-                whileHover="hover"
-                whileTap="tap"
-                variants={cardHover}
-                className="group custom-card p-4 md:p-6 hover:border-primary/50 hover:shadow-xl cursor-pointer flex flex-col gap-3 md:gap-4 relative overflow-hidden"
-              >
-                {/* Header: Data e Times */}
-                <div className="flex justify-between items-start gap-2">
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                      <Calendar className="w-3 h-3 md:w-4 md:h-4 opacity-40 flex-shrink-0" />
-                      {match.data.matchDate ? (
-                        <span className="text-[9px] md:text-[10px] font-black opacity-30 uppercase break-words">
-                          {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
-                            day: '2-digit', 
-                            month: 'short', 
-                            year: 'numeric' 
-                          })}
-                          {match.data.matchTime && ` • ${match.data.matchTime}`}
-                        </span>
-                      ) : (
-                        <span className="text-[9px] md:text-[10px] font-black opacity-30 uppercase break-words">
-                          {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
-                            day: '2-digit', 
-                            month: 'short', 
-                            year: 'numeric' 
-                          })}
-                        </span>
-                      )}
+              {filteredMatches.map((match, index) => {
+                // Determinar cor da barra de status
+                const statusBarColor = match.betInfo && match.betInfo.betAmount > 0
+                  ? match.betInfo.status === 'won' 
+                    ? 'bg-success' 
+                    : match.betInfo.status === 'lost'
+                    ? 'bg-error'
+                    : match.betInfo.status === 'pending'
+                    ? 'bg-warning'
+                    : 'bg-base-300'
+                  : 'bg-primary';
+                
+                return (
+                <motion.div
+                  key={match.id}
+                  onClick={() => onMatchClick(match)}
+                  custom={index}
+                  initial="initial"
+                  animate="animate"
+                  whileHover="hover"
+                  whileTap="tap"
+                  variants={cardHover}
+                  className="group custom-card p-3 hover:border-primary/50 hover:shadow-xl cursor-pointer flex flex-col gap-2 relative overflow-hidden"
+                >
+                  {/* Barra de Status Colorida no Topo */}
+                  <div className={`h-1 ${statusBarColor} absolute top-0 left-0 right-0`} />
+                  
+                  {/* Header: Times, Data e Status */}
+                  <div className="flex justify-between items-start gap-2 pt-1">
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-sm font-semibold truncate mb-1">
+                        <span className="truncate">{match.data.homeTeam}</span>
+                        <span className="text-primary opacity-60 shrink-0">vs</span>
+                        <span className="truncate">{match.data.awayTeam}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs opacity-60">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        {match.data.matchDate ? (
+                          <>
+                            <span>
+                              {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: 'short'
+                              })}
+                            </span>
+                            {match.data.matchTime && (
+                              <>
+                                <span>•</span>
+                                <span>{match.data.matchTime}</span>
+                              </>
+                            )}
+                          </>
+                        ) : (
+                          <span>
+                            {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
+                              day: '2-digit', 
+                              month: 'short'
+                            })}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <h3 className="text-sm md:text-base font-black uppercase leading-tight break-words">
-                      <span className="break-words">{match.data.homeTeam}</span> <span className="text-primary opacity-60">vs</span> <span className="break-words">{match.data.awayTeam}</span>
-                    </h3>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    {/* Status da Aposta */}
-                    {match.betInfo && match.betInfo.betAmount > 0 && (
-                      <div className={`badge gap-1.5 px-2.5 py-2 font-bold text-[10px] uppercase tracking-wider flex-shrink-0 ${
-                        match.betInfo.status === 'won' 
-                          ? 'bg-success/20 text-success border-success/30' 
-                          : match.betInfo.status === 'lost'
-                          ? 'bg-error/20 text-error border-error/30'
-                          : match.betInfo.status === 'pending'
-                          ? 'bg-warning/20 text-warning border-warning/30'
-                          : 'bg-base-300/20 text-base-content/60 border-base-300/30'
-                      }`}>
-                        {match.betInfo.status === 'won' && <CheckCircle className="w-3 h-3" />}
-                        {match.betInfo.status === 'lost' && <XCircle className="w-3 h-3" />}
-                        {match.betInfo.status === 'pending' && <Clock className="w-3 h-3" />}
-                        {match.betInfo.status === 'cancelled' && <Ban className="w-3 h-3" />}
-                        <span>
-                          {match.betInfo.status === 'won' ? 'Ganhou' :
-                           match.betInfo.status === 'lost' ? 'Perdeu' :
-                           match.betInfo.status === 'pending' ? 'Pendente' :
-                           'Cancelada'}
-                        </span>
-                      </div>
-                    )}
-                    <button
-                      onClick={(e) => onDeleteMatch(e, match.id)}
-                      className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-error"
-                      aria-label={`Remover partida ${match.data.homeTeam} vs ${match.data.awayTeam}`}
-                    >
-                      <X className="w-4 h-4" aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Informações da Aposta */}
-                {match.betInfo && match.betInfo.betAmount > 0 && (
-                  <div className="bg-base-100/30 p-3 rounded-xl border border-white/5">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-[9px] font-bold opacity-40 uppercase">Valor Apostado</span>
-                        <p className="font-black text-sm mt-0.5">
-                          {match.betInfo.betAmount.toFixed(2)}
-                        </p>
-                      </div>
-                      {match.betInfo.status === 'won' && (
-                        <div>
-                          <span className="text-[9px] font-bold opacity-40 uppercase">Ganho</span>
-                          <p className="font-black text-sm text-success mt-0.5">
-                            +{match.betInfo.potentialProfit.toFixed(2)}
-                          </p>
+                    <div className="flex items-start gap-2">
+                      {/* Status da Aposta */}
+                      {match.betInfo && match.betInfo.betAmount > 0 && (
+                        <div className={`badge gap-1 px-2 py-1 h-6 text-xs font-medium flex-shrink-0 ${
+                          match.betInfo.status === 'won' 
+                            ? 'bg-success/20 text-success border-success/30' 
+                            : match.betInfo.status === 'lost'
+                            ? 'bg-error/20 text-error border-error/30'
+                            : match.betInfo.status === 'pending'
+                            ? 'bg-warning/20 text-warning border-warning/30'
+                            : 'bg-base-300/20 text-base-content/60 border-base-300/30'
+                        }`}>
+                          {match.betInfo.status === 'won' && <CheckCircle className="w-3 h-3" />}
+                          {match.betInfo.status === 'lost' && <XCircle className="w-3 h-3" />}
+                          {match.betInfo.status === 'pending' && <Clock className="w-3 h-3" />}
+                          {match.betInfo.status === 'cancelled' && <Ban className="w-3 h-3" />}
+                          <span className="text-[10px]">
+                            {match.betInfo.status === 'won' ? 'Ganhou' :
+                             match.betInfo.status === 'lost' ? 'Perdeu' :
+                             match.betInfo.status === 'pending' ? 'Pendente' :
+                             'Cancelada'}
+                          </span>
                         </div>
                       )}
-                      {match.betInfo.status === 'lost' && (
-                        <div>
-                          <span className="text-[9px] font-bold opacity-40 uppercase">Perda</span>
-                          <p className="font-black text-sm text-error mt-0.5">
-                            -{match.betInfo.betAmount.toFixed(2)}
-                          </p>
-                        </div>
-                      )}
-                      {match.betInfo.status === 'pending' && (
-                        <div>
-                          <span className="text-[9px] font-bold opacity-40 uppercase">Retorno Potencial</span>
-                          <p className="font-black text-sm text-primary mt-0.5">
-                            {match.betInfo.potentialReturn.toFixed(2)}
-                          </p>
-                        </div>
-                      )}
+                      <button
+                        onClick={(e) => onDeleteMatch(e, match.id)}
+                        className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-error"
+                        aria-label={`Remover partida ${match.data.homeTeam} vs ${match.data.awayTeam}`}
+                      >
+                        <X className="w-3 h-3" aria-hidden="true" />
+                      </button>
                     </div>
                   </div>
-                )}
 
-                {/* Métricas Principais */}
-                <div className="grid grid-cols-3 gap-2 md:gap-3">
-                  <div className="flex flex-col items-center p-2 md:p-3 rounded-xl bg-teal-500/5 border border-teal-500/10 group-hover:border-teal-500/20 transition-colors">
-                    <span className="text-[8px] md:text-[9px] font-bold opacity-40 uppercase mb-1">Prob</span>
-                    <span className="text-base md:text-lg font-black text-teal-400">{match.result.probabilityOver15.toFixed(0)}%</span>
+                  {/* Barra de Probabilidade */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium opacity-60">Probabilidade</span>
+                      <span className="font-semibold">{match.result.probabilityOver15.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-base-300 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-primary to-teal-400 transition-all duration-500"
+                        style={{ width: `${match.result.probabilityOver15}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex flex-col items-center p-2 md:p-3 rounded-xl bg-primary/5 border border-primary/10 group-hover:border-primary/20 transition-colors">
-                    <span className="text-[8px] md:text-[9px] font-bold opacity-40 uppercase mb-1">Odd</span>
-                    <span className="text-base md:text-lg font-black text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</span>
-                  </div>
-                  <div className={`flex flex-col items-center p-2 md:p-3 rounded-xl border transition-colors ${
-                    match.result.ev > 0
-                      ? 'bg-success/5 border-success/10 group-hover:border-success/20'
-                      : match.result.ev < 0
-                      ? 'bg-error/5 border-error/10 group-hover:border-error/20'
-                      : 'bg-base-300/5 border-base-300/10'
-                  }`}>
-                    <span className="text-[8px] md:text-[9px] font-bold opacity-40 uppercase mb-1">EV</span>
-                    <div className="flex items-center gap-1">
-                      {match.result.ev > 0 ? (
-                        <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-success" />
-                      ) : match.result.ev < 0 ? (
-                        <TrendingDown className="w-3 h-3 md:w-4 md:h-4 text-error" />
-                      ) : null}
-                      <span className={`text-base md:text-lg font-black ${
+
+                  {/* Grid de Métricas Compacto */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-base-200/50 rounded-md px-2 py-1.5">
+                      <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Odd</div>
+                      <div className="text-sm font-bold mt-0.5 text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</div>
+                    </div>
+                    <div className="bg-base-200/50 rounded-md px-2 py-1.5">
+                      <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">EV</div>
+                      <div className={`text-sm font-bold mt-0.5 flex items-center gap-1 ${
                         match.result.ev > 0 ? 'text-success' :
                         match.result.ev < 0 ? 'text-error' :
                         'opacity-50'
                       }`}>
-                        {match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%
-                      </span>
+                        {match.result.ev > 0 && <TrendingUp className="w-3 h-3" />}
+                        {match.result.ev < 0 && <TrendingDown className="w-3 h-3" />}
+                        <span>{match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="bg-base-200/50 rounded-md px-2 py-1.5">
+                      <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Risco</div>
+                      <div className="mt-0.5">
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                          match.result.riskLevel === 'Baixo' ? 'bg-success/10 text-success border-success/20' :
+                          match.result.riskLevel === 'Moderado' ? 'bg-warning/10 text-warning border-warning/20' :
+                          match.result.riskLevel === 'Alto' ? 'bg-error/10 text-error border-error/20' :
+                          'bg-error/10 text-error border-error/20'
+                        }`}>
+                          {match.result.riskLevel}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Barra de Progresso e Badge */}
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="h-2 flex-1 rounded-full overflow-hidden bg-base-300">
-                    <div
-                      className="h-full bg-gradient-to-r from-primary to-teal-400 transition-all duration-500"
-                      style={{ width: `${match.result.probabilityOver15}%` }}
-                    ></div>
-                  </div>
-                  {match.result.ev > 0 && (
-                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-success/10 border border-success/20">
-                      <TrendingUp className="w-3 h-3 text-success" />
-                      <span className="text-[9px] font-bold text-success">EV+</span>
+                  {/* Informações Financeiras em Linha Horizontal */}
+                  {match.betInfo && match.betInfo.betAmount > 0 && (
+                    <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                      <div className="space-y-0.5">
+                        <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Aposta</div>
+                        <div className="text-sm font-semibold">{match.betInfo.betAmount.toFixed(2)}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5 opacity-40">
+                        <TrendingUp className="h-4 w-4" />
+                      </div>
+                      <div className="space-y-0.5 text-right">
+                        <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">
+                          {match.betInfo.status === 'won' ? 'Ganho' :
+                           match.betInfo.status === 'lost' ? 'Perda' :
+                           'Retorno Potencial'}
+                        </div>
+                        <div className="flex items-baseline gap-1 justify-end">
+                          <div className={`text-sm font-bold ${
+                            match.betInfo.status === 'won' ? 'text-success' :
+                            match.betInfo.status === 'lost' ? 'text-error' :
+                            'text-primary'
+                          }`}>
+                            {match.betInfo.status === 'won' && '+'}
+                            {match.betInfo.status === 'won' ? match.betInfo.potentialProfit.toFixed(2) :
+                             match.betInfo.status === 'lost' ? `-${match.betInfo.betAmount.toFixed(2)}` :
+                             match.betInfo.potentialReturn.toFixed(2)}
+                          </div>
+                          {match.betInfo.status === 'pending' && (
+                            <div className="text-xs font-semibold opacity-60">
+                              ({((match.betInfo.potentialReturn - match.betInfo.betAmount) / match.betInfo.betAmount * 100).toFixed(0)}%)
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
-                </div>
-
-                {/* Nível de Risco */}
-                <div className="pt-3 border-t border-white/5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold opacity-40 uppercase">Nível de Risco</span>
-                    <span className={`text-xs font-black px-2 py-1 rounded ${
-                      match.result.riskLevel === 'Baixo' ? 'bg-success/20 text-success' :
-                      match.result.riskLevel === 'Moderado' ? 'bg-warning/20 text-warning' :
-                      match.result.riskLevel === 'Alto' ? 'bg-error/20 text-error' :
-                      'bg-error/30 text-error'
-                    }`}>
-                      {match.result.riskLevel}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-              ))}
+                </motion.div>
+              )})}
             </motion.div>
           </AnimatePresence>
         )}
