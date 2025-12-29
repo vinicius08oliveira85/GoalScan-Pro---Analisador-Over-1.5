@@ -6,17 +6,26 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 // Importação dinâmica do Supabase (via importmap no HTML)
 let supabaseClient: any = null;
 let supabaseModule: any = null;
+// Promise compartilhada para evitar race conditions
+let initializationPromise: Promise<any> | null = null;
 
 export const getSupabaseClient = async () => {
+  // Se já existe cliente, retornar imediatamente
   if (supabaseClient) {
-    console.log('[Supabase] Cliente já inicializado, reutilizando...');
     return supabaseClient;
   }
 
-  console.log('[Supabase] Inicializando cliente...');
-  console.log('[Supabase] Verificando variáveis de ambiente...');
-  console.log('[Supabase] VITE_SUPABASE_URL:', SUPABASE_URL ? `${SUPABASE_URL.substring(0, 20)}...` : 'NÃO CONFIGURADO');
-  console.log('[Supabase] VITE_SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : 'NÃO CONFIGURADO');
+  // Se já existe uma inicialização em andamento, aguardar ela
+  if (initializationPromise) {
+    return initializationPromise;
+  }
+
+  // Criar nova Promise de inicialização
+  initializationPromise = (async () => {
+    console.log('[Supabase] Inicializando cliente...');
+    console.log('[Supabase] Verificando variáveis de ambiente...');
+    console.log('[Supabase] VITE_SUPABASE_URL:', SUPABASE_URL ? `${SUPABASE_URL.substring(0, 20)}...` : 'NÃO CONFIGURADO');
+    console.log('[Supabase] VITE_SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : 'NÃO CONFIGURADO');
 
   // Validar que as variáveis de ambiente estão configuradas
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -104,11 +113,33 @@ export const getSupabaseClient = async () => {
     }
     
     console.log('[Supabase] Criando cliente Supabase...');
-    supabaseClient = supabaseModule.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Configurar opções para evitar múltiplas instâncias do GoTrueClient
+    supabaseClient = supabaseModule.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        // Usar storage compartilhado para evitar múltiplas instâncias
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'sb-auth-token',
+      },
+      global: {
+        // Headers padrão
+        headers: {
+          'x-client-info': 'goalscan-pro@1.0.0',
+        },
+      },
+    });
     console.log('[Supabase] ✅ Cliente inicializado com sucesso');
     
-    return supabaseClient;
+    // Limpar a Promise de inicialização após sucesso
+    const client = supabaseClient;
+    initializationPromise = null;
+    return client;
   } catch (error: any) {
+    // Limpar a Promise de inicialização em caso de erro
+    initializationPromise = null;
+    
     console.error('[Supabase] ❌ Erro ao inicializar cliente Supabase:', {
       message: error?.message,
       name: error?.name,
@@ -121,5 +152,8 @@ export const getSupabaseClient = async () => {
     );
     throw detailedError;
   }
+  })();
+
+  return initializationPromise;
 };
 
