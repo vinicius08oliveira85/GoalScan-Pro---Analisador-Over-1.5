@@ -38,6 +38,12 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       count: counts.pendentes
     },
     {
+      id: 'finalizadas',
+      label: 'Finalizadas',
+      icon: <CheckCircle className="w-4 h-4" />,
+      count: counts.finalizadas
+    },
+    {
       id: 'hoje',
       label: 'Hoje',
       icon: <Calendar className="w-4 h-4" />,
@@ -48,12 +54,6 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       label: 'Futuras',
       icon: <TrendingUp className="w-4 h-4" />,
       count: counts.futuras
-    },
-    {
-      id: 'finalizadas',
-      label: 'Finalizadas',
-      icon: <CheckCircle className="w-4 h-4" />,
-      count: counts.finalizadas
     }
   ];
 
@@ -93,13 +93,15 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
               {tab.count > 0 && (
                 <span
                   className={`
-                    px-2 py-0.5 rounded-full text-xs font-bold
+                    px-2 py-0.5 rounded-full text-xs font-bold transition-all
                     ${
                       activeTab === tab.id
                         ? 'bg-white/20 text-white'
                         : tab.id === 'pendentes' && tab.count > 0
-                        ? 'bg-warning/20 text-warning border border-warning/30'
-                        : 'bg-base-300 text-base-content/60'
+                        ? 'bg-warning/30 text-warning border border-warning/40 shadow-sm'
+                        : tab.id === 'finalizadas' && tab.count > 0
+                        ? 'bg-success/20 text-success border border-success/30 shadow-sm'
+                        : 'bg-base-300 text-base-content/70'
                     }
                   `}
                 >
@@ -146,13 +148,15 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                 {tab.count > 0 && (
                   <span
                     className={`
-                      px-2 py-0.5 rounded-full text-xs font-bold
+                      px-2 py-0.5 rounded-full text-xs font-bold transition-all
                       ${
                         activeTab === tab.id
                           ? 'bg-white/20 text-white'
                           : tab.id === 'pendentes' && tab.count > 0
-                          ? 'bg-warning/20 text-warning border border-warning/30'
-                          : 'bg-base-300 text-base-content/60'
+                          ? 'bg-warning/30 text-warning border border-warning/40 shadow-sm'
+                          : tab.id === 'finalizadas' && tab.count > 0
+                          ? 'bg-success/20 text-success border border-success/30 shadow-sm'
+                          : 'bg-base-300 text-base-content/70'
                       }
                     `}
                   >

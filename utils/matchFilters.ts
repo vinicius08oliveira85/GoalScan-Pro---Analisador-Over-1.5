@@ -74,23 +74,41 @@ export function isMatchPast(match: SavedAnalysis): boolean {
 
 /**
  * Verifica se a partida está finalizada
- * Critério: betInfo.status === 'won' ou 'lost' E data da partida já passou
+ * Critério: 
+ * - Partidas com status 'won' ou 'lost' (independente da data)
+ * - Partidas que já passaram E têm betInfo com valor > 0 (mesmo sem status definido)
  */
 export function isMatchFinalized(match: SavedAnalysis): boolean {
+  // Se tem status final (won ou lost), está finalizada
   const hasFinalStatus = match.betInfo?.status === 'won' || match.betInfo?.status === 'lost';
-  const isPast = isMatchPast(match);
+  if (hasFinalStatus) return true;
   
-  return hasFinalStatus && isPast;
+  // Se já passou e tem aposta registrada, considera finalizada
+  const isPast = isMatchPast(match);
+  const hasBet = match.betInfo && match.betInfo.betAmount > 0;
+  
+  return isPast && hasBet;
 }
 
 /**
  * Verifica se a partida está pendente
- * Critério: betInfo.status === 'pending' ou sem betInfo
+ * Critério: 
+ * - Partidas com betInfo.status === 'pending'
+ * - Partidas sem betInfo mas que ainda não passaram (data futura ou hoje)
+ * - Exclui partidas sem betInfo que já passaram
  */
 export function isMatchPending(match: SavedAnalysis): boolean {
-  if (!match.betInfo) return true;
+  // Se tem betInfo com status pending, está pendente
+  if (match.betInfo?.status === 'pending') return true;
   
-  return match.betInfo.status === 'pending';
+  // Se não tem betInfo, verifica se ainda não passou
+  if (!match.betInfo) {
+    const isPast = isMatchPast(match);
+    // Só é pendente se ainda não passou
+    return !isPast;
+  }
+  
+  return false;
 }
 
 /**

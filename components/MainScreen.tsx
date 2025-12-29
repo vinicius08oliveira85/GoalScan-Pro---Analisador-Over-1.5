@@ -307,16 +307,21 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
               exit="exit"
             >
               {filteredMatches.map((match, index) => {
-                // Determinar cor da barra de status
-                const statusBarColor = match.betInfo && match.betInfo.betAmount > 0
-                  ? match.betInfo.status === 'won' 
-                    ? 'bg-success' 
-                    : match.betInfo.status === 'lost'
-                    ? 'bg-error'
-                    : match.betInfo.status === 'pending'
-                    ? 'bg-warning'
-                    : 'bg-base-300'
-                  : 'bg-primary';
+                // Determinar cor da borda e status baseado no estado da aposta
+                const getStatusConfig = () => {
+                  if (match.betInfo && match.betInfo.betAmount > 0) {
+                    if (match.betInfo.status === 'won') {
+                      return { border: 'border-t-2 border-success', bg: 'bg-success/10' };
+                    } else if (match.betInfo.status === 'lost') {
+                      return { border: 'border-t-2 border-error', bg: 'bg-error/10' };
+                    } else if (match.betInfo.status === 'pending') {
+                      return { border: 'border-t-2 border-warning', bg: 'bg-warning/10' };
+                    }
+                  }
+                  return { border: 'border-t-2 border-primary', bg: 'bg-primary/10' };
+                };
+                
+                const statusConfig = getStatusConfig();
                 
                 return (
                 <motion.div
@@ -328,44 +333,15 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                   whileHover="hover"
                   whileTap="tap"
                   variants={cardHover}
-                  className="group custom-card p-3 hover:border-primary/50 hover:shadow-xl cursor-pointer flex flex-col gap-2 relative overflow-hidden"
+                  className={`group custom-card p-3 hover:shadow-xl cursor-pointer flex flex-col gap-1.5 relative overflow-hidden ${statusConfig.border}`}
                 >
-                  {/* Barra de Status Colorida no Topo */}
-                  <div className={`h-1 ${statusBarColor} absolute top-0 left-0 right-0`} />
-                  
-                  {/* Header: Times, Data e Status */}
-                  <div className="flex justify-between items-start gap-2 pt-1">
+                  {/* Header: Times e Status */}
+                  <div className={`flex justify-between items-start gap-2 px-3 py-2 -mx-3 -mt-3 mb-1 ${statusConfig.bg} rounded-t-lg`}>
                     <div className="flex flex-col flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-semibold truncate mb-1">
+                      <div className="flex items-center gap-2 text-sm font-semibold truncate">
                         <span className="truncate">{match.data.homeTeam}</span>
                         <span className="text-primary opacity-60 shrink-0">vs</span>
                         <span className="truncate">{match.data.awayTeam}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs opacity-60">
-                        <Calendar className="w-3 h-3 shrink-0" />
-                        {match.data.matchDate ? (
-                          <>
-                            <span>
-                              {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
-                                day: '2-digit', 
-                                month: 'short'
-                              })}
-                            </span>
-                            {match.data.matchTime && (
-                              <>
-                                <span>•</span>
-                                <span>{match.data.matchTime}</span>
-                              </>
-                            )}
-                          </>
-                        ) : (
-                          <span>
-                            {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
-                              day: '2-digit', 
-                              month: 'short'
-                            })}
-                          </span>
-                        )}
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
@@ -401,28 +377,73 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                       </button>
                     </div>
                   </div>
-
-                  {/* Barra de Probabilidade */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium opacity-60">Probabilidade</span>
-                      <span className="font-semibold">{match.result.probabilityOver15.toFixed(0)}%</span>
+                  
+                  {/* Data/Hora e Risco na mesma linha */}
+                  <div className="flex items-center justify-between text-xs px-1">
+                    <div className="flex items-center gap-1.5 opacity-60">
+                      <Calendar className="w-3 h-3 shrink-0" />
+                      {match.data.matchDate ? (
+                        <>
+                          <span>
+                            {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
+                              day: '2-digit', 
+                              month: 'short'
+                            })}
+                          </span>
+                          {match.data.matchTime && (
+                            <>
+                              <span>•</span>
+                              <Clock className="w-3 h-3" />
+                              <span>{match.data.matchTime}</span>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <span>
+                          {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: 'short'
+                          })}
+                        </span>
+                      )}
                     </div>
-                    <div className="h-1.5 w-full bg-base-300 rounded-full overflow-hidden">
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                      match.result.riskLevel === 'Baixo' ? 'bg-success/10 text-success border-success/20' :
+                      match.result.riskLevel === 'Moderado' ? 'bg-warning/10 text-warning border-warning/20' :
+                      match.result.riskLevel === 'Alto' ? 'bg-error/10 text-error border-error/20' :
+                      'bg-error/10 text-error border-error/20'
+                    }`}>
+                      {match.result.riskLevel}
+                    </span>
+                  </div>
+
+                  {/* Barra de Probabilidade com Cores Dinâmicas */}
+                  <div className="space-y-1.5 bg-base-200/30 rounded-lg px-3 py-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium opacity-70">Probabilidade</span>
+                      <span className="font-bold">{match.result.probabilityOver15.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-base-300 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-primary to-teal-400 transition-all duration-500"
+                        className={`h-full transition-all duration-500 ${
+                          match.result.probabilityOver15 >= 70 
+                            ? 'bg-gradient-to-r from-success to-emerald-400' 
+                            : match.result.probabilityOver15 >= 50
+                            ? 'bg-gradient-to-r from-warning to-amber-400'
+                            : 'bg-gradient-to-r from-error to-rose-400'
+                        }`}
                         style={{ width: `${match.result.probabilityOver15}%` }}
                       />
                     </div>
                   </div>
 
                   {/* Grid de Métricas Compacto */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-base-200/50 rounded-md px-2 py-1.5">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="bg-base-200/30 rounded-md px-2 py-1.5">
                       <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Odd</div>
                       <div className="text-sm font-bold mt-0.5 text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</div>
                     </div>
-                    <div className="bg-base-200/50 rounded-md px-2 py-1.5">
+                    <div className="bg-base-200/30 rounded-md px-2 py-1.5">
                       <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">EV</div>
                       <div className={`text-sm font-bold mt-0.5 flex items-center gap-1 ${
                         match.result.ev > 0 ? 'text-success' :
@@ -434,40 +455,35 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                         <span>{match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%</span>
                       </div>
                     </div>
-                    <div className="bg-base-200/50 rounded-md px-2 py-1.5">
-                      <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Risco</div>
-                      <div className="mt-0.5">
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-                          match.result.riskLevel === 'Baixo' ? 'bg-success/10 text-success border-success/20' :
-                          match.result.riskLevel === 'Moderado' ? 'bg-warning/10 text-warning border-warning/20' :
-                          match.result.riskLevel === 'Alto' ? 'bg-error/10 text-error border-error/20' :
-                          'bg-error/10 text-error border-error/20'
-                        }`}>
-                          {match.result.riskLevel}
-                        </span>
+                    <div className="bg-base-200/30 rounded-md px-2 py-1.5">
+                      <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Stake</div>
+                      <div className="text-sm font-bold mt-0.5">
+                        {match.betInfo && match.betInfo.betAmount > 0 
+                          ? match.betInfo.betAmount.toFixed(2) 
+                          : '-'}
                       </div>
                     </div>
                   </div>
 
-                  {/* Informações Financeiras em Linha Horizontal */}
+                  {/* Informações Financeiras - Layout Compacto */}
                   {match.betInfo && match.betInfo.betAmount > 0 && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                        <div className="space-y-0.5">
-                          <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Aposta</div>
-                          <div className="text-sm font-semibold">{match.betInfo.betAmount.toFixed(2)}</div>
+                      <div className="flex items-center justify-between rounded-lg border bg-base-200/30 px-3 py-2.5">
+                        <div>
+                          <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide mb-0.5">Aposta</div>
+                          <div className="text-sm font-bold">{match.betInfo.betAmount.toFixed(2)}</div>
                         </div>
                         <div className="flex items-center gap-1.5 opacity-40">
-                          <TrendingUp className="h-4 w-4" />
+                          <TrendingUp className="h-3.5 w-3.5" />
                         </div>
-                        <div className="space-y-0.5 text-right">
-                          <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">
+                        <div className="text-right">
+                          <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide mb-0.5">
                             {match.betInfo.status === 'won' ? 'Ganho' :
                              match.betInfo.status === 'lost' ? 'Perda' :
-                             'Retorno Potencial'}
+                             'Retorno'}
                           </div>
                           <div className="flex items-baseline gap-1 justify-end">
-                            <div className={`text-sm font-bold ${
+                            <div className={`text-base font-bold ${
                               match.betInfo.status === 'won' ? 'text-success' :
                               match.betInfo.status === 'lost' ? 'text-error' :
                               'text-primary'
@@ -488,13 +504,13 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                       
                       {/* Botões Rápidos para Marcar Resultado (apenas se pendente) */}
                       {match.betInfo.status === 'pending' && onUpdateBetStatus && (
-                        <div className="flex gap-2 pt-2">
+                        <div className="flex gap-2">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               onUpdateBetStatus(match, 'won');
                             }}
-                            className="btn btn-xs btn-success flex-1 gap-1 min-h-[32px] text-[10px] font-bold"
+                            className="btn btn-xs btn-success flex-1 gap-1 min-h-[32px] text-[10px] font-bold border-success/30"
                             title="Marcar como ganha"
                           >
                             <CheckCircle className="w-3 h-3" />
@@ -505,7 +521,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                               e.stopPropagation();
                               onUpdateBetStatus(match, 'lost');
                             }}
-                            className="btn btn-xs btn-error flex-1 gap-1 min-h-[32px] text-[10px] font-bold"
+                            className="btn btn-xs btn-error flex-1 gap-1 min-h-[32px] text-[10px] font-bold border-error/30"
                             title="Marcar como perdida"
                           >
                             <XCircle className="w-3 h-3" />
