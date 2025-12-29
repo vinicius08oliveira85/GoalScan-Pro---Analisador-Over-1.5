@@ -80,7 +80,7 @@ export const matchDataSchema = z.object({
 
 // Schema para validação de BetInfo
 export const betInfoSchema = z.object({
-  betAmount: z.number().min(5, 'Valor mínimo da aposta é R$ 5,00').max(1000000),
+  betAmount: z.number().min(0, 'Valor da aposta não pode ser negativo').max(1000000),
   odd: z.number().min(1.01, 'Odd deve ser maior que 1.00').max(1000),
   potentialReturn: z.number().min(0),
   potentialProfit: z.number(),
@@ -91,6 +91,15 @@ export const betInfoSchema = z.object({
   status: z.enum(['pending', 'won', 'lost', 'cancelled']),
   placedAt: z.number().optional(),
   resultAt: z.number().optional()
+}).superRefine((val, ctx) => {
+  // Permitir remover aposta: cancelled pode ter betAmount = 0
+  if (val.status !== 'cancelled' && !(val.betAmount > 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['betAmount'],
+      message: 'Valor da aposta deve ser maior que 0'
+    });
+  }
 });
 
 // Schema para validação de BankSettings

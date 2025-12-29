@@ -2,8 +2,8 @@
  * Utilitários para sugestão de valor de aposta
  */
 
-// Valor mínimo de aposta exigido pela casa de apostas
-export const MIN_BET_AMOUNT = 5.00;
+// Menor valor permitido no input (passo 0.01). Não impomos “mínimo da casa”.
+export const MIN_BET_AMOUNT = 0.01;
 
 export interface BetSuggestion {
   conservative: number;      // 1% da banca (conservador)
@@ -61,19 +61,6 @@ export function suggestBetAmount(
   odd: number,
   bank: number
 ): BetSuggestion {
-  // Verificar se a banca é suficiente para o valor mínimo
-  if (bank < MIN_BET_AMOUNT) {
-    return {
-      conservative: 0,
-      moderate: 0,
-      aggressive: 0,
-      kelly: 0,
-      recommended: 0,
-      method: 'conservative',
-      explanation: `Banca insuficiente. Valor mínimo: R$ ${MIN_BET_AMOUNT.toFixed(2)}`
-    };
-  }
-
   if (bank <= 0 || odd <= 1 || probability <= 0) {
     return {
       conservative: 0,
@@ -110,21 +97,6 @@ export function suggestBetAmount(
   // Kelly Criterion
   let kelly = calculateKellyStake(probability, odd, bank);
   
-  // Garantir que valores calculados respeitem o mínimo
-  // Se o valor for menor que o mínimo, ajustar para o mínimo (se banca permitir)
-  if (conservative < MIN_BET_AMOUNT) {
-    conservative = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
-  }
-  if (moderate < MIN_BET_AMOUNT) {
-    moderate = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
-  }
-  if (aggressive < MIN_BET_AMOUNT) {
-    aggressive = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
-  }
-  if (kelly > 0 && kelly < MIN_BET_AMOUNT) {
-    kelly = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
-  }
-  
   // Recomendação inteligente baseada em EV e probabilidade
   let recommended: number;
   let method: BetSuggestion['method'];
@@ -147,21 +119,13 @@ export function suggestBetAmount(
     explanation = 'EV positivo moderado - aposta conservadora recomendada';
   } else {
     // EV baixo mas positivo - muito conservador
-    recommended = Math.max(conservative * 0.5, MIN_BET_AMOUNT); // Metade do conservador ou mínimo
+    recommended = conservative * 0.5; // Metade do conservador
     method = 'conservative';
     explanation = 'EV baixo - aposta muito conservadora recomendada';
   }
   
   // Garantir que o valor recomendado não seja maior que a banca
   recommended = Math.min(recommended, bank);
-  
-  // Garantir que o valor recomendado respeite o mínimo
-  if (recommended > 0 && recommended < MIN_BET_AMOUNT) {
-    recommended = bank >= MIN_BET_AMOUNT ? MIN_BET_AMOUNT : 0;
-    if (recommended === MIN_BET_AMOUNT) {
-      explanation += ' (ajustado para valor mínimo)';
-    }
-  }
   
   // Arredondar valores para 2 casas decimais
   return {

@@ -6,6 +6,7 @@ import { SkeletonMatchCard } from './Skeleton';
 import { cardHover, animations } from '../utils/animations';
 import MatchTabs, { TabCategory } from './MatchTabs';
 import { filterMatchesByCategory, getCategoryCounts } from '../utils/matchFilters';
+import { getPrimaryProbability } from '../utils/probability';
 
 // Componente de Empty State por categoria
 const EmptyStateByCategory: React.FC<{ 
@@ -140,7 +141,7 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
   const totalMatches = filteredMatches.length;
   const positiveEV = filteredMatches.filter(m => m.result.ev > 0).length;
   const avgProbability = filteredMatches.length > 0 
-    ? filteredMatches.reduce((sum, m) => sum + m.result.probabilityOver15, 0) / filteredMatches.length 
+    ? filteredMatches.reduce((sum, m) => sum + getPrimaryProbability(m.result), 0) / filteredMatches.length 
     : 0;
   const avgEV = filteredMatches.length > 0
     ? filteredMatches.reduce((sum, m) => sum + m.result.ev, 0) / filteredMatches.length
@@ -409,18 +410,18 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                   <div className="space-y-1.5 bg-base-200/30 rounded-lg px-3 py-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium opacity-70">Probabilidade</span>
-                      <span className="font-bold">{match.result.probabilityOver15.toFixed(0)}%</span>
+                      <span className="font-bold">{getPrimaryProbability(match.result).toFixed(0)}%</span>
                     </div>
                     <div className="h-2 w-full bg-base-300 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-500 ${
-                          match.result.probabilityOver15 >= 70 
+                          getPrimaryProbability(match.result) >= 70 
                             ? 'bg-gradient-to-r from-success to-emerald-400' 
-                            : match.result.probabilityOver15 >= 50
+                            : getPrimaryProbability(match.result) >= 50
                             ? 'bg-gradient-to-r from-warning to-amber-400'
                             : 'bg-gradient-to-r from-error to-rose-400'
                         }`}
-                        style={{ width: `${match.result.probabilityOver15}%` }}
+                        style={{ width: `${getPrimaryProbability(match.result)}%` }}
                       />
                     </div>
                   </div>

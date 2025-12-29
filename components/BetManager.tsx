@@ -31,7 +31,6 @@ const BetManager: React.FC<BetManagerProps> = ({
 }) => {
   const [betAmount, setBetAmount] = useState<number>(betInfo?.betAmount || 0);
   const [status, setStatus] = useState<BetInfo['status']>(betInfo?.status || 'pending');
-  const [isValidAmount, setIsValidAmount] = useState<boolean>(true);
 
   // Calcular valores automaticamente
   const potentialReturn = betAmount > 0 && odd > 0 ? betAmount * odd : 0;
@@ -59,15 +58,6 @@ const BetManager: React.FC<BetManagerProps> = ({
       setStatus(betInfo.status);
     }
   }, [betInfo]);
-
-  // Validação em tempo real do valor mínimo
-  useEffect(() => {
-    if (betAmount > 0 && betAmount < MIN_BET_AMOUNT) {
-      setIsValidAmount(false);
-    } else {
-      setIsValidAmount(true);
-    }
-  }, [betAmount]);
 
   const handleSave = () => {
     try {
@@ -212,17 +202,17 @@ const BetManager: React.FC<BetManagerProps> = ({
               value={betAmount || ''}
               onChange={(e) => setBetAmount(Number(e.target.value))}
               className={`input input-bordered w-full min-h-[44px] text-base ${
-                (isOverBank || (!isValidAmount && betAmount > 0))
+                isOverBank
                   ? 'border-error focus:ring-error'
                   : betSuggestion && betAmount > 0 && Math.abs(betAmount - betSuggestion.recommended) / betSuggestion.recommended < 0.1
                   ? 'border-success'
                   : ''
               }`}
-              placeholder={`Mínimo: ${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${MIN_BET_AMOUNT.toFixed(2)}`}
+              placeholder={`Ex: ${getCurrencySymbol(bankSettings?.currency || 'BRL')} 10.00`}
               aria-label="Valor da aposta"
-              aria-invalid={(isOverBank || (!isValidAmount && betAmount > 0)) ? true : undefined}
+              aria-invalid={isOverBank ? true : undefined}
             />
-            {(isOverBank || (!isValidAmount && betAmount > 0)) && (
+            {isOverBank && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-error">
                 <AlertCircle className="w-5 h-5" />
               </div>
@@ -234,10 +224,6 @@ const BetManager: React.FC<BetManagerProps> = ({
                 <span className="text-error">
                   Valor acima da banca: {getCurrencySymbol(bankSettings?.currency || 'BRL')} {totalBank.toFixed(2)}
                 </span>
-              ) : !isValidAmount && betAmount > 0 ? (
-                <span className="text-error">
-                  Valor mínimo: {getCurrencySymbol(bankSettings?.currency || 'BRL')} {MIN_BET_AMOUNT.toFixed(2)}
-                </span>
               ) : bankSettings && bankSettings.totalBank > 0 ? (
                 <>
                   {rawBankPercentage.toFixed(2)}% da sua banca ({getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(2)})
@@ -248,7 +234,7 @@ const BetManager: React.FC<BetManagerProps> = ({
                   )}
                 </>
               ) : (
-                `Valor mínimo: ${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${MIN_BET_AMOUNT.toFixed(2)}`
+                'Configure sua banca para receber sugestões automáticas.'
               )}
             </span>
           </label>
@@ -345,7 +331,7 @@ const BetManager: React.FC<BetManagerProps> = ({
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
           <button
             onClick={handleSave}
-            disabled={!isValidAmount || betAmount < MIN_BET_AMOUNT || isOverBank}
+            disabled={betAmount < MIN_BET_AMOUNT || isOverBank}
             className="btn btn-primary flex-1 min-h-[44px] text-base disabled:btn-disabled"
           >
             {betInfo ? 'Atualizar Aposta' : 'Salvar Aposta'}

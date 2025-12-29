@@ -114,30 +114,30 @@ describe('validateBetInfo', () => {
     expect(() => validateBetInfo(invalidBet)).toThrow();
   });
 
-  it('deve rejeitar valor de aposta menor que R$ 5,00', () => {
-    const invalidBet = {
-      betAmount: 4.99,
-      odd: 2.5,
-      potentialReturn: 12.48,
-      potentialProfit: 7.49,
-      bankPercentage: 1,
-      status: 'pending' as const
-    };
-
-    expect(() => validateBetInfo(invalidBet)).toThrow();
-  });
-
-  it('deve aceitar valor de aposta igual ou maior que R$ 5,00', () => {
+  it('deve aceitar valor pequeno (> 0) em pending', () => {
     const validBet = {
-      betAmount: 5.00,
+      betAmount: 1.00,
       odd: 2.5,
-      potentialReturn: 12.50,
-      potentialProfit: 7.50,
-      bankPercentage: 1,
+      potentialReturn: 2.50,
+      potentialProfit: 1.50,
+      bankPercentage: 0.1,
       status: 'pending' as const
     };
 
     expect(() => validateBetInfo(validBet)).not.toThrow();
+  });
+
+  it('deve aceitar betAmount = 0 quando status for cancelled', () => {
+    const cancelledBet = {
+      betAmount: 0,
+      odd: 2.5,
+      potentialReturn: 0,
+      potentialProfit: 0,
+      bankPercentage: 0,
+      status: 'cancelled' as const
+    };
+
+    expect(() => validateBetInfo(cancelledBet)).not.toThrow();
   });
 
   it('deve rejeitar odd inválida', () => {
