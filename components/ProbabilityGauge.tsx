@@ -21,7 +21,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
   return (
     <div 
       className="group relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-teal-500/10 via-base-200/50 to-base-200/50 backdrop-blur-xl border border-teal-500/20 hover:border-teal-500/40 transition-all duration-500 hover:shadow-2xl hover:shadow-teal-500/20 cursor-help"
-      title="Probabilidade de Over 1.5 gols na partida. Calculada com base em estatísticas históricas e análise da IA (quando disponível)."
+      title="Probabilidade de Over 1.5 gols. Calculada com estatísticas históricas e análise da IA (quando disponível)."
     >
       {/* Glassmorphism overlay */}
       <div className="absolute inset-0 bg-base-200/40 backdrop-blur-md" />
@@ -139,14 +139,14 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
         <div className="flex justify-between w-full mt-4 px-2 pt-4 border-t border-white/10 gap-4">
           <div 
             className="text-center flex-1 bg-base-100/30 p-3 rounded-xl border border-white/5 cursor-help"
-            title="Odd atual do mercado Over 1.5 gols. Usada para calcular o Expected Value (EV) e Edge da aposta."
+            title="Odd atual do mercado Over 1.5. Usada para calcular EV e Edge da aposta."
           >
             <p className="text-[9px] font-bold opacity-40 uppercase mb-1">Odd Atual</p>
             <p className="text-lg md:text-xl font-black">{odd?.toFixed(2) || '-'}</p>
           </div>
           <div 
             className="text-center flex-1 bg-base-100/30 p-3 rounded-xl border border-white/5 cursor-help"
-            title="Expected Value (EV): valor esperado da aposta em percentual. Valores positivos indicam apostas com valor esperado positivo a longo prazo. EV = (Probabilidade × Odd - 1) × 100"
+            title="Expected Value (EV): valor esperado em percentual. Valores positivos indicam apostas com valor a longo prazo. EV = (Prob × Odd - 1) × 100"
           >
             <p className="text-[9px] font-bold opacity-40 uppercase mb-1">EV %</p>
             <div className="flex items-center justify-center gap-1">

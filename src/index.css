@@ -125,3 +125,13 @@ a:focus-visible {
   border-radius: 10px;
 }
 
+/* Tooltips com múltiplas linhas e largura adequada */
+.tooltip::before {
+  max-width: 280px !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  text-align: left !important;
+  padding: 8px 12px !important;
+  line-height: 1.4 !important;
+}
+

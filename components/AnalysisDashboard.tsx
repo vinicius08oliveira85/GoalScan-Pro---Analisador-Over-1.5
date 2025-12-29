@@ -124,7 +124,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={`${result.probabilityOver15.toFixed(1)}%`}
                     icon={Calculator}
                     color="secondary"
-                    tooltip="Probabilidade calculada apenas com base em estatísticas históricas (médias de gols, frequências Over 1.5, etc.). Não considera análise da IA."
+                    tooltip="Probabilidade baseada apenas em estatísticas históricas (médias de gols, frequências Over 1.5). Não considera análise da IA."
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -133,7 +133,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={result.aiProbability != null ? `${Number(result.aiProbability).toFixed(1)}%` : '—'}
                     icon={Sparkles}
                     color="accent"
-                    tooltip="Probabilidade estimada pela Inteligência Artificial após análise cruzada de todas as estatísticas. Aparece apenas quando a análise da IA foi gerada."
+                    tooltip="Probabilidade estimada pela IA após análise cruzada das estatísticas. Aparece apenas quando a análise da IA foi gerada."
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -142,7 +142,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={`${(result.combinedProbability ?? result.probabilityOver15).toFixed(1)}%`}
                     icon={Target}
                     color="success"
-                    tooltip="Probabilidade final combinada: usa a Prob. Estatística quando não há IA, ou combina Estatística + IA (ponderada pela confiança da IA) quando disponível. Esta é a probabilidade usada para cálculos de EV e recomendações."
+                    tooltip="Probabilidade final: usa Estatística quando não há IA, ou combina Estatística + IA (ponderada pela confiança) quando disponível. Usada para cálculos de EV e recomendações."
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -155,7 +155,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     }
                     icon={TrendingUp}
                     color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
-                    tooltip="Edge (vantagem em pontos percentuais) = Prob. Final - Prob. Implícita da Odd. Valores positivos indicam que sua análise vê mais chance do que a casa de apostas (aposta com valor). Valores negativos indicam que a odd está desfavorável."
+                    tooltip="Edge = Prob. Final - Prob. Implícita da Odd. Valores positivos indicam aposta com valor (sua análise vê mais chance que a casa). Valores negativos indicam odd desfavorável."
                   />
                 </motion.div>
               </motion.div>
@@ -180,7 +180,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     icon={Zap}
                     color="primary"
                     progress={result.advancedMetrics.offensiveVolume}
-                    tooltip="Volume ofensivo: mede a capacidade de geração de gols dos times (baseado em média total de gols marcados + sofridos). Valores altos indicam jogos mais abertos e ofensivos."
+                    tooltip="Volume ofensivo: mede a capacidade de geração de gols (média de gols marcados + sofridos). Valores altos indicam jogos mais abertos e ofensivos."
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -190,7 +190,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     icon={Shield}
                     color="secondary"
                     progress={result.advancedMetrics.defensiveLeaking}
-                    tooltip="Vazamento defensivo: mede a média de gols sofridos pelos times. Valores altos indicam defesas mais vulneráveis, o que favorece Over 1.5."
+                    tooltip="Vazamento defensivo: mede a média de gols sofridos. Valores altos indicam defesas vulneráveis, favorecendo Over 1.5."
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -201,7 +201,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     color={result.advancedMetrics.formTrend >= 0 ? 'success' : 'error'}
                     trend={result.advancedMetrics.formTrend >= 0 ? 'up' : 'down'}
                     trendValue={`${result.advancedMetrics.formTrend >= 0 ? '+' : ''}${result.advancedMetrics.formTrend.toFixed(1)}`}
-                    tooltip="Tendência de forma: indica se a probabilidade está subindo ou caindo baseado em histórico recente. Valores positivos indicam tendência favorável ao Over 1.5."
+                    tooltip="Tendência de forma: indica se a probabilidade está subindo ou caindo. Valores positivos indicam tendência favorável ao Over 1.5."
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -211,7 +211,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     icon={Target}
                     color="accent"
                     progress={result.confidenceScore}
-                    tooltip="Score de confiança: mede a qualidade e completude dos dados disponíveis para a análise. Valores altos indicam que há dados suficientes para uma análise mais confiável."
+                    tooltip="Score de confiança: mede a qualidade e completude dos dados. Valores altos indicam dados suficientes para análise mais confiável."
                   />
                 </motion.div>
               </motion.div>
