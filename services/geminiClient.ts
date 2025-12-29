@@ -196,9 +196,9 @@ async function callGeminiOnce(opts: {
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: opts.prompt }] }],
       generationConfig: {
-        temperature: 0.35,
+        temperature: 0.3, // Reduzido para análises mais consistentes e focadas
         topP: 0.9,
-        maxOutputTokens: 900
+        maxOutputTokens: 2000 // Aumentado para permitir análises mais detalhadas e completas
       }
     })
   });
