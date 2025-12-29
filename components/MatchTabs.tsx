@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, CheckCircle, XCircle, List, TrendingUp } from 'lucide-react';
+import { Clock, CheckCircle, List } from 'lucide-react';
 
-export type TabCategory = 'todas' | 'hoje' | 'futuras' | 'finalizadas' | 'pendentes';
+export type TabCategory = 'pendentes' | 'finalizadas' | 'todas';
 
 interface Tab {
   id: TabCategory;
@@ -15,22 +15,14 @@ interface MatchTabsProps {
   activeTab: TabCategory;
   onTabChange: (tab: TabCategory) => void;
   counts: {
-    todas: number;
-    hoje: number;
-    futuras: number;
-    finalizadas: number;
     pendentes: number;
+    finalizadas: number;
+    todas: number;
   };
 }
 
 const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts }) => {
   const tabs: Tab[] = [
-    {
-      id: 'todas',
-      label: 'Todas',
-      icon: <List className="w-4 h-4" />,
-      count: counts.todas
-    },
     {
       id: 'pendentes',
       label: 'Pendentes',
@@ -44,16 +36,10 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       count: counts.finalizadas
     },
     {
-      id: 'hoje',
-      label: 'Hoje',
-      icon: <Calendar className="w-4 h-4" />,
-      count: counts.hoje
-    },
-    {
-      id: 'futuras',
-      label: 'Futuras',
-      icon: <TrendingUp className="w-4 h-4" />,
-      count: counts.futuras
+      id: 'todas',
+      label: 'Todas',
+      icon: <List className="w-4 h-4" />,
+      count: counts.todas
     }
   ];
 

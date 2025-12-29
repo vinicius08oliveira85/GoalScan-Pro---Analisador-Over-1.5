@@ -116,20 +116,14 @@ export function isMatchPending(match: SavedAnalysis): boolean {
  */
 export function filterMatchesByCategory(
   matches: SavedAnalysis[],
-  category: 'todas' | 'hoje' | 'futuras' | 'finalizadas' | 'pendentes'
+  category: 'pendentes' | 'finalizadas' | 'todas'
 ): SavedAnalysis[] {
   switch (category) {
-    case 'hoje':
-      return matches.filter(isMatchToday);
-    
-    case 'futuras':
-      return matches.filter(isMatchFuture);
+    case 'pendentes':
+      return matches.filter(isMatchPending);
     
     case 'finalizadas':
       return matches.filter(isMatchFinalized);
-    
-    case 'pendentes':
-      return matches.filter(isMatchPending);
     
     case 'todas':
     default:
@@ -142,7 +136,7 @@ export function filterMatchesByCategory(
  */
 export function countMatchesByCategory(
   matches: SavedAnalysis[],
-  category: 'todas' | 'hoje' | 'futuras' | 'finalizadas' | 'pendentes'
+  category: 'pendentes' | 'finalizadas' | 'todas'
 ): number {
   return filterMatchesByCategory(matches, category).length;
 }
@@ -152,11 +146,9 @@ export function countMatchesByCategory(
  */
 export function getCategoryCounts(matches: SavedAnalysis[]) {
   return {
-    todas: countMatchesByCategory(matches, 'todas'),
-    hoje: countMatchesByCategory(matches, 'hoje'),
-    futuras: countMatchesByCategory(matches, 'futuras'),
+    pendentes: countMatchesByCategory(matches, 'pendentes'),
     finalizadas: countMatchesByCategory(matches, 'finalizadas'),
-    pendentes: countMatchesByCategory(matches, 'pendentes')
+    todas: countMatchesByCategory(matches, 'todas')
   };
 }
 

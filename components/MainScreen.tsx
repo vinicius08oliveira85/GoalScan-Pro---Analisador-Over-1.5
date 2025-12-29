@@ -14,24 +14,6 @@ const EmptyStateByCategory: React.FC<{
   totalMatches: number;
 }> = ({ category, onNewMatch, totalMatches }) => {
   const emptyStates = {
-    todas: {
-      icon: Target,
-      title: 'Nenhuma Partida Salva',
-      description: 'Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida e começar a usar o GoalScan Pro.',
-      showButton: true
-    },
-    hoje: {
-      icon: Calendar,
-      title: 'Nenhuma Partida Hoje',
-      description: 'Não há partidas agendadas para hoje. Verifique outras abas ou adicione uma nova partida.',
-      showButton: true
-    },
-    futuras: {
-      icon: TrendingUp,
-      title: 'Nenhuma Partida Futura',
-      description: 'Não há partidas agendadas para o futuro. Adicione novas partidas para acompanhar.',
-      showButton: true
-    },
     pendentes: {
       icon: Clock,
       title: 'Nenhuma Partida Pendente',
@@ -45,6 +27,12 @@ const EmptyStateByCategory: React.FC<{
       title: 'Nenhuma Partida Finalizada',
       description: 'Ainda não há partidas finalizadas. As partidas aparecerão aqui após serem concluídas.',
       showButton: false
+    },
+    todas: {
+      icon: Target,
+      title: 'Nenhuma Partida Salva',
+      description: 'Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida e começar a usar o GoalScan Pro.',
+      showButton: true
     }
   };
 

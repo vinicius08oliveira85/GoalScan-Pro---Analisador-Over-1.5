@@ -31,13 +31,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
   return (
     <motion.div 
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-6 md:gap-8"
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
     >
       {/* Layout Principal: Gauge (1/3) + Info (2/3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         
         {/* Card Principal de Probabilidade */}
         <motion.div 
@@ -69,32 +69,32 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           {/* Content */}
           <div className="relative z-10 flex flex-col gap-4 md:gap-6">
             {/* Header: Times + Badge de Risco + Botão Salvar */}
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-black tracking-tighter uppercase break-words">
-                    <span className="break-words">{data.homeTeam}</span> <span className="text-primary opacity-60">vs</span> <span className="break-words">{data.awayTeam}</span>
+                <div className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
+                  <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight break-words">
+                    <span className="break-words">{data.homeTeam}</span> <span className="text-primary opacity-70 mx-1">vs</span> <span className="break-words">{data.awayTeam}</span>
                   </h3>
                 </div>
-                <p className="text-[10px] sm:text-xs font-bold opacity-40 uppercase tracking-widest">Análise de Probabilidade Over 1.5</p>
+                <p className="text-xs sm:text-sm font-semibold opacity-60 uppercase tracking-wide">Análise de Probabilidade Over 1.5</p>
               </div>
-              <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 w-full sm:w-auto">
-                <div className={`badge badge-md sm:badge-lg p-2 sm:p-3 font-black border-none shadow-lg flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm ${
+              <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
+                <div className={`badge badge-lg p-3 sm:p-4 font-black border-2 shadow-lg flex items-center gap-2 text-sm sm:text-base ${
                   result.riskLevel === 'Baixo' 
-                    ? 'bg-success/20 text-success border-success/30' 
+                    ? 'bg-success/20 text-success border-success/40' 
                     : result.riskLevel === 'Moderado' 
-                    ? 'bg-warning/20 text-warning border-warning/30' 
+                    ? 'bg-warning/20 text-warning border-warning/40' 
                     : result.riskLevel === 'Alto' 
-                    ? 'bg-error/20 text-error border-error/30' 
-                    : 'bg-error/30 text-error border-error/40'
+                    ? 'bg-error/20 text-error border-error/40' 
+                    : 'bg-error/30 text-error border-error/50'
                 }`}>
-                  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">RISCO: </span>{result.riskLevel}
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">RISCO: </span><span className="uppercase">{result.riskLevel}</span>
                 </div>
                 {onSave && (
                   <button 
                     onClick={onSave} 
-                    className="btn btn-sm btn-primary uppercase font-bold tracking-tighter hover:scale-105 transition-transform min-h-[44px] flex-1 sm:flex-none"
+                    className="btn btn-primary btn-md sm:btn-lg uppercase font-bold tracking-tight hover:scale-105 transition-transform min-h-[44px] flex-1 sm:flex-none shadow-lg"
                   >
                     Salvar Partida
                   </button>
@@ -103,62 +103,68 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             </div>
 
             {/* Grid de 4 Métricas Essenciais */}
-            <motion.div 
-              className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
-              variants={animations.staggerChildren}
-              initial="initial"
-              animate="animate"
-            >
-              <motion.div variants={animations.fadeInUp}>
-                <MetricCard
-                  title="Ataque (10j)"
-                  value={result.advancedMetrics.offensiveVolume}
-                  icon={Zap}
-                  color="primary"
-                  progress={result.advancedMetrics.offensiveVolume}
-                />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-primary opacity-60" />
+                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">Métricas de Performance</h4>
+              </div>
+              <motion.div 
+                className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
+                variants={animations.staggerChildren}
+                initial="initial"
+                animate="animate"
+              >
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Ataque"
+                    value={result.advancedMetrics.offensiveVolume}
+                    icon={Zap}
+                    color="primary"
+                    progress={result.advancedMetrics.offensiveVolume}
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Defesa"
+                    value={result.advancedMetrics.defensiveLeaking}
+                    icon={Shield}
+                    color="secondary"
+                    progress={result.advancedMetrics.defensiveLeaking}
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Tendência"
+                    value={result.advancedMetrics.formTrend >= 0 ? 'SUBINDO' : 'CAINDO'}
+                    icon={result.advancedMetrics.formTrend >= 0 ? TrendingUp : TrendingDown}
+                    color={result.advancedMetrics.formTrend >= 0 ? 'success' : 'error'}
+                    trend={result.advancedMetrics.formTrend >= 0 ? 'up' : 'down'}
+                    trendValue={`${result.advancedMetrics.formTrend >= 0 ? '+' : ''}${result.advancedMetrics.formTrend.toFixed(1)}`}
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Qualidade"
+                    value={result.confidenceScore}
+                    icon={Target}
+                    color="accent"
+                    progress={result.confidenceScore}
+                  />
+                </motion.div>
               </motion.div>
-              <motion.div variants={animations.fadeInUp}>
-                <MetricCard
-                  title="Defesa (10j)"
-                  value={result.advancedMetrics.defensiveLeaking}
-                  icon={Shield}
-                  color="secondary"
-                  progress={result.advancedMetrics.defensiveLeaking}
-                />
-              </motion.div>
-              <motion.div variants={animations.fadeInUp}>
-                <MetricCard
-                  title="Tendência (5j)"
-                  value={result.advancedMetrics.formTrend >= 0 ? 'SUBINDO' : 'CAINDO'}
-                  icon={result.advancedMetrics.formTrend >= 0 ? TrendingUp : TrendingDown}
-                  color={result.advancedMetrics.formTrend >= 0 ? 'success' : 'error'}
-                  trend={result.advancedMetrics.formTrend >= 0 ? 'up' : 'down'}
-                  trendValue={`${result.advancedMetrics.formTrend >= 0 ? '+' : ''}${result.advancedMetrics.formTrend.toFixed(1)}`}
-                />
-              </motion.div>
-              <motion.div variants={animations.fadeInUp}>
-                <MetricCard
-                  title="Qualidade"
-                  value={result.confidenceScore}
-                  icon={Target}
-                  color="accent"
-                  progress={result.confidenceScore}
-                />
-              </motion.div>
-            </motion.div>
+            </div>
 
             {/* Recomendação em Destaque */}
-            <div className="mt-2 p-3 md:p-5 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary/10 border border-primary/30 rounded-xl md:rounded-2xl backdrop-blur-sm relative overflow-hidden group/recommendation">
-              <div className="absolute top-2 right-2 opacity-20 group-hover/recommendation:opacity-40 transition-opacity">
-                <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-primary" />
+            <div className="mt-4 p-4 md:p-6 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary/10 border-2 border-primary/40 rounded-xl md:rounded-2xl backdrop-blur-sm relative overflow-hidden group/recommendation shadow-lg">
+              <div className="absolute top-3 right-3 opacity-30 group-hover/recommendation:opacity-60 transition-opacity">
+                <Sparkles className="w-8 h-8 md:w-10 md:h-10 text-primary" />
               </div>
               <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="w-3 h-3 md:w-4 md:h-4 text-primary" />
-                  <span className="text-[10px] md:text-xs font-black uppercase text-primary opacity-80">Recomendação</span>
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                  <span className="text-xs md:text-sm font-black uppercase text-primary tracking-wide">Recomendação</span>
                 </div>
-                <p className="text-xs md:text-sm font-bold italic leading-tight text-base-content/90">
+                <p className="text-sm md:text-base font-semibold leading-relaxed text-base-content/95 italic">
                   "{result.recommendation}"
                 </p>
               </div>
@@ -180,16 +186,16 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               
               {/* Content */}
               <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                      <Calculator className="w-5 h-5 text-primary" />
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-primary/10 border-2 border-primary/30">
+                      <Calculator className="w-6 h-6 text-primary" />
                     </div>
-                    <h3 className="text-lg font-black uppercase">Gerenciar Aposta</h3>
+                    <h3 className="text-xl font-black uppercase tracking-tight">Gerenciar Aposta</h3>
                   </div>
                   <button
                     onClick={() => setShowBetManager(true)}
-                    className="btn btn-primary btn-sm gap-2 hover:scale-105 transition-transform"
+                    className="btn btn-primary btn-md gap-2 hover:scale-105 transition-transform shadow-lg"
                   >
                     {betInfo && betInfo.betAmount > 0 ? 'Editar Aposta' : 'Registrar Aposta'}
                   </button>
@@ -198,21 +204,21 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 {betInfo && betInfo.betAmount > 0 ? (
                   <div className="bg-base-100/50 p-5 rounded-2xl border border-white/10 backdrop-blur-sm">
                     {/* Status Badge Destacado */}
-                    <div className="mb-4 flex items-center justify-between">
-                      <span className="text-xs font-bold opacity-60 uppercase">Status da Aposta</span>
-                      <div className={`badge gap-2 px-4 py-2 font-bold text-xs uppercase tracking-wider ${
+                    <div className="mb-6 flex items-center justify-between p-4 bg-base-200/30 rounded-xl border border-white/10">
+                      <span className="text-sm font-bold opacity-70 uppercase tracking-wide">Status da Aposta</span>
+                      <div className={`badge gap-2 px-5 py-3 font-black text-sm uppercase tracking-wider border-2 shadow-lg ${
                         betInfo.status === 'won' 
-                          ? 'bg-success/20 text-success border-success/30' 
+                          ? 'bg-success/20 text-success border-success/40' 
                           : betInfo.status === 'lost'
-                          ? 'bg-error/20 text-error border-error/30'
+                          ? 'bg-error/20 text-error border-error/40'
                           : betInfo.status === 'pending'
-                          ? 'bg-warning/20 text-warning border-warning/30'
-                          : 'bg-base-300/20 text-base-content/60 border-base-300/30'
+                          ? 'bg-warning/20 text-warning border-warning/40'
+                          : 'bg-base-300/20 text-base-content/60 border-base-300/40'
                       }`}>
-                        {betInfo.status === 'won' && <CheckCircle className="w-4 h-4" />}
-                        {betInfo.status === 'lost' && <XCircle className="w-4 h-4" />}
-                        {betInfo.status === 'pending' && <Clock className="w-4 h-4" />}
-                        {betInfo.status === 'cancelled' && <Ban className="w-4 h-4" />}
+                        {betInfo.status === 'won' && <CheckCircle className="w-5 h-5" />}
+                        {betInfo.status === 'lost' && <XCircle className="w-5 h-5" />}
+                        {betInfo.status === 'pending' && <Clock className="w-5 h-5" />}
+                        {betInfo.status === 'cancelled' && <Ban className="w-5 h-5" />}
                         <span>
                           {betInfo.status === 'won' ? 'Ganhou' :
                            betInfo.status === 'lost' ? 'Perdeu' :
@@ -224,10 +230,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     
                     {/* Botões Rápidos para Marcar Resultado (apenas se pendente) */}
                     {betInfo.status === 'pending' && onBetSave && (
-                      <div className="mb-4 p-3 bg-warning/5 border border-warning/20 rounded-xl">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold opacity-60 uppercase">Marcar Resultado</span>
-                          <div className="flex gap-2">
+                      <div className="mb-6 p-4 bg-warning/10 border-2 border-warning/30 rounded-xl">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <span className="text-sm font-bold opacity-80 uppercase tracking-wide">Marcar Resultado</span>
+                          <div className="flex gap-3 w-full sm:w-auto">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -238,9 +244,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                                 };
                                 onBetSave(updatedBetInfo);
                               }}
-                              className="btn btn-sm btn-success gap-2 min-h-[36px]"
+                              className="btn btn-success btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg"
                             >
-                              <CheckCircle className="w-4 h-4" />
+                              <CheckCircle className="w-5 h-5" />
                               Ganhou
                             </button>
                             <button
@@ -253,9 +259,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                                 };
                                 onBetSave(updatedBetInfo);
                               }}
-                              className="btn btn-sm btn-error gap-2 min-h-[36px]"
+                              className="btn btn-error btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg"
                             >
-                              <XCircle className="w-4 h-4" />
+                              <XCircle className="w-5 h-5" />
                               Perdeu
                             </button>
                           </div>
@@ -263,46 +269,46 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                       </div>
                     )}
                     
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-xs md:text-sm">
-                      <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
-                        <span className="text-xs opacity-60 block mb-1">Valor Apostado</span>
-                        <p className="font-bold text-lg">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                      <div className="bg-base-200/40 p-4 rounded-xl border-2 border-white/10">
+                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Valor Apostado</span>
+                        <p className="font-black text-xl font-mono">
                           {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.betAmount.toFixed(2)}
                         </p>
                       </div>
                       {betInfo.status === 'pending' ? (
-                        <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
-                          <span className="text-xs opacity-60 block mb-1">Retorno Potencial</span>
-                          <p className="font-bold text-lg text-primary">
+                        <div className="bg-base-200/40 p-4 rounded-xl border-2 border-primary/30">
+                          <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Retorno Potencial</span>
+                          <p className="font-black text-xl text-primary font-mono">
                             {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialReturn.toFixed(2)}
                           </p>
                         </div>
                       ) : betInfo.status === 'won' ? (
-                        <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
-                          <span className="text-xs opacity-60 block mb-1">Ganho Realizado</span>
-                          <p className="font-bold text-lg text-success">
+                        <div className="bg-success/10 p-4 rounded-xl border-2 border-success/30">
+                          <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Ganho Realizado</span>
+                          <p className="font-black text-xl text-success font-mono">
                             +{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialProfit.toFixed(2)}
                           </p>
                         </div>
                       ) : betInfo.status === 'lost' ? (
-                        <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
-                          <span className="text-xs opacity-60 block mb-1">Perda</span>
-                          <p className="font-bold text-lg text-error">
+                        <div className="bg-error/10 p-4 rounded-xl border-2 border-error/30">
+                          <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Perda</span>
+                          <p className="font-black text-xl text-error font-mono">
                             -{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.betAmount.toFixed(2)}
                           </p>
                         </div>
                       ) : null}
                       {betInfo.status === 'pending' && (
-                        <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
-                          <span className="text-xs opacity-60 block mb-1">Lucro Potencial</span>
-                          <p className={`font-bold text-lg ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
+                        <div className={`p-4 rounded-xl border-2 ${betInfo.potentialProfit >= 0 ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30'}`}>
+                          <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Lucro Potencial</span>
+                          <p className={`font-black text-xl font-mono ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
                             {betInfo.potentialProfit >= 0 ? '+' : ''}{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialProfit.toFixed(2)}
                           </p>
                         </div>
                       )}
-                      <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
-                        <span className="text-xs opacity-60 block mb-1">% da Banca</span>
-                        <p className="font-bold text-lg">
+                      <div className="bg-base-200/40 p-4 rounded-xl border-2 border-white/10">
+                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">% da Banca</span>
+                        <p className="font-black text-xl font-mono">
                           {betInfo.bankPercentage.toFixed(1)}%
                         </p>
                       </div>
