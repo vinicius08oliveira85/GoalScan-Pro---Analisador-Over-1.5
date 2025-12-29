@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Sparkles, Loader2, X, RefreshCw } from 'lucide-react';
+import React, { useMemo, useState, useCallback } from 'react';
+import { Sparkles, Loader2, X, RefreshCw, ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react';
 import { MatchData } from '../types';
 import { generateAiOver15Report, extractProbabilityFromMarkdown, extractConfidenceFromMarkdown } from '../services/aiOver15Service';
 
@@ -16,25 +16,88 @@ type Props = {
   savedReportMarkdown?: string | null;
 };
 
-function renderMarkdownLight(md: string) {
-  // Renderização leve (sem dependências): preserva quebras e bullets.
-  // Se quiser markdown completo no futuro, trocar por um renderer dedicado.
-  return md.split('\n').map((line, idx) => {
+interface Section {
+  title: string;
+  content: string[];
+  index: number;
+}
+
+function parseMarkdownIntoSections(md: string): Section[] {
+  const lines = md.split('\n');
+  const sections: Section[] = [];
+  let currentSection: Section | null = null;
+  let currentContent: string[] = [];
+
+  for (const line of lines) {
+    // Detectar títulos de seção (## mas não ###)
+    if (line.trim().startsWith('##') && !line.trim().startsWith('###')) {
+      // Salvar seção anterior se existir
+      if (currentSection) {
+        sections.push({
+          ...currentSection,
+          content: currentContent
+        });
+      }
+      
+      // Iniciar nova seção
+      const title = line.replace(/^#+\s*/, '').trim();
+      currentSection = {
+        title,
+        content: [],
+        index: sections.length
+      };
+      currentContent = [];
+    } else {
+      // Se não há seção atual, criar uma seção padrão para conteúdo inicial
+      if (!currentSection) {
+        currentSection = {
+          title: 'Análise',
+          content: [],
+          index: 0
+        };
+      }
+      // Adicionar linha ao conteúdo da seção atual
+      currentContent.push(line);
+    }
+  }
+
+  // Adicionar última seção
+  if (currentSection) {
+    sections.push({
+      ...currentSection,
+      content: currentContent
+    });
+  }
+
+  // Se não encontrou nenhuma seção, criar uma única seção com todo o conteúdo
+  if (sections.length === 0) {
+    sections.push({
+      title: 'Análise',
+      content: lines,
+      index: 0
+    });
+  }
+
+  return sections;
+}
+
+function renderMarkdownContent(lines: string[]): React.ReactNode[] {
+  return lines.map((line, idx) => {
     // Detectar separadores (---) e renderizar como linha horizontal
     if (line.trim() === '---') {
       return <hr key={idx} className="my-4 border-t border-primary/20" />;
     }
     
-    // Detectar títulos (## ou ###)
-    if (line.startsWith('##')) {
-      const level = line.match(/^#+/)?.[0].length || 2;
+    // Detectar títulos (### ou menores - não ## pois já foram processados)
+    if (line.trim().startsWith('###')) {
+      const level = line.match(/^#+/)?.[0].length || 3;
       const text = line.replace(/^#+\s*/, '');
       const HeadingTag = `h${Math.min(level, 6)}` as keyof JSX.IntrinsicElements;
       return (
         <HeadingTag
           key={idx}
-          className={`font-bold mt-6 mb-3 ${
-            level === 2 ? 'text-lg' : level === 3 ? 'text-base' : 'text-sm'
+          className={`font-bold mt-4 mb-2 ${
+            level === 3 ? 'text-base' : 'text-sm'
           }`}
         >
           {text}
@@ -73,6 +136,48 @@ function renderMarkdownLight(md: string) {
   });
 }
 
+interface CollapsibleSectionProps {
+  section: Section;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ section, isExpanded, onToggle }) => {
+  return (
+    <div className="border-b border-base-300/50 last:border-b-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-3 p-3 hover:bg-base-300/30 active:bg-base-300/40 transition-all duration-200 rounded-lg group"
+        aria-expanded={isExpanded}
+      >
+        <h3 className="text-sm font-bold text-left flex-1 text-base-content group-hover:text-primary transition-colors">
+          {section.title}
+        </h3>
+        <div className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-base-content/60" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-base-content/60" />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <div 
+          className="px-3 pb-4 pt-2 text-sm overflow-hidden"
+          style={{
+            animation: 'fadeIn 0.3s ease-out'
+          }}
+        >
+          <div className="space-y-2 text-base-content/90">
+            {renderMarkdownContent(section.content)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnalysisGenerated, savedReportMarkdown }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -82,12 +187,50 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
     null
   );
   const [error, setError] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0]));
 
   const canRun = useMemo(() => {
     return Boolean(data.homeTeam?.trim()) && Boolean(data.awayTeam?.trim());
   }, [data.homeTeam, data.awayTeam]);
 
   const hasSavedReport = Boolean(savedReportMarkdown && savedReportMarkdown.trim().length > 0);
+
+  // Parsear seções do markdown
+  const sections = useMemo(() => {
+    if (!report) return [];
+    return parseMarkdownIntoSections(report);
+  }, [report]);
+
+  // Inicializar estado de seções expandidas quando o report muda
+  React.useEffect(() => {
+    if (sections.length > 0) {
+      // Primeira seção expandida por padrão
+      setExpandedSections(new Set([0]));
+    }
+  }, [sections.length]);
+
+  const toggleSection = useCallback((index: number) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
+
+  const expandAllSections = useCallback(() => {
+    setExpandedSections(new Set(sections.map((_, idx) => idx)));
+  }, [sections]);
+
+  const collapseAllSections = useCallback(() => {
+    setExpandedSections(new Set([0])); // Manter apenas a primeira expandida
+  }, []);
+
+  const allExpanded = sections.length > 0 && expandedSections.size === sections.length;
+  const allCollapsed = expandedSections.size === 0;
 
   const openSavedReport = () => {
     if (!hasSavedReport) return;
@@ -235,9 +378,46 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
             </div>
           )}
 
-          {report && !loading && (
-            <div className="mt-3 text-sm">
-              {renderMarkdownLight(report)}
+          {report && !loading && sections.length > 0 && (
+            <div className="mt-4">
+              {/* Controles de expandir/recolher */}
+              {sections.length > 1 && (
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-base-300/30">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-base-content/50">
+                    {expandedSections.size} de {sections.length} seções expandidas
+                  </span>
+                  <button
+                    type="button"
+                    onClick={allExpanded ? collapseAllSections : expandAllSections}
+                    className="btn btn-ghost btn-xs gap-1.5 text-[10px] hover:bg-base-300/40"
+                    title={allExpanded ? 'Recolher todas as seções' : 'Expandir todas as seções'}
+                  >
+                    {allExpanded ? (
+                      <>
+                        <Minimize2 className="w-3 h-3" />
+                        <span className="hidden sm:inline">Recolher Todas</span>
+                      </>
+                    ) : (
+                      <>
+                        <Maximize2 className="w-3 h-3" />
+                        <span className="hidden sm:inline">Expandir Todas</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Seções colapsáveis */}
+              <div className="max-h-[600px] overflow-y-auto custom-scrollbar space-y-0 bg-base-300/10 rounded-lg p-2">
+                {sections.map((section) => (
+                  <CollapsibleSection
+                    key={section.index}
+                    section={section}
+                    isExpanded={expandedSections.has(section.index)}
+                    onToggle={() => toggleSection(section.index)}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
