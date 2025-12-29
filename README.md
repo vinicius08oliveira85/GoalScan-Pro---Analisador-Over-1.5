@@ -22,8 +22,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1_EPMzvkySu16yY9rSyIWPM
    - Crie um arquivo `.env` na raiz do projeto
    - Copie o conteúdo de `.env.example` e preencha com suas credenciais:
      ```
-     VITE_GEMINI_API_KEY=sua_chave_aqui
-     # (opcional/compat) GEMINI_API_KEY=sua_chave_aqui
+     GEMINI_API_KEY=sua_chave_aqui
+     GEMINI_API_KEY_FALLBACK=sua_chave_fallback_aqui
      VITE_SUPABASE_URL=https://seu-projeto.supabase.co
      VITE_SUPABASE_ANON_KEY=sua_chave_anonima_supabase_aqui
      ```
@@ -31,10 +31,11 @@ View your app in AI Studio: https://ai.studio/apps/drive/1_EPMzvkySu16yY9rSyIWPM
    **Para produção no Vercel:**
    - Acesse o [Dashboard do Vercel](https://vercel.com/dashboard)
    - Selecione seu projeto > Settings > Environment Variables
-   - Adicione as variáveis (recomendado usar `VITE_` para o Gemini também):
-     - `VITE_GEMINI_API_KEY` (ou `GEMINI_API_KEY` por compatibilidade)
-     - `VITE_SUPABASE_URL`
-     - `VITE_SUPABASE_ANON_KEY`
+   - Adicione as variáveis:
+     - `GEMINI_API_KEY` (sem prefixo VITE_ - carregada durante o build)
+     - `GEMINI_API_KEY_FALLBACK` (opcional - usada automaticamente se a principal falhar)
+     - `VITE_SUPABASE_URL` (com prefixo VITE_)
+     - `VITE_SUPABASE_ANON_KEY` (com prefixo VITE_)
    - Faça um novo deploy
    - 📖 Veja o guia completo em [docs/vercel_setup.md](docs/vercel_setup.md)
 3. Executar o app:

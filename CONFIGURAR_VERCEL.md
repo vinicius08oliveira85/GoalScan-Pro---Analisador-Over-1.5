@@ -43,6 +43,19 @@ O script vai pedir sua chave anônima e configurar automaticamente via API do Ve
    - **Environments:** ☑ Production, ☑ Preview, ☑ Development
    - Clique em **Save**
 
+   **Variável 3:**
+   - **Key:** `GEMINI_API_KEY`
+   - **Value:** Cole sua chave da API do Gemini aqui (obtenha em: https://aistudio.google.com/)
+   - **Environments:** ☑ Production, ☑ Preview, ☑ Development
+   - Clique em **Save**
+
+   **Variável 4 (Opcional - Recomendado):**
+   - **Key:** `GEMINI_API_KEY_FALLBACK`
+   - **Value:** Cole uma segunda chave da API do Gemini como fallback
+   - **Environments:** ☑ Production, ☑ Preview, ☑ Development
+   - **Nota:** Esta chave será usada automaticamente se a principal atingir quota ou falhar
+   - Clique em **Save**
+
 ### 3. Fazer Redeploy
 
 1. Vá em **Deployments**

@@ -29,6 +29,20 @@ Este guia explica como configurar as variáveis de ambiente do Supabase no Verce
   - Você pode encontrar essa chave no painel do Supabase: Settings > API > Project API keys > `anon` `public`
 - **Environments:** Selecione todas (Production, Preview, Development)
 
+#### Variável 3: GEMINI_API_KEY
+- **Key:** `GEMINI_API_KEY`
+- **Value:** Sua chave da API do Google Gemini
+  - Você pode obter uma chave em: https://aistudio.google.com/
+  - Esta chave é usada para análises de IA (Over 1.5 insights)
+- **Environments:** Selecione todas (Production, Preview, Development)
+
+#### Variável 4: GEMINI_API_KEY_FALLBACK (Opcional)
+- **Key:** `GEMINI_API_KEY_FALLBACK`
+- **Value:** Chave fallback da API do Google Gemini
+  - Esta chave será usada automaticamente se a principal atingir quota ou falhar
+  - Recomendado para maior disponibilidade do serviço de IA
+- **Environments:** Selecione todas (Production, Preview, Development)
+
 ### 3. Fazer o Deploy
 
 Após adicionar as variáveis:

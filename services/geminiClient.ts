@@ -67,7 +67,7 @@ export function getGeminiSettings(): GeminiSettings {
     normalizeEnvValue(viteEnv.VITE_GEMINI_MODEL) ||
     normalizeEnvValue((process.env as any)?.VITE_GEMINI_MODEL) ||
     normalizeEnvValue((process.env as any)?.GEMINI_MODEL) ||
-    'gemini-1.5-flash-latest';
+    'gemini-1.5-flash';
   const model = normalizeGeminiModel(modelRaw);
 
   return { apiKey, apiVersion, model };
@@ -75,17 +75,35 @@ export function getGeminiSettings(): GeminiSettings {
 
 function normalizeGeminiModel(model: string): string {
   const m = (model || '').trim();
-  if (!m) return 'gemini-1.5-flash-latest';
+  if (!m) return 'gemini-1.5-flash';
   // Aceita "models/gemini-..." mas normaliza para apenas "gemini-..."
-  return m.startsWith('models/') ? m.slice('models/'.length) : m;
+  let normalized = m.startsWith('models/') ? m.slice('models/'.length) : m;
+  
+  // Mapear modelos inválidos para válidos
+  if (normalized === 'gemini-1.5-flash-latest') {
+    normalized = 'gemini-1.5-flash';
+  } else if (normalized === 'gemini-2.0-flash') {
+    normalized = 'gemini-1.5-pro';
+  } else if (normalized.endsWith('-latest')) {
+    // Remover sufixo -latest de outros modelos (não existe)
+    normalized = normalized.replace(/-latest$/, '');
+  }
+  
+  return normalized;
 }
 
-function addLatestSuffixIfMissing(model: string): string {
+function getFallbackModel(model: string): string {
   const m = normalizeGeminiModel(model);
-  if (m.endsWith('-latest')) return m;
-  // Alguns modelos existem em variantes com "-latest"; tentar isso costuma resolver 404.
-  if (m.startsWith('gemini-') && !m.includes('-0')) return `${m}-latest`;
-  return `${m}-latest`;
+  // Se já é gemini-1.5-flash, tentar gemini-1.5-pro como fallback
+  if (m === 'gemini-1.5-flash') {
+    return 'gemini-1.5-pro';
+  }
+  // Se já é gemini-1.5-pro, tentar gemini-pro como fallback
+  if (m === 'gemini-1.5-pro') {
+    return 'gemini-pro';
+  }
+  // Caso padrão: usar gemini-1.5-flash
+  return 'gemini-1.5-flash';
 }
 
 function buildGenerateContentUrl(opts: { apiVersion: GeminiApiVersion; model: string; apiKey: string }): string {
@@ -271,10 +289,10 @@ export async function generateGeminiContent(prompt: string, apiKey: string): Pro
 
   const attempts = uniqueAttempts([
     { apiVersion, model },
-    // Fallback 1: v1beta + "-latest" (resolve a maioria dos 404 de modelo)
-    { apiVersion: 'v1beta', model: addLatestSuffixIfMissing(model) },
-    // Fallback 2: modelo flash mais novo (quando 1.5-flash não existe na conta/região/API)
-    { apiVersion: 'v1beta', model: 'gemini-2.0-flash' }
+    // Fallback 1: tentar modelo alternativo válido
+    { apiVersion: 'v1beta', model: getFallbackModel(model) },
+    // Fallback 2: tentar gemini-pro (modelo legado mais estável)
+    { apiVersion: 'v1beta', model: 'gemini-pro' }
   ]);
 
   let lastErr: unknown = null;
