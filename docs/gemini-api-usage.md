@@ -7,7 +7,9 @@
 - `gemini-3.0-pro` - Modelo mais poderoso da versão 3.0
 - `gemini-1.5-flash` - Modelo rápido e eficiente (fallback)
 - `gemini-1.5-pro` - Modelo mais poderoso para tarefas complexas (fallback)
-- `gemini-pro` - Modelo padrão (legado - último fallback)
+
+### Modelos Descontinuados ❌
+- `gemini-pro` - **NÃO ESTÁ MAIS DISPONÍVEL** na API v1beta (retorna 404)
 
 ### Modelos Inválidos ❌
 - `gemini-1.5-flash-latest` - **NÃO EXISTE** (retorna 404)
@@ -71,8 +73,8 @@ async function analisarPartida(dados: MatchData) {
 ## Erros Comuns e Soluções
 
 ### 404 - Modelo não encontrado
-- **Causa:** Nome do modelo incorreto ou modelo não disponível para sua conta
-- **Solução:** O sistema tenta automaticamente: `gemini-3.0-flash` → `gemini-3.0-pro` → `gemini-1.5-flash` → `gemini-1.5-pro` → `gemini-pro`
+- **Causa:** Nome do modelo incorreto ou modelo não disponível para sua conta/versão da API
+- **Solução:** O sistema tenta automaticamente todos os modelos válidos em `v1beta`, e se todos falharem, tenta novamente com a versão `v1` da API
 
 ### 429 - Quota excedida
 - **Causa:** Limite de requisições atingido
@@ -103,12 +105,24 @@ Configure ambas as variáveis em:
 
 ## Como Funciona o Fallback
 
-### Fallback de Modelos (automático)
+### Fallback de Modelos e Versões da API (automático)
+
+O sistema implementa um fallback em duas camadas:
+
+**1. Fallback de Modelos na versão v1beta (padrão):**
 1. Sistema tenta `gemini-3.0-flash` primeiro (padrão)
 2. Se falhar com 404, tenta `gemini-3.0-pro`
 3. Se falhar, tenta `gemini-1.5-flash`
 4. Se falhar, tenta `gemini-1.5-pro`
-5. Se falhar, tenta `gemini-pro` (último recurso)
+
+**2. Fallback para versão v1 da API:**
+5. Se todos os modelos falharem em `v1beta`, o sistema tenta novamente todos os modelos na versão `v1` da API:
+   - `gemini-3.0-flash` (v1)
+   - `gemini-3.0-pro` (v1)
+   - `gemini-1.5-flash` (v1)
+   - `gemini-1.5-pro` (v1)
+
+**Nota:** O modelo `gemini-pro` foi descontinuado e não está mais disponível em nenhuma versão da API.
 
 ### Fallback de Chaves API
 1. Sistema tenta usar `GEMINI_API_KEY` primeiro
