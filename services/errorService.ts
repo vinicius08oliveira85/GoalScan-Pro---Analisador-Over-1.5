@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger';
+
 /**
  * Serviço centralizado para tratamento de erros
  */
@@ -35,9 +37,7 @@ class ErrorService {
     }
 
     // Log no console em desenvolvimento
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Erro registrado:', error, errorContext);
-    }
+    logger.error('Erro registrado:', error, errorContext);
 
     // Aqui podemos enviar para serviço externo (Sentry, etc.)
     // this.sendToErrorTracking(error, errorContext);

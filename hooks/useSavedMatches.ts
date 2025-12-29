@@ -3,6 +3,7 @@ import { SavedAnalysis } from '../types';
 import { loadSavedAnalyses, saveOrUpdateAnalysis, deleteAnalysis } from '../services/supabaseService';
 import { errorService } from '../services/errorService';
 import { syncMatchesToWidgets } from '../services/widgetSyncService';
+import { logger } from '../utils/logger';
 
 export const useSavedMatches = (onError?: (message: string) => void) => {
   const [savedMatches, setSavedMatches] = useState<SavedAnalysis[]>([]);
@@ -13,7 +14,7 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
 
   // Carregar partidas salvas
   const loadMatches = useCallback(async () => {
-    console.log('[useSavedMatches] Iniciando carregamento de partidas...');
+    logger.log('[useSavedMatches] Iniciando carregamento de partidas...');
     setIsLoading(true);
     setSyncError(null);
     setIsUsingLocalData(false);
@@ -24,22 +25,22 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
       const stored = localStorage.getItem('goalscan_saved');
       if (stored) {
         localMatches = JSON.parse(stored);
-        console.log(`[useSavedMatches] ${localMatches.length} partida(s) encontrada(s) no localStorage`);
+        logger.log(`[useSavedMatches] ${localMatches.length} partida(s) encontrada(s) no localStorage`);
         // Exibir dados locais imediatamente enquanto tenta sincronizar
         setSavedMatches(localMatches);
         syncMatchesToWidgets(localMatches);
       } else {
-        console.log('[useSavedMatches] Nenhuma partida encontrada no localStorage');
+        logger.log('[useSavedMatches] Nenhuma partida encontrada no localStorage');
       }
     } catch (e) {
-      console.warn('[useSavedMatches] Erro ao carregar do localStorage:', e);
+      logger.warn('[useSavedMatches] Erro ao carregar do localStorage:', e);
     }
     
     // Agora tentar carregar do Supabase para sincronizar
     try {
-      console.log('[useSavedMatches] Tentando carregar do Supabase...');
+      logger.log('[useSavedMatches] Tentando carregar do Supabase...');
       const matches = await loadSavedAnalyses();
-      console.log(`[useSavedMatches] ${matches.length} partida(s) carregada(s) do Supabase`);
+      logger.log(`[useSavedMatches] ${matches.length} partida(s) carregada(s) do Supabase`);
       
       setSavedMatches(matches);
       setIsUsingLocalData(false);
@@ -48,13 +49,13 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
       try {
         localStorage.setItem('goalscan_saved', JSON.stringify(matches));
         syncMatchesToWidgets(matches);
-        console.log('[useSavedMatches] Dados sincronizados e salvos no localStorage');
+        logger.log('[useSavedMatches] Dados sincronizados e salvos no localStorage');
       } catch (e) {
-        console.warn('[useSavedMatches] Erro ao salvar no localStorage (backup):', e);
+        logger.warn('[useSavedMatches] Erro ao salvar no localStorage (backup):', e);
       }
     } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      console.error('[useSavedMatches] Erro ao carregar do Supabase:', {
+      logger.error('[useSavedMatches] Erro ao carregar do Supabase:', {
         message: errorMessage,
         code: error?.code,
         status: error?.status,
@@ -89,15 +90,15 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
       
       // Se não havia dados locais e falhou ao carregar do Supabase, manter array vazio
       if (localMatches.length === 0) {
-        console.warn('[useSavedMatches] Nenhum dado disponível (nem local nem remoto)');
+        logger.warn('[useSavedMatches] Nenhum dado disponível (nem local nem remoto)');
         setSavedMatches([]);
       } else {
-        console.log(`[useSavedMatches] Usando ${localMatches.length} partida(s) do localStorage como fallback`);
+        logger.log(`[useSavedMatches] Usando ${localMatches.length} partida(s) do localStorage como fallback`);
         // Manter os dados locais que já foram carregados
       }
     } finally {
       setIsLoading(false);
-      console.log('[useSavedMatches] Carregamento concluído');
+      logger.log('[useSavedMatches] Carregamento concluído');
     }
   }, [onError]);
 
@@ -122,7 +123,7 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
         try {
           localStorage.setItem('goalscan_saved', JSON.stringify(updated));
         } catch (e) {
-          console.warn('Erro ao salvar no localStorage:', e);
+          logger.warn('Erro ao salvar no localStorage:', e);
         }
         
         return updated;
@@ -150,7 +151,7 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
         try {
           localStorage.setItem('goalscan_saved', JSON.stringify(updated));
         } catch (e) {
-          console.error('Erro ao salvar no localStorage:', e);
+          logger.error('Erro ao salvar no localStorage:', e);
         }
         
         return updated;
@@ -175,7 +176,7 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
         try {
           localStorage.setItem('goalscan_saved', JSON.stringify(updated));
         } catch (e) {
-          console.warn('Erro ao atualizar localStorage:', e);
+          logger.warn('Erro ao atualizar localStorage:', e);
         }
         
         return updated;
@@ -192,15 +193,17 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
       }
       
       // Remover localmente mesmo em caso de erro
-      setSavedMatches(prev => prev.filter(m => m.id !== id));
-      try {
-        const updated = savedMatches.filter(m => m.id !== id);
-        localStorage.setItem('goalscan_saved', JSON.stringify(updated));
-      } catch (e) {
-        console.error('Erro ao atualizar localStorage:', e);
-      }
+      setSavedMatches(prev => {
+        const updated = prev.filter(m => m.id !== id);
+        try {
+          localStorage.setItem('goalscan_saved', JSON.stringify(updated));
+        } catch (e) {
+          logger.error('Erro ao atualizar localStorage:', e);
+        }
+        return updated;
+      });
     }
-  }, [savedMatches]);
+  }, [onError]);
 
   // Carregar na inicialização
   useEffect(() => {

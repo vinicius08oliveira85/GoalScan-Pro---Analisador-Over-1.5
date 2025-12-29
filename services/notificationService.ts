@@ -1,4 +1,5 @@
 import { SavedAnalysis } from '../types';
+import { logger } from '../utils/logger';
 
 // Armazenar timeouts agendados
 const scheduledNotifications: Map<string, NodeJS.Timeout> = new Map();
@@ -9,7 +10,7 @@ const NOTIFICATION_MINUTES_BEFORE = 5;
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!('Notification' in window)) {
-    console.warn('Este navegador não suporta notificações');
+    logger.warn('Este navegador não suporta notificações');
     return false;
   }
 
@@ -46,7 +47,7 @@ function getMatchTimestamp(matchDate?: string, matchTime?: string): number | nul
 
     return matchDateTime.getTime();
   } catch (error) {
-    console.error('Erro ao calcular timestamp da partida:', error);
+    logger.error('Erro ao calcular timestamp da partida:', error);
     return null;
   }
 }
@@ -138,7 +139,7 @@ function saveScheduledNotification(matchId: string, notificationTime: number): v
     scheduled[matchId] = notificationTime;
     localStorage.setItem('goalscan_scheduled_notifications', JSON.stringify(scheduled));
   } catch (error) {
-    console.error('Erro ao salvar notificação agendada:', error);
+    logger.error('Erro ao salvar notificação agendada:', error);
   }
 }
 
@@ -150,7 +151,7 @@ function getScheduledNotifications(): Record<string, number> {
     const stored = localStorage.getItem('goalscan_scheduled_notifications');
     return stored ? JSON.parse(stored) : {};
   } catch (error) {
-    console.error('Erro ao ler notificações agendadas:', error);
+    logger.error('Erro ao ler notificações agendadas:', error);
     return {};
   }
 }
@@ -164,7 +165,7 @@ function removeScheduledNotification(matchId: string): void {
     delete scheduled[matchId];
     localStorage.setItem('goalscan_scheduled_notifications', JSON.stringify(scheduled));
   } catch (error) {
-    console.error('Erro ao remover notificação agendada:', error);
+    logger.error('Erro ao remover notificação agendada:', error);
   }
 }
 
@@ -206,7 +207,7 @@ export function cancelAllNotifications(): void {
   try {
     localStorage.removeItem('goalscan_scheduled_notifications');
   } catch (error) {
-    console.error('Erro ao limpar notificações:', error);
+    logger.error('Erro ao limpar notificações:', error);
   }
 }
 

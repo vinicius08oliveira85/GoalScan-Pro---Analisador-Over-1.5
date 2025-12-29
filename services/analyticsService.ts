@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger';
+
 /**
  * Serviço de Analytics respeitando LGPD
  * 
@@ -97,9 +99,7 @@ class AnalyticsService {
     }
 
     // Log em desenvolvimento
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Analytics]', eventName, properties);
-    }
+    logger.log('[Analytics]', eventName, properties);
   }
 
   /**

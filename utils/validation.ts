@@ -10,9 +10,11 @@ export const matchDataSchema = z.object({
   ),
   matchTime: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
-    z.string()
-      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido (HH:mm)')
-      .optional()
+    z.union([
+      z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato de hora inválido (HH:mm)'),
+      z.literal(''),
+      z.undefined()
+    ]).optional()
   ),
   competitionAvg: z.number().min(0).max(100).optional(),
   oddOver15: z.number().min(1.01, 'Odd deve ser maior que 1.00').max(50).optional(),

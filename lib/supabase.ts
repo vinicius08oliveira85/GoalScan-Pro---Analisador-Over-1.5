@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger';
+
 // Configuração do cliente Supabase
 // Credenciais carregadas de variáveis de ambiente
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
@@ -22,10 +24,10 @@ export const getSupabaseClient = async () => {
 
   // Criar nova Promise de inicialização
   initializationPromise = (async () => {
-    console.log('[Supabase] Inicializando cliente...');
-    console.log('[Supabase] Verificando variáveis de ambiente...');
-    console.log('[Supabase] VITE_SUPABASE_URL:', SUPABASE_URL ? `${SUPABASE_URL.substring(0, 20)}...` : 'NÃO CONFIGURADO');
-    console.log('[Supabase] VITE_SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : 'NÃO CONFIGURADO');
+    logger.log('[Supabase] Inicializando cliente...');
+    logger.log('[Supabase] Verificando variáveis de ambiente...');
+    logger.log('[Supabase] VITE_SUPABASE_URL:', SUPABASE_URL ? `${SUPABASE_URL.substring(0, 20)}...` : 'NÃO CONFIGURADO');
+    logger.log('[Supabase] VITE_SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : 'NÃO CONFIGURADO');
 
   // Validar que as variáveis de ambiente estão configuradas
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -60,21 +62,21 @@ export const getSupabaseClient = async () => {
     }
     
     const error = new Error(errorMessage);
-    console.error('[Supabase] ❌ Erro de configuração:', error.message);
-    console.error('[Supabase] 💡 Dica: As variáveis de ambiente precisam estar configuradas.');
+    logger.error('[Supabase] ❌ Erro de configuração:', error.message);
+    logger.error('[Supabase] 💡 Dica: As variáveis de ambiente precisam estar configuradas.');
     throw error;
   }
 
   // Validar formato da URL
   try {
     new URL(SUPABASE_URL);
-    console.log('[Supabase] ✅ URL válida');
+    logger.log('[Supabase] ✅ URL válida');
   } catch (e) {
     const error = new Error(
       `URL do Supabase inválida: ${SUPABASE_URL}. ` +
       'A URL deve estar no formato: https://seu-projeto.supabase.co'
     );
-    console.error('[Supabase] ❌ Erro de validação:', error.message);
+    logger.error('[Supabase] ❌ Erro de validação:', error.message);
     throw error;
   }
 
@@ -101,18 +103,18 @@ export const getSupabaseClient = async () => {
     SUPABASE_ANON_KEY.length >= 50;
   
   if (!isValidFormat && SUPABASE_ANON_KEY.length < 50) {
-    console.warn('[Supabase] ⚠️  Aviso: Chave anônima pode estar incompleta. Verifique se copiou a chave completa no Vercel.');
+    logger.warn('[Supabase] ⚠️  Aviso: Chave anônima pode estar incompleta. Verifique se copiou a chave completa no Vercel.');
   }
 
   try {
-    console.log('[Supabase] Carregando módulo @supabase/supabase-js...');
+    logger.log('[Supabase] Carregando módulo @supabase/supabase-js...');
     // Carregar módulo via importmap (disponível no runtime)
     if (!supabaseModule) {
       supabaseModule = await import('@supabase/supabase-js');
-      console.log('[Supabase] ✅ Módulo carregado com sucesso');
+      logger.log('[Supabase] ✅ Módulo carregado com sucesso');
     }
     
-    console.log('[Supabase] Criando cliente Supabase...');
+    logger.log('[Supabase] Criando cliente Supabase...');
     // Configurar opções para evitar múltiplas instâncias do GoTrueClient
     supabaseClient = supabaseModule.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
@@ -130,7 +132,7 @@ export const getSupabaseClient = async () => {
         },
       },
     });
-    console.log('[Supabase] ✅ Cliente inicializado com sucesso');
+    logger.log('[Supabase] ✅ Cliente inicializado com sucesso');
     
     // Limpar a Promise de inicialização após sucesso
     const client = supabaseClient;
@@ -140,7 +142,7 @@ export const getSupabaseClient = async () => {
     // Limpar a Promise de inicialização em caso de erro
     initializationPromise = null;
     
-    console.error('[Supabase] ❌ Erro ao inicializar cliente Supabase:', {
+    logger.error('[Supabase] ❌ Erro ao inicializar cliente Supabase:', {
       message: error?.message,
       name: error?.name,
       stack: error?.stack

@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger';
+
 export interface WidgetSyncPlugin {
   syncData(options: { savedMatches?: string; bankSettings?: string }): Promise<{ success: boolean }>;
 }
@@ -69,7 +71,7 @@ export const syncDataToWidgets = async (savedMatches?: any[], bankSettings?: any
 
     await WidgetSync.syncData(options);
   } catch (error) {
-    console.error('Erro ao sincronizar dados com widgets:', error);
+    logger.error('Erro ao sincronizar dados com widgets:', error);
     // Não lançar erro - widgets podem funcionar com dados antigos
   }
 };

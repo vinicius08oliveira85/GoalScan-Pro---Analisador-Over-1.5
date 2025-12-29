@@ -12,7 +12,7 @@ import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
-import { Loader, Plus, Settings, Home, Wallet } from 'lucide-react';
+import { Loader, Plus, Settings, Home, Wallet, ArrowLeft } from 'lucide-react';
 import { animations } from './utils/animations';
 
 // Lazy loading de componentes pesados para code splitting
@@ -24,7 +24,6 @@ import { performAnalysis } from './services/analysisEngine';
 import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
-import { ArrowLeft, Wallet } from 'lucide-react';
 
 type View = 'home' | 'analysis';
 
@@ -107,7 +106,7 @@ const App: React.FC = () => {
       aiAnalysis: aiMarkdown,
       timestamp: Date.now()
     } : {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).slice(2, 11),
       timestamp: Date.now(),
       data: currentMatchData,
       result: updatedResult,
@@ -145,7 +144,7 @@ const App: React.FC = () => {
         } else {
           // Criar nova partida
           matchToSave = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: Math.random().toString(36).slice(2, 11),
             timestamp: Date.now(),
             data: currentMatchData,
             result: analysisResult,
@@ -297,7 +296,7 @@ const App: React.FC = () => {
       // Se não há partida salva ainda, apenas atualizar o estado local
       // A aposta será salva quando o usuário salvar a partida
       const tempMatch: SavedAnalysis = {
-        id: selectedMatch?.id || Math.random().toString(36).substr(2, 9),
+        id: selectedMatch?.id || Math.random().toString(36).slice(2, 11),
         timestamp: selectedMatch?.timestamp || Date.now(),
         data: currentMatchData,
         result: analysisResult,

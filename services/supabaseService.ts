@@ -1,6 +1,8 @@
 import { SavedAnalysis, MatchData, AnalysisResult, BetInfo, BankSettings } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
+import { logger } from '../utils/logger';
+import { validateMatchData, validateBetInfo, validateBankSettings } from '../utils/validation';
 
 export interface SavedAnalysisRow {
   id: string;
@@ -26,10 +28,10 @@ export interface BankSettingsRow {
  */
 export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
   try {
-    console.log('[Supabase] Iniciando carregamento de análises salvas...');
+    logger.log('[Supabase] Iniciando carregamento de análises salvas...');
     const supabase = await getSupabaseClient();
     
-    console.log('[Supabase] Cliente inicializado, fazendo query...');
+    logger.log('[Supabase] Cliente inicializado, fazendo query...');
     const { data, error } = await supabase
       .from('saved_analyses')
       .select('*')
@@ -37,7 +39,7 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
 
     if (error) {
       // Log detalhado do erro
-      console.error('[Supabase] Erro ao carregar análises:', {
+      logger.error('[Supabase] Erro ao carregar análises:', {
         code: error.code,
         message: error.message,
         details: error.details,
@@ -50,15 +52,15 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
       // Identificar tipo de erro específico
       if (error.code === 'PGRST116' || error.code === '42P01') {
         // Tabela não existe
-        console.warn('[Supabase] Tabela saved_analyses não encontrada. Verifique se a tabela foi criada no Supabase.');
+        logger.warn('[Supabase] Tabela saved_analyses não encontrada. Verifique se a tabela foi criada no Supabase.');
         throw new Error('Tabela saved_analyses não encontrada no Supabase. Verifique a configuração do banco de dados.');
       } else if (error.code === '42501' || error.status === 401) {
         // Erro de autenticação/permissão
-        console.error('[Supabase] Erro de autenticação. Verifique as credenciais (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).');
+        logger.error('[Supabase] Erro de autenticação. Verifique as credenciais (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).');
         throw new Error('Erro de autenticação com Supabase. Verifique as variáveis de ambiente.');
       } else if (error.status === 0 || error.message?.includes('Failed to fetch')) {
         // Erro de conexão
-        console.error('[Supabase] Erro de conexão. Verifique sua conexão com a internet e a URL do Supabase.');
+        logger.error('[Supabase] Erro de conexão. Verifique sua conexão com a internet e a URL do Supabase.');
         throw new Error('Erro de conexão com Supabase. Verifique sua conexão com a internet.');
       }
       
@@ -66,11 +68,11 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
     }
 
     if (!data) {
-      console.log('[Supabase] Nenhum dado retornado (data é null)');
+      logger.log('[Supabase] Nenhum dado retornado (data é null)');
       return [];
     }
 
-    console.log(`[Supabase] ${data.length} análise(s) carregada(s) com sucesso`);
+    logger.log(`[Supabase] ${data.length} análise(s) carregada(s) com sucesso`);
     
     // Converter do formato do banco para SavedAnalysis
     const analyses = data.map((row: SavedAnalysisRow) => ({
@@ -85,7 +87,7 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
     return analyses;
   } catch (error: any) {
     // Log detalhado do erro capturado
-    console.error('[Supabase] Erro capturado ao carregar análises:', {
+    logger.error('[Supabase] Erro capturado ao carregar análises:', {
       message: error?.message,
       name: error?.name,
       stack: error?.stack,
@@ -128,7 +130,7 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
       .single();
 
     if (error) {
-      console.error('Erro ao salvar análise no Supabase:', error);
+      logger.error('Erro ao salvar análise no Supabase:', error);
       throw error;
     }
 
@@ -141,7 +143,7 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
       betInfo: data.bet_info,
     };
   } catch (error) {
-    console.error('Erro ao salvar análise:', error);
+    logger.error('Erro ao salvar análise:', error);
     throw error;
   }
 };
@@ -166,7 +168,7 @@ export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnal
       .single();
 
     if (error) {
-      console.error('Erro ao atualizar análise no Supabase:', error);
+      logger.error('Erro ao atualizar análise no Supabase:', error);
       throw error;
     }
 
@@ -196,7 +198,7 @@ export const deleteAnalysis = async (id: string): Promise<void> => {
       .eq('id', id);
 
     if (error) {
-      console.error('Erro ao deletar análise do Supabase:', error);
+      logger.error('Erro ao deletar análise do Supabase:', error);
       throw error;
     }
   } catch (error) {
@@ -210,6 +212,17 @@ export const deleteAnalysis = async (id: string): Promise<void> => {
  */
 export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalysis> => {
   try {
+    // Validar dados antes de salvar
+    try {
+      validateMatchData(analysis.data);
+      if (analysis.betInfo) {
+        validateBetInfo(analysis.betInfo);
+      }
+    } catch (validationError) {
+      logger.error('Erro de validação ao salvar análise:', validationError);
+      throw new Error(`Dados inválidos: ${validationError instanceof Error ? validationError.message : 'Erro desconhecido'}`);
+    }
+
     const supabase = await getSupabaseClient();
     const { data, error } = await supabase
       .from('saved_analyses')
@@ -227,7 +240,7 @@ export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis): Promise<Sav
       .single();
 
     if (error) {
-      console.error('Erro ao salvar/atualizar análise no Supabase:', error);
+      logger.error('Erro ao salvar/atualizar análise no Supabase:', error);
       throw error;
     }
 
@@ -240,7 +253,7 @@ export const saveOrUpdateAnalysis = async (analysis: SavedAnalysis): Promise<Sav
       betInfo: data.bet_info,
     };
   } catch (error) {
-    console.error('Erro ao salvar/atualizar análise:', error);
+    logger.error('Erro ao salvar/atualizar análise:', error);
     throw error;
   }
 };
@@ -267,16 +280,12 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
       if (error.code === 'PGRST116' || error.code === '42P01' || error.status === 404) {
         // Tabela não existe ou registro não encontrado - não é erro crítico
         // O sistema continuará usando localStorage como fallback
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Tabela bank_settings não encontrada. Usando localStorage como fallback. Execute o SQL em supabase/migrations/create_bank_settings.sql');
-        }
+        logger.warn('Tabela bank_settings não encontrada. Usando localStorage como fallback. Execute o SQL em supabase/migrations/create_bank_settings.sql');
         return null;
       }
       
       // Outros erros: logar apenas em desenvolvimento
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Erro ao carregar configurações de banca do Supabase:', error);
-      }
+      logger.error('Erro ao carregar configurações de banca do Supabase:', error);
       return null; // Retornar null em vez de lançar erro para não quebrar a aplicação
     }
 
@@ -294,16 +303,12 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
     // Tratar erros de rede ou outros erros inesperados
     if (error?.status === 404 || error?.code === '42P01') {
       // Tabela não existe - não é erro crítico
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Tabela bank_settings não encontrada. Execute o SQL em supabase/migrations/create_bank_settings.sql');
-      }
+      logger.warn('Tabela bank_settings não encontrada. Execute o SQL em supabase/migrations/create_bank_settings.sql');
       return null;
     }
     
     // Outros erros: logar apenas em desenvolvimento
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Erro ao carregar configurações de banca:', error);
-    }
+    logger.error('Erro ao carregar configurações de banca:', error);
     // Em caso de erro, retornar null para não quebrar a aplicação
     return null;
   }
@@ -319,6 +324,14 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
  */
 export const saveBankSettings = async (settings: BankSettings): Promise<BankSettings> => {
   try {
+    // Validar dados antes de salvar
+    try {
+      validateBankSettings(settings);
+    } catch (validationError) {
+      logger.error('Erro de validação ao salvar configurações de banca:', validationError);
+      throw new Error(`Dados inválidos: ${validationError instanceof Error ? validationError.message : 'Erro desconhecido'}`);
+    }
+
     const supabase = await getSupabaseClient();
     const { data, error } = await supabase
       .from('bank_settings')
@@ -336,18 +349,14 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
     if (error) {
       // Se a tabela não existe (404 ou 42P01), não lançar erro - apenas logar em dev
       if (error.code === '42P01' || error.status === 404) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Tabela bank_settings não encontrada. Dados salvos apenas no localStorage. Execute o SQL em supabase/migrations/create_bank_settings.sql');
-        }
+        logger.warn('Tabela bank_settings não encontrada. Dados salvos apenas no localStorage. Execute o SQL em supabase/migrations/create_bank_settings.sql');
         // Retornar as configurações mesmo sem salvar no Supabase
         // O localStorage já foi atualizado pelo App.tsx
         return settings;
       }
       
       // Outros erros: logar apenas em desenvolvimento
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Erro ao salvar configurações de banca no Supabase:', error);
-      }
+      logger.error('Erro ao salvar configurações de banca no Supabase:', error);
       // Retornar as configurações mesmo em caso de erro
       // O localStorage já foi atualizado pelo App.tsx
       return settings;
@@ -366,17 +375,13 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
   } catch (error: any) {
     // Tratar erros de rede ou outros erros inesperados
     if (error?.status === 404 || error?.code === '42P01') {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Tabela bank_settings não encontrada. Dados salvos apenas no localStorage.');
-      }
+      logger.warn('Tabela bank_settings não encontrada. Dados salvos apenas no localStorage.');
       // Retornar as configurações mesmo sem salvar no Supabase
       return settings;
     }
     
     // Outros erros: logar apenas em desenvolvimento
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Erro ao salvar configurações de banca:', error);
-    }
+    logger.error('Erro ao salvar configurações de banca:', error);
     // Retornar as configurações mesmo em caso de erro
     return settings;
   }

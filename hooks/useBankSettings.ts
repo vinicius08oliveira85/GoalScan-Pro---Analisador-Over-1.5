@@ -4,6 +4,7 @@ import { loadBankSettings, saveBankSettings } from '../services/supabaseService'
 import { errorService } from '../services/errorService';
 import { syncBankToWidgets } from '../services/widgetSyncService';
 import { normalizeCurrency } from '../utils/currency';
+import { logger } from '../utils/logger';
 
 export const useBankSettings = (onError?: (message: string) => void) => {
   const [bankSettings, setBankSettings] = useState<BankSettings | undefined>(undefined);
@@ -31,7 +32,7 @@ export const useBankSettings = (onError?: (message: string) => void) => {
           localStorage.setItem('goalscan_bank_settings', JSON.stringify(bank));
           syncBankToWidgets(bank);
         } catch (e) {
-          console.warn('Erro ao salvar no localStorage (backup):', e);
+          logger.warn('Erro ao salvar no localStorage (backup):', e);
         }
       } else {
         // Tentar carregar do localStorage como fallback
@@ -45,7 +46,7 @@ export const useBankSettings = (onError?: (message: string) => void) => {
               currency: normalizeCurrency(parsedBank.currency)
             });
           } catch (e) {
-            console.error('Erro ao carregar configurações de banca do localStorage:', e);
+            logger.error('Erro ao carregar configurações de banca do localStorage:', e);
           }
         }
       }
@@ -121,7 +122,7 @@ export const useBankSettings = (onError?: (message: string) => void) => {
         };
         localStorage.setItem('goalscan_bank_settings', JSON.stringify(normalizedSettings));
       } catch (e) {
-        console.error('Erro ao salvar no localStorage:', e);
+        logger.error('Erro ao salvar no localStorage:', e);
       }
     } finally {
       setIsSyncing(false);
