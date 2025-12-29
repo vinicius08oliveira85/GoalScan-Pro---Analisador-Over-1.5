@@ -92,10 +92,70 @@ function normalizeGeminiModel(model: string): string {
   return normalized;
 }
 
+/**
+ * Retorna lista de modelos válidos para uma versão específica da API.
+ * Cada versão da API tem modelos diferentes disponíveis.
+ */
+function getValidModelsForVersion(apiVersion: GeminiApiVersion): string[] {
+  if (apiVersion === 'v1beta') {
+    // v1beta: todos os modelos disponíveis, incluindo preview
+    return [
+      'gemini-3.0-flash',
+      'gemini-3.0-pro',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+      'gemini-3-flash-preview' // Modelo preview disponível
+    ];
+  } else {
+    // v1: gemini-1.5-pro NÃO está disponível
+    return [
+      'gemini-3.0-flash',
+      'gemini-3.0-pro',
+      'gemini-1.5-flash'
+      // gemini-1.5-pro não está disponível em v1
+      // gemini-3-flash-preview pode não estar disponível em v1
+    ];
+  }
+}
+
+/**
+ * Retorna a ordem de fallback de modelos para uma versão específica.
+ * Filtra apenas modelos que estão disponíveis na versão especificada.
+ */
+function getFallbackOrderForVersion(startModel: string, apiVersion: GeminiApiVersion): string[] {
+  const validModels = getValidModelsForVersion(apiVersion);
+  const normalizedStart = normalizeGeminiModel(startModel);
+  
+  // Ordem de prioridade padrão
+  const priorityOrder = [
+    'gemini-3.0-flash',
+    'gemini-3.0-pro',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-3-flash-preview'
+  ];
+  
+  // Filtrar apenas modelos válidos para esta versão
+  const validPriorityOrder = priorityOrder.filter(m => validModels.includes(m));
+  
+  // Encontrar índice do modelo inicial na ordem de prioridade
+  const startIndex = validPriorityOrder.findIndex(m => normalizeGeminiModel(m) === normalizedStart);
+  
+  if (startIndex === -1) {
+    // Modelo não encontrado na ordem, retornar ordem padrão filtrada
+    return validPriorityOrder;
+  }
+  
+  // Retornar modelos a partir do modelo inicial
+  return validPriorityOrder.slice(startIndex);
+}
+
 function getFallbackModel(model: string): string | null {
   const m = normalizeGeminiModel(model);
-  // Chain de fallback: 3.0-flash → 3.0-pro → 1.5-flash → 1.5-pro
+  // Chain de fallback: 3.0-flash → 3.0-pro → 1.5-flash → 1.5-pro → 3-flash-preview
   // Retorna null quando não há mais fallbacks disponíveis
+  // Nota: Esta função é mantida para compatibilidade, mas getFallbackOrderForVersion
+  // é preferida pois considera modelos válidos por versão da API
   if (m === 'gemini-3.0-flash') {
     return 'gemini-3.0-pro';
   }
@@ -106,7 +166,10 @@ function getFallbackModel(model: string): string | null {
     return 'gemini-1.5-pro';
   }
   if (m === 'gemini-1.5-pro') {
-    return null; // Fim da cadeia de fallback - gemini-pro foi descontinuado
+    return 'gemini-3-flash-preview'; // Último fallback antes de null
+  }
+  if (m === 'gemini-3-flash-preview') {
+    return null; // Fim da cadeia de fallback
   }
   // Caso padrão: usar gemini-3.0-flash
   return 'gemini-3.0-flash';
@@ -295,37 +358,24 @@ function uniqueAttempts(attempts: Array<{ apiVersion: GeminiApiVersion; model: s
 export async function generateGeminiContent(prompt: string, apiKey: string): Promise<string> {
   const { apiVersion, model } = getGeminiSettings();
 
-  // Ordem de tentativas: 
-  // v1beta: 3.0-flash → 3.0-pro → 1.5-flash → 1.5-pro
-  // v1: 3.0-flash → 3.0-pro → 1.5-flash → 1.5-pro (se v1beta falhar)
+  // Obter modelos válidos para a versão configurada
+  const configuredVersionModels = getFallbackOrderForVersion(model, apiVersion);
   
-  // Construir lista de modelos para v1beta
-  const v1betaModels: string[] = [model];
-  let currentFallback = getFallbackModel(model);
-  while (currentFallback !== null) {
-    v1betaModels.push(currentFallback);
-    currentFallback = getFallbackModel(currentFallback);
-  }
+  // Obter versão alternativa para fallback
+  const fallbackVersion: GeminiApiVersion = apiVersion === 'v1beta' ? 'v1' : 'v1beta';
+  const fallbackVersionModels = getFallbackOrderForVersion(model, fallbackVersion);
 
   // Construir lista de tentativas: primeiro versão configurada, depois fallback
   const attempts: Array<{ apiVersion: GeminiApiVersion; model: string }> = [];
   
-  // 1. Primeiro tentar com a versão configurada
-  for (const m of v1betaModels) {
+  // 1. Primeiro tentar com a versão configurada (usando apenas modelos válidos para essa versão)
+  for (const m of configuredVersionModels) {
     attempts.push({ apiVersion, model: m });
   }
   
-  // 2. Se a versão configurada for v1beta, tentar v1 como fallback
-  if (apiVersion === 'v1beta') {
-    for (const m of v1betaModels) {
-      attempts.push({ apiVersion: 'v1', model: m });
-    }
-  }
-  // 3. Se a versão configurada for v1, tentar v1beta como fallback
-  else if (apiVersion === 'v1') {
-    for (const m of v1betaModels) {
-      attempts.push({ apiVersion: 'v1beta', model: m });
-    }
+  // 2. Se todos falharem na versão configurada, tentar versão alternativa (usando apenas modelos válidos para essa versão)
+  for (const m of fallbackVersionModels) {
+    attempts.push({ apiVersion: fallbackVersion, model: m });
   }
 
   const uniqueAttemptsList = uniqueAttempts(attempts);

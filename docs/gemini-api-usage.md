@@ -2,14 +2,25 @@
 
 ## Modelos Disponíveis
 
-### Modelos Válidos ✅
+### Modelos por Versão da API
+
+**⚠️ IMPORTANTE:** Diferentes versões da API têm modelos diferentes disponíveis. O sistema automaticamente usa apenas modelos válidos para cada versão.
+
+#### Versão v1beta ✅
 - `gemini-3.0-flash` - Modelo mais recente e rápido (recomendado - padrão)
 - `gemini-3.0-pro` - Modelo mais poderoso da versão 3.0
 - `gemini-1.5-flash` - Modelo rápido e eficiente (fallback)
 - `gemini-1.5-pro` - Modelo mais poderoso para tarefas complexas (fallback)
+- `gemini-3-flash-preview` - Modelo preview com recursos avançados (fallback opcional)
+
+#### Versão v1 ✅
+- `gemini-3.0-flash` - Modelo mais recente e rápido
+- `gemini-3.0-pro` - Modelo mais poderoso da versão 3.0
+- `gemini-1.5-flash` - Modelo rápido e eficiente
+- ❌ `gemini-1.5-pro` - **NÃO DISPONÍVEL** em v1 (retorna 404)
 
 ### Modelos Descontinuados ❌
-- `gemini-pro` - **NÃO ESTÁ MAIS DISPONÍVEL** na API v1beta (retorna 404)
+- `gemini-pro` - **NÃO ESTÁ MAIS DISPONÍVEL** em nenhuma versão (retorna 404)
 
 ### Modelos Inválidos ❌
 - `gemini-1.5-flash-latest` - **NÃO EXISTE** (retorna 404)
@@ -74,7 +85,7 @@ async function analisarPartida(dados: MatchData) {
 
 ### 404 - Modelo não encontrado
 - **Causa:** Nome do modelo incorreto ou modelo não disponível para sua conta/versão da API
-- **Solução:** O sistema tenta automaticamente todos os modelos válidos em `v1beta`, e se todos falharem, tenta novamente com a versão `v1` da API
+- **Solução:** O sistema tenta automaticamente todos os modelos válidos para a versão configurada, e se todos falharem, tenta novamente com a versão alternativa da API, usando apenas modelos válidos para aquela versão específica
 
 ### 429 - Quota excedida
 - **Causa:** Limite de requisições atingido
@@ -107,22 +118,40 @@ Configure ambas as variáveis em:
 
 ### Fallback de Modelos e Versões da API (automático)
 
-O sistema implementa um fallback em duas camadas:
+O sistema implementa um fallback inteligente que respeita os modelos disponíveis em cada versão da API:
 
-**1. Fallback de Modelos na versão v1beta (padrão):**
-1. Sistema tenta `gemini-3.0-flash` primeiro (padrão)
-2. Se falhar com 404, tenta `gemini-3.0-pro`
-3. Se falhar, tenta `gemini-1.5-flash`
-4. Se falhar, tenta `gemini-1.5-pro`
+**Quando a versão configurada é `v1beta` (padrão):**
 
-**2. Fallback para versão v1 da API:**
-5. Se todos os modelos falharem em `v1beta`, o sistema tenta novamente todos os modelos na versão `v1` da API:
-   - `gemini-3.0-flash` (v1)
-   - `gemini-3.0-pro` (v1)
-   - `gemini-1.5-flash` (v1)
-   - `gemini-1.5-pro` (v1)
+1. **Primeiro, tenta modelos válidos em v1beta:**
+   - `gemini-3.0-flash` (padrão)
+   - `gemini-3.0-pro`
+   - `gemini-1.5-flash`
+   - `gemini-1.5-pro`
+   - `gemini-3-flash-preview` (opcional)
 
-**Nota:** O modelo `gemini-pro` foi descontinuado e não está mais disponível em nenhuma versão da API.
+2. **Se todos falharem, tenta modelos válidos em v1:**
+   - `gemini-3.0-flash`
+   - `gemini-3.0-pro`
+   - `gemini-1.5-flash`
+   - ⚠️ **NÃO tenta `gemini-1.5-pro`** (não disponível em v1)
+
+**Quando a versão configurada é `v1`:**
+
+1. **Primeiro, tenta modelos válidos em v1:**
+   - `gemini-3.0-flash`
+   - `gemini-3.0-pro`
+   - `gemini-1.5-flash`
+
+2. **Se todos falharem, tenta modelos válidos em v1beta:**
+   - `gemini-3.0-flash`
+   - `gemini-3.0-pro`
+   - `gemini-1.5-flash`
+   - `gemini-1.5-pro` (disponível em v1beta)
+
+**Notas importantes:**
+- O sistema **automaticamente filtra** modelos que não estão disponíveis em cada versão
+- O modelo `gemini-pro` foi descontinuado e não está mais disponível em nenhuma versão
+- O modelo `gemini-1.5-pro` **não está disponível** na versão `v1` da API
 
 ### Fallback de Chaves API
 1. Sistema tenta usar `GEMINI_API_KEY` primeiro
