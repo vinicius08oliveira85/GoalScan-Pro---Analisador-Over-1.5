@@ -134,6 +134,34 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateBetStatus = async (match: SavedAnalysis, status: 'won' | 'lost') => {
+    if (!match.betInfo || match.betInfo.betAmount === 0) {
+      showError('Esta partida não possui aposta registrada.');
+      return;
+    }
+
+    try {
+      const updatedBetInfo: BetInfo = {
+        ...match.betInfo,
+        status,
+        resultAt: Date.now()
+      };
+
+      // Se a partida está selecionada, atualizar o estado local também
+      if (selectedMatch && selectedMatch.id === match.id) {
+        setSelectedMatch({
+          ...selectedMatch,
+          betInfo: updatedBetInfo
+        });
+      }
+
+      await handleSaveBetInfo(updatedBetInfo);
+      showSuccess(`Aposta marcada como ${status === 'won' ? 'ganha' : 'perdida'}!`);
+    } catch (error) {
+      showError('Erro ao atualizar status da aposta. Tente novamente.');
+    }
+  };
+
   const handleSaveBetInfo = async (betInfo: BetInfo) => {
     // Atualizar banca se há banca configurada
     if (bankSettings) {
@@ -460,6 +488,7 @@ const App: React.FC = () => {
               onMatchClick={handleNavigateToAnalysis}
               onNewMatch={handleNewMatch}
               onDeleteMatch={handleDeleteSaved}
+              onUpdateBetStatus={handleUpdateBetStatus}
               isLoading={isLoading}
             />
           </Suspense>

@@ -129,10 +129,11 @@ interface MainScreenProps {
   onMatchClick: (match: SavedAnalysis) => void;
   onNewMatch: () => void;
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
+  onUpdateBetStatus?: (match: SavedAnalysis, status: 'won' | 'lost') => void;
   isLoading?: boolean;
 }
 
-const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onNewMatch, onDeleteMatch, isLoading = false }) => {
+const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onNewMatch, onDeleteMatch, onUpdateBetStatus, isLoading = false }) => {
   // Contadores por categoria
   const categoryCounts = useMemo(() => getCategoryCounts(savedMatches), [savedMatches]);
   
@@ -450,38 +451,68 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
 
                   {/* Informações Financeiras em Linha Horizontal */}
                   {match.betInfo && match.betInfo.betAmount > 0 && (
-                    <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                      <div className="space-y-0.5">
-                        <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Aposta</div>
-                        <div className="text-sm font-semibold">{match.betInfo.betAmount.toFixed(2)}</div>
-                      </div>
-                      <div className="flex items-center gap-1.5 opacity-40">
-                        <TrendingUp className="h-4 w-4" />
-                      </div>
-                      <div className="space-y-0.5 text-right">
-                        <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">
-                          {match.betInfo.status === 'won' ? 'Ganho' :
-                           match.betInfo.status === 'lost' ? 'Perda' :
-                           'Retorno Potencial'}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                        <div className="space-y-0.5">
+                          <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Aposta</div>
+                          <div className="text-sm font-semibold">{match.betInfo.betAmount.toFixed(2)}</div>
                         </div>
-                        <div className="flex items-baseline gap-1 justify-end">
-                          <div className={`text-sm font-bold ${
-                            match.betInfo.status === 'won' ? 'text-success' :
-                            match.betInfo.status === 'lost' ? 'text-error' :
-                            'text-primary'
-                          }`}>
-                            {match.betInfo.status === 'won' && '+'}
-                            {match.betInfo.status === 'won' ? match.betInfo.potentialProfit.toFixed(2) :
-                             match.betInfo.status === 'lost' ? `-${match.betInfo.betAmount.toFixed(2)}` :
-                             match.betInfo.potentialReturn.toFixed(2)}
+                        <div className="flex items-center gap-1.5 opacity-40">
+                          <TrendingUp className="h-4 w-4" />
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">
+                            {match.betInfo.status === 'won' ? 'Ganho' :
+                             match.betInfo.status === 'lost' ? 'Perda' :
+                             'Retorno Potencial'}
                           </div>
-                          {match.betInfo.status === 'pending' && (
-                            <div className="text-xs font-semibold opacity-60">
-                              ({((match.betInfo.potentialReturn - match.betInfo.betAmount) / match.betInfo.betAmount * 100).toFixed(0)}%)
+                          <div className="flex items-baseline gap-1 justify-end">
+                            <div className={`text-sm font-bold ${
+                              match.betInfo.status === 'won' ? 'text-success' :
+                              match.betInfo.status === 'lost' ? 'text-error' :
+                              'text-primary'
+                            }`}>
+                              {match.betInfo.status === 'won' && '+'}
+                              {match.betInfo.status === 'won' ? match.betInfo.potentialProfit.toFixed(2) :
+                               match.betInfo.status === 'lost' ? `-${match.betInfo.betAmount.toFixed(2)}` :
+                               match.betInfo.potentialReturn.toFixed(2)}
                             </div>
-                          )}
+                            {match.betInfo.status === 'pending' && (
+                              <div className="text-xs font-semibold opacity-60">
+                                ({((match.betInfo.potentialReturn - match.betInfo.betAmount) / match.betInfo.betAmount * 100).toFixed(0)}%)
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Botões Rápidos para Marcar Resultado (apenas se pendente) */}
+                      {match.betInfo.status === 'pending' && onUpdateBetStatus && (
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onUpdateBetStatus(match, 'won');
+                            }}
+                            className="btn btn-xs btn-success flex-1 gap-1 min-h-[32px] text-[10px] font-bold"
+                            title="Marcar como ganha"
+                          >
+                            <CheckCircle className="w-3 h-3" />
+                            Ganhou
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onUpdateBetStatus(match, 'lost');
+                            }}
+                            className="btn btn-xs btn-error flex-1 gap-1 min-h-[32px] text-[10px] font-bold"
+                            title="Marcar como perdida"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            Perdeu
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </motion.div>

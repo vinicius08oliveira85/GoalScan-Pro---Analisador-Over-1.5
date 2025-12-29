@@ -222,6 +222,47 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                       </div>
                     </div>
                     
+                    {/* Botões Rápidos para Marcar Resultado (apenas se pendente) */}
+                    {betInfo.status === 'pending' && onBetSave && (
+                      <div className="mb-4 p-3 bg-warning/5 border border-warning/20 rounded-xl">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold opacity-60 uppercase">Marcar Resultado</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const updatedBetInfo: BetInfo = {
+                                  ...betInfo,
+                                  status: 'won',
+                                  resultAt: Date.now()
+                                };
+                                onBetSave(updatedBetInfo);
+                              }}
+                              className="btn btn-sm btn-success gap-2 min-h-[36px]"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Ganhou
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const updatedBetInfo: BetInfo = {
+                                  ...betInfo,
+                                  status: 'lost',
+                                  resultAt: Date.now()
+                                };
+                                onBetSave(updatedBetInfo);
+                              }}
+                              className="btn btn-sm btn-error gap-2 min-h-[36px]"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Perdeu
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 text-xs md:text-sm">
                       <div className="bg-base-200/30 p-3 rounded-xl border border-white/5">
                         <span className="text-xs opacity-60 block mb-1">Valor Apostado</span>
