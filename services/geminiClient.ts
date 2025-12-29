@@ -98,20 +98,22 @@ function normalizeGeminiModel(model: string): string {
  */
 function getValidModelsForVersion(apiVersion: GeminiApiVersion): string[] {
   if (apiVersion === 'v1beta') {
-    // v1beta: todos os modelos disponíveis, incluindo preview
+    // v1beta: todos os modelos disponíveis, incluindo preview e modelos mais antigos
     return [
       'gemini-3.0-flash',
       'gemini-3.0-pro',
       'gemini-1.5-flash',
       'gemini-1.5-pro',
-      'gemini-3-flash-preview' // Modelo preview disponível
+      'gemini-3-flash-preview', // Modelo preview disponível
+      'gemini-pro' // Modelo mais antigo (pode estar disponível em algumas contas)
     ];
   } else {
-    // v1: gemini-1.5-pro NÃO está disponível
+    // v1: gemini-1.5-pro NÃO está disponível, mas gemini-pro pode estar
     return [
       'gemini-3.0-flash',
       'gemini-3.0-pro',
-      'gemini-1.5-flash'
+      'gemini-1.5-flash',
+      'gemini-pro' // Modelo mais antigo (pode estar disponível em algumas contas)
       // gemini-1.5-pro não está disponível em v1
       // gemini-3-flash-preview pode não estar disponível em v1
     ];
@@ -126,13 +128,14 @@ function getFallbackOrderForVersion(startModel: string, apiVersion: GeminiApiVer
   const validModels = getValidModelsForVersion(apiVersion);
   const normalizedStart = normalizeGeminiModel(startModel);
   
-  // Ordem de prioridade padrão
+  // Ordem de prioridade padrão (modelos mais novos primeiro, depois mais antigos)
   const priorityOrder = [
     'gemini-3.0-flash',
     'gemini-3.0-pro',
     'gemini-1.5-flash',
     'gemini-1.5-pro',
-    'gemini-3-flash-preview'
+    'gemini-3-flash-preview',
+    'gemini-pro' // Fallback final para modelos mais antigos
   ];
   
   // Filtrar apenas modelos válidos para esta versão
@@ -401,8 +404,12 @@ export async function generateGeminiContent(prompt: string, apiKey: string): Pro
   // Se todos os modelos falharam com 404, fornecer mensagem mais útil
   if (lastErr instanceof GeminiCallError && lastErr.status === 404) {
     const errorMsg = `Nenhum modelo Gemini disponível. Tentados: ${attemptedModels.join(', ')}. ` +
-      `Verifique se a API key tem acesso aos modelos ou se os modelos estão disponíveis na sua região. ` +
-      `Acesse https://ai.google.dev/ para verificar os modelos disponíveis.`;
+      `\n\nPossíveis causas:` +
+      `\n1. A API key não tem acesso aos modelos - Verifique no Google AI Studio (https://aistudio.google.com/app/apikey)` +
+      `\n2. Os modelos podem não estar disponíveis na sua região` +
+      `\n3. A API key pode estar inválida ou expirada` +
+      `\n4. Pode ser necessário habilitar a API do Gemini no Google Cloud Console` +
+      `\n\nSolução: O sistema usará análise local (fallback) até que a API key seja configurada corretamente.`;
     throw new Error(errorMsg);
   }
 
