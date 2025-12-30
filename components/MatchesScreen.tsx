@@ -318,27 +318,27 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                   if (match.betInfo.status === 'won') {
                     return { 
                       border: 'border-t-2 border-success shadow-[0_-2px_8px_rgba(34,197,94,0.2)]', 
-                      bg: 'bg-gradient-to-r from-success/20 via-success/10 to-transparent',
-                      glow: 'shadow-success/20'
+                      gradient: 'gradient-win',
+                      shadow: 'shadow-glow-success'
                     };
                   } else if (match.betInfo.status === 'lost') {
                     return { 
                       border: 'border-t-2 border-error shadow-[0_-2px_8px_rgba(239,68,68,0.2)]', 
-                      bg: 'bg-gradient-to-r from-error/20 via-error/10 to-transparent',
-                      glow: 'shadow-error/20'
+                      gradient: 'gradient-loss',
+                      shadow: 'shadow-glow-error'
                     };
                   } else if (match.betInfo.status === 'pending') {
                     return { 
                       border: 'border-t-2 border-warning shadow-[0_-2px_8px_rgba(245,158,11,0.2)]', 
-                      bg: 'bg-gradient-to-r from-warning/20 via-warning/10 to-transparent',
-                      glow: 'shadow-warning/20'
+                      gradient: 'gradient-pending',
+                      shadow: 'shadow-glow-warning'
                     };
                   }
                 }
                 return { 
                   border: 'border-t-2 border-primary shadow-[0_-2px_8px_rgba(99,102,241,0.2)]', 
-                  bg: 'bg-gradient-to-r from-primary/20 via-primary/10 to-transparent',
-                  glow: 'shadow-primary/20'
+                  gradient: 'gradient-card',
+                  shadow: 'shadow-glow-primary'
                 };
               };
               
@@ -354,13 +354,13 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                   whileHover="hover"
                   whileTap="tap"
                   variants={cardHover}
-                  className={`group custom-card p-3 hover:shadow-2xl cursor-pointer flex flex-col gap-1.5 relative overflow-hidden transition-all duration-300 ${statusConfig.border} hover:scale-[1.02]`}
+                  className={`group custom-card gradient-card p-3 hover:shadow-2xl cursor-pointer flex flex-col gap-1.5 relative overflow-hidden transition-all duration-300 ${statusConfig.border} hover:scale-[1.02]`}
                 >
                   {/* Efeito de brilho no hover */}
-                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${statusConfig.glow} blur-xl pointer-events-none`} />
+                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${statusConfig.shadow} blur-xl pointer-events-none`} />
                   
                   {/* Header: Times e Status */}
-                  <div className={`flex justify-between items-start gap-2 px-3 py-2 -mx-3 -mt-3 mb-1 ${statusConfig.bg} rounded-t-lg backdrop-blur-sm relative`}>
+                  <div className={`flex justify-between items-start gap-2 px-3 py-2 -mx-3 -mt-3 mb-1 ${statusConfig.gradient} rounded-t-lg backdrop-blur-sm relative`}>
                     <div className="flex flex-col flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-sm font-semibold truncate">
                         <span className="truncate">{match.data.homeTeam}</span>
@@ -441,7 +441,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                   </div>
 
                   {/* Barra de Probabilidade */}
-                  <div className="space-y-1.5 bg-base-200/40 rounded-lg px-3 py-2 backdrop-blur-sm border border-base-300/20">
+                  <div className="space-y-1.5 glass-effect rounded-lg px-3 py-2 border border-base-300/20">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold opacity-80">Probabilidade</span>
                       <span className="font-black text-base">{getPrimaryProbability(match.result).toFixed(0)}%</span>
@@ -471,16 +471,16 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
 
                   {/* Grid de Métricas */}
                   <div className="grid grid-cols-3 gap-1.5">
-                    <div className="bg-gradient-to-br from-base-200/40 to-base-200/20 rounded-md px-2 py-1.5 border border-primary/20 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="glass-effect rounded-md px-2 py-1.5 border border-primary/20 shadow-sm hover:shadow-md hover:border-primary/50 transition-all">
                       <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">Odd</div>
                       <div className="text-sm font-black mt-0.5 text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</div>
                     </div>
-                    <div className={`bg-gradient-to-br rounded-md px-2 py-1.5 border shadow-sm hover:shadow-md transition-shadow ${
+                    <div className={`glass-effect rounded-md px-2 py-1.5 border shadow-sm hover:shadow-md transition-all ${
                       match.result.ev > 0 
-                        ? 'from-success/20 to-success/10 border-success/30' 
+                        ? 'border-success/30 hover:border-success/50' 
                         : match.result.ev < 0 
-                        ? 'from-error/20 to-error/10 border-error/30'
-                        : 'from-base-200/40 to-base-200/20 border-base-300/20'
+                        ? 'border-error/30 hover:border-error/50'
+                        : 'border-base-300/20 hover:border-base-300/40'
                     }`}>
                       <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">EV</div>
                       <div className={`text-sm font-black mt-0.5 flex items-center gap-1 ${
@@ -493,7 +493,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                         <span>{match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%</span>
                       </div>
                     </div>
-                    <div className="bg-gradient-to-br from-base-200/40 to-base-200/20 rounded-md px-2 py-1.5 border border-base-300/20 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="glass-effect rounded-md px-2 py-1.5 border border-base-300/20 shadow-sm hover:shadow-md hover:border-base-300/40 transition-all">
                       <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">Stake</div>
                       <div className="text-sm font-black mt-0.5">
                         {match.betInfo && match.betInfo.betAmount > 0 

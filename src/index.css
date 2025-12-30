@@ -113,6 +113,50 @@ a:focus-visible {
   .kpi-value {
     @apply text-2xl md:text-3xl font-black font-mono text-base-content tracking-tight;
   }
+
+  /* Gradientes modernos para cards de apostas */
+  .gradient-card {
+    @apply bg-gradient-to-br from-base-200/95 via-base-200/90 to-base-300/50;
+    background-blend-mode: overlay;
+  }
+
+  .gradient-pending {
+    @apply bg-gradient-to-r from-warning/30 via-warning/20 to-warning/10;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+  }
+
+  .gradient-win {
+    @apply bg-gradient-to-r from-success/30 via-success/20 to-success/10;
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+  }
+
+  .gradient-loss {
+    @apply bg-gradient-to-r from-error/30 via-error/20 to-error/10;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+  }
+
+  /* Efeito de vidro (glass morphism) */
+  .glass-effect {
+    @apply bg-base-200/40 backdrop-blur-md border border-base-300/30;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  }
+
+  /* Sombras coloridas dinâmicas */
+  .shadow-glow-primary {
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.15), 0 10px 40px -10px rgba(0, 0, 0, 0.3);
+  }
+
+  .shadow-glow-success {
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.15), 0 10px 40px -10px rgba(0, 0, 0, 0.3);
+  }
+
+  .shadow-glow-warning {
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.15), 0 10px 40px -10px rgba(0, 0, 0, 0.3);
+  }
+
+  .shadow-glow-error {
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.15), 0 10px 40px -10px rgba(0, 0, 0, 0.3);
+  }
 }
 
 @keyframes fadeIn {
