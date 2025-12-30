@@ -6,23 +6,16 @@ import { SkeletonMatchCard } from './Skeleton';
 import { cardHover, animations } from '../utils/animations';
 import MatchTabs, { TabCategory } from './MatchTabs';
 import MatchFilters from './MatchFilters';
-import ViewToggle, { ViewMode } from './ViewToggle';
 import MatchCardList from './MatchCardList';
 import MatchCardCompact from './MatchCardCompact';
+import { useWindowSize } from '../hooks/useWindowSize';
 import { 
   filterMatchesByCategory, 
   getCategoryCounts,
   FilterState,
   SortState,
   applyAllFilters,
-  sortMatches,
-  EVFilter,
-  ProbabilityRange,
-  RiskLevel,
-  BetStatusFilter,
-  DateRange,
-  SortField,
-  SortOrder
+  sortMatches
 } from '../utils/matchFilters';
 import { getPrimaryProbability } from '../utils/probability';
 
@@ -188,10 +181,9 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
     };
   });
 
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const saved = localStorage.getItem('matchesViewMode');
-    return (saved as ViewMode) || 'grid';
-  });
+  // Detectar se é mobile para escolher visualização automaticamente
+  const windowSize = useWindowSize();
+  const isMobile = windowSize.isMobile;
 
   // Persistir estados no localStorage
   useEffect(() => {
@@ -201,10 +193,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
   useEffect(() => {
     localStorage.setItem('matchesSortState', JSON.stringify(sortState));
   }, [sortState]);
-
-  useEffect(() => {
-    localStorage.setItem('matchesViewMode', viewMode);
-  }, [viewMode]);
   
   // Filtrar e ordenar partidas
   const filteredMatches = useMemo(() => {
@@ -259,12 +247,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
           filteredCount={filteredMatches.length}
           totalCount={filterMatchesByCategory(savedMatches, activeTab).length}
         />
-        <div className="flex justify-end">
-          <ViewToggle
-            viewMode={viewMode}
-            onViewChange={setViewMode}
-          />
-        </div>
       </div>
       
       {/* Estatísticas Gerais */}
@@ -414,36 +396,16 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
       ) : (
         <AnimatePresence mode="wait">
           <motion.div
-            key={`${activeTab}-${viewMode}`}
-            className={
-              viewMode === 'grid'
-                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6'
-                : viewMode === 'list'
-                ? 'space-y-3'
-                : 'space-y-2'
-            }
+            key={`${activeTab}-${isMobile ? 'mobile' : 'desktop'}`}
+            className={isMobile ? 'space-y-2' : 'space-y-3'}
             variants={animations.staggerChildren}
             initial="initial"
             animate="animate"
             exit="exit"
           >
             {filteredMatches.map((match, index) => {
-              // Renderizar baseado no modo de visualização
-              if (viewMode === 'list') {
-                return (
-                  <MatchCardList
-                    key={match.id}
-                    match={match}
-                    index={index}
-                    onMatchClick={onMatchClick}
-                    onDeleteMatch={onDeleteMatch}
-                    onUpdateBetStatus={onUpdateBetStatus}
-                    isUpdatingBetStatus={isUpdatingBetStatus}
-                  />
-                );
-              }
-
-              if (viewMode === 'compact') {
+              // Desktop/Web: Lista | Mobile: Compacta
+              if (isMobile) {
                 return (
                   <MatchCardCompact
                     key={match.id}
@@ -455,265 +417,16 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                 );
               }
 
-              // Grid view (padrão)
-              const getStatusConfig = () => {
-                if (match.betInfo && match.betInfo.betAmount > 0) {
-                  if (match.betInfo.status === 'won') {
-                    return { 
-                      border: 'border-t-2 border-success shadow-[0_-2px_8px_rgba(34,197,94,0.2)]', 
-                      gradient: 'gradient-win',
-                      shadow: 'shadow-glow-success'
-                    };
-                  } else if (match.betInfo.status === 'lost') {
-                    return { 
-                      border: 'border-t-2 border-error shadow-[0_-2px_8px_rgba(239,68,68,0.2)]', 
-                      gradient: 'gradient-loss',
-                      shadow: 'shadow-glow-error'
-                    };
-                  } else if (match.betInfo.status === 'pending') {
-                    return { 
-                      border: 'border-t-2 border-warning shadow-[0_-2px_8px_rgba(245,158,11,0.2)]', 
-                      gradient: 'gradient-pending',
-                      shadow: 'shadow-glow-warning'
-                    };
-                  }
-                }
-                return { 
-                  border: 'border-t-2 border-primary shadow-[0_-2px_8px_rgba(99,102,241,0.2)]', 
-                  gradient: 'gradient-card',
-                  shadow: 'shadow-glow-primary'
-                };
-              };
-              
-              const statusConfig = getStatusConfig();
-              
               return (
-                <motion.div
+                <MatchCardList
                   key={match.id}
-                  onClick={() => onMatchClick(match)}
-                  custom={index}
-                  initial="initial"
-                  animate="animate"
-                  whileHover="hover"
-                  whileTap="tap"
-                  variants={cardHover}
-                  className={`group custom-card gradient-card p-3 hover:shadow-2xl cursor-pointer flex flex-col gap-1.5 relative overflow-hidden transition-all duration-300 ${statusConfig.border} hover:scale-[1.02]`}
-                >
-                  {/* Efeito de brilho no hover */}
-                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${statusConfig.shadow} blur-xl pointer-events-none`} />
-                  
-                  {/* Header: Times e Status */}
-                  <div className={`flex justify-between items-start gap-2 px-3 py-2 -mx-3 -mt-3 mb-1 ${statusConfig.gradient} rounded-t-lg backdrop-blur-sm relative`}>
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-semibold truncate">
-                        <span className="truncate">{match.data.homeTeam}</span>
-                        <span className="text-primary opacity-60 shrink-0">vs</span>
-                        <span className="truncate">{match.data.awayTeam}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      {match.betInfo && match.betInfo.betAmount > 0 && (
-                        <div className={`badge gap-1 px-2 py-1 h-6 text-xs font-bold flex-shrink-0 shadow-md transition-all duration-300 ${
-                          match.betInfo.status === 'won' 
-                            ? 'bg-gradient-to-r from-success/30 to-success/20 text-success border-success/50 shadow-success/30' 
-                            : match.betInfo.status === 'lost'
-                            ? 'bg-gradient-to-r from-error/30 to-error/20 text-error border-error/50 shadow-error/30'
-                            : match.betInfo.status === 'pending'
-                            ? 'bg-gradient-to-r from-warning/30 to-warning/20 text-warning border-warning/50 shadow-warning/30 animate-pulse'
-                            : 'bg-base-300/20 text-base-content/60 border-base-300/30'
-                        }`}>
-                          {match.betInfo.status === 'won' && <CheckCircle className="w-3 h-3" />}
-                          {match.betInfo.status === 'lost' && <XCircle className="w-3 h-3" />}
-                          {match.betInfo.status === 'pending' && <Clock className="w-3 h-3" />}
-                          {match.betInfo.status === 'cancelled' && <Ban className="w-3 h-3" />}
-                          <span className="text-[10px]">
-                            {match.betInfo.status === 'won' ? 'Ganhou' :
-                             match.betInfo.status === 'lost' ? 'Perdeu' :
-                             match.betInfo.status === 'pending' ? 'Pendente' :
-                             'Cancelada'}
-                          </span>
-                        </div>
-                      )}
-                      <button
-                        onClick={(e) => onDeleteMatch(e, match.id)}
-                        className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-error"
-                        aria-label={`Remover partida ${match.data.homeTeam} vs ${match.data.awayTeam}`}
-                      >
-                        <X className="w-3 h-3" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Data/Hora e Risco */}
-                  <div className="flex items-center justify-between text-xs px-1">
-                    <div className="flex items-center gap-1.5 opacity-60">
-                      <Calendar className="w-3 h-3 shrink-0" />
-                      {match.data.matchDate ? (
-                        <>
-                          <span>
-                            {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
-                              day: '2-digit', 
-                              month: 'short'
-                            })}
-                          </span>
-                          {match.data.matchTime && (
-                            <>
-                              <span>•</span>
-                              <Clock className="w-3 h-3" />
-                              <span>{match.data.matchTime}</span>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        <span>
-                          {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
-                            day: '2-digit', 
-                            month: 'short'
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shadow-sm ${
-                      match.result.riskLevel === 'Baixo' ? 'bg-gradient-to-r from-success/20 to-success/10 text-success border-success/40 shadow-success/20' :
-                      match.result.riskLevel === 'Moderado' ? 'bg-gradient-to-r from-warning/20 to-warning/10 text-warning border-warning/40 shadow-warning/20' :
-                      match.result.riskLevel === 'Alto' ? 'bg-gradient-to-r from-error/20 to-error/10 text-error border-error/40 shadow-error/20' :
-                      'bg-gradient-to-r from-error/20 to-error/10 text-error border-error/40 shadow-error/20'
-                    }`}>
-                      {match.result.riskLevel}
-                    </span>
-                  </div>
-
-                  {/* Barra de Probabilidade */}
-                  <div className="space-y-1.5 glass-effect rounded-lg px-3 py-2 border border-base-300/20">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold opacity-80">Probabilidade</span>
-                      <span className="font-black text-base">{getPrimaryProbability(match.result).toFixed(0)}%</span>
-                    </div>
-                    <div className="h-2.5 w-full bg-base-300/50 rounded-full overflow-hidden shadow-inner">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${getPrimaryProbability(match.result)}%` }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        className={`h-full rounded-full shadow-lg ${
-                          getPrimaryProbability(match.result) >= 70 
-                            ? 'bg-gradient-to-r from-success via-emerald-400 to-emerald-300' 
-                            : getPrimaryProbability(match.result) >= 50
-                            ? 'bg-gradient-to-r from-warning via-amber-400 to-amber-300'
-                            : 'bg-gradient-to-r from-error via-rose-400 to-rose-300'
-                        }`}
-                        style={{ 
-                          boxShadow: getPrimaryProbability(match.result) >= 70 
-                            ? '0 0 8px rgba(34, 197, 94, 0.5)' 
-                            : getPrimaryProbability(match.result) >= 50
-                            ? '0 0 8px rgba(245, 158, 11, 0.5)'
-                            : '0 0 8px rgba(239, 68, 68, 0.5)'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Grid de Métricas */}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <div className="glass-effect rounded-md px-2 py-1.5 border border-primary/20 shadow-sm hover:shadow-md hover:border-primary/50 transition-all">
-                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">Odd</div>
-                      <div className="text-sm font-black mt-0.5 text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</div>
-                    </div>
-                    <div className={`glass-effect rounded-md px-2 py-1.5 border shadow-sm hover:shadow-md transition-all ${
-                      match.result.ev > 0 
-                        ? 'border-success/30 hover:border-success/50' 
-                        : match.result.ev < 0 
-                        ? 'border-error/30 hover:border-error/50'
-                        : 'border-base-300/20 hover:border-base-300/40'
-                    }`}>
-                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">EV</div>
-                      <div className={`text-sm font-black mt-0.5 flex items-center gap-1 ${
-                        match.result.ev > 0 ? 'text-success' :
-                        match.result.ev < 0 ? 'text-error' :
-                        'opacity-50'
-                      }`}>
-                        {match.result.ev > 0 && <TrendingUp className="w-3 h-3" />}
-                        {match.result.ev < 0 && <TrendingDown className="w-3 h-3" />}
-                        <span>{match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%</span>
-                      </div>
-                    </div>
-                    <div className="glass-effect rounded-md px-2 py-1.5 border border-base-300/20 shadow-sm hover:shadow-md hover:border-base-300/40 transition-all">
-                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">Stake</div>
-                      <div className="text-sm font-black mt-0.5">
-                        {match.betInfo && match.betInfo.betAmount > 0 
-                          ? match.betInfo.betAmount.toFixed(2) 
-                          : '-'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Informações Financeiras */}
-                  {match.betInfo && match.betInfo.betAmount > 0 && (
-                    <div className="space-y-2">
-                      <div className={`flex items-center justify-between rounded-lg border px-3 py-2.5 backdrop-blur-sm shadow-md ${
-                        match.betInfo.status === 'won' 
-                          ? 'bg-gradient-to-r from-success/20 to-success/10 border-success/40' 
-                          : match.betInfo.status === 'lost'
-                          ? 'bg-gradient-to-r from-error/20 to-error/10 border-error/40'
-                          : 'bg-gradient-to-r from-primary/20 to-primary/10 border-primary/40'
-                      }`}>
-                        <div>
-                          <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide mb-0.5">Aposta</div>
-                          <div className="text-sm font-black">{match.betInfo.betAmount.toFixed(2)}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide mb-0.5">
-                            {match.betInfo.status === 'won' ? 'Ganho' :
-                             match.betInfo.status === 'lost' ? 'Perda' :
-                             'Retorno'}
-                          </div>
-                          <div className={`text-base font-black ${
-                            match.betInfo.status === 'won' ? 'text-success' :
-                            match.betInfo.status === 'lost' ? 'text-error' :
-                            'text-primary'
-                          }`}>
-                            {match.betInfo.status === 'won' && '+'}
-                            {match.betInfo.status === 'won' ? match.betInfo.potentialProfit.toFixed(2) :
-                             match.betInfo.status === 'lost' ? `-${match.betInfo.betAmount.toFixed(2)}` :
-                             match.betInfo.potentialReturn.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {match.betInfo.status === 'pending' && onUpdateBetStatus && (
-                        <div className="flex gap-2">
-                          <motion.button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpdateBetStatus(match, 'won');
-                            }}
-                            disabled={isUpdatingBetStatus}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="btn btn-xs flex-1 gap-1 min-h-[32px] text-[10px] font-black border-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-success to-emerald-500 text-white border-success/50 hover:shadow-success/50 transition-all"
-                            title="Marcar como ganha"
-                          >
-                            <CheckCircle className="w-3 h-3" />
-                            {isUpdatingBetStatus ? 'Processando...' : 'Ganhou'}
-                          </motion.button>
-                          <motion.button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onUpdateBetStatus(match, 'lost');
-                            }}
-                            disabled={isUpdatingBetStatus}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="btn btn-xs flex-1 gap-1 min-h-[32px] text-[10px] font-black border-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-error to-rose-500 text-white border-error/50 hover:shadow-error/50 transition-all"
-                            title="Marcar como perdida"
-                          >
-                            <XCircle className="w-3 h-3" />
-                            {isUpdatingBetStatus ? 'Processando...' : 'Perdeu'}
-                          </motion.button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </motion.div>
+                  match={match}
+                  index={index}
+                  onMatchClick={onMatchClick}
+                  onDeleteMatch={onDeleteMatch}
+                  onUpdateBetStatus={onUpdateBetStatus}
+                  isUpdatingBetStatus={isUpdatingBetStatus}
+                />
               );
             })}
           </motion.div>
