@@ -77,11 +77,6 @@ export function calculateBankUpdate(
   }
 
   // Retorna a diferença (novo impacto - impacto anterior)
-  // Mas quando pending -> won, o impacto líquido é apenas o retorno total
-  if (oldStatus === 'pending' && newStatus === 'won') {
-    return potentialReturn; // Apenas o retorno total (o desconto já foi aplicado)
-  }
-  
   return newImpact - oldImpact;
 }
 

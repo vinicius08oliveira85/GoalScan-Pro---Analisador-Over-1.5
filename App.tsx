@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [showBankSettings, setShowBankSettings] = useState<boolean>(false);
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
+  const [isUpdatingBetStatus, setIsUpdatingBetStatus] = useState<boolean>(false);
 
 
   // Funções de Navegação
@@ -194,33 +195,66 @@ const App: React.FC = () => {
       return;
     }
 
+    // Verificar se o status já é o mesmo - evitar processamento desnecessário
+    if (match.betInfo.status === status) {
+      return; // Status já é o mesmo, não precisa processar
+    }
+
+    // Proteção contra múltiplos cliques
+    if (isUpdatingBetStatus) {
+      return; // Já está processando outra atualização
+    }
+
     try {
+      setIsUpdatingBetStatus(true);
+      
+      const oldBetInfo = match.betInfo;
       const updatedBetInfo: BetInfo = {
-        ...match.betInfo,
+        ...oldBetInfo,
         status,
         resultAt: Date.now()
       };
 
+      // Atualizar a partida com o novo betInfo
+      const updatedMatch: SavedAnalysis = {
+        ...match,
+        betInfo: updatedBetInfo,
+        timestamp: Date.now()
+      };
+
       // Se a partida está selecionada, atualizar o estado local também
       if (selectedMatch && selectedMatch.id === match.id) {
-        setSelectedMatch({
-          ...selectedMatch,
-          betInfo: updatedBetInfo
-        });
+        setSelectedMatch(updatedMatch);
+        // Atualizar também currentMatchData e analysisResult se necessário
+        if (!currentMatchData) setCurrentMatchData(match.data);
+        if (!analysisResult) setAnalysisResult(match.result);
       }
 
-      await handleSaveBetInfo(updatedBetInfo);
+      // Passar o oldBetInfo correto para handleSaveBetInfo
+      await handleSaveBetInfo(updatedBetInfo, oldBetInfo);
+
+      // Salvar a partida atualizada
+      await saveMatch(updatedMatch);
+      
       showSuccess(`Aposta marcada como ${status === 'won' ? 'ganha' : 'perdida'}!`);
     } catch (error) {
       showError('Erro ao atualizar status da aposta. Tente novamente.');
+    } finally {
+      setIsUpdatingBetStatus(false);
     }
   };
 
-  const handleSaveBetInfo = async (betInfo: BetInfo) => {
+  const handleSaveBetInfo = async (betInfo: BetInfo, providedOldBetInfo?: BetInfo) => {
+    // Proteção contra múltiplos cliques simultâneos (apenas se não veio de handleUpdateBetStatus)
+    // Se veio de handleUpdateBetStatus, a proteção já está lá
+    if (isUpdatingBetStatus && !providedOldBetInfo) {
+      return; // Já está processando outra atualização e não veio de handleUpdateBetStatus
+    }
+
     // Atualizar banca se há banca configurada
     if (bankSettings) {
-      // Detectar se é uma nova aposta ou remoção
-      const oldBetInfo = selectedMatch?.betInfo;
+      // Usar oldBetInfo fornecido (de handleUpdateBetStatus) ou do selectedMatch
+      const oldBetInfo = providedOldBetInfo || selectedMatch?.betInfo;
       const isNewBet = !oldBetInfo || oldBetInfo.betAmount === 0;
       const isRemovingBet = betInfo.betAmount === 0 || betInfo.status === 'cancelled';
       
@@ -240,45 +274,51 @@ const App: React.FC = () => {
       const newStatus = betInfo.status;
       const newBetAmount = betInfo.betAmount;
       
-      // Se está removendo a aposta, usar valores antigos para calcular devolução
-      const betAmountForCalc = isRemovingBet ? oldBetAmount : newBetAmount;
-      const potentialReturnForCalc = isRemovingBet 
-        ? (oldBetInfo?.potentialReturn || 0)
-        : betInfo.potentialReturn;
-      
-      // Tratar mudança de valor da aposta (quando não é nova e não está removendo)
-      let valueChangeAdjustment = 0;
-      if (!isNewBet && !isRemovingBet && oldBetAmount !== newBetAmount && oldStatus) {
-        // Se o valor mudou, precisa ajustar a diferença
-        if (oldStatus === 'pending') {
-          // Estava pending: reverter desconto antigo e aplicar novo desconto
-          valueChangeAdjustment = oldBetAmount - newBetAmount;
-        } else if (oldStatus === 'won') {
-          // Estava won: reverter retorno antigo e aplicar novo retorno
-          const oldReturn = oldBetInfo.potentialReturn || 0;
-          valueChangeAdjustment = betInfo.potentialReturn - oldReturn;
+      // Verificação explícita: se oldStatus === newStatus, não processar atualização de banca
+      if (oldStatus === newStatus && !isNewBet && !isRemovingBet) {
+        // Status não mudou, não precisa atualizar banca
+        // Mas ainda precisa salvar a partida (pode ter mudado outros campos)
+      } else {
+        // Se está removendo a aposta, usar valores antigos para calcular devolução
+        const betAmountForCalc = isRemovingBet ? oldBetAmount : newBetAmount;
+        const potentialReturnForCalc = isRemovingBet 
+          ? (oldBetInfo?.potentialReturn || 0)
+          : betInfo.potentialReturn;
+        
+        // Tratar mudança de valor da aposta (quando não é nova e não está removendo)
+        let valueChangeAdjustment = 0;
+        if (!isNewBet && !isRemovingBet && oldBetAmount !== newBetAmount && oldStatus) {
+          // Se o valor mudou, precisa ajustar a diferença
+          if (oldStatus === 'pending') {
+            // Estava pending: reverter desconto antigo e aplicar novo desconto
+            valueChangeAdjustment = oldBetAmount - newBetAmount;
+          } else if (oldStatus === 'won') {
+            // Estava won: reverter retorno antigo e aplicar novo retorno
+            const oldReturn = oldBetInfo.potentialReturn || 0;
+            valueChangeAdjustment = betInfo.potentialReturn - oldReturn;
+          }
+          // Se estava lost, não precisa ajustar (já estava descontado)
         }
-        // Se estava lost, não precisa ajustar (já estava descontado)
-      }
-      
-      // Calcular diferença na banca
-      const bankDifference = calculateBankUpdate(
-        oldStatus,
-        newStatus,
-        betAmountForCalc,
-        potentialReturnForCalc
-      ) + valueChangeAdjustment;
+        
+        // Calcular diferença na banca
+        const bankDifference = calculateBankUpdate(
+          oldStatus,
+          newStatus,
+          betAmountForCalc,
+          potentialReturnForCalc
+        ) + valueChangeAdjustment;
 
-      // Se houve mudança que afeta a banca, atualizar
-      if (bankDifference !== 0) {
-        const updatedBank = bankSettings.totalBank + bankDifference;
-        const newBankSettings: BankSettingsType = {
-          ...bankSettings,
-          totalBank: Math.max(0, updatedBank), // Banca não pode ser negativa
-          updatedAt: Date.now()
-        };
-        await saveSettings(newBankSettings);
-        showSuccess('Banca atualizada com sucesso!');
+        // Se houve mudança que afeta a banca, atualizar
+        if (bankDifference !== 0) {
+          const updatedBank = bankSettings.totalBank + bankDifference;
+          const newBankSettings: BankSettingsType = {
+            ...bankSettings,
+            totalBank: Math.max(0, updatedBank), // Banca não pode ser negativa
+            updatedAt: Date.now()
+          };
+          await saveSettings(newBankSettings);
+          showSuccess('Banca atualizada com sucesso!');
+        }
       }
 
       // Atualizar resultAt quando status muda para won/lost
@@ -544,6 +584,7 @@ const App: React.FC = () => {
               onDeleteMatch={handleDeleteSaved}
               onUpdateBetStatus={handleUpdateBetStatus}
               isLoading={isLoading}
+              isUpdatingBetStatus={isUpdatingBetStatus}
             />
           </Suspense>
         </main>
@@ -735,6 +776,7 @@ const App: React.FC = () => {
                   bankSettings={bankSettings}
                   onBetSave={handleSaveBetInfo}
                   onError={showError}
+                  isUpdatingBetStatus={isUpdatingBetStatus}
                 />
               </Suspense>
             ) : (

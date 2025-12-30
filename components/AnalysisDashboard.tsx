@@ -18,6 +18,7 @@ interface AnalysisDashboardProps {
   bankSettings?: BankSettings;
   onBetSave?: (betInfo: BetInfo) => void;
   onError?: (message: string) => void;
+  isUpdatingBetStatus?: boolean;
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ 
@@ -27,7 +28,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   betInfo, 
   bankSettings,
   onBetSave,
-  onError
+  onError,
+  isUpdatingBetStatus = false
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
   const primaryProb = getPrimaryProbability(result);
@@ -280,6 +282,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                // Verificar se o status já é o mesmo - evitar processamento desnecessário
+                                if (betInfo.status === 'won') {
+                                  return; // Status já é won, não precisa processar
+                                }
                                 const updatedBetInfo: BetInfo = {
                                   ...betInfo,
                                   status: 'won',
@@ -287,14 +293,19 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                                 };
                                 onBetSave(updatedBetInfo);
                               }}
-                              className="btn btn-success btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg"
+                              disabled={isUpdatingBetStatus || betInfo.status === 'won'}
+                              className="btn btn-success btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <CheckCircle className="w-5 h-5" />
-                              Ganhou
+                              {isUpdatingBetStatus ? 'Processando...' : 'Ganhou'}
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                // Verificar se o status já é o mesmo - evitar processamento desnecessário
+                                if (betInfo.status === 'lost') {
+                                  return; // Status já é lost, não precisa processar
+                                }
                                 const updatedBetInfo: BetInfo = {
                                   ...betInfo,
                                   status: 'lost',
@@ -302,10 +313,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                                 };
                                 onBetSave(updatedBetInfo);
                               }}
-                              className="btn btn-error btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg"
+                              disabled={isUpdatingBetStatus || betInfo.status === 'lost'}
+                              className="btn btn-error btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <XCircle className="w-5 h-5" />
-                              Perdeu
+                              {isUpdatingBetStatus ? 'Processando...' : 'Perdeu'}
                             </button>
                           </div>
                         </div>

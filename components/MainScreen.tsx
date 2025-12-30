@@ -120,9 +120,10 @@ interface MainScreenProps {
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
   onUpdateBetStatus?: (match: SavedAnalysis, status: 'won' | 'lost') => void;
   isLoading?: boolean;
+  isUpdatingBetStatus?: boolean;
 }
 
-const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onNewMatch, onDeleteMatch, onUpdateBetStatus, isLoading = false }) => {
+const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onNewMatch, onDeleteMatch, onUpdateBetStatus, isLoading = false, isUpdatingBetStatus = false }) => {
   // Contadores por categoria
   const categoryCounts = useMemo(() => getCategoryCounts(savedMatches), [savedMatches]);
   
@@ -499,22 +500,24 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                               e.stopPropagation();
                               onUpdateBetStatus(match, 'won');
                             }}
-                            className="btn btn-xs btn-success flex-1 gap-1 min-h-[32px] text-[10px] font-bold border-success/30"
+                            disabled={isUpdatingBetStatus}
+                            className="btn btn-xs btn-success flex-1 gap-1 min-h-[32px] text-[10px] font-bold border-success/30 disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Marcar como ganha"
                           >
                             <CheckCircle className="w-3 h-3" />
-                            Ganhou
+                            {isUpdatingBetStatus ? 'Processando...' : 'Ganhou'}
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               onUpdateBetStatus(match, 'lost');
                             }}
-                            className="btn btn-xs btn-error flex-1 gap-1 min-h-[32px] text-[10px] font-bold border-error/30"
+                            disabled={isUpdatingBetStatus}
+                            className="btn btn-xs btn-error flex-1 gap-1 min-h-[32px] text-[10px] font-bold border-error/30 disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Marcar como perdida"
                           >
                             <XCircle className="w-3 h-3" />
-                            Perdeu
+                            {isUpdatingBetStatus ? 'Processando...' : 'Perdeu'}
                           </button>
                         </div>
                       )}
