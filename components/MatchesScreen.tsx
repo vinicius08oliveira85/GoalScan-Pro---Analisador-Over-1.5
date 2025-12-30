@@ -316,14 +316,30 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               const getStatusConfig = () => {
                 if (match.betInfo && match.betInfo.betAmount > 0) {
                   if (match.betInfo.status === 'won') {
-                    return { border: 'border-t-2 border-success', bg: 'bg-success/10' };
+                    return { 
+                      border: 'border-t-2 border-success shadow-[0_-2px_8px_rgba(34,197,94,0.2)]', 
+                      bg: 'bg-gradient-to-r from-success/20 via-success/10 to-transparent',
+                      glow: 'shadow-success/20'
+                    };
                   } else if (match.betInfo.status === 'lost') {
-                    return { border: 'border-t-2 border-error', bg: 'bg-error/10' };
+                    return { 
+                      border: 'border-t-2 border-error shadow-[0_-2px_8px_rgba(239,68,68,0.2)]', 
+                      bg: 'bg-gradient-to-r from-error/20 via-error/10 to-transparent',
+                      glow: 'shadow-error/20'
+                    };
                   } else if (match.betInfo.status === 'pending') {
-                    return { border: 'border-t-2 border-warning', bg: 'bg-warning/10' };
+                    return { 
+                      border: 'border-t-2 border-warning shadow-[0_-2px_8px_rgba(245,158,11,0.2)]', 
+                      bg: 'bg-gradient-to-r from-warning/20 via-warning/10 to-transparent',
+                      glow: 'shadow-warning/20'
+                    };
                   }
                 }
-                return { border: 'border-t-2 border-primary', bg: 'bg-primary/10' };
+                return { 
+                  border: 'border-t-2 border-primary shadow-[0_-2px_8px_rgba(99,102,241,0.2)]', 
+                  bg: 'bg-gradient-to-r from-primary/20 via-primary/10 to-transparent',
+                  glow: 'shadow-primary/20'
+                };
               };
               
               const statusConfig = getStatusConfig();
@@ -338,10 +354,13 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                   whileHover="hover"
                   whileTap="tap"
                   variants={cardHover}
-                  className={`group custom-card p-3 hover:shadow-xl cursor-pointer flex flex-col gap-1.5 relative overflow-hidden ${statusConfig.border}`}
+                  className={`group custom-card p-3 hover:shadow-2xl cursor-pointer flex flex-col gap-1.5 relative overflow-hidden transition-all duration-300 ${statusConfig.border} hover:scale-[1.02]`}
                 >
+                  {/* Efeito de brilho no hover */}
+                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${statusConfig.glow} blur-xl pointer-events-none`} />
+                  
                   {/* Header: Times e Status */}
-                  <div className={`flex justify-between items-start gap-2 px-3 py-2 -mx-3 -mt-3 mb-1 ${statusConfig.bg} rounded-t-lg`}>
+                  <div className={`flex justify-between items-start gap-2 px-3 py-2 -mx-3 -mt-3 mb-1 ${statusConfig.bg} rounded-t-lg backdrop-blur-sm relative`}>
                     <div className="flex flex-col flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-sm font-semibold truncate">
                         <span className="truncate">{match.data.homeTeam}</span>
@@ -351,13 +370,13 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                     </div>
                     <div className="flex items-start gap-2">
                       {match.betInfo && match.betInfo.betAmount > 0 && (
-                        <div className={`badge gap-1 px-2 py-1 h-6 text-xs font-medium flex-shrink-0 ${
+                        <div className={`badge gap-1 px-2 py-1 h-6 text-xs font-bold flex-shrink-0 shadow-md transition-all duration-300 ${
                           match.betInfo.status === 'won' 
-                            ? 'bg-success/20 text-success border-success/30' 
+                            ? 'bg-gradient-to-r from-success/30 to-success/20 text-success border-success/50 shadow-success/30' 
                             : match.betInfo.status === 'lost'
-                            ? 'bg-error/20 text-error border-error/30'
+                            ? 'bg-gradient-to-r from-error/30 to-error/20 text-error border-error/50 shadow-error/30'
                             : match.betInfo.status === 'pending'
-                            ? 'bg-warning/20 text-warning border-warning/30'
+                            ? 'bg-gradient-to-r from-warning/30 to-warning/20 text-warning border-warning/50 shadow-warning/30 animate-pulse'
                             : 'bg-base-300/20 text-base-content/60 border-base-300/30'
                         }`}>
                           {match.betInfo.status === 'won' && <CheckCircle className="w-3 h-3" />}
@@ -411,45 +430,60 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                         </span>
                       )}
                     </div>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
-                      match.result.riskLevel === 'Baixo' ? 'bg-success/10 text-success border-success/20' :
-                      match.result.riskLevel === 'Moderado' ? 'bg-warning/10 text-warning border-warning/20' :
-                      match.result.riskLevel === 'Alto' ? 'bg-error/10 text-error border-error/20' :
-                      'bg-error/10 text-error border-error/20'
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shadow-sm ${
+                      match.result.riskLevel === 'Baixo' ? 'bg-gradient-to-r from-success/20 to-success/10 text-success border-success/40 shadow-success/20' :
+                      match.result.riskLevel === 'Moderado' ? 'bg-gradient-to-r from-warning/20 to-warning/10 text-warning border-warning/40 shadow-warning/20' :
+                      match.result.riskLevel === 'Alto' ? 'bg-gradient-to-r from-error/20 to-error/10 text-error border-error/40 shadow-error/20' :
+                      'bg-gradient-to-r from-error/20 to-error/10 text-error border-error/40 shadow-error/20'
                     }`}>
                       {match.result.riskLevel}
                     </span>
                   </div>
 
                   {/* Barra de Probabilidade */}
-                  <div className="space-y-1.5 bg-base-200/30 rounded-lg px-3 py-2">
+                  <div className="space-y-1.5 bg-base-200/40 rounded-lg px-3 py-2 backdrop-blur-sm border border-base-300/20">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium opacity-70">Probabilidade</span>
-                      <span className="font-bold">{getPrimaryProbability(match.result).toFixed(0)}%</span>
+                      <span className="font-semibold opacity-80">Probabilidade</span>
+                      <span className="font-black text-base">{getPrimaryProbability(match.result).toFixed(0)}%</span>
                     </div>
-                    <div className="h-2 w-full bg-base-300 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-500 ${
+                    <div className="h-2.5 w-full bg-base-300/50 rounded-full overflow-hidden shadow-inner">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${getPrimaryProbability(match.result)}%` }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className={`h-full rounded-full shadow-lg ${
                           getPrimaryProbability(match.result) >= 70 
-                            ? 'bg-gradient-to-r from-success to-emerald-400' 
+                            ? 'bg-gradient-to-r from-success via-emerald-400 to-emerald-300' 
                             : getPrimaryProbability(match.result) >= 50
-                            ? 'bg-gradient-to-r from-warning to-amber-400'
-                            : 'bg-gradient-to-r from-error to-rose-400'
+                            ? 'bg-gradient-to-r from-warning via-amber-400 to-amber-300'
+                            : 'bg-gradient-to-r from-error via-rose-400 to-rose-300'
                         }`}
-                        style={{ width: `${getPrimaryProbability(match.result)}%` }}
+                        style={{ 
+                          boxShadow: getPrimaryProbability(match.result) >= 70 
+                            ? '0 0 8px rgba(34, 197, 94, 0.5)' 
+                            : getPrimaryProbability(match.result) >= 50
+                            ? '0 0 8px rgba(245, 158, 11, 0.5)'
+                            : '0 0 8px rgba(239, 68, 68, 0.5)'
+                        }}
                       />
                     </div>
                   </div>
 
                   {/* Grid de Métricas */}
                   <div className="grid grid-cols-3 gap-1.5">
-                    <div className="bg-base-200/30 rounded-md px-2 py-1.5">
-                      <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Odd</div>
-                      <div className="text-sm font-bold mt-0.5 text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</div>
+                    <div className="bg-gradient-to-br from-base-200/40 to-base-200/20 rounded-md px-2 py-1.5 border border-primary/20 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">Odd</div>
+                      <div className="text-sm font-black mt-0.5 text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</div>
                     </div>
-                    <div className="bg-base-200/30 rounded-md px-2 py-1.5">
-                      <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">EV</div>
-                      <div className={`text-sm font-bold mt-0.5 flex items-center gap-1 ${
+                    <div className={`bg-gradient-to-br rounded-md px-2 py-1.5 border shadow-sm hover:shadow-md transition-shadow ${
+                      match.result.ev > 0 
+                        ? 'from-success/20 to-success/10 border-success/30' 
+                        : match.result.ev < 0 
+                        ? 'from-error/20 to-error/10 border-error/30'
+                        : 'from-base-200/40 to-base-200/20 border-base-300/20'
+                    }`}>
+                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">EV</div>
+                      <div className={`text-sm font-black mt-0.5 flex items-center gap-1 ${
                         match.result.ev > 0 ? 'text-success' :
                         match.result.ev < 0 ? 'text-error' :
                         'opacity-50'
@@ -459,9 +493,9 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                         <span>{match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%</span>
                       </div>
                     </div>
-                    <div className="bg-base-200/30 rounded-md px-2 py-1.5">
-                      <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide">Stake</div>
-                      <div className="text-sm font-bold mt-0.5">
+                    <div className="bg-gradient-to-br from-base-200/40 to-base-200/20 rounded-md px-2 py-1.5 border border-base-300/20 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">Stake</div>
+                      <div className="text-sm font-black mt-0.5">
                         {match.betInfo && match.betInfo.betAmount > 0 
                           ? match.betInfo.betAmount.toFixed(2) 
                           : '-'}
@@ -472,18 +506,24 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                   {/* Informações Financeiras */}
                   {match.betInfo && match.betInfo.betAmount > 0 && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between rounded-lg border bg-base-200/30 px-3 py-2.5">
+                      <div className={`flex items-center justify-between rounded-lg border px-3 py-2.5 backdrop-blur-sm shadow-md ${
+                        match.betInfo.status === 'won' 
+                          ? 'bg-gradient-to-r from-success/20 to-success/10 border-success/40' 
+                          : match.betInfo.status === 'lost'
+                          ? 'bg-gradient-to-r from-error/20 to-error/10 border-error/40'
+                          : 'bg-gradient-to-r from-primary/20 to-primary/10 border-primary/40'
+                      }`}>
                         <div>
-                          <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide mb-0.5">Aposta</div>
-                          <div className="text-sm font-bold">{match.betInfo.betAmount.toFixed(2)}</div>
+                          <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide mb-0.5">Aposta</div>
+                          <div className="text-sm font-black">{match.betInfo.betAmount.toFixed(2)}</div>
                         </div>
                         <div className="text-right">
-                          <div className="text-[10px] font-medium opacity-60 uppercase tracking-wide mb-0.5">
+                          <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide mb-0.5">
                             {match.betInfo.status === 'won' ? 'Ganho' :
                              match.betInfo.status === 'lost' ? 'Perda' :
                              'Retorno'}
                           </div>
-                          <div className={`text-base font-bold ${
+                          <div className={`text-base font-black ${
                             match.betInfo.status === 'won' ? 'text-success' :
                             match.betInfo.status === 'lost' ? 'text-error' :
                             'text-primary'
@@ -498,30 +538,34 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                       
                       {match.betInfo.status === 'pending' && onUpdateBetStatus && (
                         <div className="flex gap-2">
-                          <button
+                          <motion.button
                             onClick={(e) => {
                               e.stopPropagation();
                               onUpdateBetStatus(match, 'won');
                             }}
                             disabled={isUpdatingBetStatus}
-                            className="btn btn-xs btn-success flex-1 gap-1 min-h-[32px] text-[10px] font-bold border-success/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="btn btn-xs flex-1 gap-1 min-h-[32px] text-[10px] font-black border-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-success to-emerald-500 text-white border-success/50 hover:shadow-success/50 transition-all"
                             title="Marcar como ganha"
                           >
                             <CheckCircle className="w-3 h-3" />
                             {isUpdatingBetStatus ? 'Processando...' : 'Ganhou'}
-                          </button>
-                          <button
+                          </motion.button>
+                          <motion.button
                             onClick={(e) => {
                               e.stopPropagation();
                               onUpdateBetStatus(match, 'lost');
                             }}
                             disabled={isUpdatingBetStatus}
-                            className="btn btn-xs btn-error flex-1 gap-1 min-h-[32px] text-[10px] font-bold border-error/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="btn btn-xs flex-1 gap-1 min-h-[32px] text-[10px] font-black border-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-error to-rose-500 text-white border-error/50 hover:shadow-error/50 transition-all"
                             title="Marcar como perdida"
                           >
                             <XCircle className="w-3 h-3" />
                             {isUpdatingBetStatus ? 'Processando...' : 'Perdeu'}
-                          </button>
+                          </motion.button>
                         </div>
                       )}
                     </div>
