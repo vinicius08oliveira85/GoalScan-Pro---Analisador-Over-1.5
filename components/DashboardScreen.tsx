@@ -8,7 +8,10 @@ import {
   Percent, 
   Wallet,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  CheckCircle,
+  XCircle,
+  Clock
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -22,7 +25,9 @@ import {
   Pie,
   Cell,
   BarChart,
-  Bar
+  Bar,
+  Area,
+  AreaChart
 } from 'recharts';
 import { SavedAnalysis, BankSettings } from '../types';
 import { 
@@ -32,6 +37,7 @@ import {
 } from '../utils/dashboardStats';
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
+import { useWindowSize } from '../hooks/useWindowSize';
 
 interface DashboardScreenProps {
   savedMatches: SavedAnalysis[];
@@ -44,6 +50,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   bankSettings,
   onMatchClick,
 }) => {
+  const windowSize = useWindowSize();
   const stats = useMemo(() => calculateDashboardStats(savedMatches, bankSettings), [savedMatches, bankSettings]);
   const bankEvolutionData = useMemo(() => prepareBankEvolutionData(savedMatches, bankSettings), [savedMatches, bankSettings]);
   const resultDistributionData = useMemo(() => prepareResultDistributionData(savedMatches), [savedMatches]);
@@ -55,7 +62,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       .slice(0, 10);
   }, [savedMatches]);
 
-  const COLORS = ['hsl(var(--su))', 'hsl(var(--er))', 'hsl(var(--wa))'];
+  // Cores vibrantes para o gráfico de distribuição
+  const CHART_COLORS = {
+    won: '#22c55e',      // Verde vibrante
+    lost: '#ef4444',     // Vermelho vibrante
+    pending: '#f59e0b',  // Amarelo/Laranja vibrante
+  };
+
+  // Mapear dados para cores
+  const getColorForCategory = (name: string): string => {
+    if (name.toLowerCase().includes('ganha')) return CHART_COLORS.won;
+    if (name.toLowerCase().includes('perdida')) return CHART_COLORS.lost;
+    return CHART_COLORS.pending;
+  };
+
+  // Calcular total para percentuais
+  const totalBets = resultDistributionData.reduce((sum, item) => sum + item.value, 0);
 
   const statCards = [
     {
@@ -163,34 +185,107 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <h3 className="text-lg md:text-xl font-black mb-1">Evolução da Banca</h3>
               <p className="text-xs md:text-sm opacity-60">Crescimento do capital ao longo do tempo</p>
             </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={bankEvolutionData}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+            <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
+              <AreaChart 
+                data={bankEvolutionData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id="bankGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.2} />
                 <XAxis 
                   dataKey="date" 
-                  className="text-xs"
-                  tick={{ fill: 'currentColor', opacity: 0.6 }}
+                  tick={{ fill: 'currentColor', opacity: 0.7, fontSize: windowSize.isMobile ? 10 : 12 }}
+                  tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
                 />
                 <YAxis 
-                  className="text-xs"
-                  tick={{ fill: 'currentColor', opacity: 0.6 }}
+                  tick={{ fill: 'currentColor', opacity: 0.7, fontSize: windowSize.isMobile ? 10 : 12 }}
+                  tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
+                  tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
                 />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--b2))',
-                    border: '1px solid hsl(var(--b3))',
-                    borderRadius: '8px',
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0];
+                      const currentValue = data.value as number;
+                      const currentIndex = bankEvolutionData.findIndex(d => d.value === currentValue);
+                      const previousValue = currentIndex > 0 ? bankEvolutionData[currentIndex - 1].value : null;
+                      const change = previousValue !== null ? currentValue - previousValue : null;
+                      const changePercent = previousValue && previousValue > 0 
+                        ? ((change! / previousValue) * 100).toFixed(1) 
+                        : null;
+                      
+                      return (
+                        <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-4 shadow-xl">
+                          <div className="mb-2">
+                            <p className="text-xs opacity-70 mb-1">{data.payload.date}</p>
+                            <div className="flex items-baseline gap-2">
+                              <p className="text-2xl font-black text-primary">
+                                R$ {currentValue.toFixed(2)}
+                              </p>
+                              {change !== null && (
+                                <span className={`text-sm font-bold flex items-center gap-1 ${
+                                  change > 0 ? 'text-success' : change < 0 ? 'text-error' : ''
+                                }`}>
+                                  {change > 0 ? <TrendingUp className="w-3 h-3" /> : 
+                                   change < 0 ? <ArrowDownRight className="w-3 h-3" /> : null}
+                                  {change > 0 ? '+' : ''}{change.toFixed(2)}
+                                  {changePercent && ` (${changePercent > 0 ? '+' : ''}${changePercent}%)`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
                   }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="hsl(var(--p))" 
-                  strokeWidth={2}
-                  dot={{ fill: 'hsl(var(--p))', r: 4 }}
-                  activeDot={{ r: 6 }}
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#3b82f6"
+                  strokeWidth={3}
+                  fill="url(#bankGradient)"
+                  fillOpacity={1}
+                  animationBegin={0}
+                  animationDuration={1000}
+                  animationEasing="ease-in-out"
                 />
-              </LineChart>
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#3b82f6"
+                  strokeWidth={3}
+                  dot={{ 
+                    fill: '#3b82f6', 
+                    strokeWidth: 2, 
+                    stroke: '#ffffff',
+                    r: windowSize.isMobile ? 4 : 5,
+                    filter: 'url(#glow)'
+                  }}
+                  activeDot={{ 
+                    r: windowSize.isMobile ? 7 : 8, 
+                    stroke: '#ffffff',
+                    strokeWidth: 2,
+                    filter: 'url(#glow)'
+                  }}
+                  animationBegin={0}
+                  animationDuration={1000}
+                  animationEasing="ease-in-out"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </motion.div>
         )}
@@ -207,36 +302,123 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <h3 className="text-lg md:text-xl font-black mb-1">Distribuição de Resultados</h3>
               <p className="text-xs md:text-sm opacity-60">Breakdown das apostas</p>
             </div>
-            <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-              <ResponsiveContainer width="100%" height={250}>
+            <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
+              <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 300}>
                 <PieChart>
+                  <defs>
+                    <filter id="shadow">
+                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3"/>
+                    </filter>
+                  </defs>
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0];
+                        const percentage = totalBets > 0 
+                          ? ((data.value as number) / totalBets * 100).toFixed(1) 
+                          : '0';
+                        const color = getColorForCategory(data.name as string);
+                        const icon = data.name === 'Ganhas' ? CheckCircle : 
+                                   data.name === 'Perdidas' ? XCircle : Clock;
+                        const Icon = icon;
+                        
+                        return (
+                          <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-3 shadow-xl">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div 
+                                className="w-4 h-4 rounded-full" 
+                                style={{ backgroundColor: color }}
+                              />
+                              <span className="font-bold text-sm">{data.name}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-baseline gap-2">
+                                <Icon className="w-4 h-4" style={{ color }} />
+                                <p className="text-2xl font-black" style={{ color }}>
+                                  {data.value}
+                                </p>
+                              </div>
+                              <p className="text-xs opacity-70">
+                                {percentage}% do total
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
                   <Pie
                     data={resultDistributionData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={2}
+                    innerRadius={windowSize.isMobile ? 50 : 70}
+                    outerRadius={windowSize.isMobile ? 90 : 110}
+                    paddingAngle={6}
                     dataKey="value"
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
                   >
-                    {resultDistributionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
+                    {resultDistributionData.map((entry, index) => {
+                      const color = getColorForCategory(entry.name);
+                      return (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={color}
+                          style={{ 
+                            filter: 'url(#shadow)',
+                            transition: 'opacity 0.2s',
+                            cursor: 'pointer'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.opacity = '0.8';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.opacity = '1';
+                          }}
+                        />
+                      );
+                    })}
                   </Pie>
-                  <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="space-y-3">
-                {resultDistributionData.map((item, index) => (
-                  <div key={item.name} className="flex items-center gap-3">
+              <div className="space-y-4 w-full md:w-auto">
+                {resultDistributionData.map((item) => {
+                  const color = getColorForCategory(item.name);
+                  const percentage = totalBets > 0 
+                    ? ((item.value / totalBets) * 100).toFixed(1) 
+                    : '0';
+                  const icon = item.name === 'Ganhas' ? CheckCircle : 
+                             item.name === 'Perdidas' ? XCircle : Clock;
+                  const Icon = icon;
+                  
+                  return (
                     <div 
-                      className="w-4 h-4 rounded-sm" 
-                      style={{ backgroundColor: COLORS[index] }}
-                    />
-                    <span className="text-sm font-semibold">{item.name}</span>
-                    <span className="text-sm opacity-60">({item.value})</span>
-                  </div>
-                ))}
+                      key={item.name} 
+                      className="flex items-center gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors"
+                    >
+                      <div 
+                        className="w-5 h-5 rounded-full shadow-md flex-shrink-0" 
+                        style={{ backgroundColor: color }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4" style={{ color }} />
+                          <span className="text-sm md:text-base font-bold">{item.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-lg font-black" style={{ color }}>
+                            {item.value}
+                          </span>
+                          <span className="text-xs opacity-60">
+                            ({percentage}%)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </motion.div>

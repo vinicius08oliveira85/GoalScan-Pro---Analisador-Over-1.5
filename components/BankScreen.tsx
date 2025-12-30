@@ -22,13 +22,16 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer
+  ResponsiveContainer,
+  Area,
+  AreaChart
 } from 'recharts';
 import { BankSettings } from '../types';
 import { calculateBankStats, prepareBankEvolutionData } from '../utils/dashboardStats';
 import { getCurrencySymbol } from '../utils/currency';
 import { validateBankSettings } from '../utils/validation';
 import { animations } from '../utils/animations';
+import { useWindowSize } from '../hooks/useWindowSize';
 
 interface BankScreenProps {
   bankSettings?: BankSettings;
@@ -45,6 +48,7 @@ const BankScreen: React.FC<BankScreenProps> = ({
   onSave,
   onError,
 }) => {
+  const windowSize = useWindowSize();
   const [totalBank, setTotalBank] = useState<number>(bankSettings?.totalBank || 0);
   const [inputValue, setInputValue] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -415,35 +419,107 @@ const BankScreen: React.FC<BankScreenProps> = ({
             <h3 className="text-lg md:text-xl font-black mb-1">Evolução da Banca</h3>
             <p className="text-xs md:text-sm opacity-60">Crescimento do capital ao longo do tempo</p>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={bankEvolutionData}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+          <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
+            <AreaChart 
+              data={bankEvolutionData}
+              margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+            >
+              <defs>
+                <linearGradient id="bankGradientBank" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                </linearGradient>
+                <filter id="glowBank">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                  <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.2} />
               <XAxis 
                 dataKey="date" 
-                className="text-xs"
-                tick={{ fill: 'currentColor', opacity: 0.6 }}
+                tick={{ fill: 'currentColor', opacity: 0.7, fontSize: windowSize.isMobile ? 10 : 12 }}
+                tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
               />
               <YAxis 
-                className="text-xs"
-                tick={{ fill: 'currentColor', opacity: 0.6 }}
+                tick={{ fill: 'currentColor', opacity: 0.7, fontSize: windowSize.isMobile ? 10 : 12 }}
+                tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
+                tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
               />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--b2))',
-                  border: '1px solid hsl(var(--b3))',
-                  borderRadius: '8px',
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0];
+                    const currentValue = data.value as number;
+                    const currentIndex = bankEvolutionData.findIndex(d => d.value === currentValue);
+                    const previousValue = currentIndex > 0 ? bankEvolutionData[currentIndex - 1].value : null;
+                    const change = previousValue !== null ? currentValue - previousValue : null;
+                    const changePercent = previousValue && previousValue > 0 
+                      ? ((change! / previousValue) * 100).toFixed(1) 
+                      : null;
+                    
+                    return (
+                      <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-4 shadow-xl">
+                        <div className="mb-2">
+                          <p className="text-xs opacity-70 mb-1">{data.payload.date}</p>
+                          <div className="flex items-baseline gap-2">
+                            <p className="text-2xl font-black text-primary">
+                              R$ {currentValue.toFixed(2)}
+                            </p>
+                            {change !== null && (
+                              <span className={`text-sm font-bold flex items-center gap-1 ${
+                                change > 0 ? 'text-success' : change < 0 ? 'text-error' : ''
+                              }`}>
+                                {change > 0 ? <TrendingUp className="w-3 h-3" /> : 
+                                 change < 0 ? <TrendingDown className="w-3 h-3" /> : null}
+                                {change > 0 ? '+' : ''}{change.toFixed(2)}
+                                {changePercent && ` (${changePercent > 0 ? '+' : ''}${changePercent}%)`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
                 }}
-                formatter={(value: any) => `R$ ${Number(value).toFixed(2)}`}
               />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke="hsl(var(--p))" 
-                strokeWidth={2}
-                dot={{ fill: 'hsl(var(--p))', r: 4 }}
-                activeDot={{ r: 6 }}
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#3b82f6"
+                strokeWidth={3}
+                fill="url(#bankGradientBank)"
+                fillOpacity={1}
+                animationBegin={0}
+                animationDuration={1000}
+                animationEasing="ease-in-out"
               />
-            </LineChart>
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#3b82f6"
+                strokeWidth={3}
+                dot={{ 
+                  fill: '#3b82f6', 
+                  strokeWidth: 2, 
+                  stroke: '#ffffff',
+                  r: windowSize.isMobile ? 4 : 5,
+                  filter: 'url(#glowBank)'
+                }}
+                activeDot={{ 
+                  r: windowSize.isMobile ? 7 : 8, 
+                  stroke: '#ffffff',
+                  strokeWidth: 2,
+                  filter: 'url(#glowBank)'
+                }}
+                animationBegin={0}
+                animationDuration={1000}
+                animationEasing="ease-in-out"
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </motion.div>
       )}
