@@ -1,11 +1,29 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SavedAnalysis } from '../types';
 import { TrendingUp, TrendingDown, Calendar, X, Plus, Target, Activity, TrendingUp as TrendingUpIcon, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
 import { SkeletonMatchCard } from './Skeleton';
 import { cardHover, animations } from '../utils/animations';
 import MatchTabs, { TabCategory } from './MatchTabs';
-import { filterMatchesByCategory, getCategoryCounts } from '../utils/matchFilters';
+import MatchFilters from './MatchFilters';
+import ViewToggle, { ViewMode } from './ViewToggle';
+import MatchCardList from './MatchCardList';
+import MatchCardCompact from './MatchCardCompact';
+import { 
+  filterMatchesByCategory, 
+  getCategoryCounts,
+  FilterState,
+  SortState,
+  applyAllFilters,
+  sortMatches,
+  EVFilter,
+  ProbabilityRange,
+  RiskLevel,
+  BetStatusFilter,
+  DateRange,
+  SortField,
+  SortOrder
+} from '../utils/matchFilters';
 import { getPrimaryProbability } from '../utils/probability';
 
 // Componente de Empty State por categoria
@@ -131,14 +149,76 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
 }) => {
   const categoryCounts = useMemo(() => getCategoryCounts(savedMatches), [savedMatches]);
   
+  // Estados iniciais com persistência no localStorage
   const [activeTab, setActiveTab] = useState<TabCategory>(() => {
     const counts = getCategoryCounts(savedMatches);
     return counts.pendentes > 0 ? 'pendentes' : 'todas';
   });
+
+  const [filterState, setFilterState] = useState<FilterState>(() => {
+    const saved = localStorage.getItem('matchesFilterState');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // Fallback para estado padrão
+      }
+    }
+    return {
+      ev: 'all',
+      probability: 'all',
+      riskLevels: [],
+      betStatus: 'all',
+      dateRange: 'all'
+    };
+  });
+
+  const [sortState, setSortState] = useState<SortState>(() => {
+    const saved = localStorage.getItem('matchesSortState');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // Fallback para estado padrão
+      }
+    }
+    return {
+      field: 'date',
+      order: 'desc'
+    };
+  });
+
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('matchesViewMode');
+    return (saved as ViewMode) || 'grid';
+  });
+
+  // Persistir estados no localStorage
+  useEffect(() => {
+    localStorage.setItem('matchesFilterState', JSON.stringify(filterState));
+  }, [filterState]);
+
+  useEffect(() => {
+    localStorage.setItem('matchesSortState', JSON.stringify(sortState));
+  }, [sortState]);
+
+  useEffect(() => {
+    localStorage.setItem('matchesViewMode', viewMode);
+  }, [viewMode]);
   
+  // Filtrar e ordenar partidas
   const filteredMatches = useMemo(() => {
-    return filterMatchesByCategory(savedMatches, activeTab);
-  }, [savedMatches, activeTab]);
+    // Primeiro filtra por categoria (abas)
+    let matches = filterMatchesByCategory(savedMatches, activeTab);
+    
+    // Depois aplica filtros avançados
+    matches = applyAllFilters(matches, filterState);
+    
+    // Por fim ordena
+    matches = sortMatches(matches, sortState.field, sortState.order);
+    
+    return matches;
+  }, [savedMatches, activeTab, filterState, sortState]);
   
   const totalMatches = filteredMatches.length;
   const positiveEV = filteredMatches.filter(m => m.result.ev > 0).length;
@@ -149,6 +229,16 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
     ? filteredMatches.reduce((sum, m) => sum + m.result.ev, 0) / filteredMatches.length
     : 0;
 
+  const handleClearFilters = () => {
+    setFilterState({
+      ev: 'all',
+      probability: 'all',
+      riskLevels: [],
+      betStatus: 'all',
+      dateRange: 'all'
+    });
+  };
+
   return (
     <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
       {/* Sistema de Abas */}
@@ -157,6 +247,25 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
         onTabChange={setActiveTab}
         counts={categoryCounts}
       />
+
+      {/* Filtros e Visualização */}
+      <div className="flex flex-col gap-4">
+        <MatchFilters
+          filterState={filterState}
+          sortState={sortState}
+          onFilterChange={setFilterState}
+          onSortChange={setSortState}
+          onClearFilters={handleClearFilters}
+          filteredCount={filteredMatches.length}
+          totalCount={filterMatchesByCategory(savedMatches, activeTab).length}
+        />
+        <div className="flex justify-end">
+          <ViewToggle
+            viewMode={viewMode}
+            onViewChange={setViewMode}
+          />
+        </div>
+      </div>
       
       {/* Estatísticas Gerais */}
       {totalMatches > 0 && (
@@ -305,14 +414,49 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
       ) : (
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeTab}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+            key={`${activeTab}-${viewMode}`}
+            className={
+              viewMode === 'grid'
+                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6'
+                : viewMode === 'list'
+                ? 'space-y-3'
+                : 'space-y-2'
+            }
             variants={animations.staggerChildren}
             initial="initial"
             animate="animate"
             exit="exit"
           >
             {filteredMatches.map((match, index) => {
+              // Renderizar baseado no modo de visualização
+              if (viewMode === 'list') {
+                return (
+                  <MatchCardList
+                    key={match.id}
+                    match={match}
+                    index={index}
+                    onMatchClick={onMatchClick}
+                    onDeleteMatch={onDeleteMatch}
+                    onUpdateBetStatus={onUpdateBetStatus}
+                    isUpdatingBetStatus={isUpdatingBetStatus}
+                  />
+                );
+              }
+
+              if (viewMode === 'compact') {
+                return (
+                  <MatchCardCompact
+                    key={match.id}
+                    match={match}
+                    index={index}
+                    onMatchClick={onMatchClick}
+                    onDeleteMatch={onDeleteMatch}
+                  />
+                );
+              }
+
+              // Grid view (padrão)
+              return (
               const getStatusConfig = () => {
                 if (match.betInfo && match.betInfo.betAmount > 0) {
                   if (match.betInfo.status === 'won') {
