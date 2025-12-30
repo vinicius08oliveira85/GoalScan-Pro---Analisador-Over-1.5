@@ -44,7 +44,7 @@ export function combineProbabilities(
 }
 
 export function performAnalysis(data: MatchData, aiProbability?: number | null, aiConfidence?: number | null): AnalysisResult {
-  // NOVO ALGORITMO SIMPLIFICADO: Baseado apenas em estatísticas globais disponíveis
+  // NOVO ALGORITMO SIMPLIFICADO: Baseado em estatísticas específicas (home para time da casa, away para visitante)
   
   // 1. Obter Over 1.5% de cada time (dado mais importante)
   const homeOver15Freq = data.homeOver15Freq || 0;
@@ -54,22 +54,23 @@ export function performAnalysis(data: MatchData, aiProbability?: number | null, 
   const competitionAvg = data.competitionAvg || 0;
   
   // 3. Calcular média total de gols (avgTotal de ambos times)
-  const homeAvgTotal = data.homeTeamStats?.gols?.global?.avgTotal || 0;
-  const awayAvgTotal = data.awayTeamStats?.gols?.global?.avgTotal || 0;
+  // Usar estatísticas específicas: home para time da casa, away para visitante
+  const homeAvgTotal = data.homeTeamStats?.gols?.home?.avgTotal || 0;
+  const awayAvgTotal = data.awayTeamStats?.gols?.away?.avgTotal || 0;
   const avgTotal = (homeAvgTotal + awayAvgTotal) / 2;
-  
+
   // 4. Calcular médias de cleanSheet e noGoals
-  const homeCleanSheet = data.homeTeamStats?.gols?.global?.cleanSheetPct || 0;
-  const awayCleanSheet = data.awayTeamStats?.gols?.global?.cleanSheetPct || 0;
+  const homeCleanSheet = data.homeTeamStats?.gols?.home?.cleanSheetPct || 0;
+  const awayCleanSheet = data.awayTeamStats?.gols?.away?.cleanSheetPct || 0;
   const avgCleanSheet = (homeCleanSheet + awayCleanSheet) / 2;
-  
-  const homeNoGoals = data.homeTeamStats?.gols?.global?.noGoalsPct || 0;
-  const awayNoGoals = data.awayTeamStats?.gols?.global?.noGoalsPct || 0;
+
+  const homeNoGoals = data.homeTeamStats?.gols?.home?.noGoalsPct || 0;
+  const awayNoGoals = data.awayTeamStats?.gols?.away?.noGoalsPct || 0;
   const avgNoGoals = (homeNoGoals + awayNoGoals) / 2;
-  
+
   // 5. Calcular média de Over 2.5% (confirma tendência ofensiva)
-  const homeOver25 = data.homeTeamStats?.gols?.global?.over25Pct || 0;
-  const awayOver25 = data.awayTeamStats?.gols?.global?.over25Pct || 0;
+  const homeOver25 = data.homeTeamStats?.gols?.home?.over25Pct || 0;
+  const awayOver25 = data.awayTeamStats?.gols?.away?.over25Pct || 0;
   const avgOver25 = (homeOver25 + awayOver25) / 2;
   
   // 6. Aplicar fórmula ponderada baseada nos dados disponíveis
@@ -119,10 +120,11 @@ export function performAnalysis(data: MatchData, aiProbability?: number | null, 
   prob = Math.min(Math.max(prob, 15), 95);
   
   // Calcular Poisson para visualização (usando médias de gols se disponíveis)
-  const homeGoalsScored = data.homeTeamStats?.gols?.global?.avgScored || 1.0;
-  const homeGoalsConceded = data.homeTeamStats?.gols?.global?.avgConceded || 1.0;
-  const awayGoalsScored = data.awayTeamStats?.gols?.global?.avgScored || 1.0;
-  const awayGoalsConceded = data.awayTeamStats?.gols?.global?.avgConceded || 1.0;
+  // Usar estatísticas específicas: home para time da casa, away para visitante
+  const homeGoalsScored = data.homeTeamStats?.gols?.home?.avgScored || 1.0;
+  const homeGoalsConceded = data.homeTeamStats?.gols?.home?.avgConceded || 1.0;
+  const awayGoalsScored = data.awayTeamStats?.gols?.away?.avgScored || 1.0;
+  const awayGoalsConceded = data.awayTeamStats?.gols?.away?.avgConceded || 1.0;
   
   const lambdaHome = (homeGoalsScored + awayGoalsConceded) / 2;
   const lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;

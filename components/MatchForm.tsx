@@ -87,10 +87,11 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }));
   };
 
-  // Função para atualizar estatísticas globais de gols
+  // Função para atualizar estatísticas de gols (home para time da casa, away para visitante)
   const updateTeamStats = (team: 'home' | 'away', field: keyof GolsStats, value: number | undefined) => {
     setFormData(prev => {
       const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
+      const statsKey = team === 'home' ? 'home' : 'away'; // Usar 'home' para time da casa, 'away' para visitante
       const currentStats = prev[teamKey] || {
         percurso: { home: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 }, away: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 }, global: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 } },
         gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() }
@@ -100,8 +101,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
         ...currentStats,
         gols: {
           ...currentStats.gols,
-          global: {
-            ...currentStats.gols.global,
+          [statsKey]: {
+            ...currentStats.gols[statsKey],
             [field]: value === '' ? 0 : (value ?? 0)
           }
         }
@@ -259,7 +260,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">Estatísticas Globais - {formData.homeTeam || 'Time Casa'}</span>
-            <InfoIcon text="Estatísticas de gols baseadas nos últimos 10 jogos (Geral)." />
+            <InfoIcon text="Estatísticas de gols baseadas nos últimos 10 jogos (Jogando em Casa)." />
               </div>
       <AiOver15Insights
         data={formData}
@@ -275,7 +276,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="0.01" 
-              value={formData.homeTeamStats?.gols.global.avgScored || ''} 
+              value={formData.homeTeamStats?.gols.home.avgScored || ''} 
               onChange={(e) => updateTeamStats('home', 'avgScored', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
@@ -286,7 +287,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="0.01" 
-              value={formData.homeTeamStats?.gols.global.avgConceded || ''} 
+              value={formData.homeTeamStats?.gols.home.avgConceded || ''} 
               onChange={(e) => updateTeamStats('home', 'avgConceded', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
@@ -297,7 +298,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="0.01" 
-              value={formData.homeTeamStats?.gols.global.avgTotal || ''} 
+              value={formData.homeTeamStats?.gols.home.avgTotal || ''} 
               onChange={(e) => updateTeamStats('home', 'avgTotal', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
@@ -308,7 +309,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="1" 
-              value={formData.homeTeamStats?.gols.global.cleanSheetPct || ''} 
+              value={formData.homeTeamStats?.gols.home.cleanSheetPct || ''} 
               onChange={(e) => updateTeamStats('home', 'cleanSheetPct', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
@@ -319,7 +320,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="1" 
-              value={formData.homeTeamStats?.gols.global.noGoalsPct || ''} 
+              value={formData.homeTeamStats?.gols.home.noGoalsPct || ''} 
               onChange={(e) => updateTeamStats('home', 'noGoalsPct', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
@@ -330,7 +331,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="1" 
-              value={formData.homeTeamStats?.gols.global.over25Pct || ''} 
+              value={formData.homeTeamStats?.gols.home.over25Pct || ''} 
               onChange={(e) => updateTeamStats('home', 'over25Pct', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
@@ -341,7 +342,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="1" 
-              value={formData.homeTeamStats?.gols.global.under25Pct || ''} 
+              value={formData.homeTeamStats?.gols.home.under25Pct || ''} 
               onChange={(e) => updateTeamStats('home', 'under25Pct', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
@@ -367,7 +368,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">Estatísticas Globais - {formData.awayTeam || 'Time Visitante'}</span>
-            <InfoIcon text="Estatísticas de gols baseadas nos últimos 10 jogos (Geral)." />
+            <InfoIcon text="Estatísticas de gols baseadas nos últimos 10 jogos (Jogando Fora)." />
         </div>
       </div>
 
@@ -377,7 +378,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="0.01" 
-              value={formData.awayTeamStats?.gols.global.avgScored || ''} 
+              value={formData.awayTeamStats?.gols.away.avgScored || ''} 
               onChange={(e) => updateTeamStats('away', 'avgScored', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
@@ -388,7 +389,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="0.01" 
-              value={formData.awayTeamStats?.gols.global.avgConceded || ''} 
+              value={formData.awayTeamStats?.gols.away.avgConceded || ''} 
               onChange={(e) => updateTeamStats('away', 'avgConceded', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
@@ -399,7 +400,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="0.01" 
-              value={formData.awayTeamStats?.gols.global.avgTotal || ''} 
+              value={formData.awayTeamStats?.gols.away.avgTotal || ''} 
               onChange={(e) => updateTeamStats('away', 'avgTotal', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0.00" 
@@ -410,7 +411,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="1" 
-              value={formData.awayTeamStats?.gols.global.cleanSheetPct || ''} 
+              value={formData.awayTeamStats?.gols.away.cleanSheetPct || ''} 
               onChange={(e) => updateTeamStats('away', 'cleanSheetPct', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
@@ -421,7 +422,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="1" 
-              value={formData.awayTeamStats?.gols.global.noGoalsPct || ''} 
+              value={formData.awayTeamStats?.gols.away.noGoalsPct || ''} 
               onChange={(e) => updateTeamStats('away', 'noGoalsPct', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
@@ -432,7 +433,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <input 
               type="number" 
               step="1" 
-              value={formData.awayTeamStats?.gols.global.over25Pct || ''} 
+              value={formData.awayTeamStats?.gols.away.over25Pct || ''} 
               onChange={(e) => updateTeamStats('away', 'over25Pct', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 
@@ -443,7 +444,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
               <input 
                 type="number" 
               step="1" 
-              value={formData.awayTeamStats?.gols.global.under25Pct || ''} 
+              value={formData.awayTeamStats?.gols.away.under25Pct || ''} 
               onChange={(e) => updateTeamStats('away', 'under25Pct', e.target.value ? Number(e.target.value) : undefined)} 
               className="input input-sm text-center min-h-[44px]" 
               placeholder="0" 

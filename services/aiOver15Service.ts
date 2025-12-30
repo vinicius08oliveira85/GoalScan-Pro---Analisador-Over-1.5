@@ -80,8 +80,9 @@ export function extractConfidenceFromMarkdown(markdown: string): number | null {
 function buildContext(data: MatchData) {
   const result = performAnalysis(data);
 
-  const home = data.homeTeamStats?.gols?.global;
-  const away = data.awayTeamStats?.gols?.global;
+  // Usar estatísticas específicas: home para time da casa, away para visitante
+  const home = data.homeTeamStats?.gols?.home;
+  const away = data.awayTeamStats?.gols?.away;
 
   return {
     match: {
