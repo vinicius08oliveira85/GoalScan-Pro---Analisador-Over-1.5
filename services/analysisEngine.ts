@@ -1,6 +1,46 @@
 
 import { MatchData, AnalysisResult } from '../types';
 
+/**
+ * Função sigmoid suavizada para ajustes progressivos
+ * Retorna valor entre -1 e 1 baseado na entrada normalizada
+ */
+function smoothAdjustment(value: number, threshold: number, strength: number): number {
+  // Normalizar valor em relação ao threshold
+  const normalized = (value - threshold) / threshold;
+  // Aplicar sigmoid: 1 / (1 + e^(-x * strength))
+  const sigmoid = 1 / (1 + Math.exp(-normalized * strength));
+  // Mapear de [0,1] para [-strength, strength]
+  return (sigmoid - 0.5) * 2 * strength;
+}
+
+/**
+ * Função para suavizar limites usando sigmoid em vez de clamp rígido
+ * Retorna valor entre min e max com transição suave
+ */
+function smoothClamp(value: number, min: number, max: number): number {
+  if (value <= min) return min;
+  if (value >= max) return max;
+  
+  // Aplicar sigmoid suave nas bordas (últimos 5% de cada extremo)
+  const range = max - min;
+  const edgeSize = range * 0.05;
+  
+  if (value < min + edgeSize) {
+    // Transição suave no limite inferior
+    const t = (value - min) / edgeSize;
+    const sigmoid = 1 / (1 + Math.exp(-(t - 0.5) * 10));
+    return min + (sigmoid * edgeSize);
+  } else if (value > max - edgeSize) {
+    // Transição suave no limite superior
+    const t = (value - (max - edgeSize)) / edgeSize;
+    const sigmoid = 1 / (1 + Math.exp(-(t - 0.5) * 10));
+    return (max - edgeSize) + (sigmoid * edgeSize);
+  }
+  
+  return value;
+}
+
 function poissonProbability(k: number, lambda: number): number {
   const exp = Math.exp(-lambda);
   let factorial = 1;
@@ -9,8 +49,8 @@ function poissonProbability(k: number, lambda: number): number {
 }
 
 /**
- * Combina probabilidade estatística com probabilidade da IA usando média ponderada.
- * O peso da IA é baseado na confiança da IA.
+ * Combina probabilidade estatística com probabilidade da IA usando média ponderada adaptativa.
+ * O peso da IA é baseado na confiança da IA e na consistência entre os valores.
  * 
  * @param statisticalProb - Probabilidade calculada pelas estatísticas (0-100)
  * @param aiProb - Probabilidade calculada pela IA (0-100) ou null
@@ -22,28 +62,105 @@ export function combineProbabilities(
   aiProb: number | null,
   aiConfidence: number | null
 ): number {
+  // Validação de inputs
+  if (!Number.isFinite(statisticalProb) || statisticalProb < 0 || statisticalProb > 100) {
+    throw new Error(`Probabilidade estatística inválida: ${statisticalProb}`);
+  }
+  
   // Se não há probabilidade da IA, retornar apenas estatística
   if (aiProb === null || aiProb === undefined) {
     return statisticalProb;
   }
   
-  // Se não há confiança da IA, usar média simples
+  // Validação da probabilidade da IA
+  if (!Number.isFinite(aiProb) || aiProb < 0 || aiProb > 100) {
+    // Se a IA retornou valor inválido, usar apenas estatística
+    return statisticalProb;
+  }
+  
+  // Detectar divergência extrema (valores muito diferentes podem indicar problema)
+  const divergence = Math.abs(statisticalProb - aiProb);
+  const maxDivergence = 30; // Se diferença > 30%, reduzir peso da IA
+  
+  // Se não há confiança da IA, usar média simples com ajuste por divergência
   if (aiConfidence === null || aiConfidence === undefined || aiConfidence <= 0) {
+    // Se divergência muito alta, dar mais peso à estatística
+    if (divergence > maxDivergence) {
+      const statWeight = 0.7; // 70% estatística, 30% IA
+      return (statisticalProb * statWeight) + (aiProb * (1 - statWeight));
+    }
+    return (statisticalProb + aiProb) / 2;
+  }
+  
+  // Validação da confiança
+  if (!Number.isFinite(aiConfidence) || aiConfidence < 0 || aiConfidence > 100) {
     return (statisticalProb + aiProb) / 2;
   }
   
   // Normalizar confiança para 0-1
-  const aiWeight = Math.min(Math.max(aiConfidence / 100, 0), 1);
+  let aiWeight = Math.min(Math.max(aiConfidence / 100, 0), 1);
+  
+  // Ajustar peso baseado na divergência
+  // Se valores muito diferentes, reduzir peso da IA
+  if (divergence > maxDivergence) {
+    // Reduzir peso da IA proporcionalmente à divergência
+    const divergencePenalty = Math.min(divergence / maxDivergence, 1);
+    aiWeight = aiWeight * (1 - divergencePenalty * 0.5); // Reduzir até 50% do peso
+  }
+  
   const statisticalWeight = 1 - aiWeight;
   
   // Calcular média ponderada
   const combined = (aiProb * aiWeight) + (statisticalProb * statisticalWeight);
   
-  // Limitar entre 15% e 95%
-  return Math.min(Math.max(combined, 15), 95);
+  // Suavizar limites usando sigmoid em vez de clamp rígido (10-98% mais realista)
+  return smoothClamp(combined, 10, 98);
+}
+
+/**
+ * Calcula pesos adaptativos baseados na qualidade e disponibilidade dos dados
+ */
+function calculateAdaptiveWeights(
+  homeOver15Freq: number,
+  awayOver15Freq: number,
+  competitionAvg: number,
+  hasTeamStats: boolean
+): { homeWeight: number; awayWeight: number; competitionWeight: number } {
+  // Base: se temos dados dos times, dar mais peso a eles
+  const hasHomeData = homeOver15Freq > 0;
+  const hasAwayData = awayOver15Freq > 0;
+  const hasCompetitionData = competitionAvg > 0;
+  
+  // Contar quantos dados temos
+  const dataCount = (hasHomeData ? 1 : 0) + (hasAwayData ? 1 : 0) + (hasCompetitionData ? 1 : 0);
+  
+  if (dataCount === 0) {
+    // Sem dados, usar pesos padrão
+    return { homeWeight: 0.25, awayWeight: 0.25, competitionWeight: 0.50 };
+  }
+  
+  // Se temos dados dos times E estatísticas detalhadas, dar mais peso aos times
+  if (hasTeamStats && hasHomeData && hasAwayData) {
+    return { homeWeight: 0.35, awayWeight: 0.35, competitionWeight: 0.30 };
+  }
+  
+  // Se temos apenas um time, ajustar pesos
+  if (hasHomeData && !hasAwayData) {
+    return { homeWeight: 0.40, awayWeight: 0, competitionWeight: 0.60 };
+  }
+  if (!hasHomeData && hasAwayData) {
+    return { homeWeight: 0, awayWeight: 0.40, competitionWeight: 0.60 };
+  }
+  
+  // Padrão: balanceado
+  return { homeWeight: 0.30, awayWeight: 0.30, competitionWeight: 0.40 };
 }
 
 export function performAnalysis(data: MatchData, aiProbability?: number | null, aiConfidence?: number | null): AnalysisResult {
+  // Validação básica de dados de entrada
+  if (!data || typeof data !== 'object') {
+    throw new Error('Dados de partida inválidos');
+  }
   // NOVO ALGORITMO SIMPLIFICADO: Baseado em estatísticas específicas (home para time da casa, away para visitante)
   
   // 1. Obter Over 1.5% de cada time (dado mais importante)
@@ -73,42 +190,55 @@ export function performAnalysis(data: MatchData, aiProbability?: number | null, 
   const awayOver25 = data.awayTeamStats?.gols?.away?.over25Pct || 0;
   const avgOver25 = (homeOver25 + awayOver25) / 2;
   
-  // 6. Aplicar fórmula ponderada baseada nos dados disponíveis
-  // Peso: Over 1.5% (50%), Competição (30%), Ajuste por Média Total (20%)
-  // Base: média ponderada de Over 1.5% dos times e competição
-  let prob = (homeOver15Freq * 0.25) + (awayOver15Freq * 0.25) + (competitionAvg * 0.50);
+  // 6. Calcular pesos adaptativos baseados na qualidade dos dados
+  const hasTeamStats = !!(data.homeTeamStats && data.awayTeamStats);
+  const weights = calculateAdaptiveWeights(homeOver15Freq, awayOver15Freq, competitionAvg, hasTeamStats);
   
-  // Ajuste baseado em média total de gols (converte média de gols em probabilidade aproximada)
-  // Se média total é alta, aumenta probabilidade; se baixa, diminui
-  if (avgTotal > 2.5) {
-    prob += 8; // Média alta indica mais gols
-  } else if (avgTotal > 2.0) {
-    prob += 4;
-  } else if (avgTotal < 1.8) {
-    prob -= 5; // Média baixa indica menos gols
-  } else if (avgTotal < 1.5) {
-    prob -= 8;
+  // Aplicar fórmula ponderada adaptativa
+  let prob = (homeOver15Freq * weights.homeWeight) + 
+             (awayOver15Freq * weights.awayWeight) + 
+             (competitionAvg * weights.competitionWeight);
+  
+  // Ajustes suaves baseados em métricas (usando funções sigmoid em vez de if/else fixos)
+  // Ajuste baseado em média total de gols
+  if (avgTotal > 0) {
+    const avgTotalAdjustment = smoothAdjustment(avgTotal, 2.0, 8);
+    prob += avgTotalAdjustment;
   }
   
   // Ajuste baseado em clean sheet (defesas muito boas reduzem probabilidade)
-  if (avgCleanSheet > 50) {
-    prob -= 8;
-  } else if (avgCleanSheet > 40) {
-    prob -= 4;
+  if (avgCleanSheet > 0) {
+    const cleanSheetAdjustment = smoothAdjustment(avgCleanSheet, 40, -6);
+    prob += cleanSheetAdjustment;
   }
   
   // Ajuste baseado em jogos sem marcar (ataques fracos reduzem probabilidade)
-  if (avgNoGoals > 30) {
-    prob -= 5;
-  } else if (avgNoGoals > 20) {
-    prob -= 2;
+  if (avgNoGoals > 0) {
+    const noGoalsAdjustment = smoothAdjustment(avgNoGoals, 20, -4);
+    prob += noGoalsAdjustment;
   }
   
   // Ajuste baseado em Over 2.5% (confirma tendência ofensiva)
-  if (avgOver25 > 60) {
-    prob += 3;
-  } else if (avgOver25 > 50) {
-    prob += 1;
+  if (avgOver25 > 0) {
+    const over25Adjustment = smoothAdjustment(avgOver25, 50, 3);
+    prob += over25Adjustment;
+  }
+  
+  // Considerar H2H se disponível
+  if (data.h2hOver15Freq > 0) {
+    const h2hWeight = 0.15; // Peso moderado para H2H
+    prob = prob * (1 - h2hWeight) + (data.h2hOver15Freq * h2hWeight);
+  }
+  
+  // Considerar xG se disponível (Expected Goals)
+  if (data.homeXG > 0 && data.awayXG > 0) {
+    const avgXG = (data.homeXG + data.awayXG) / 2;
+    // xG > 2.5 indica alta probabilidade de gols
+    if (avgXG > 2.5) {
+      prob += 3;
+    } else if (avgXG < 1.5) {
+      prob -= 3;
+    }
   }
   
   // Se não temos dados suficientes, usar apenas média da competição como baseline
@@ -116,8 +246,8 @@ export function performAnalysis(data: MatchData, aiProbability?: number | null, 
     prob = competitionAvg;
   }
   
-  // Limitar entre 15% e 95% (mais realista)
-  prob = Math.min(Math.max(prob, 15), 95);
+  // Suavizar limites usando sigmoid (10-98% mais realista)
+  prob = smoothClamp(prob, 10, 98);
   
   // Calcular Poisson para visualização (usando médias de gols se disponíveis)
   // Usar estatísticas específicas: home para time da casa, away para visitante
@@ -142,18 +272,60 @@ export function performAnalysis(data: MatchData, aiProbability?: number | null, 
     ev = ((prob / 100) * data.oddOver15 - 1) * 100;
   }
   
-  // Métricas avançadas simplificadas
-  const offensiveVolume = Math.min(100, (avgTotal / 3) * 100);
-  const defensiveLeaking = Math.min(100, ((homeGoalsConceded + awayGoalsConceded) / 2) * 50);
-  const bttsCorrelation = 100 - avgCleanSheet;
-  const formTrend = 0; // Não temos mais histórico para calcular tendência
+  // Métricas avançadas melhoradas
+  const offensiveVolume = Math.min(100, Math.max(0, (avgTotal / 3) * 100));
+  const defensiveLeaking = Math.min(100, Math.max(0, ((homeGoalsConceded + awayGoalsConceded) / 2) * 50));
+  const bttsCorrelation = Math.min(100, Math.max(0, 100 - avgCleanSheet));
   
-  // Score de confiança baseado na qualidade dos dados disponíveis
-  let confidence = 50; // Base
-  if (homeOver15Freq > 0 && awayOver15Freq > 0) confidence += 20;
-  if (competitionAvg > 0) confidence += 15;
-  if (avgTotal > 0) confidence += 15;
-  confidence = Math.min(100, confidence);
+  // Calcular tendência de forma baseada em histórico recente se disponível
+  let formTrend = 0;
+  if (data.homeHistory && data.awayHistory && data.homeHistory.length > 0 && data.awayHistory.length > 0) {
+    // Analisar últimos 3 jogos de cada time
+    const recentHome = data.homeHistory.slice(0, 3);
+    const recentAway = data.awayHistory.slice(0, 3);
+    
+    // Contar gols totais nos últimos jogos
+    const homeRecentGoals = recentHome.reduce((sum, m) => sum + m.homeScore + m.awayScore, 0) / recentHome.length;
+    const awayRecentGoals = recentAway.reduce((sum, m) => sum + m.homeScore + m.awayScore, 0) / recentAway.length;
+    const recentAvg = (homeRecentGoals + awayRecentGoals) / 2;
+    
+    // Comparar com média histórica
+    if (recentAvg > avgTotal) {
+      formTrend = Math.min(10, (recentAvg - avgTotal) * 2); // Tendência positiva
+    } else if (recentAvg < avgTotal) {
+      formTrend = Math.max(-10, (recentAvg - avgTotal) * 2); // Tendência negativa
+    }
+  }
+
+  // Score de confiança melhorado baseado na qualidade e completude dos dados
+  let confidence = 30; // Base mais baixa
+  
+  // Pontos por dados fundamentais
+  if (homeOver15Freq > 0) confidence += 15;
+  if (awayOver15Freq > 0) confidence += 15;
+  if (competitionAvg > 0) confidence += 10;
+  
+  // Pontos por estatísticas detalhadas
+  if (hasTeamStats) {
+    confidence += 20;
+    if (homeAvgTotal > 0 && awayAvgTotal > 0) confidence += 5;
+    if (avgCleanSheet > 0 || avgNoGoals > 0) confidence += 5;
+  }
+  
+  // Pontos por dados adicionais
+  if (data.h2hOver15Freq > 0) confidence += 5;
+  if (data.homeXG > 0 && data.awayXG > 0) confidence += 5;
+  
+  // Penalidade por dados incompletos
+  const dataCompleteness = (homeOver15Freq > 0 ? 1 : 0) + 
+                          (awayOver15Freq > 0 ? 1 : 0) + 
+                          (competitionAvg > 0 ? 1 : 0) + 
+                          (hasTeamStats ? 1 : 0);
+  if (dataCompleteness < 2) {
+    confidence = Math.max(confidence - 10, 20); // Penalizar se muito poucos dados
+  }
+  
+  confidence = Math.min(100, Math.max(0, confidence));
   
   // Calcular probabilidade combinada se IA disponível
   const combinedProb = combineProbabilities(prob, aiProbability ?? null, aiConfidence ?? null);

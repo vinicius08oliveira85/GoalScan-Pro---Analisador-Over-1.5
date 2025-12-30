@@ -199,9 +199,9 @@ async function callGeminiOnce(opts: {
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: opts.prompt }] }],
       generationConfig: {
-        temperature: 0.3, // Reduzido para análises mais consistentes e focadas
+        temperature: 0.25, // Ajustado para análises mais consistentes (menos conservador que 0.3, mais preciso)
         topP: 0.9,
-        maxOutputTokens: 2000 // Aumentado para permitir análises mais detalhadas e completas
+        maxOutputTokens: 3000 // Aumentado para permitir análises mais completas e detalhadas
       }
     })
   });
@@ -231,10 +231,26 @@ async function callGeminiOnce(opts: {
 
   const json = (await res.json()) as any;
   const text: unknown = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  // Validação robusta da resposta
   if (typeof text !== 'string' || text.trim().length === 0) {
     throw new Error('Resposta inválida do Gemini (sem texto).');
   }
-  return text.trim();
+  
+  const trimmedText = text.trim();
+  
+  // Validação de tamanho mínimo (análises muito curtas podem estar incompletas)
+  const minLength = 200; // Mínimo de 200 caracteres para uma análise útil
+  if (trimmedText.length < minLength) {
+    throw new Error(`Resposta do Gemini muito curta (${trimmedText.length} caracteres). Análise pode estar incompleta.`);
+  }
+  
+  // Validação básica de estrutura (deve conter pelo menos uma seção com ##)
+  if (!trimmedText.includes('##')) {
+    throw new Error('Resposta do Gemini não segue o formato esperado (sem seções markdown).');
+  }
+  
+  return trimmedText;
 }
 
 function isModelNotFoundError(err: unknown): err is GeminiCallError {

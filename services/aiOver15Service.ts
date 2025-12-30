@@ -20,28 +20,59 @@ function safeNumber(n: unknown): number | null {
 /**
  * Extrai a probabilidade da análise da IA do markdown.
  * Procura por padrões como "**Probabilidade (IA)**: XX%" ou "Probabilidade (IA): XX%"
+ * Melhorado com mais padrões e validação robusta
  */
 export function extractProbabilityFromMarkdown(markdown: string): number | null {
   if (!markdown || typeof markdown !== 'string') return null;
   
-  // Padrões possíveis:
+  // Padrões expandidos para capturar mais variações:
   // - **Probabilidade (IA)**: XX%
   // - Probabilidade (IA): XX%
   // - **Probabilidade (IA)**: XX,XX%
+  // - Probabilidade IA: XX%
+  // - Probabilidade: XX% (dentro de contexto de IA)
+  // - Prob. (IA): XX%
   const patterns = [
     /\*\*Probabilidade\s*\(?IA\)?\*\*:\s*([\d,]+\.?\d*)\s*%/i,
     /Probabilidade\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
-    /Probabilidade.*?IA.*?:\s*([\d,]+\.?\d*)\s*%/i
+    /Probabilidade.*?IA.*?:\s*([\d,]+\.?\d*)\s*%/i,
+    /Prob\.?\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
+    /Probabilidade\s*\(IA\):\s*([\d,]+\.?\d*)\s*%/i,
+    // Padrão mais flexível com espaços variados
+    /Probabilidade\s*[:\-]\s*([\d,]+\.?\d*)\s*%/i
   ];
   
   for (const pattern of patterns) {
     const match = markdown.match(pattern);
     if (match && match[1]) {
-      const value = parseFloat(match[1].replace(',', '.'));
-      if (!isNaN(value) && value >= 0 && value <= 100) {
+      // Normalizar separador decimal (aceitar vírgula ou ponto)
+      const normalized = match[1].replace(',', '.');
+      const value = parseFloat(normalized);
+      
+      // Validação robusta: deve ser número válido e estar em range razoável
+      if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
+        // Validação adicional: valores muito extremos podem ser erros
+        if (value < 5 || value > 95) {
+          // Log para debug (em produção, usar logger)
+          console.warn(`Probabilidade extraída parece extrema: ${value}%`);
+        }
         return value;
       }
     }
+  }
+  
+  // Tentar extrair de JSON estruturado como fallback
+  try {
+    const jsonMatch = markdown.match(/\{[\s\S]*?"probabilidade"[^}]*?([\d,]+\.?\d*)[\s\S]*?\}/i);
+    if (jsonMatch && jsonMatch[1]) {
+      const normalized = jsonMatch[1].replace(',', '.');
+      const value = parseFloat(normalized);
+      if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
+        return value;
+      }
+    }
+  } catch {
+    // Ignorar erros de parsing JSON
   }
   
   return null;
@@ -50,28 +81,58 @@ export function extractProbabilityFromMarkdown(markdown: string): number | null 
 /**
  * Extrai a confiança da análise da IA do markdown.
  * Procura por padrões como "**Confiança (IA)**: XX%" ou "Confiança (IA): XX%"
+ * Melhorado com mais padrões e validação robusta
  */
 export function extractConfidenceFromMarkdown(markdown: string): number | null {
   if (!markdown || typeof markdown !== 'string') return null;
   
-  // Padrões possíveis:
+  // Padrões expandidos para capturar mais variações:
   // - **Confiança (IA)**: XX%
   // - Confiança (IA): XX%
   // - **Confiança (IA)**: XX,XX%
+  // - Confiança IA: XX%
+  // - Conf. (IA): XX%
   const patterns = [
     /\*\*Confiança\s*\(?IA\)?\*\*:\s*([\d,]+\.?\d*)\s*%/i,
     /Confiança\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
-    /Confiança.*?IA.*?:\s*([\d,]+\.?\d*)\s*%/i
+    /Confiança.*?IA.*?:\s*([\d,]+\.?\d*)\s*%/i,
+    /Conf\.?\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
+    /Confiança\s*\(IA\):\s*([\d,]+\.?\d*)\s*%/i,
+    // Padrão mais flexível com espaços variados
+    /Confiança\s*[:\-]\s*([\d,]+\.?\d*)\s*%/i
   ];
   
   for (const pattern of patterns) {
     const match = markdown.match(pattern);
     if (match && match[1]) {
-      const value = parseFloat(match[1].replace(',', '.'));
-      if (!isNaN(value) && value >= 0 && value <= 100) {
+      // Normalizar separador decimal (aceitar vírgula ou ponto)
+      const normalized = match[1].replace(',', '.');
+      const value = parseFloat(normalized);
+      
+      // Validação robusta: deve ser número válido e estar em range razoável
+      if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
+        // Validação adicional: valores muito baixos podem ser erros
+        if (value < 10) {
+          // Log para debug (em produção, usar logger)
+          console.warn(`Confiança extraída parece muito baixa: ${value}%`);
+        }
         return value;
       }
     }
+  }
+  
+  // Tentar extrair de JSON estruturado como fallback
+  try {
+    const jsonMatch = markdown.match(/\{[\s\S]*?"confiança"[^}]*?([\d,]+\.?\d*)[\s\S]*?\}/i);
+    if (jsonMatch && jsonMatch[1]) {
+      const normalized = jsonMatch[1].replace(',', '.');
+      const value = parseFloat(normalized);
+      if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
+        return value;
+      }
+    }
+  } catch {
+    // Ignorar erros de parsing JSON
   }
   
   return null;
@@ -178,11 +239,17 @@ function buildPrompt(data: MatchData): string {
     '',
     '### 1. ## Painel de Resultados e EV',
     '**PRIMEIRO BLOCO** - Informações principais consolidadas:',
-    '- **Probabilidade (IA)**: XX% (sua estimativa baseada nos dados)',
-    '- **Confiança (IA)**: XX% (baseada na qualidade e completude dos dados fornecidos) + breve justificativa',
+    '⚠️ **FORMATO OBRIGATÓRIO**: Use EXATAMENTE estes formatos para facilitar extração automática:',
+    '- **Probabilidade (IA)**: XX% (sua estimativa baseada nos dados - DEVE ser um número entre 0 e 100)',
+    '- **Confiança (IA)**: XX% (baseada na qualidade e completude dos dados fornecidos - DEVE ser um número entre 0 e 100) + breve justificativa',
     '- **EV (Expected Value)**: XX% (se odd disponível) + interpretação (positivo = valor, negativo = desfavorável)',
     '- **Convergência com modelo**: (maior/igual/menor) + explicação técnica em 1-2 frases',
     '- **Nível de risco**: (Baixo/Moderado/Alto/Muito Alto) baseado na análise',
+    '',
+    '**IMPORTANTE**:',
+    '- Use ponto (.) ou vírgula (,) como separador decimal, mas seja consistente',
+    '- Os valores de Probabilidade e Confiança DEVEM aparecer na primeira seção',
+    '- Não use formatação adicional que possa confundir a extração (ex: "~XX%", "aproximadamente XX%")',
     '',
     '---',
     '',
@@ -273,6 +340,44 @@ function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice'])
   const p = ctx.modelBaseline.probabilityOver15Pct ?? 0;
   const c = ctx.modelBaseline.confidenceScorePct ?? 0;
   const ev = ctx.modelBaseline.evPct;
+  const risk = ctx.modelBaseline.riskLevel;
+
+  // Análise mais detalhada do fallback local
+  const home = ctx.inputs;
+  const hasGoodData = (home.homeOver15Pct ?? 0) > 0 && (home.awayOver15Pct ?? 0) > 0;
+  const avgTotal = ((home.homeAvgTotal ?? 0) + (home.awayAvgTotal ?? 0)) / 2;
+  const avgCleanSheet = ((home.homeCleanSheetPct ?? 0) + (home.awayCleanSheetPct ?? 0)) / 2;
+  const avgNoGoals = ((home.homeNoGoalsPct ?? 0) + (home.awayNoGoalsPct ?? 0)) / 2;
+
+  // Construir sinais a favor baseados nos dados
+  const positiveSignals: string[] = [];
+  if ((home.homeOver15Pct ?? 0) > 70) {
+    positiveSignals.push(`Time da casa com ${home.homeOver15Pct?.toFixed(0)}% de Over 1.5 indica consistência ofensiva`);
+  }
+  if ((home.awayOver15Pct ?? 0) > 70) {
+    positiveSignals.push(`Time visitante com ${home.awayOver15Pct?.toFixed(0)}% de Over 1.5 sugere ritmo ofensivo`);
+  }
+  if (avgTotal > 2.5) {
+    positiveSignals.push(`Média total de gols de ${avgTotal.toFixed(2)} indica jogos com muitos gols`);
+  }
+  if ((home.homeOver25Pct ?? 0) > 60 || (home.awayOver25Pct ?? 0) > 60) {
+    positiveSignals.push(`Over 2.5% alto confirma tendência ofensiva`);
+  }
+
+  // Construir red flags baseados nos dados
+  const redFlags: string[] = [];
+  if (avgCleanSheet > 50) {
+    redFlags.push(`Clean Sheet médio de ${avgCleanSheet.toFixed(0)}% indica defesas muito sólidas`);
+  }
+  if (avgNoGoals > 30) {
+    redFlags.push(`Taxa de "sem marcar" de ${avgNoGoals.toFixed(0)}% sugere ataques fracos`);
+  }
+  if (avgTotal < 1.8) {
+    redFlags.push(`Média total de gols de ${avgTotal.toFixed(2)} indica cenário de jogo trancado`);
+  }
+  if (!hasGoodData) {
+    redFlags.push(`Dados limitados reduzem confiabilidade da análise`);
+  }
 
   const md = [
     ...(notice
@@ -282,29 +387,52 @@ function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice'])
           '>'
         ]
       : []),
-    '## Resumo (Over 1.5)',
-    `- **Probabilidade (IA)**: ${p.toFixed(0)}%`,
-    `- **Confiança (IA)**: ${c.toFixed(0)}%`,
-    `- **Convergência com modelo**: igual (fallback local usando o modelo atual)`,
+    '## Painel de Resultados e EV',
+    `- **Probabilidade (IA)**: ${p.toFixed(1)}%`,
+    `- **Confiança (IA)**: ${c.toFixed(1)}% (baseada na completude dos dados fornecidos)`,
+    `- **EV (Expected Value)**: ${typeof ev === 'number' ? `${ev.toFixed(1)}% ${ev > 0 ? '(valor positivo)' : ev < 0 ? '(odd desfavorável)' : '(sem valor)'}` : 'indisponível (odd não informada)'}`,
+    `- **Convergência com modelo**: igual (fallback local usando o modelo estatístico atual)`,
+    `- **Nível de risco**: ${risk}`,
     '',
-    '## Sinais a favor',
-    '- **Over 1.5 (%)** dos times e **média total de gols** puxam a probabilidade para cima quando altos.',
-    '- **Over 2.5 (%)** ajuda a confirmar ritmo ofensivo.',
+    '---',
     '',
-    '## Red flags (contra)',
-    '- **Clean sheet (%)** alto e **sem marcar (%)** alto tendem a reduzir Over 1.5.',
-    '- Se a **média total** estiver baixa, o cenário é mais “trancado”.',
+    '## Análise Quantitativa',
+    hasGoodData 
+      ? `Análise baseada em dados de Over 1.5% dos times (casa: ${home.homeOver15Pct?.toFixed(0)}%, visitante: ${home.awayOver15Pct?.toFixed(0)}%) e média da competição (${ctx.market.competitionAvgOver15Pct?.toFixed(0)}%).`
+      : 'Análise baseada principalmente na média da competição devido à limitação de dados dos times.',
+    avgTotal > 0 && `Média total de gols combinada: ${avgTotal.toFixed(2)} gols por jogo.`,
     '',
-    '## Plano de entrada',
-    '- **Pré-live**: entrar apenas se a probabilidade estiver alta e o EV estiver positivo.',
-    '- **Live (gatilhos)**: intensidade cedo (finalizações perigosas / pressão contínua).',
-    '- **Evitar**: jogo morno, baixa criação, muitos 0x0 recentes ou times com alta taxa de clean sheet.',
+    '---',
     '',
-    '## Observações',
-    `- **Risco**: ${ctx.modelBaseline.riskLevel}.`,
-    `- **EV**: ${typeof ev === 'number' ? `${ev.toFixed(1)}%` : 'indisponível (odd não informada).'}`,
-    '- Para destravar a IA online, configure `VITE_GEMINI_API_KEY` no ambiente (sem comitar a chave).'
-  ].join('\n');
+    '## Sinais a Favor',
+    positiveSignals.length > 0 
+      ? positiveSignals.map(s => `- ${s}`).join('\n')
+      : '- Dados limitados impedem identificação clara de sinais favoráveis',
+    '',
+    '---',
+    '',
+    '## Red Flags (Contra)',
+    redFlags.length > 0
+      ? redFlags.map(s => `- ${s}`).join('\n')
+      : '- Nenhum red flag significativo identificado com os dados disponíveis',
+    '',
+    '---',
+    '',
+    '## Plano de Entrada',
+    `- **Pré-live**: ${p > 75 && (typeof ev === 'number' && ev > 0) ? 'Entrada recomendada se probabilidade alta e EV positivo' : 'Aguardar análise mais detalhada ou monitorar no live'}`,
+    '- **Live (gatilhos)**: Monitorar intensidade ofensiva nos primeiros 10-15 minutos (finalizações perigosas, pressão contínua)',
+    '- **Evitar**: Jogos com médias muito baixas, times com alta taxa de clean sheet ou baixa criação de chances',
+    '',
+    '---',
+    '',
+    '## Observações e Limitações',
+    hasGoodData 
+      ? '- Base de dados razoável para análise estatística'
+      : '- Dados limitados: análise baseada principalmente em baseline da competição',
+    typeof ev !== 'number' && '- Odd não informada: cálculo de EV indisponível',
+    '- Esta é uma análise local (fallback). Para análise mais detalhada com IA, configure `VITE_GEMINI_API_KEY` no ambiente.',
+    `- **Risco**: ${risk}`
+  ].filter(Boolean).join('\n');
 
   return { reportMarkdown: md, provider: 'local', notice };
 }
