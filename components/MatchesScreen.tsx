@@ -456,7 +456,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               }
 
               // Grid view (padrão)
-              return (
               const getStatusConfig = () => {
                 if (match.betInfo && match.betInfo.betAmount > 0) {
                   if (match.betInfo.status === 'won') {
