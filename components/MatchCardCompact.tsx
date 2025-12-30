@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
+import { formatMatchDate, formatTimestampInBrasilia } from '../utils/dateFormatter';
 
 interface MatchCardCompactProps {
   match: SavedAnalysis;
@@ -72,14 +73,14 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
               <Calendar className="w-2.5 h-2.5" />
               {match.data.matchDate ? (
                 <span>
-                  {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
+                  {formatMatchDate(match.data.matchDate, match.data.matchTime, { 
                     day: '2-digit', 
                     month: '2-digit'
                   })}
                 </span>
               ) : (
                 <span>
-                  {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
+                  {formatTimestampInBrasilia(match.timestamp, { 
                     day: '2-digit', 
                     month: '2-digit'
                   })}

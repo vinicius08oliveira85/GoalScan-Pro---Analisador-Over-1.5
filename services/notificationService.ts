@@ -1,5 +1,6 @@
 import { SavedAnalysis } from '../types';
 import { logger } from '../utils/logger';
+import { getMatchDateInBrasilia, formatMatchTime } from '../utils/dateFormatter';
 
 // Armazenar timeouts agendados
 const scheduledNotifications: Map<string, NodeJS.Timeout> = new Map();
@@ -27,18 +28,13 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 /**
- * Calcula o timestamp da partida combinando matchDate e matchTime
+ * Calcula o timestamp da partida combinando matchDate e matchTime no fuso de Brasília
  */
 function getMatchTimestamp(matchDate?: string, matchTime?: string): number | null {
   if (!matchDate) return null;
 
   try {
-    // Combinar data e hora
-    const dateTimeString = matchTime 
-      ? `${matchDate}T${matchTime}:00`
-      : `${matchDate}T00:00:00`;
-    
-    const matchDateTime = new Date(dateTimeString);
+    const matchDateTime = getMatchDateInBrasilia(matchDate, matchTime);
     
     // Verificar se a data é válida
     if (isNaN(matchDateTime.getTime())) {
@@ -104,11 +100,13 @@ async function scheduleBrowserNotification(match: SavedAnalysis): Promise<void> 
     const hasPermission = await requestNotificationPermission();
     
     if (hasPermission) {
-      const matchDateTime = new Date(matchTimestamp);
-      const timeStr = matchDateTime.toLocaleTimeString('pt-BR', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
+      const timeStr = match.data.matchDate && match.data.matchTime
+        ? formatMatchTime(match.data.matchDate, match.data.matchTime)
+        : new Date(matchTimestamp).toLocaleTimeString('pt-BR', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'America/Sao_Paulo'
+          });
 
       new Notification('Partida começando em breve! ⚽', {
         body: `${match.data.homeTeam} vs ${match.data.awayTeam}\nInício: ${timeStr}`,

@@ -7,6 +7,7 @@ import { cardHover, animations } from '../utils/animations';
 import MatchTabs, { TabCategory } from './MatchTabs';
 import { filterMatchesByCategory, getCategoryCounts } from '../utils/matchFilters';
 import { getPrimaryProbability } from '../utils/probability';
+import { formatMatchDate, formatMatchTime, formatTimestampInBrasilia } from '../utils/dateFormatter';
 
 // Componente de Empty State por categoria
 const EmptyStateByCategory: React.FC<{ 
@@ -394,22 +395,19 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
                       {match.data.matchDate ? (
                         <>
                           <span>
-                            {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
-                              day: '2-digit', 
-                              month: 'short'
-                            })}
+                            {formatMatchDate(match.data.matchDate, match.data.matchTime)}
                           </span>
                           {match.data.matchTime && (
                             <>
                               <span>•</span>
                               <Clock className="w-3 h-3" />
-                              <span>{match.data.matchTime}</span>
+                              <span>{formatMatchTime(match.data.matchDate, match.data.matchTime)}</span>
                             </>
                           )}
                         </>
                       ) : (
                         <span>
-                          {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
+                          {formatTimestampInBrasilia(match.timestamp, { 
                             day: '2-digit', 
                             month: 'short'
                           })}

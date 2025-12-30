@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
+import { formatMatchDate, formatMatchTime, formatTimestampInBrasilia } from '../utils/dateFormatter';
 
 interface MatchCardListProps {
   match: SavedAnalysis;
@@ -98,22 +99,19 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
             {match.data.matchDate ? (
               <>
                 <span>
-                  {new Date(match.data.matchDate).toLocaleDateString('pt-BR', { 
-                    day: '2-digit', 
-                    month: 'short'
-                  })}
+                  {formatMatchDate(match.data.matchDate, match.data.matchTime)}
                 </span>
                 {match.data.matchTime && (
                   <>
                     <span>•</span>
                     <Clock className="w-3 h-3" />
-                    <span>{match.data.matchTime}</span>
+                    <span>{formatMatchTime(match.data.matchDate, match.data.matchTime)}</span>
                   </>
                 )}
               </>
             ) : (
               <span>
-                {new Date(match.timestamp).toLocaleDateString('pt-BR', { 
+                {formatTimestampInBrasilia(match.timestamp, { 
                   day: '2-digit', 
                   month: 'short'
                 })}

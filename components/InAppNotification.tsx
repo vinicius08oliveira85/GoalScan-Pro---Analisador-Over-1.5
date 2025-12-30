@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { SavedAnalysis } from '../types';
 import { Bell, X, Clock, ArrowRight } from 'lucide-react';
+import { getMatchDateInBrasilia, formatMatchTime } from '../utils/dateFormatter';
 
 interface InAppNotificationProps {
   match: SavedAnalysis;
@@ -48,8 +49,7 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({
     if (!match.data.matchDate || !match.data.matchTime) return '';
 
     try {
-      const dateTimeString = `${match.data.matchDate}T${match.data.matchTime}:00`;
-      const matchDateTime = new Date(dateTimeString);
+      const matchDateTime = getMatchDateInBrasilia(match.data.matchDate, match.data.matchTime);
       const now = new Date();
       const diffMs = matchDateTime.getTime() - now.getTime();
       
@@ -105,9 +105,9 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({
             <div className="flex items-center gap-2 text-xs opacity-80">
               <Clock className="w-3 h-3" />
               <span>{getTimeUntilMatch()}</span>
-              {match.data.matchTime && (
+              {match.data.matchTime && match.data.matchDate && (
                 <span className="opacity-60">
-                  • Início: {match.data.matchTime}
+                  • Início: {formatMatchTime(match.data.matchDate, match.data.matchTime)}
                 </span>
               )}
             </div>

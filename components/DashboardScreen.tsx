@@ -13,6 +13,7 @@ import {
   XCircle,
   Clock
 } from 'lucide-react';
+import { formatTimestampInBrasilia } from '../utils/dateFormatter';
 import { 
   LineChart, 
   Line, 
@@ -478,7 +479,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           {match.data.homeTeam} vs {match.data.awayTeam}
                         </div>
                         <div className="text-xs opacity-60">
-                          {new Date(match.timestamp).toLocaleDateString('pt-BR')}
+                          {formatTimestampInBrasilia(match.timestamp)}
                         </div>
                       </td>
                       <td className="py-3 px-2 md:px-4 text-right text-sm font-semibold">

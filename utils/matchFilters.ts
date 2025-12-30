@@ -1,5 +1,6 @@
 import { SavedAnalysis } from '../types';
 import { getPrimaryProbability } from './probability';
+import { getMatchDateInBrasilia } from './dateFormatter';
 
 /**
  * Utilitários para classificação e filtragem de partidas
@@ -28,17 +29,12 @@ export interface SortState {
 }
 
 /**
- * Obtém a data/hora da partida como Date object
+ * Obtém a data/hora da partida como Date object no fuso de Brasília
  */
 function getMatchDateTime(match: SavedAnalysis): Date | null {
   if (match.data.matchDate) {
-    const dateStr = match.data.matchDate;
-    const timeStr = match.data.matchTime || '00:00';
-    
     try {
-      // Formato: YYYY-MM-DD HH:mm
-      const dateTimeStr = `${dateStr} ${timeStr}`;
-      const date = new Date(dateTimeStr);
+      const date = getMatchDateInBrasilia(match.data.matchDate, match.data.matchTime);
       
       // Verificar se a data é válida
       if (isNaN(date.getTime())) {
@@ -51,7 +47,7 @@ function getMatchDateTime(match: SavedAnalysis): Date | null {
     }
   }
   
-  // Fallback: usar timestamp da análise
+  // Fallback: usar timestamp da análise (já está em UTC, converter para Brasília na formatação)
   return new Date(match.timestamp);
 }
 
