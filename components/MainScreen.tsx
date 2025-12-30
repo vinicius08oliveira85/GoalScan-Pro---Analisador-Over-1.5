@@ -160,51 +160,51 @@ const MainScreen: React.FC<MainScreenProps> = ({ savedMatches, onMatchClick, onN
         
         {/* Estatísticas Gerais */}
         {totalMatches > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
-            <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
-              <div className="p-2 md:p-3 rounded-xl bg-primary/10 border border-primary/20 flex-shrink-0">
-                <Activity className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3 mb-4 md:mb-5">
+            <div className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5">
+              <div className="p-1.5 md:p-2 rounded-lg bg-primary/10 border border-primary/20 flex-shrink-0">
+                <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] md:text-xs font-bold opacity-40 uppercase mb-1">Total de Partidas</p>
-                <p className="text-xl md:text-2xl font-black">{totalMatches}</p>
+                <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">Total de Partidas</p>
+                <p className="text-lg md:text-xl font-black">{totalMatches}</p>
               </div>
             </div>
-            <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
-              <div className="p-2 md:p-3 rounded-xl bg-success/10 border border-success/20 flex-shrink-0">
-                <Target className="w-5 h-5 md:w-6 md:h-6 text-success" />
+            <div className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5">
+              <div className="p-1.5 md:p-2 rounded-lg bg-success/10 border border-success/20 flex-shrink-0">
+                <Target className="w-4 h-4 md:w-5 md:h-5 text-success" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] md:text-xs font-bold opacity-40 uppercase mb-1">EV Positivo</p>
-                <p className="text-xl md:text-2xl font-black text-success">{positiveEV}</p>
+                <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">EV Positivo</p>
+                <p className="text-lg md:text-xl font-black text-success">{positiveEV}</p>
               </div>
             </div>
-            <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
-              <div className="p-2 md:p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 flex-shrink-0">
-                <TrendingUpIcon className="w-5 h-5 md:w-6 md:h-6 text-teal-400" />
+            <div className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5">
+              <div className="p-1.5 md:p-2 rounded-lg bg-teal-500/10 border border-teal-500/20 flex-shrink-0">
+                <TrendingUpIcon className="w-4 h-4 md:w-5 md:h-5 text-teal-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] md:text-xs font-bold opacity-40 uppercase mb-1">Prob. Média</p>
-                <p className="text-xl md:text-2xl font-black text-teal-400">{avgProbability.toFixed(1)}%</p>
+                <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">Prob. Média</p>
+                <p className="text-lg md:text-xl font-black text-teal-400">{avgProbability.toFixed(1)}%</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Título e Botão Adicionar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-4">
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl sm:text-2xl font-black tracking-tighter mb-1">Partidas Salvas</h2>
-            <p className="text-xs sm:text-sm opacity-60">Gerencie suas análises e resultados</p>
+            <h2 className="text-lg sm:text-xl font-black tracking-tighter mb-0.5">Partidas Salvas</h2>
+            <p className="text-[10px] sm:text-xs opacity-60">Gerencie suas análises e resultados</p>
           </div>
           <button
             onClick={onNewMatch}
-            className="btn btn-primary btn-md sm:btn-lg gap-2 shadow-lg hover:scale-105 transition-transform w-full sm:w-auto min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary"
+            className="btn btn-primary btn-sm gap-1.5 shadow-lg hover:scale-105 transition-transform w-full sm:w-auto min-h-[36px] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary"
             aria-label="Adicionar nova partida para análise"
           >
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
-            <span className="hidden sm:inline">Adicionar Partida</span>
-            <span className="sm:hidden">Nova Partida</span>
+            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" aria-hidden="true" />
+            <span className="hidden sm:inline text-sm">Adicionar Partida</span>
+            <span className="sm:hidden text-xs">Nova Partida</span>
           </button>
         </div>
 
