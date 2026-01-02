@@ -2,7 +2,7 @@ import { logger } from '../utils/logger';
 
 /**
  * Serviço de Analytics respeitando LGPD
- * 
+ *
  * IMPORTANTE: Este serviço está preparado para integração futura.
  * Antes de ativar, certifique-se de:
  * 1. Obter consentimento explícito do usuário (LGPD)
@@ -70,7 +70,7 @@ class AnalyticsService {
       this.eventQueue.push({
         name: eventName,
         properties,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       return;
     }
@@ -85,16 +85,16 @@ class AnalyticsService {
    */
   private sendEvent(eventName: string, properties?: Record<string, unknown>): void {
     // Google Analytics 4 (quando configurado)
-    // @ts-ignore
+    // @ts-expect-error gtag may not be defined
     if (typeof window !== 'undefined' && window.gtag) {
-      // @ts-ignore
+      // @ts-expect-error gtag may not be defined
       window.gtag('event', eventName, properties);
     }
 
     // Plausible Analytics (quando configurado)
-    // @ts-ignore
+    // @ts-expect-error plausible may not be defined
     if (typeof window !== 'undefined' && window.plausible) {
-      // @ts-ignore
+      // @ts-expect-error plausible may not be defined
       window.plausible(eventName, { props: properties });
     }
 
@@ -134,7 +134,7 @@ export const analyticsService = new AnalyticsService();
 
 /**
  * Hook para usar analytics em componentes React
- * 
+ *
  * Exemplo de uso:
  * const analytics = useAnalytics();
  * analytics.track('match_saved', { matchId: '123' });
@@ -146,7 +146,6 @@ export const useAnalytics = () => {
     userAction: analyticsService.userAction.bind(analyticsService),
     requestConsent: analyticsService.requestConsent.bind(analyticsService),
     enable: analyticsService.enable.bind(analyticsService),
-    disable: analyticsService.disable.bind(analyticsService)
+    disable: analyticsService.disable.bind(analyticsService),
   };
 };
-

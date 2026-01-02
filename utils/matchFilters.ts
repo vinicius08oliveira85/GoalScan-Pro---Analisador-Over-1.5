@@ -11,7 +11,13 @@ export type EVFilter = 'all' | 'positive' | 'negative';
 export type ProbabilityRange = 'all' | 'high' | 'medium' | 'low';
 export type RiskLevel = 'Baixo' | 'Moderado' | 'Alto' | 'Muito Alto';
 export type BetStatusFilter = 'all' | 'won' | 'lost' | 'pending' | 'no-bet';
-export type DateRange = 'all' | 'today' | 'this-week' | 'this-month' | 'last-7-days' | 'last-30-days';
+export type DateRange =
+  | 'all'
+  | 'today'
+  | 'this-week'
+  | 'this-month'
+  | 'last-7-days'
+  | 'last-30-days';
 export type SortField = 'date' | 'ev' | 'probability' | 'risk' | 'timestamp';
 export type SortOrder = 'asc' | 'desc';
 
@@ -35,18 +41,18 @@ function getMatchDateTime(match: SavedAnalysis): Date | null {
   if (match.data.matchDate) {
     try {
       const date = getMatchDateInBrasilia(match.data.matchDate, match.data.matchTime);
-      
+
       // Verificar se a data é válida
       if (isNaN(date.getTime())) {
         return null;
       }
-      
+
       return date;
     } catch {
       return null;
     }
   }
-  
+
   // Fallback: usar timestamp da análise (já está em UTC, converter para Brasília na formatação)
   return new Date(match.timestamp);
 }
@@ -57,13 +63,13 @@ function getMatchDateTime(match: SavedAnalysis): Date | null {
 export function isMatchToday(match: SavedAnalysis): boolean {
   const matchDate = getMatchDateTime(match);
   if (!matchDate) return false;
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const matchDateOnly = new Date(matchDate);
   matchDateOnly.setHours(0, 0, 0, 0);
-  
+
   return matchDateOnly.getTime() === today.getTime();
 }
 
@@ -73,9 +79,9 @@ export function isMatchToday(match: SavedAnalysis): boolean {
 export function isMatchFuture(match: SavedAnalysis): boolean {
   const matchDate = getMatchDateTime(match);
   if (!matchDate) return false;
-  
+
   const now = new Date();
-  
+
   return matchDate.getTime() > now.getTime();
 }
 
@@ -85,15 +91,15 @@ export function isMatchFuture(match: SavedAnalysis): boolean {
 export function isMatchPast(match: SavedAnalysis): boolean {
   const matchDate = getMatchDateTime(match);
   if (!matchDate) return false;
-  
+
   const now = new Date();
-  
+
   return matchDate.getTime() < now.getTime();
 }
 
 /**
  * Verifica se a partida está finalizada
- * Critério: 
+ * Critério:
  * - Partidas com status 'won' ou 'lost' (independente da data)
  * - Partidas que já passaram E têm betInfo com valor > 0 (mesmo sem status definido)
  */
@@ -101,17 +107,17 @@ export function isMatchFinalized(match: SavedAnalysis): boolean {
   // Se tem status final (won ou lost), está finalizada
   const hasFinalStatus = match.betInfo?.status === 'won' || match.betInfo?.status === 'lost';
   if (hasFinalStatus) return true;
-  
+
   // Se já passou e tem aposta registrada, considera finalizada
   const isPast = isMatchPast(match);
   const hasBet = match.betInfo && match.betInfo.betAmount > 0;
-  
+
   return isPast && hasBet;
 }
 
 /**
  * Verifica se a partida está pendente
- * Critério: 
+ * Critério:
  * - Partidas com betInfo.status === 'pending'
  * - Partidas sem betInfo mas que ainda não passaram (data futura ou hoje)
  * - Exclui partidas sem betInfo que já passaram
@@ -119,14 +125,14 @@ export function isMatchFinalized(match: SavedAnalysis): boolean {
 export function isMatchPending(match: SavedAnalysis): boolean {
   // Se tem betInfo com status pending, está pendente
   if (match.betInfo?.status === 'pending') return true;
-  
+
   // Se não tem betInfo, verifica se ainda não passou
   if (!match.betInfo) {
     const isPast = isMatchPast(match);
     // Só é pendente se ainda não passou
     return !isPast;
   }
-  
+
   return false;
 }
 
@@ -140,10 +146,10 @@ export function filterMatchesByCategory(
   switch (category) {
     case 'pendentes':
       return matches.filter(isMatchPending);
-    
+
     case 'finalizadas':
       return matches.filter(isMatchFinalized);
-    
+
     case 'todas':
     default:
       return matches;
@@ -167,20 +173,17 @@ export function getCategoryCounts(matches: SavedAnalysis[]) {
   return {
     pendentes: countMatchesByCategory(matches, 'pendentes'),
     finalizadas: countMatchesByCategory(matches, 'finalizadas'),
-    todas: countMatchesByCategory(matches, 'todas')
+    todas: countMatchesByCategory(matches, 'todas'),
   };
 }
 
 /**
  * Filtra partidas por EV (Expected Value)
  */
-export function filterByEV(
-  matches: SavedAnalysis[],
-  evFilter: EVFilter
-): SavedAnalysis[] {
+export function filterByEV(matches: SavedAnalysis[], evFilter: EVFilter): SavedAnalysis[] {
   if (evFilter === 'all') return matches;
-  
-  return matches.filter(match => {
+
+  return matches.filter((match) => {
     if (evFilter === 'positive') return match.result.ev > 0;
     if (evFilter === 'negative') return match.result.ev <= 0;
     return true;
@@ -195,10 +198,10 @@ export function filterByProbability(
   probabilityRange: ProbabilityRange
 ): SavedAnalysis[] {
   if (probabilityRange === 'all') return matches;
-  
-  return matches.filter(match => {
+
+  return matches.filter((match) => {
     const probability = getPrimaryProbability(match.result);
-    
+
     switch (probabilityRange) {
       case 'high':
         return probability >= 70;
@@ -220,10 +223,8 @@ export function filterByRiskLevel(
   riskLevels: RiskLevel[]
 ): SavedAnalysis[] {
   if (riskLevels.length === 0) return matches;
-  
-  return matches.filter(match => 
-    riskLevels.includes(match.result.riskLevel)
-  );
+
+  return matches.filter((match) => riskLevels.includes(match.result.riskLevel));
 }
 
 /**
@@ -234,12 +235,12 @@ export function filterByBetStatus(
   betStatus: BetStatusFilter
 ): SavedAnalysis[] {
   if (betStatus === 'all') return matches;
-  
-  return matches.filter(match => {
+
+  return matches.filter((match) => {
     if (betStatus === 'no-bet') {
       return !match.betInfo || match.betInfo.betAmount === 0;
     }
-    
+
     return match.betInfo?.status === betStatus;
   });
 }
@@ -247,51 +248,48 @@ export function filterByBetStatus(
 /**
  * Filtra partidas por intervalo de datas
  */
-export function filterByDateRange(
-  matches: SavedAnalysis[],
-  dateRange: DateRange
-): SavedAnalysis[] {
+export function filterByDateRange(matches: SavedAnalysis[], dateRange: DateRange): SavedAnalysis[] {
   if (dateRange === 'all') return matches;
-  
+
   const now = new Date();
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
-  
-  return matches.filter(match => {
+
+  return matches.filter((match) => {
     const matchDate = getMatchDateTime(match);
     if (!matchDate) return false;
-    
+
     const matchDateOnly = new Date(matchDate);
     matchDateOnly.setHours(0, 0, 0, 0);
-    
+
     switch (dateRange) {
       case 'today': {
         return matchDateOnly.getTime() === today.getTime();
       }
-      
+
       case 'this-week': {
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - today.getDay()); // Domingo
         return matchDateOnly >= weekStart && matchDateOnly <= now;
       }
-      
+
       case 'this-month': {
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
         return matchDateOnly >= monthStart && matchDateOnly <= now;
       }
-      
+
       case 'last-7-days': {
         const sevenDaysAgo = new Date(today);
         sevenDaysAgo.setDate(today.getDate() - 7);
         return matchDateOnly >= sevenDaysAgo && matchDateOnly <= now;
       }
-      
+
       case 'last-30-days': {
         const thirtyDaysAgo = new Date(today);
         thirtyDaysAgo.setDate(today.getDate() - 30);
         return matchDateOnly >= thirtyDaysAgo && matchDateOnly <= now;
       }
-      
+
       default:
         return true;
     }
@@ -306,13 +304,13 @@ export function applyAllFilters(
   filterState: FilterState
 ): SavedAnalysis[] {
   let filtered = matches;
-  
+
   filtered = filterByEV(filtered, filterState.ev);
   filtered = filterByProbability(filtered, filterState.probability);
   filtered = filterByRiskLevel(filtered, filterState.riskLevels);
   filtered = filterByBetStatus(filtered, filterState.betStatus);
   filtered = filterByDateRange(filtered, filterState.dateRange);
-  
+
   return filtered;
 }
 
@@ -345,37 +343,31 @@ export function countActiveFilters(filterState: FilterState): number {
 /**
  * Ordena partidas por data
  */
-export function sortByDate(
-  matches: SavedAnalysis[],
-  order: SortOrder = 'desc'
-): SavedAnalysis[] {
+export function sortByDate(matches: SavedAnalysis[], order: SortOrder = 'desc'): SavedAnalysis[] {
   const sorted = [...matches].sort((a, b) => {
     const dateA = getMatchDateTime(a);
     const dateB = getMatchDateTime(b);
-    
+
     // Fallback para timestamp se não houver data
     const timeA = dateA ? dateA.getTime() : a.timestamp;
     const timeB = dateB ? dateB.getTime() : b.timestamp;
-    
+
     return order === 'asc' ? timeA - timeB : timeB - timeA;
   });
-  
+
   return sorted;
 }
 
 /**
  * Ordena partidas por EV
  */
-export function sortByEV(
-  matches: SavedAnalysis[],
-  order: SortOrder = 'desc'
-): SavedAnalysis[] {
+export function sortByEV(matches: SavedAnalysis[], order: SortOrder = 'desc'): SavedAnalysis[] {
   const sorted = [...matches].sort((a, b) => {
     const evA = a.result.ev;
     const evB = b.result.ev;
     return order === 'asc' ? evA - evB : evB - evA;
   });
-  
+
   return sorted;
 }
 
@@ -391,7 +383,7 @@ export function sortByProbability(
     const probB = getPrimaryProbability(b.result);
     return order === 'asc' ? probA - probB : probB - probA;
   });
-  
+
   return sorted;
 }
 
@@ -403,18 +395,18 @@ export function sortByRiskLevel(
   order: SortOrder = 'desc'
 ): SavedAnalysis[] {
   const riskOrder: Record<RiskLevel, number> = {
-    'Baixo': 1,
-    'Moderado': 2,
-    'Alto': 3,
-    'Muito Alto': 4
+    Baixo: 1,
+    Moderado: 2,
+    Alto: 3,
+    'Muito Alto': 4,
   };
-  
+
   const sorted = [...matches].sort((a, b) => {
     const riskA = riskOrder[a.result.riskLevel] || 0;
     const riskB = riskOrder[b.result.riskLevel] || 0;
     return order === 'asc' ? riskA - riskB : riskB - riskA;
   });
-  
+
   return sorted;
 }
 
@@ -428,7 +420,7 @@ export function sortByTimestamp(
   const sorted = [...matches].sort((a, b) => {
     return order === 'asc' ? a.timestamp - b.timestamp : b.timestamp - a.timestamp;
   });
-  
+
   return sorted;
 }
 
@@ -455,4 +447,3 @@ export function sortMatches(
       return matches;
   }
 }
-

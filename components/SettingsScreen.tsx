@@ -1,22 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Settings, 
-  Bell, 
-  Moon, 
-  Sun, 
-  Info, 
-  Shield, 
-  Database,
-  Sparkles
-} from 'lucide-react';
+import { Settings, Bell, Moon, Sun, Info, Shield, Database, Sparkles } from 'lucide-react';
 import { animations } from '../utils/animations';
 
-interface SettingsScreenProps {
-  // Placeholder para futuras props de configurações
-}
-
-const SettingsScreen: React.FC<SettingsScreenProps> = () => {
+const SettingsScreen: React.FC = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>('auto');
 
@@ -128,9 +115,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm md:text-base mb-1">{item.label}</p>
-                    {item.description && (
-                      <p className="text-xs opacity-60">{item.description}</p>
-                    )}
+                    {item.description && <p className="text-xs opacity-60">{item.description}</p>}
                   </div>
 
                   {item.type === 'toggle' && (
@@ -146,7 +131,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                     <select
                       className="select select-bordered select-sm w-32 md:w-40"
                       value={item.value as string}
-                      onChange={(e) => item.onChange?.(e.target.value as any)}
+                      onChange={(e) => item.onChange?.(e.target.value as 'light' | 'dark' | 'auto')}
                     >
                       {item.options?.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -225,4 +210,3 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
 };
 
 export default SettingsScreen;
-

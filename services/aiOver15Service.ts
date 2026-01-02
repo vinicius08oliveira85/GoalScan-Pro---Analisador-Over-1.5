@@ -24,7 +24,7 @@ function safeNumber(n: unknown): number | null {
  */
 export function extractProbabilityFromMarkdown(markdown: string): number | null {
   if (!markdown || typeof markdown !== 'string') return null;
-  
+
   // Padrões expandidos para capturar mais variações:
   // - **Probabilidade (IA)**: XX%
   // - Probabilidade (IA): XX%
@@ -39,16 +39,16 @@ export function extractProbabilityFromMarkdown(markdown: string): number | null 
     /Prob\.?\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
     /Probabilidade\s*\(IA\):\s*([\d,]+\.?\d*)\s*%/i,
     // Padrão mais flexível com espaços variados
-    /Probabilidade\s*[:\-]\s*([\d,]+\.?\d*)\s*%/i
+    /Probabilidade\s*[: -]\s*([\d,]+\.?\d*)\s*%/i,
   ];
-  
+
   for (const pattern of patterns) {
     const match = markdown.match(pattern);
     if (match && match[1]) {
       // Normalizar separador decimal (aceitar vírgula ou ponto)
       const normalized = match[1].replace(',', '.');
       const value = parseFloat(normalized);
-      
+
       // Validação robusta: deve ser número válido e estar em range razoável
       if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
         // Validação adicional: valores muito extremos podem ser erros
@@ -60,7 +60,7 @@ export function extractProbabilityFromMarkdown(markdown: string): number | null 
       }
     }
   }
-  
+
   // Tentar extrair de JSON estruturado como fallback
   try {
     const jsonMatch = markdown.match(/\{[\s\S]*?"probabilidade"[^}]*?([\d,]+\.?\d*)[\s\S]*?\}/i);
@@ -74,7 +74,7 @@ export function extractProbabilityFromMarkdown(markdown: string): number | null 
   } catch {
     // Ignorar erros de parsing JSON
   }
-  
+
   return null;
 }
 
@@ -85,7 +85,7 @@ export function extractProbabilityFromMarkdown(markdown: string): number | null 
  */
 export function extractConfidenceFromMarkdown(markdown: string): number | null {
   if (!markdown || typeof markdown !== 'string') return null;
-  
+
   // Padrões expandidos para capturar mais variações:
   // - **Confiança (IA)**: XX%
   // - Confiança (IA): XX%
@@ -99,16 +99,16 @@ export function extractConfidenceFromMarkdown(markdown: string): number | null {
     /Conf\.?\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
     /Confiança\s*\(IA\):\s*([\d,]+\.?\d*)\s*%/i,
     // Padrão mais flexível com espaços variados
-    /Confiança\s*[:\-]\s*([\d,]+\.?\d*)\s*%/i
+    /Confiança\s*[: -]\s*([\d,]+\.?\d*)\s*%/i,
   ];
-  
+
   for (const pattern of patterns) {
     const match = markdown.match(pattern);
     if (match && match[1]) {
       // Normalizar separador decimal (aceitar vírgula ou ponto)
       const normalized = match[1].replace(',', '.');
       const value = parseFloat(normalized);
-      
+
       // Validação robusta: deve ser número válido e estar em range razoável
       if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
         // Validação adicional: valores muito baixos podem ser erros
@@ -120,7 +120,7 @@ export function extractConfidenceFromMarkdown(markdown: string): number | null {
       }
     }
   }
-  
+
   // Tentar extrair de JSON estruturado como fallback
   try {
     const jsonMatch = markdown.match(/\{[\s\S]*?"confiança"[^}]*?([\d,]+\.?\d*)[\s\S]*?\}/i);
@@ -134,7 +134,7 @@ export function extractConfidenceFromMarkdown(markdown: string): number | null {
   } catch {
     // Ignorar erros de parsing JSON
   }
-  
+
   return null;
 }
 
@@ -150,11 +150,11 @@ function buildContext(data: MatchData) {
       homeTeam: data.homeTeam,
       awayTeam: data.awayTeam,
       matchDate: data.matchDate ?? null,
-      matchTime: data.matchTime ?? null
+      matchTime: data.matchTime ?? null,
     },
     market: {
       oddOver15: safeNumber(data.oddOver15),
-      competitionAvgOver15Pct: safeNumber(data.competitionAvg)
+      competitionAvgOver15Pct: safeNumber(data.competitionAvg),
     },
     inputs: {
       homeOver15Pct: safeNumber(data.homeOver15Freq),
@@ -170,14 +170,14 @@ function buildContext(data: MatchData) {
       awayAvgTotal: safeNumber(away?.avgTotal),
       awayCleanSheetPct: safeNumber(away?.cleanSheetPct),
       awayNoGoalsPct: safeNumber(away?.noGoalsPct),
-      awayOver25Pct: safeNumber(away?.over25Pct)
+      awayOver25Pct: safeNumber(away?.over25Pct),
     },
     modelBaseline: {
       probabilityOver15Pct: safeNumber(result.probabilityOver15),
       confidenceScorePct: safeNumber(result.confidenceScore),
       riskLevel: result.riskLevel,
-      evPct: safeNumber(result.ev)
-    }
+      evPct: safeNumber(result.ev),
+    },
   };
 }
 
@@ -331,7 +331,7 @@ function buildPrompt(data: MatchData): string {
     '## Dados Fornecidos (JSON)',
     'Analise APENAS estes dados. Não invente, não assuma, não cite fontes externas:',
     '',
-    JSON.stringify(ctx, null, 2)
+    JSON.stringify(ctx, null, 2),
   ].join('\n');
 }
 
@@ -352,13 +352,19 @@ function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice'])
   // Construir sinais a favor baseados nos dados
   const positiveSignals: string[] = [];
   if ((home.homeOver15Pct ?? 0) > 70) {
-    positiveSignals.push(`Time da casa com ${home.homeOver15Pct?.toFixed(0)}% de Over 1.5 indica consistência ofensiva`);
+    positiveSignals.push(
+      `Time da casa com ${home.homeOver15Pct?.toFixed(0)}% de Over 1.5 indica consistência ofensiva`
+    );
   }
   if ((home.awayOver15Pct ?? 0) > 70) {
-    positiveSignals.push(`Time visitante com ${home.awayOver15Pct?.toFixed(0)}% de Over 1.5 sugere ritmo ofensivo`);
+    positiveSignals.push(
+      `Time visitante com ${home.awayOver15Pct?.toFixed(0)}% de Over 1.5 sugere ritmo ofensivo`
+    );
   }
   if (avgTotal > 2.5) {
-    positiveSignals.push(`Média total de gols de ${avgTotal.toFixed(2)} indica jogos com muitos gols`);
+    positiveSignals.push(
+      `Média total de gols de ${avgTotal.toFixed(2)} indica jogos com muitos gols`
+    );
   }
   if ((home.homeOver25Pct ?? 0) > 60 || (home.awayOver25Pct ?? 0) > 60) {
     positiveSignals.push(`Over 2.5% alto confirma tendência ofensiva`);
@@ -380,13 +386,7 @@ function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice'])
   }
 
   const md = [
-    ...(notice
-      ? [
-          `> **${notice.title}**`,
-          `> ${notice.message}`,
-          '>'
-        ]
-      : []),
+    ...(notice ? [`> **${notice.title}**`, `> ${notice.message}`, '>'] : []),
     '## Painel de Resultados e EV',
     `- **Probabilidade (IA)**: ${p.toFixed(1)}%`,
     `- **Confiança (IA)**: ${c.toFixed(1)}% (baseada na completude dos dados fornecidos)`,
@@ -397,7 +397,7 @@ function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice'])
     '---',
     '',
     '## Análise Quantitativa',
-    hasGoodData 
+    hasGoodData
       ? `Análise baseada em dados de Over 1.5% dos times (casa: ${home.homeOver15Pct?.toFixed(0)}%, visitante: ${home.awayOver15Pct?.toFixed(0)}%) e média da competição (${ctx.market.competitionAvgOver15Pct?.toFixed(0)}%).`
       : 'Análise baseada principalmente na média da competição devido à limitação de dados dos times.',
     avgTotal > 0 && `Média total de gols combinada: ${avgTotal.toFixed(2)} gols por jogo.`,
@@ -405,34 +405,36 @@ function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice'])
     '---',
     '',
     '## Sinais a Favor',
-    positiveSignals.length > 0 
-      ? positiveSignals.map(s => `- ${s}`).join('\n')
+    positiveSignals.length > 0
+      ? positiveSignals.map((s) => `- ${s}`).join('\n')
       : '- Dados limitados impedem identificação clara de sinais favoráveis',
     '',
     '---',
     '',
     '## Red Flags (Contra)',
     redFlags.length > 0
-      ? redFlags.map(s => `- ${s}`).join('\n')
+      ? redFlags.map((s) => `- ${s}`).join('\n')
       : '- Nenhum red flag significativo identificado com os dados disponíveis',
     '',
     '---',
     '',
     '## Plano de Entrada',
-    `- **Pré-live**: ${p > 75 && (typeof ev === 'number' && ev > 0) ? 'Entrada recomendada se probabilidade alta e EV positivo' : 'Aguardar análise mais detalhada ou monitorar no live'}`,
+    `- **Pré-live**: ${p > 75 && typeof ev === 'number' && ev > 0 ? 'Entrada recomendada se probabilidade alta e EV positivo' : 'Aguardar análise mais detalhada ou monitorar no live'}`,
     '- **Live (gatilhos)**: Monitorar intensidade ofensiva nos primeiros 10-15 minutos (finalizações perigosas, pressão contínua)',
     '- **Evitar**: Jogos com médias muito baixas, times com alta taxa de clean sheet ou baixa criação de chances',
     '',
     '---',
     '',
     '## Observações e Limitações',
-    hasGoodData 
+    hasGoodData
       ? '- Base de dados razoável para análise estatística'
       : '- Dados limitados: análise baseada principalmente em baseline da competição',
     typeof ev !== 'number' && '- Odd não informada: cálculo de EV indisponível',
     '- Esta é uma análise local (fallback). Para análise mais detalhada com IA, configure `VITE_GEMINI_API_KEY` no ambiente.',
-    `- **Risco**: ${risk}`
-  ].filter(Boolean).join('\n');
+    `- **Risco**: ${risk}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return { reportMarkdown: md, provider: 'local', notice };
 }
@@ -443,7 +445,8 @@ export async function generateAiOver15Report(data: MatchData): Promise<AiOver15R
     return localFallbackReport(data, {
       kind: 'info',
       title: 'IA online desativada',
-      message: 'Nenhuma chave do Gemini foi encontrada no ambiente. Usando análise local (modelo atual).'
+      message:
+        'Nenhuma chave do Gemini foi encontrada no ambiente. Usando análise local (modelo atual).',
     });
   }
 
@@ -453,26 +456,32 @@ export async function generateAiOver15Report(data: MatchData): Promise<AiOver15R
     return { reportMarkdown, provider: 'gemini' };
   } catch (e) {
     const friendly = toGeminiFriendlyError(e);
-    
+
     // Se o erro não for um GeminiCallError, mas contém mensagem sobre modelos não disponíveis
     if (!friendly && e instanceof Error && e.message.includes('Nenhum modelo Gemini disponível')) {
       return localFallbackReport(data, {
         kind: 'warning',
         title: 'Modelos Gemini não disponíveis (404)',
-        message: e.message + '\n\nO sistema usará análise local (fallback) até que a API key seja configurada corretamente.'
+        message:
+          e.message +
+          '\n\nO sistema usará análise local (fallback) até que a API key seja configurada corretamente.',
       });
     }
-    
+
     const retryHint =
       friendly?.retryAfterSeconds != null && friendly.retryAfterSeconds > 0
         ? ` (tente novamente em ~${friendly.retryAfterSeconds}s)`
         : '';
 
     return localFallbackReport(data, {
-      kind: friendly?.kind === 'quota_exceeded' ? 'warning' : friendly?.kind === 'invalid_key' || friendly?.kind === 'forbidden' ? 'error' : 'warning',
+      kind:
+        friendly?.kind === 'quota_exceeded'
+          ? 'warning'
+          : friendly?.kind === 'invalid_key' || friendly?.kind === 'forbidden'
+            ? 'error'
+            : 'warning',
       title: friendly?.title ?? 'Falha ao chamar IA online',
-      message: `${friendly?.message ?? (e instanceof Error ? e.message : 'Não foi possível usar o Gemini agora.')}${retryHint} Usando fallback local.`
+      message: `${friendly?.message ?? (e instanceof Error ? e.message : 'Não foi possível usar o Gemini agora.')}${retryHint} Usando fallback local.`,
     });
   }
 }
-

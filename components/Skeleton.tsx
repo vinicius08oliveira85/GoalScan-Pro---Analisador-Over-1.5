@@ -13,14 +13,14 @@ const Skeleton: React.FC<SkeletonProps> = ({
   variant = 'rectangular',
   width,
   height,
-  lines
+  lines,
 }) => {
   const baseClasses = 'animate-pulse bg-base-300 rounded-lg relative overflow-hidden';
-  
+
   const variantClasses = {
     text: 'rounded',
     circular: 'rounded-full',
-    rectangular: 'rounded-lg'
+    rectangular: 'rounded-lg',
   };
 
   const style: React.CSSProperties = {};
@@ -41,7 +41,7 @@ const Skeleton: React.FC<SkeletonProps> = ({
             className={`${baseClasses} ${variantClasses.text}`}
             style={{
               width: index === lines - 1 ? '60%' : '100%',
-              height: height || '1rem'
+              height: height || '1rem',
             }}
           >
             {shimmer}
@@ -52,10 +52,7 @@ const Skeleton: React.FC<SkeletonProps> = ({
   }
 
   return (
-    <div
-      className={`${baseClasses} ${variantClasses[variant]} ${className}`}
-      style={style}
-    >
+    <div className={`${baseClasses} ${variantClasses[variant]} ${className}`} style={style}>
       {shimmer}
     </div>
   );
@@ -75,7 +72,9 @@ export const SkeletonCard: React.FC<{ className?: string }> = ({ className = '' 
 );
 
 export const SkeletonMetricCard: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-base-200 to-base-300/50 backdrop-blur-xl border border-base-300/50 ${className}`}>
+  <div
+    className={`group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-base-200 to-base-300/50 backdrop-blur-xl border border-base-300/50 ${className}`}
+  >
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Skeleton variant="text" height={12} width="40%" />
@@ -106,4 +105,3 @@ export const SkeletonMatchCard: React.FC<{ className?: string }> = ({ className 
 );
 
 export default Skeleton;
-

@@ -21,24 +21,20 @@ if (!fs.existsSync(outputDir)) {
 
 async function generateIcons() {
   console.log('Gerando ícones PWA...');
-  
+
   for (const size of sizes) {
     const outputPath = path.join(outputDir, `icon-${size}x${size}.png`);
-    
+
     try {
-      await sharp(inputSvg)
-        .resize(size, size)
-        .png()
-        .toFile(outputPath);
-      
+      await sharp(inputSvg).resize(size, size).png().toFile(outputPath);
+
       console.log(`✓ Gerado: icon-${size}x${size}.png`);
     } catch (error) {
       console.error(`✗ Erro ao gerar icon-${size}x${size}.png:`, error.message);
     }
   }
-  
+
   console.log('\nÍcones gerados com sucesso!');
 }
 
 generateIcons().catch(console.error);
-

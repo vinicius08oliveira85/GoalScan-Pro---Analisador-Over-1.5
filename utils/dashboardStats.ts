@@ -32,7 +32,7 @@ export function calculateDashboardStats(
   bankSettings?: BankSettings
 ): DashboardStats {
   const totalMatches = savedMatches.length;
-  
+
   if (totalMatches === 0) {
     return {
       totalMatches: 0,
@@ -54,12 +54,9 @@ export function calculateDashboardStats(
   const matchesWithBets = savedMatches.filter(
     (match) => match.betInfo && match.betInfo.betAmount > 0
   );
-  const wonMatches = matchesWithBets.filter(
-    (match) => match.betInfo?.status === 'won'
-  );
-  const winRate = matchesWithBets.length > 0 
-    ? (wonMatches.length / matchesWithBets.length) * 100 
-    : 0;
+  const wonMatches = matchesWithBets.filter((match) => match.betInfo?.status === 'won');
+  const winRate =
+    matchesWithBets.length > 0 ? (wonMatches.length / matchesWithBets.length) * 100 : 0;
 
   // Calcular lucro total
   const totalProfit = savedMatches.reduce((sum, match) => {
@@ -118,15 +115,9 @@ export function calculateBankStats(
     (match) => match.betInfo && match.betInfo.betAmount > 0
   );
 
-  const wonBets = matchesWithBets.filter(
-    (match) => match.betInfo?.status === 'won'
-  );
-  const lostBets = matchesWithBets.filter(
-    (match) => match.betInfo?.status === 'lost'
-  );
-  const pendingBets = matchesWithBets.filter(
-    (match) => match.betInfo?.status === 'pending'
-  );
+  const wonBets = matchesWithBets.filter((match) => match.betInfo?.status === 'won');
+  const lostBets = matchesWithBets.filter((match) => match.betInfo?.status === 'lost');
+  const pendingBets = matchesWithBets.filter((match) => match.betInfo?.status === 'pending');
 
   // Calcular lucro total
   const totalProfit = matchesWithBets.reduce((sum, match) => {
@@ -206,7 +197,13 @@ export function prepareBankEvolutionData(
   // Simular evolução da banca ao longo do tempo
   let currentBank = initialBank;
   const data: Array<{ date: string; value: number }> = [
-    { date: new Date(sortedMatches[0]?.timestamp || Date.now()).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }), value: initialBank }
+    {
+      date: new Date(sortedMatches[0]?.timestamp || Date.now()).toLocaleDateString('pt-BR', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      value: initialBank,
+    },
   ];
 
   sortedMatches.forEach((match) => {
@@ -218,9 +215,12 @@ export function prepareBankEvolutionData(
       } else if (match.betInfo.status === 'lost') {
         // Já foi descontado quando pending
       }
-      
+
       data.push({
-        date: new Date(match.timestamp).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
+        date: new Date(match.timestamp).toLocaleDateString('pt-BR', {
+          month: 'short',
+          day: 'numeric',
+        }),
         value: Math.max(0, currentBank),
       });
     }
@@ -257,4 +257,3 @@ export function prepareResultDistributionData(
     { name: 'Pendentes', value: pending, color: 'hsl(var(--wa))' },
   ];
 }
-

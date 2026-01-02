@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AnalysisResult, MatchData, BetInfo, BankSettings } from '../types';
-import { TrendingUp, TrendingDown, AlertCircle, Calculator, CheckCircle, XCircle, Clock, Ban, Zap, Shield, Target, Sparkles } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  Calculator,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Ban,
+  Zap,
+  Shield,
+  Target,
+  Sparkles,
+} from 'lucide-react';
 import BetManager from './BetManager';
 import ProbabilityGauge from './ProbabilityGauge';
 import MetricCard from './MetricCard';
@@ -21,22 +34,22 @@ interface AnalysisDashboardProps {
   isUpdatingBetStatus?: boolean;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ 
-  result, 
-  data, 
-  onSave, 
-  betInfo, 
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
+  result,
+  data,
+  onSave,
+  betInfo,
   bankSettings,
   onBetSave,
   onError,
-  isUpdatingBetStatus = false
+  isUpdatingBetStatus = false,
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
   const primaryProb = getPrimaryProbability(result);
   const edgePp = data.oddOver15 ? getEdgePp(primaryProb, data.oddOver15) : null;
 
   return (
-    <motion.div 
+    <motion.div
       className="flex flex-col gap-6 md:gap-8"
       variants={animations.fadeInUp}
       initial="initial"
@@ -44,23 +57,18 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     >
       {/* Layout Principal: Gauge (1/3) + Info (2/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-        
         {/* Card Principal de Probabilidade */}
-        <motion.div 
+        <motion.div
           className="lg:col-span-1"
           variants={animations.scaleIn}
           initial="initial"
           animate="animate"
         >
-            <ProbabilityGauge 
-              probability={primaryProb}
-            odd={data.oddOver15}
-            ev={result.ev}
-          />
+          <ProbabilityGauge probability={primaryProb} odd={data.oddOver15} ev={result.ev} />
         </motion.div>
 
         {/* Card de Informações da Partida */}
-        <motion.div 
+        <motion.div
           className="lg:col-span-2 surface surface-hover p-4 md:p-6"
           variants={animations.slideInRight}
           initial="initial"
@@ -72,27 +80,34 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
                   <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight break-words">
-                    <span className="break-words">{data.homeTeam}</span> <span className="text-primary opacity-70 mx-1">vs</span> <span className="break-words">{data.awayTeam}</span>
+                    <span className="break-words">{data.homeTeam}</span>{' '}
+                    <span className="text-primary opacity-70 mx-1">vs</span>{' '}
+                    <span className="break-words">{data.awayTeam}</span>
                   </h3>
                 </div>
-                <p className="text-xs sm:text-sm font-semibold opacity-60 uppercase tracking-wide">Análise de Probabilidade Over 1.5</p>
+                <p className="text-xs sm:text-sm font-semibold opacity-60 uppercase tracking-wide">
+                  Análise de Probabilidade Over 1.5
+                </p>
               </div>
               <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
-                <div className={`badge badge-lg p-3 sm:p-4 font-black border-2 shadow-lg flex items-center gap-2 text-sm sm:text-base ${
-                  result.riskLevel === 'Baixo' 
-                    ? 'bg-success/20 text-success border-success/40' 
-                    : result.riskLevel === 'Moderado' 
-                    ? 'bg-warning/20 text-warning border-warning/40' 
-                    : result.riskLevel === 'Alto' 
-                    ? 'bg-error/20 text-error border-error/40' 
-                    : 'bg-error/30 text-error border-error/50'
-                }`}>
+                <div
+                  className={`badge badge-lg p-3 sm:p-4 font-black border-2 shadow-lg flex items-center gap-2 text-sm sm:text-base ${
+                    result.riskLevel === 'Baixo'
+                      ? 'bg-success/20 text-success border-success/40'
+                      : result.riskLevel === 'Moderado'
+                        ? 'bg-warning/20 text-warning border-warning/40'
+                        : result.riskLevel === 'Alto'
+                          ? 'bg-error/20 text-error border-error/40'
+                          : 'bg-error/30 text-error border-error/50'
+                  }`}
+                >
                   <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">RISCO: </span><span className="uppercase">{result.riskLevel}</span>
+                  <span className="hidden sm:inline">RISCO: </span>
+                  <span className="uppercase">{result.riskLevel}</span>
                 </div>
                 {onSave && (
-                  <button 
-                    onClick={onSave} 
+                  <button
+                    onClick={onSave}
                     className="btn btn-primary btn-md sm:btn-lg uppercase font-bold tracking-tight hover:scale-105 transition-transform min-h-[44px] flex-1 sm:flex-none shadow-lg"
                   >
                     Salvar Partida
@@ -105,7 +120,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Calculator className="w-4 h-4 text-primary opacity-60" />
-                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">Probabilidades</h4>
+                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
+                  Probabilidades
+                </h4>
               </div>
               <motion.div
                 className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4"
@@ -125,7 +142,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
                     title="Prob. IA"
-                    value={result.aiProbability != null ? `${Number(result.aiProbability).toFixed(1)}%` : '—'}
+                    value={
+                      result.aiProbability != null
+                        ? `${Number(result.aiProbability).toFixed(1)}%`
+                        : '—'
+                    }
                     icon={Sparkles}
                     color="accent"
                     tooltip="Probabilidade estimada pela IA após análise cruzada das estatísticas. Aparece apenas quando a análise da IA foi gerada."
@@ -143,11 +164,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
                     title="Edge (pp)"
-                    value={
-                      edgePp == null
-                        ? '—'
-                        : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`
-                    }
+                    value={edgePp == null ? '—' : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`}
                     icon={TrendingUp}
                     color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
                     tooltip="Edge = Prob. Final - Prob. Implícita da Odd. Valores positivos indicam aposta com valor (sua análise vê mais chance que a casa). Valores negativos indicam odd desfavorável."
@@ -160,9 +177,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Target className="w-4 h-4 text-primary opacity-60" />
-                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">Métricas de Performance</h4>
+                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
+                  Métricas de Performance
+                </h4>
               </div>
-              <motion.div 
+              <motion.div
                 className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
                 variants={animations.staggerChildren}
                 initial="initial"
@@ -216,7 +235,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             <div className="mt-4 surface surface-hover p-4 md:p-6 border-l-4 border-l-primary/60">
               <div className="flex items-center gap-2 mb-3">
                 <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-                <span className="text-xs md:text-sm font-black uppercase text-primary tracking-wide">Recomendação</span>
+                <span className="text-xs md:text-sm font-black uppercase text-primary tracking-wide">
+                  Recomendação
+                </span>
               </div>
               <p className="text-sm md:text-base font-semibold leading-relaxed text-base-content/95 italic">
                 "{result.recommendation}"
@@ -231,151 +252,183 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
         <div>
           {!showBetManager ? (
             <div className="surface surface-hover p-4 md:p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-                      <Calculator className="w-6 h-6 text-primary" />
-                    </div>
-                    <h3 className="text-xl font-black uppercase tracking-tight">Gerenciar Aposta</h3>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                    <Calculator className="w-6 h-6 text-primary" />
                   </div>
-                  <button
-                    onClick={() => setShowBetManager(true)}
-                    className="btn btn-primary btn-md gap-2 hover:scale-105 transition-transform shadow-lg"
-                  >
-                    {betInfo && betInfo.betAmount > 0 ? 'Editar Aposta' : 'Registrar Aposta'}
-                  </button>
+                  <h3 className="text-xl font-black uppercase tracking-tight">Gerenciar Aposta</h3>
                 </div>
-                
-                {betInfo && betInfo.betAmount > 0 ? (
-                  <div className="surface-muted p-5">
-                    {/* Status Badge Destacado */}
-                    <div className="mb-6 flex items-center justify-between p-4 rounded-xl border border-base-300/60 bg-base-300/20">
-                      <span className="text-sm font-bold opacity-70 uppercase tracking-wide">Status da Aposta</span>
-                      <div className={`badge gap-2 px-5 py-3 font-black text-sm uppercase tracking-wider border-2 shadow-lg ${
-                        betInfo.status === 'won' 
-                          ? 'bg-success/20 text-success border-success/40' 
+                <button
+                  onClick={() => setShowBetManager(true)}
+                  className="btn btn-primary btn-md gap-2 hover:scale-105 transition-transform shadow-lg"
+                >
+                  {betInfo && betInfo.betAmount > 0 ? 'Editar Aposta' : 'Registrar Aposta'}
+                </button>
+              </div>
+
+              {betInfo && betInfo.betAmount > 0 ? (
+                <div className="surface-muted p-5">
+                  {/* Status Badge Destacado */}
+                  <div className="mb-6 flex items-center justify-between p-4 rounded-xl border border-base-300/60 bg-base-300/20">
+                    <span className="text-sm font-bold opacity-70 uppercase tracking-wide">
+                      Status da Aposta
+                    </span>
+                    <div
+                      className={`badge gap-2 px-5 py-3 font-black text-sm uppercase tracking-wider border-2 shadow-lg ${
+                        betInfo.status === 'won'
+                          ? 'bg-success/20 text-success border-success/40'
                           : betInfo.status === 'lost'
-                          ? 'bg-error/20 text-error border-error/40'
-                          : betInfo.status === 'pending'
-                          ? 'bg-warning/20 text-warning border-warning/40'
-                          : 'bg-base-300/20 text-base-content/60 border-base-300/40'
-                      }`}>
-                        {betInfo.status === 'won' && <CheckCircle className="w-5 h-5" />}
-                        {betInfo.status === 'lost' && <XCircle className="w-5 h-5" />}
-                        {betInfo.status === 'pending' && <Clock className="w-5 h-5" />}
-                        {betInfo.status === 'cancelled' && <Ban className="w-5 h-5" />}
-                        <span>
-                          {betInfo.status === 'won' ? 'Ganhou' :
-                           betInfo.status === 'lost' ? 'Perdeu' :
-                           betInfo.status === 'pending' ? 'Pendente' :
-                           'Cancelada'}
+                            ? 'bg-error/20 text-error border-error/40'
+                            : betInfo.status === 'pending'
+                              ? 'bg-warning/20 text-warning border-warning/40'
+                              : 'bg-base-300/20 text-base-content/60 border-base-300/40'
+                      }`}
+                    >
+                      {betInfo.status === 'won' && <CheckCircle className="w-5 h-5" />}
+                      {betInfo.status === 'lost' && <XCircle className="w-5 h-5" />}
+                      {betInfo.status === 'pending' && <Clock className="w-5 h-5" />}
+                      {betInfo.status === 'cancelled' && <Ban className="w-5 h-5" />}
+                      <span>
+                        {betInfo.status === 'won'
+                          ? 'Ganhou'
+                          : betInfo.status === 'lost'
+                            ? 'Perdeu'
+                            : betInfo.status === 'pending'
+                              ? 'Pendente'
+                              : 'Cancelada'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Botões Rápidos para Marcar Resultado (apenas se pendente) */}
+                  {betInfo.status === 'pending' && onBetSave && (
+                    <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-xl">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <span className="text-sm font-bold opacity-80 uppercase tracking-wide">
+                          Marcar Resultado
                         </span>
+                        <div className="flex gap-3 w-full sm:w-auto">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Verificar se o status já é o mesmo - evitar processamento desnecessário
+                              if (betInfo.status === 'won') {
+                                return; // Status já é won, não precisa processar
+                              }
+                              const updatedBetInfo: BetInfo = {
+                                ...betInfo,
+                                status: 'won',
+                                resultAt: Date.now(),
+                              };
+                              onBetSave(updatedBetInfo);
+                            }}
+                            disabled={isUpdatingBetStatus || betInfo.status === 'won'}
+                            className="btn btn-success btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <CheckCircle className="w-5 h-5" />
+                            {isUpdatingBetStatus ? 'Processando...' : 'Ganhou'}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Verificar se o status já é o mesmo - evitar processamento desnecessário
+                              if (betInfo.status === 'lost') {
+                                return; // Status já é lost, não precisa processar
+                              }
+                              const updatedBetInfo: BetInfo = {
+                                ...betInfo,
+                                status: 'lost',
+                                resultAt: Date.now(),
+                              };
+                              onBetSave(updatedBetInfo);
+                            }}
+                            disabled={isUpdatingBetStatus || betInfo.status === 'lost'}
+                            className="btn btn-error btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <XCircle className="w-5 h-5" />
+                            {isUpdatingBetStatus ? 'Processando...' : 'Perdeu'}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    
-                    {/* Botões Rápidos para Marcar Resultado (apenas se pendente) */}
-                    {betInfo.status === 'pending' && onBetSave && (
-                      <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-xl">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                          <span className="text-sm font-bold opacity-80 uppercase tracking-wide">Marcar Resultado</span>
-                          <div className="flex gap-3 w-full sm:w-auto">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Verificar se o status já é o mesmo - evitar processamento desnecessário
-                                if (betInfo.status === 'won') {
-                                  return; // Status já é won, não precisa processar
-                                }
-                                const updatedBetInfo: BetInfo = {
-                                  ...betInfo,
-                                  status: 'won',
-                                  resultAt: Date.now()
-                                };
-                                onBetSave(updatedBetInfo);
-                              }}
-                              disabled={isUpdatingBetStatus || betInfo.status === 'won'}
-                              className="btn btn-success btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <CheckCircle className="w-5 h-5" />
-                              {isUpdatingBetStatus ? 'Processando...' : 'Ganhou'}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Verificar se o status já é o mesmo - evitar processamento desnecessário
-                                if (betInfo.status === 'lost') {
-                                  return; // Status já é lost, não precisa processar
-                                }
-                                const updatedBetInfo: BetInfo = {
-                                  ...betInfo,
-                                  status: 'lost',
-                                  resultAt: Date.now()
-                                };
-                                onBetSave(updatedBetInfo);
-                              }}
-                              disabled={isUpdatingBetStatus || betInfo.status === 'lost'}
-                              className="btn btn-error btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <XCircle className="w-5 h-5" />
-                              {isUpdatingBetStatus ? 'Processando...' : 'Perdeu'}
-                            </button>
-                          </div>
-                        </div>
+                  )}
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <div className="surface-muted p-4 rounded-xl">
+                      <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
+                        Valor Apostado
+                      </span>
+                      <p className="font-black text-xl font-mono">
+                        {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                        {betInfo.betAmount.toFixed(2)}
+                      </p>
+                    </div>
+                    {betInfo.status === 'pending' ? (
+                      <div className="surface-muted p-4 rounded-xl border border-primary/30">
+                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
+                          Retorno Potencial
+                        </span>
+                        <p className="font-black text-xl text-primary font-mono">
+                          {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                          {betInfo.potentialReturn.toFixed(2)}
+                        </p>
+                      </div>
+                    ) : betInfo.status === 'won' ? (
+                      <div className="bg-success/10 p-4 rounded-xl border-2 border-success/30">
+                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
+                          Ganho Realizado
+                        </span>
+                        <p className="font-black text-xl text-success font-mono">
+                          +{getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                          {betInfo.potentialProfit.toFixed(2)}
+                        </p>
+                      </div>
+                    ) : betInfo.status === 'lost' ? (
+                      <div className="bg-error/10 p-4 rounded-xl border-2 border-error/30">
+                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
+                          Perda
+                        </span>
+                        <p className="font-black text-xl text-error font-mono">
+                          -{getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                          {betInfo.betAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    ) : null}
+                    {betInfo.status === 'pending' && (
+                      <div
+                        className={`p-4 rounded-xl border-2 ${betInfo.potentialProfit >= 0 ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30'}`}
+                      >
+                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
+                          Lucro Potencial
+                        </span>
+                        <p
+                          className={`font-black text-xl font-mono ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}
+                        >
+                          {betInfo.potentialProfit >= 0 ? '+' : ''}
+                          {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                          {betInfo.potentialProfit.toFixed(2)}
+                        </p>
                       </div>
                     )}
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                      <div className="surface-muted p-4 rounded-xl">
-                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Valor Apostado</span>
-                        <p className="font-black text-xl font-mono">
-                          {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.betAmount.toFixed(2)}
-                        </p>
-                      </div>
-                      {betInfo.status === 'pending' ? (
-                        <div className="surface-muted p-4 rounded-xl border border-primary/30">
-                          <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Retorno Potencial</span>
-                          <p className="font-black text-xl text-primary font-mono">
-                            {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialReturn.toFixed(2)}
-                          </p>
-                        </div>
-                      ) : betInfo.status === 'won' ? (
-                        <div className="bg-success/10 p-4 rounded-xl border-2 border-success/30">
-                          <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Ganho Realizado</span>
-                          <p className="font-black text-xl text-success font-mono">
-                            +{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialProfit.toFixed(2)}
-                          </p>
-                        </div>
-                      ) : betInfo.status === 'lost' ? (
-                        <div className="bg-error/10 p-4 rounded-xl border-2 border-error/30">
-                          <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Perda</span>
-                          <p className="font-black text-xl text-error font-mono">
-                            -{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.betAmount.toFixed(2)}
-                          </p>
-                        </div>
-                      ) : null}
-                      {betInfo.status === 'pending' && (
-                        <div className={`p-4 rounded-xl border-2 ${betInfo.potentialProfit >= 0 ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30'}`}>
-                          <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">Lucro Potencial</span>
-                          <p className={`font-black text-xl font-mono ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                            {betInfo.potentialProfit >= 0 ? '+' : ''}{getCurrencySymbol(bankSettings?.currency || 'BRL')} {betInfo.potentialProfit.toFixed(2)}
-                          </p>
-                        </div>
-                      )}
-                      <div className="surface-muted p-4 rounded-xl">
-                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">% da Banca</span>
-                        <p className="font-black text-xl font-mono">
-                          {betInfo.bankPercentage.toFixed(1)}%
-                        </p>
-                      </div>
+                    <div className="surface-muted p-4 rounded-xl">
+                      <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
+                        % da Banca
+                      </span>
+                      <p className="font-black text-xl font-mono">
+                        {betInfo.bankPercentage.toFixed(1)}%
+                      </p>
                     </div>
                   </div>
-                ) : (
-                  <div className="surface-muted p-5 text-center">
-                    <p className="text-sm opacity-60">
-                      Clique em "Registrar Aposta" para adicionar informações sobre sua aposta nesta partida.
-                    </p>
-                  </div>
-                )}
+                </div>
+              ) : (
+                <div className="surface-muted p-5 text-center">
+                  <p className="text-sm opacity-60">
+                    Clique em "Registrar Aposta" para adicionar informações sobre sua aposta nesta
+                    partida.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <BetManager

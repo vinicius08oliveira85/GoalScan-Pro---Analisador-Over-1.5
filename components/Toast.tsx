@@ -37,7 +37,7 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
     success: CheckCircle,
     error: AlertCircle,
     warning: AlertTriangle,
-    info: Info
+    info: Info,
   };
 
   const colors = {
@@ -45,26 +45,26 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
       bg: 'bg-success/10',
       text: 'text-success',
       border: 'border-success/30',
-      iconBg: 'bg-success/20'
+      iconBg: 'bg-success/20',
     },
     error: {
       bg: 'bg-error/10',
       text: 'text-error',
       border: 'border-error/30',
-      iconBg: 'bg-error/20'
+      iconBg: 'bg-error/20',
     },
     warning: {
       bg: 'bg-warning/10',
       text: 'text-warning',
       border: 'border-warning/30',
-      iconBg: 'bg-warning/20'
+      iconBg: 'bg-warning/20',
     },
     info: {
       bg: 'bg-info/10',
       text: 'text-info',
       border: 'border-info/30',
-      iconBg: 'bg-info/20'
-    }
+      iconBg: 'bg-info/20',
+    },
   };
 
   const Icon = icons[toast.type];
@@ -84,20 +84,24 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
     >
       {/* Glassmorphism overlay */}
       <div className="absolute inset-0 bg-base-200/20 backdrop-blur-md" />
-      
+
       {/* Animated gradient orb */}
-      <div className={`absolute -top-8 -right-8 w-24 h-24 rounded-full ${colorScheme.iconBg} opacity-30 blur-2xl`} />
-      
+      <div
+        className={`absolute -top-8 -right-8 w-24 h-24 rounded-full ${colorScheme.iconBg} opacity-30 blur-2xl`}
+      />
+
       {/* Content */}
       <div className="relative z-10 flex items-start gap-3 w-full">
-        <div className={`p-2 rounded-lg ${colorScheme.iconBg} border ${colorScheme.border} flex-shrink-0`}>
+        <div
+          className={`p-2 rounded-lg ${colorScheme.iconBg} border ${colorScheme.border} flex-shrink-0`}
+        >
           <Icon className={`w-5 h-5 ${colorScheme.text}`} />
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <p className={`text-sm font-bold ${colorScheme.text} break-words`}>{toast.message}</p>
         </div>
-        
+
         <div className="flex items-center gap-2 flex-shrink-0">
           {toast.action && (
             <motion.button
@@ -120,7 +124,7 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
           </motion.button>
         </div>
       </div>
-      
+
       {/* Shine effect */}
       <div className="absolute inset-0 opacity-0 hover:opacity-100 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full hover:translate-x-full transition-all duration-700 pointer-events-none" />
     </motion.div>

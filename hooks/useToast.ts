@@ -12,7 +12,7 @@ export const useToast = () => {
       id,
       message,
       type,
-      duration
+      duration,
     };
 
     setToasts((prev) => [...prev, newToast]);
@@ -22,21 +22,33 @@ export const useToast = () => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const success = useCallback((message: string, duration?: number) => {
-    showToast(message, 'success', duration);
-  }, [showToast]);
+  const success = useCallback(
+    (message: string, duration?: number) => {
+      showToast(message, 'success', duration);
+    },
+    [showToast]
+  );
 
-  const error = useCallback((message: string, duration?: number) => {
-    showToast(message, 'error', duration);
-  }, [showToast]);
+  const error = useCallback(
+    (message: string, duration?: number) => {
+      showToast(message, 'error', duration);
+    },
+    [showToast]
+  );
 
-  const warning = useCallback((message: string, duration?: number) => {
-    showToast(message, 'warning', duration);
-  }, [showToast]);
+  const warning = useCallback(
+    (message: string, duration?: number) => {
+      showToast(message, 'warning', duration);
+    },
+    [showToast]
+  );
 
-  const info = useCallback((message: string, duration?: number) => {
-    showToast(message, 'info', duration);
-  }, [showToast]);
+  const info = useCallback(
+    (message: string, duration?: number) => {
+      showToast(message, 'info', duration);
+    },
+    [showToast]
+  );
 
   return {
     toasts,
@@ -45,7 +57,6 @@ export const useToast = () => {
     success,
     error,
     warning,
-    info
+    info,
   };
 };
-

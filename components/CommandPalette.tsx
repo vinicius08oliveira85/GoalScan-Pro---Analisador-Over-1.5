@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Settings, Home, Wallet, X, ArrowRight } from 'lucide-react';
+import { Search, X, ArrowRight } from 'lucide-react';
 import { modalVariants, overlayVariants } from '../utils/animations';
 
 interface CommandAction {
@@ -26,10 +26,11 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
   const listRef = useRef<HTMLDivElement>(null);
 
   // Filtrar ações baseado na busca
-  const filteredActions = actions.filter(action =>
-    action.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    action.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    action.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredActions = actions.filter(
+    (action) =>
+      action.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      action.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      action.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Resetar seleção quando a busca mudar
@@ -52,10 +53,10 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, filteredActions.length - 1));
+        setSelectedIndex((prev) => Math.min(prev + 1, filteredActions.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter' && filteredActions[selectedIndex]) {
         e.preventDefault();
         filteredActions[selectedIndex].action();
@@ -124,10 +125,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
           </div>
 
           {/* Actions List */}
-          <div
-            ref={listRef}
-            className="max-h-96 overflow-y-auto custom-scrollbar p-2"
-          >
+          <div ref={listRef} className="max-h-96 overflow-y-auto custom-scrollbar p-2">
             {filteredActions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Search className="w-12 h-12 text-base-content/20 mb-4" />
@@ -150,15 +148,21 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <div className={`p-2 rounded-lg ${
-                    index === selectedIndex ? 'bg-primary/20 text-primary' : 'bg-base-300/50 text-base-content/60'
-                  }`}>
+                  <div
+                    className={`p-2 rounded-lg ${
+                      index === selectedIndex
+                        ? 'bg-primary/20 text-primary'
+                        : 'bg-base-300/50 text-base-content/60'
+                    }`}
+                  >
                     {action.icon}
                   </div>
                   <div className="flex-1 text-left">
                     <div className="font-semibold text-sm">{action.label}</div>
                     {action.description && (
-                      <div className="text-xs text-base-content/60 mt-0.5">{action.description}</div>
+                      <div className="text-xs text-base-content/60 mt-0.5">
+                        {action.description}
+                      </div>
                     )}
                   </div>
                   {action.shortcut && (
@@ -168,9 +172,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
                       </kbd>
                     </div>
                   )}
-                  {index === selectedIndex && (
-                    <ArrowRight className="w-4 h-4 text-primary" />
-                  )}
+                  {index === selectedIndex && <ArrowRight className="w-4 h-4 text-primary" />}
                 </motion.button>
               ))
             )}
@@ -180,15 +182,21 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
           <div className="flex items-center justify-between p-3 border-t border-base-300/50 text-xs text-base-content/60">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">↑↓</kbd>
+                <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">
+                  ↑↓
+                </kbd>
                 <span>Navegar</span>
               </div>
               <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">↵</kbd>
+                <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">
+                  ↵
+                </kbd>
                 <span>Selecionar</span>
               </div>
               <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">Esc</kbd>
+                <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">
+                  Esc
+                </kbd>
                 <span>Fechar</span>
               </div>
             </div>
@@ -201,4 +209,3 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
 };
 
 export default CommandPalette;
-

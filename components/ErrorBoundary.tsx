@@ -19,7 +19,7 @@ class ErrorBoundary extends Component<Props, State> {
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
     };
   }
 
@@ -27,17 +27,17 @@ class ErrorBoundary extends Component<Props, State> {
     return {
       hasError: true,
       error,
-      errorInfo: null
+      errorInfo: null,
     };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log do erro para serviço de tracking (quando implementado)
     logger.error('ErrorBoundary capturou um erro:', error, errorInfo);
-    
+
     this.setState({
       error,
-      errorInfo
+      errorInfo,
     });
 
     // Aqui podemos enviar para serviço de error tracking
@@ -48,7 +48,7 @@ class ErrorBoundary extends Component<Props, State> {
     this.setState({
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
     });
   };
 
@@ -79,10 +79,7 @@ class ErrorBoundary extends Component<Props, State> {
                 </pre>
               </details>
             )}
-            <button
-              onClick={this.handleReset}
-              className="btn btn-primary gap-2"
-            >
+            <button onClick={this.handleReset} className="btn btn-primary gap-2">
               <RefreshCw className="w-4 h-4" />
               Tentar Novamente
             </button>
@@ -102,4 +99,3 @@ class ErrorBoundary extends Component<Props, State> {
 }
 
 export default ErrorBoundary;
-

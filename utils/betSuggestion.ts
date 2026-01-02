@@ -6,11 +6,11 @@
 export const MIN_BET_AMOUNT = 0.01;
 
 export interface BetSuggestion {
-  conservative: number;      // 1% da banca (conservador)
-  moderate: number;          // 2.5% da banca (moderado)
-  aggressive: number;         // 5% da banca (agressivo)
-  kelly: number;              // Kelly Criterion (otimizado)
-  recommended: number;        // Recomendação baseada em EV e probabilidade
+  conservative: number; // 1% da banca (conservador)
+  moderate: number; // 2.5% da banca (moderado)
+  aggressive: number; // 5% da banca (agressivo)
+  kelly: number; // Kelly Criterion (otimizado)
+  recommended: number; // Recomendação baseada em EV e probabilidade
   method: 'conservative' | 'moderate' | 'aggressive' | 'kelly' | 'ev-based';
   explanation: string;
 }
@@ -39,22 +39,27 @@ export function calculateEdge(probability: number, odd: number): number {
  * @param confidence Score de confiança (0-100, opcional) - ajusta limite do Kelly
  * @returns Valor sugerido (0 se EV negativo)
  */
-export function calculateKellyStake(probability: number, odd: number, bank: number, confidence?: number): number {
+export function calculateKellyStake(
+  probability: number,
+  odd: number,
+  bank: number,
+  confidence?: number
+): number {
   // Validação de inputs
   if (!Number.isFinite(probability) || !Number.isFinite(odd) || !Number.isFinite(bank)) {
     return 0;
   }
-  
+
   if (bank <= 0 || odd <= 1 || probability <= 0) {
     return 0;
   }
-  
+
   const probDecimal = probability / 100;
   const kellyPercent = (probDecimal * odd - 1) / (odd - 1);
-  
+
   // Kelly pode ser negativo se EV for negativo
   if (kellyPercent <= 0) return 0;
-  
+
   // Limite dinâmico do Kelly baseado em confiança
   // Alta confiança (>80): até 30% da banca
   // Média confiança (50-80): até 25% da banca
@@ -62,14 +67,14 @@ export function calculateKellyStake(probability: number, odd: number, bank: numb
   let maxKellyPercent = 0.25; // Padrão conservador
   if (confidence !== undefined && Number.isFinite(confidence)) {
     if (confidence > 80) {
-      maxKellyPercent = 0.30; // Mais agressivo com alta confiança
+      maxKellyPercent = 0.3; // Mais agressivo com alta confiança
     } else if (confidence < 50) {
       maxKellyPercent = 0.15; // Mais conservador com baixa confiança
     }
   }
-  
+
   const safeKellyPercent = Math.min(kellyPercent, maxKellyPercent);
-  
+
   return bank * safeKellyPercent;
 }
 
@@ -108,10 +113,10 @@ export function suggestBetAmount(
       kelly: 0,
       recommended: 0,
       method: 'conservative',
-      explanation: 'Banca, odd ou probabilidade inválidos'
+      explanation: 'Banca, odd ou probabilidade inválidos',
     };
   }
-  
+
   if (bank <= 0 || odd <= 1 || probability <= 0) {
     return {
       conservative: 0,
@@ -120,14 +125,14 @@ export function suggestBetAmount(
       kelly: 0,
       recommended: 0,
       method: 'conservative',
-      explanation: 'Banca, odd ou probabilidade inválidos'
+      explanation: 'Banca, odd ou probabilidade inválidos',
     };
   }
 
   // Calcular EV e Edge
   const ev = calculateEV(probability, odd);
   const edge = calculateEdge(probability, odd);
-  
+
   // Se EV for negativo, não recomendar aposta
   if (ev <= 0) {
     return {
@@ -137,18 +142,18 @@ export function suggestBetAmount(
       kelly: 0,
       recommended: 0,
       method: 'conservative',
-      explanation: 'EV negativo - aposta não recomendada'
+      explanation: 'EV negativo - aposta não recomendada',
     };
   }
 
   // Estratégias baseadas em porcentagem da banca
-  let conservative = bank * 0.01;      // 1% da banca
-  let moderate = bank * 0.025;        // 2.5% da banca
-  let aggressive = bank * 0.05;        // 5% da banca
-  
+  let conservative = bank * 0.01; // 1% da banca
+  let moderate = bank * 0.025; // 2.5% da banca
+  let aggressive = bank * 0.05; // 5% da banca
+
   // Kelly Criterion com ajuste por confiança
   let kelly = calculateKellyStake(probability, odd, bank, confidence);
-  
+
   // Ajustar estratégias baseadas em confiança (se disponível)
   if (confidence !== undefined && Number.isFinite(confidence)) {
     // Baixa confiança: reduzir todas as estratégias
@@ -164,22 +169,27 @@ export function suggestBetAmount(
       aggressive *= 1.1;
     }
   }
-  
+
   // Recomendação inteligente baseada em EV, Edge, probabilidade e confiança
   let recommended: number;
   let method: BetSuggestion['method'];
   let explanation: string;
-  
+
   // Estratégia baseada em Edge (vantagem percentual)
   const hasHighEdge = edge > 10; // Edge > 10pp indica grande vantagem
   const hasMediumEdge = edge > 5; // Edge > 5pp indica boa vantagem
-  
+
   if (ev > 15 && probability > 80 && hasHighEdge && (confidence === undefined || confidence > 70)) {
     // EV muito alto, probabilidade alta, Edge alto e boa confiança - pode ser mais agressivo
     recommended = Math.min(aggressive, kelly > 0 ? kelly * 0.85 : aggressive);
     method = 'aggressive';
     explanation = `EV muito alto (${ev.toFixed(1)}%), alta probabilidade (${probability.toFixed(1)}%), Edge alto (${edge.toFixed(1)}pp) e boa confiança - pode apostar mais`;
-  } else if (ev > 10 && probability > 75 && (hasHighEdge || hasMediumEdge) && (confidence === undefined || confidence > 60)) {
+  } else if (
+    ev > 10 &&
+    probability > 75 &&
+    (hasHighEdge || hasMediumEdge) &&
+    (confidence === undefined || confidence > 60)
+  ) {
     // EV alto, boa probabilidade, Edge bom - moderado
     recommended = Math.min(moderate, kelly > 0 ? kelly * 0.65 : moderate);
     method = 'moderate';
@@ -195,7 +205,7 @@ export function suggestBetAmount(
     method = 'conservative';
     explanation = `EV baixo (${ev.toFixed(1)}%) - aposta muito conservadora recomendada`;
   }
-  
+
   // Ajustar recomendação baseada em confiança
   if (confidence !== undefined && Number.isFinite(confidence)) {
     if (confidence < 50) {
@@ -207,10 +217,10 @@ export function suggestBetAmount(
       recommended = Math.min(recommended * 1.1, bank * 0.1); // Máximo 10% da banca
     }
   }
-  
+
   // Garantir que o valor recomendado não seja maior que a banca
   recommended = Math.min(recommended, bank);
-  
+
   // Arredondar valores para 2 casas decimais
   return {
     conservative: Math.round(conservative * 100) / 100,
@@ -219,7 +229,7 @@ export function suggestBetAmount(
     kelly: Math.round(kelly * 100) / 100,
     recommended: Math.round(recommended * 100) / 100,
     method,
-    explanation
+    explanation,
   };
 }
 
@@ -232,4 +242,3 @@ export function suggestBetAmount(
 export function formatBetAmount(amount: number, currency: string): string {
   return `${currency} ${amount.toFixed(2)}`;
 }
-

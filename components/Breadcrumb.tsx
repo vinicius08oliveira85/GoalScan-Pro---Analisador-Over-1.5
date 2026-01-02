@@ -33,7 +33,7 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, className = '' }) => {
       >
         <Home className="w-4 h-4" />
       </motion.button>
-      
+
       {items.map((item, index) => (
         <React.Fragment key={index}>
           <ChevronRight className="w-3 h-3 text-base-content/40" />
@@ -56,4 +56,3 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, className = '' }) => {
 };
 
 export default Breadcrumb;
-

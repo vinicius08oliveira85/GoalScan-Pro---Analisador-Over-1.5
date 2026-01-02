@@ -27,20 +27,20 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       id: 'pendentes',
       label: 'Pendentes',
       icon: <Clock className="w-4 h-4" />,
-      count: counts.pendentes
+      count: counts.pendentes,
     },
     {
       id: 'finalizadas',
       label: 'Finalizadas',
       icon: <CheckCircle className="w-4 h-4" />,
-      count: counts.finalizadas
+      count: counts.finalizadas,
     },
     {
       id: 'todas',
       label: 'Todas',
       icon: <List className="w-4 h-4" />,
-      count: counts.todas
-    }
+      count: counts.todas,
+    },
   ];
 
   return (
@@ -68,7 +68,7 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
               <motion.div
                 layoutId="activeTab"
                 className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl"
-                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
               />
             )}
             <span className="relative z-10 flex items-center gap-2">
@@ -84,10 +84,10 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                       activeTab === tab.id
                         ? 'bg-white/20 text-white'
                         : tab.id === 'pendentes' && tab.count > 0
-                        ? 'bg-warning/30 text-warning border border-warning/40 shadow-sm'
-                        : tab.id === 'finalizadas' && tab.count > 0
-                        ? 'bg-success/20 text-success border border-success/30 shadow-sm'
-                        : 'bg-base-300 text-base-content/70'
+                          ? 'bg-warning/30 text-warning border border-warning/40 shadow-sm'
+                          : tab.id === 'finalizadas' && tab.count > 0
+                            ? 'bg-success/20 text-success border border-success/30 shadow-sm'
+                            : 'bg-base-300 text-base-content/70'
                     }
                   `}
                 >
@@ -123,7 +123,7 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                 <motion.div
                   layoutId="activeTabMobile"
                   className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}
               <span className="relative z-10 flex items-center gap-2">
@@ -139,10 +139,10 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                         activeTab === tab.id
                           ? 'bg-white/20 text-white'
                           : tab.id === 'pendentes' && tab.count > 0
-                          ? 'bg-warning/30 text-warning border border-warning/40 shadow-sm'
-                          : tab.id === 'finalizadas' && tab.count > 0
-                          ? 'bg-success/20 text-success border border-success/30 shadow-sm'
-                          : 'bg-base-300 text-base-content/70'
+                            ? 'bg-warning/30 text-warning border border-warning/40 shadow-sm'
+                            : tab.id === 'finalizadas' && tab.count > 0
+                              ? 'bg-success/20 text-success border border-success/30 shadow-sm'
+                              : 'bg-base-300 text-base-content/70'
                       }
                     `}
                   >
@@ -159,4 +159,3 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
 };
 
 export default MatchTabs;
-

@@ -11,13 +11,14 @@ const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
-  '/icons/icon.svg'
+  '/icons/icon.svg',
 ];
 
 // Instalação do Service Worker
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE)
+    caches
+      .open(STATIC_CACHE)
       .then((cache) => {
         console.log('Service Worker: Cacheando assets estáticos');
         return cache.addAll(STATIC_ASSETS);
@@ -37,8 +38,11 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           // Remover caches antigos que não correspondem à versão atual
-          if (cacheName !== STATIC_CACHE && cacheName !== RUNTIME_CACHE && 
-              cacheName.startsWith('goalscan-pro-')) {
+          if (
+            cacheName !== STATIC_CACHE &&
+            cacheName !== RUNTIME_CACHE &&
+            cacheName.startsWith('goalscan-pro-')
+          ) {
             console.log('Service Worker: Removendo cache antigo', cacheName);
             return caches.delete(cacheName);
           }
@@ -69,9 +73,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   // APIs externas: Network Only (não cachear)
-  if (url.hostname.includes('supabase.co') || 
-      url.hostname.includes('cdn.') ||
-      url.hostname.includes('api.')) {
+  if (
+    url.hostname.includes('supabase.co') ||
+    url.hostname.includes('cdn.') ||
+    url.hostname.includes('api.')
+  ) {
     event.respondWith(fetch(request));
     return;
   }
@@ -84,7 +90,8 @@ self.addEventListener('fetch', (event) => {
           // Cachear resposta válida
           if (response && response.status === 200) {
             const responseToCache = response.clone();
-            caches.open(RUNTIME_CACHE)
+            caches
+              .open(RUNTIME_CACHE)
               .then((cache) => cache.put(request, responseToCache))
               .catch(() => {});
           }
@@ -92,42 +99,44 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           // Fallback para cache ou index.html
-          return caches.match(request)
-            .then((cachedResponse) => {
-              return cachedResponse || caches.match('/index.html');
-            });
+          return caches.match(request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/index.html');
+          });
         })
     );
     return;
   }
 
   // Assets estáticos (JS, CSS, imagens): Cache First, fallback para Network
-  if (request.destination === 'script' || 
-      request.destination === 'style' || 
-      request.destination === 'image' ||
-      url.pathname.startsWith('/assets/') ||
-      url.pathname.startsWith('/icons/')) {
+  if (
+    request.destination === 'script' ||
+    request.destination === 'style' ||
+    request.destination === 'image' ||
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.startsWith('/icons/')
+  ) {
     event.respondWith(
-      caches.match(request)
+      caches
+        .match(request)
         .then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
           }
           // Se não estiver no cache, buscar da rede e cachear
-          return fetch(request)
-            .then((response) => {
-              if (response && response.status === 200) {
-                const responseToCache = response.clone();
-                const cacheToUse = url.pathname.startsWith('/assets/') || 
-                                  url.pathname.startsWith('/icons/') 
-                                  ? STATIC_CACHE 
-                                  : RUNTIME_CACHE;
-                caches.open(cacheToUse)
-                  .then((cache) => cache.put(request, responseToCache))
-                  .catch(() => {});
-              }
-              return response;
-            });
+          return fetch(request).then((response) => {
+            if (response && response.status === 200) {
+              const responseToCache = response.clone();
+              const cacheToUse =
+                url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')
+                  ? STATIC_CACHE
+                  : RUNTIME_CACHE;
+              caches
+                .open(cacheToUse)
+                .then((cache) => cache.put(request, responseToCache))
+                .catch(() => {});
+            }
+            return response;
+          });
         })
         .catch(() => {
           // Se tudo falhar, retornar resposta offline
@@ -146,18 +155,17 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         if (response && response.status === 200) {
           const responseToCache = response.clone();
-          caches.open(RUNTIME_CACHE)
+          caches
+            .open(RUNTIME_CACHE)
             .then((cache) => cache.put(request, responseToCache))
             .catch(() => {});
         }
         return response;
       })
       .catch(() => {
-        return caches.match(request)
-          .then((cachedResponse) => {
-            return cachedResponse || new Response('Offline', { status: 503 });
-          });
+        return caches.match(request).then((cachedResponse) => {
+          return cachedResponse || new Response('Offline', { status: 503 });
+        });
       })
   );
 });
-

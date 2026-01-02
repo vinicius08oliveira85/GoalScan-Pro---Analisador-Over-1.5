@@ -17,7 +17,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1_EPMzvkySu16yY9rSyIWPM
    npm install
    ```
 2. Configurar variáveis de ambiente:
-   
+
    **Para desenvolvimento local:**
    - Crie um arquivo `.env` na raiz do projeto
    - Copie o conteúdo de `.env.example` e preencha com suas credenciais:
@@ -27,17 +27,18 @@ View your app in AI Studio: https://ai.studio/apps/drive/1_EPMzvkySu16yY9rSyIWPM
      VITE_SUPABASE_URL=https://seu-projeto.supabase.co
      VITE_SUPABASE_ANON_KEY=sua_chave_anonima_supabase_aqui
      ```
-   
+
    **Para produção no Vercel:**
    - Acesse o [Dashboard do Vercel](https://vercel.com/dashboard)
    - Selecione seu projeto > Settings > Environment Variables
    - Adicione as variáveis:
-     - `GEMINI_API_KEY` (sem prefixo VITE_ - carregada durante o build)
+     - `GEMINI_API_KEY` (sem prefixo VITE\_ - carregada durante o build)
      - `GEMINI_API_KEY_FALLBACK` (opcional - usada automaticamente se a principal falhar)
-     - `VITE_SUPABASE_URL` (com prefixo VITE_)
-     - `VITE_SUPABASE_ANON_KEY` (com prefixo VITE_)
+     - `VITE_SUPABASE_URL` (com prefixo VITE\_)
+     - `VITE_SUPABASE_ANON_KEY` (com prefixo VITE\_)
    - Faça um novo deploy
    - 📖 Veja o guia completo em [docs/vercel_setup.md](docs/vercel_setup.md)
+
 3. Executar o app:
    ```bash
    npm run dev
@@ -73,20 +74,25 @@ O GoalScan Pro pode ser instalado no Android de duas formas:
 #### Gerar o APK
 
 1. **Fazer o build do projeto web:**
+
    ```bash
    npm run build
    ```
 
 2. **Sincronizar com o projeto Android:**
+
    ```bash
    npm run build:android
    ```
+
    Este comando faz o build e sincroniza os arquivos com o projeto Android.
 
 3. **Abrir no Android Studio:**
+
    ```bash
    npm run android:open
    ```
+
    Isso abrirá o projeto Android no Android Studio.
 
 4. **Gerar o APK no Android Studio:**
@@ -122,11 +128,13 @@ O APK será gerado em `android/app/build/outputs/apk/debug/app-debug.apk`
 Para publicar na Play Store, você precisará assinar o APK:
 
 1. Gerar uma keystore:
+
    ```bash
    keytool -genkey -v -keystore goalscan-pro.keystore -alias goalscan-pro -keyalg RSA -keysize 2048 -validity 10000
    ```
 
 2. Configurar no `capacitor.config.ts`:
+
    ```typescript
    android: {
      buildOptions: {
@@ -183,6 +191,7 @@ O GoalScan Pro inclui 4 widgets nativos para Android que permitem visualizar inf
 ### Design
 
 Os widgets seguem os princípios do Material Design 3:
+
 - Adaptam-se ao tema claro/escuro do sistema
 - Cores semânticas (verde para ganhos, vermelho para perdas)
 - Tipografia clara e hierarquia visual

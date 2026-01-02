@@ -1,8 +1,16 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BetInfo, BankSettings } from '../types';
-import { Calculator, TrendingUp, DollarSign, Percent, X, Lightbulb, Sparkles, AlertCircle } from 'lucide-react';
+import {
+  Calculator,
+  TrendingUp,
+  DollarSign,
+  Percent,
+  X,
+  Lightbulb,
+  Sparkles,
+  AlertCircle,
+} from 'lucide-react';
 import { validateBetInfo } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { getCurrencySymbol } from '../utils/currency';
@@ -19,15 +27,14 @@ interface BetManagerProps {
   onError?: (message: string) => void;
 }
 
-
-const BetManager: React.FC<BetManagerProps> = ({ 
-  odd, 
-  probability, 
-  betInfo, 
+const BetManager: React.FC<BetManagerProps> = ({
+  odd,
+  probability,
+  betInfo,
   bankSettings,
-  onSave, 
+  onSave,
   onCancel,
-  onError
+  onError,
 }) => {
   const [betAmount, setBetAmount] = useState<number>(betInfo?.betAmount || 0);
   const [status, setStatus] = useState<BetInfo['status']>(betInfo?.status || 'pending');
@@ -45,11 +52,12 @@ const BetManager: React.FC<BetManagerProps> = ({
     ? Math.max(0, Math.min(100, Number(rawBankPercentage.toFixed(6))))
     : 0;
   const roi = betAmount > 0 ? (potentialProfit / betAmount) * 100 : 0;
-  
+
   // Calcular sugestões de valor de aposta
-  const betSuggestion = bankSettings && bankSettings.totalBank > 0 && odd > 1 && probability > 0
-    ? suggestBetAmount(probability, odd, bankSettings.totalBank)
-    : null;
+  const betSuggestion =
+    bankSettings && bankSettings.totalBank > 0 && odd > 1 && probability > 0
+      ? suggestBetAmount(probability, odd, bankSettings.totalBank)
+      : null;
   const ev = calculateEV(probability, odd);
 
   useEffect(() => {
@@ -63,7 +71,9 @@ const BetManager: React.FC<BetManagerProps> = ({
     try {
       if (isOverBank) {
         const currency = getCurrencySymbol(bankSettings?.currency || 'BRL');
-        throw new Error(`Valor da aposta não pode ser maior que sua banca (${currency} ${totalBank.toFixed(2)})`);
+        throw new Error(
+          `Valor da aposta não pode ser maior que sua banca (${currency} ${totalBank.toFixed(2)})`
+        );
       }
 
       const newBetInfo: BetInfo = {
@@ -74,7 +84,7 @@ const BetManager: React.FC<BetManagerProps> = ({
         bankPercentage,
         status,
         placedAt: betInfo?.placedAt || Date.now(),
-        resultAt: betInfo?.resultAt
+        resultAt: betInfo?.resultAt,
       };
 
       // Validar dados antes de salvar
@@ -82,10 +92,11 @@ const BetManager: React.FC<BetManagerProps> = ({
       onSave(validatedBetInfo);
     } catch (error) {
       // Mostrar erro de validação de forma amigável
-      const errorMessage = error instanceof Error ? error.message : 'Erro de validação desconhecido';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro de validação desconhecido';
       // Registrar erro no serviço centralizado
       errorService.logValidationError('BetManager', { betAmount, odd }, errorMessage);
-      
+
       if (onError) {
         onError(`Erro ao validar aposta: ${errorMessage}`);
       } else {
@@ -102,13 +113,13 @@ const BetManager: React.FC<BetManagerProps> = ({
         potentialReturn: 0,
         potentialProfit: 0,
         bankPercentage: 0,
-        status: 'cancelled'
+        status: 'cancelled',
       });
     }
   };
 
   return (
-    <motion.div 
+    <motion.div
       className="surface surface-hover p-6"
       variants={animations.fadeInUp}
       initial="initial"
@@ -120,10 +131,7 @@ const BetManager: React.FC<BetManagerProps> = ({
           <h3 className="text-lg font-black uppercase">Gerenciar Aposta</h3>
         </div>
         {onCancel && (
-          <button 
-            onClick={onCancel}
-            className="btn btn-sm btn-circle btn-ghost"
-          >
+          <button onClick={onCancel} className="btn btn-sm btn-circle btn-ghost">
             <X className="w-4 h-4" />
           </button>
         )}
@@ -140,7 +148,10 @@ const BetManager: React.FC<BetManagerProps> = ({
               <div className="flex-1 space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-sm">Sugestão de Valor</h4>
-                  <span className="text-xs opacity-60">EV: {ev > 0 ? '+' : ''}{ev.toFixed(1)}%</span>
+                  <span className="text-xs opacity-60">
+                    EV: {ev > 0 ? '+' : ''}
+                    {ev.toFixed(1)}%
+                  </span>
                 </div>
                 <p className="text-xs opacity-80">{betSuggestion.explanation}</p>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -151,7 +162,8 @@ const BetManager: React.FC<BetManagerProps> = ({
                     title="Valor recomendado"
                   >
                     <Sparkles className="w-3 h-3 mr-1" />
-                    Recomendado: {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betSuggestion.recommended.toFixed(2)}
+                    Recomendado: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                    {betSuggestion.recommended.toFixed(2)}
                   </button>
                   <button
                     type="button"
@@ -159,7 +171,8 @@ const BetManager: React.FC<BetManagerProps> = ({
                     className="btn btn-xs btn-outline"
                     title="1% da banca (conservador)"
                   >
-                    Conservador: {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betSuggestion.conservative.toFixed(2)}
+                    Conservador: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                    {betSuggestion.conservative.toFixed(2)}
                   </button>
                   <button
                     type="button"
@@ -167,7 +180,8 @@ const BetManager: React.FC<BetManagerProps> = ({
                     className="btn btn-xs btn-outline"
                     title="2.5% da banca (moderado)"
                   >
-                    Moderado: {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betSuggestion.moderate.toFixed(2)}
+                    Moderado: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                    {betSuggestion.moderate.toFixed(2)}
                   </button>
                   {betSuggestion.kelly > 0 && betSuggestion.kelly !== betSuggestion.recommended && (
                     <button
@@ -176,7 +190,8 @@ const BetManager: React.FC<BetManagerProps> = ({
                       className="btn btn-xs btn-outline"
                       title="Kelly Criterion (otimizado)"
                     >
-                      Kelly: {getCurrencySymbol(bankSettings?.currency || 'BRL')} {betSuggestion.kelly.toFixed(2)}
+                      Kelly: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                      {betSuggestion.kelly.toFixed(2)}
                     </button>
                   )}
                 </div>
@@ -204,9 +219,12 @@ const BetManager: React.FC<BetManagerProps> = ({
               className={`input input-bordered w-full min-h-[44px] text-base ${
                 isOverBank
                   ? 'border-error focus:ring-error'
-                  : betSuggestion && betAmount > 0 && Math.abs(betAmount - betSuggestion.recommended) / betSuggestion.recommended < 0.1
-                  ? 'border-success'
-                  : ''
+                  : betSuggestion &&
+                      betAmount > 0 &&
+                      Math.abs(betAmount - betSuggestion.recommended) / betSuggestion.recommended <
+                        0.1
+                    ? 'border-success'
+                    : ''
               }`}
               placeholder={`Ex: ${getCurrencySymbol(bankSettings?.currency || 'BRL')} 10.00`}
               aria-label="Valor da aposta"
@@ -222,14 +240,18 @@ const BetManager: React.FC<BetManagerProps> = ({
             <span className="label-text-alt opacity-60">
               {isOverBank ? (
                 <span className="text-error">
-                  Valor acima da banca: {getCurrencySymbol(bankSettings?.currency || 'BRL')} {totalBank.toFixed(2)}
+                  Valor acima da banca: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                  {totalBank.toFixed(2)}
                 </span>
               ) : bankSettings && bankSettings.totalBank > 0 ? (
                 <>
-                  {rawBankPercentage.toFixed(2)}% da sua banca ({getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(2)})
+                  {rawBankPercentage.toFixed(2)}% da sua banca (
+                  {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(2)})
                   {betSuggestion && betSuggestion.recommended > 0 && (
                     <span className="ml-2">
-                      • Sugestão: {getCurrencySymbol(bankSettings.currency)} {betSuggestion.recommended.toFixed(2)} ({(betSuggestion.recommended / bankSettings.totalBank * 100).toFixed(2)}%)
+                      • Sugestão: {getCurrencySymbol(bankSettings.currency)}{' '}
+                      {betSuggestion.recommended.toFixed(2)} (
+                      {((betSuggestion.recommended / bankSettings.totalBank) * 100).toFixed(2)}%)
                     </span>
                   )}
                 </>
@@ -274,7 +296,8 @@ const BetManager: React.FC<BetManagerProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs opacity-60">Expected Value (EV)</span>
                 <span className={`font-bold text-sm ${ev > 0 ? 'text-success' : 'text-error'}`}>
-                  {ev > 0 ? '+' : ''}{ev.toFixed(2)}%
+                  {ev > 0 ? '+' : ''}
+                  {ev.toFixed(2)}%
                 </span>
               </div>
               {ev <= 0 && (
@@ -288,7 +311,7 @@ const BetManager: React.FC<BetManagerProps> = ({
         {betAmount > 0 && (
           <div className="bg-base-100/50 p-4 rounded-xl border border-white/5 space-y-3">
             <h4 className="font-bold text-sm uppercase opacity-60 mb-3">Cálculos Automáticos</h4>
-            
+
             <div className="flex items-center justify-between">
               <span className="text-sm opacity-80">Retorno Potencial:</span>
               <span className="font-bold text-lg text-primary">
@@ -301,8 +324,11 @@ const BetManager: React.FC<BetManagerProps> = ({
                 <TrendingUp className="w-4 h-4" />
                 Lucro Potencial:
               </span>
-              <span className={`font-bold text-lg ${potentialProfit >= 0 ? 'text-success' : 'text-error'}`}>
-                {potentialProfit >= 0 ? '+' : ''}{getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialProfit.toFixed(2)}
+              <span
+                className={`font-bold text-lg ${potentialProfit >= 0 ? 'text-success' : 'text-error'}`}
+              >
+                {potentialProfit >= 0 ? '+' : ''}
+                {getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialProfit.toFixed(2)}
               </span>
             </div>
 
@@ -312,7 +338,8 @@ const BetManager: React.FC<BetManagerProps> = ({
                 ROI Esperado:
               </span>
               <span className={`font-bold text-lg ${roi >= 0 ? 'text-success' : 'text-error'}`}>
-                {roi >= 0 ? '+' : ''}{roi.toFixed(2)}%
+                {roi >= 0 ? '+' : ''}
+                {roi.toFixed(2)}%
               </span>
             </div>
 
@@ -351,4 +378,3 @@ const BetManager: React.FC<BetManagerProps> = ({
 };
 
 export default BetManager;
-

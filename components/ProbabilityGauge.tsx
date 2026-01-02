@@ -34,128 +34,130 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
         </div>
       </div>
 
-        {/* Gauge com Probability Ring */}
-        <div className="w-full h-48 relative mb-4">
-          {/* SVG Probability Ring */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
-              {/* Background ring */}
-              <circle
-                cx="100"
-                cy="100"
-                r="80"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="12"
-                className="text-base-300"
-                opacity="0.3"
-              />
-              {/* Progress ring com gradiente */}
-              <motion.circle
-                cx="100"
-                cy="100"
-                r="80"
-                fill="none"
-                stroke="url(#probabilityGradient)"
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 80}`}
-                initial={{ strokeDashoffset: 2 * Math.PI * 80 }}
-                animate={{ 
-                  strokeDashoffset: 2 * Math.PI * 80 * (1 - probability / 100)
-                }}
-                transition={{ 
-                  type: "spring", 
-                  stiffness: 50, 
-                  damping: 15,
-                  duration: 1.5
-                }}
-              />
-              <defs>
-                <linearGradient id="probabilityGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="hsl(var(--p))" />
-                  <stop offset="50%" stopColor="hsl(var(--s))" />
-                  <stop offset="100%" stopColor="#2dd4bf" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          
-          {/* Pie Chart (mantido para compatibilidade visual) */}
-          <div className="absolute inset-0 opacity-30">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie 
-                  data={chartData} 
-                  cx="50%" 
-                  cy="50%" 
-                  innerRadius={65} 
-                  outerRadius={85} 
-                  paddingAngle={5} 
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          
-          {/* Valor central animado */}
-          <motion.div 
-            className="absolute inset-0 flex flex-col items-center justify-center"
-            variants={animations.scaleIn}
-            initial="initial"
-            animate="animate"
-          >
-            <div className="flex items-baseline gap-1">
-              <motion.span 
-                className="text-3xl sm:text-4xl md:text-5xl font-black font-mono text-teal-400 leading-none tracking-tight"
-                key={probability}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", bounce: 0.5 }}
-              >
-                {probability.toFixed(1)}
-              </motion.span>
-              <span className="text-base font-bold text-teal-400 opacity-80">
-                %
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-base-content/50 mt-2 uppercase tracking-widest">Confiança</span>
-          </motion.div>
+      {/* Gauge com Probability Ring */}
+      <div className="w-full h-48 relative mb-4">
+        {/* SVG Probability Ring */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+            {/* Background ring */}
+            <circle
+              cx="100"
+              cy="100"
+              r="80"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="12"
+              className="text-base-300"
+              opacity="0.3"
+            />
+            {/* Progress ring com gradiente */}
+            <motion.circle
+              cx="100"
+              cy="100"
+              r="80"
+              fill="none"
+              stroke="url(#probabilityGradient)"
+              strokeWidth="12"
+              strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 80}`}
+              initial={{ strokeDashoffset: 2 * Math.PI * 80 }}
+              animate={{
+                strokeDashoffset: 2 * Math.PI * 80 * (1 - probability / 100),
+              }}
+              transition={{
+                type: 'spring',
+                stiffness: 50,
+                damping: 15,
+                duration: 1.5,
+              }}
+            />
+            <defs>
+              <linearGradient id="probabilityGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="hsl(var(--p))" />
+                <stop offset="50%" stopColor="hsl(var(--s))" />
+                <stop offset="100%" stopColor="#2dd4bf" />
+              </linearGradient>
+            </defs>
+          </svg>
         </div>
 
-        {/* Odd and EV */}
-        <div className="flex justify-between w-full mt-4 px-2 pt-4 border-t border-white/10 gap-4">
-          <div 
-            className="text-center flex-1 surface-muted p-3 cursor-help"
-            title="Odd atual do mercado Over 1.5. Usada para calcular EV e Edge."
-          >
-            <p className="kpi-label mb-2">Odd</p>
-            <p className="text-xl font-black font-mono text-base-content">{odd?.toFixed(2) || '—'}</p>
+        {/* Pie Chart (mantido para compatibilidade visual) */}
+        <div className="absolute inset-0 opacity-30">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={65}
+                outerRadius={85}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Valor central animado */}
+        <motion.div
+          className="absolute inset-0 flex flex-col items-center justify-center"
+          variants={animations.scaleIn}
+          initial="initial"
+          animate="animate"
+        >
+          <div className="flex items-baseline gap-1">
+            <motion.span
+              className="text-3xl sm:text-4xl md:text-5xl font-black font-mono text-teal-400 leading-none tracking-tight"
+              key={probability}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', bounce: 0.5 }}
+            >
+              {probability.toFixed(1)}
+            </motion.span>
+            <span className="text-base font-bold text-teal-400 opacity-80">%</span>
           </div>
-          <div 
-            className="text-center flex-1 surface-muted p-3 cursor-help"
-            title="EV (Expected Value): valor esperado em %. EV = (Prob × Odd - 1) × 100."
-          >
-            <p className="kpi-label mb-2">EV</p>
-            <div className="flex items-center justify-center gap-1">
-              {ev > 0 ? (
-                <TrendingUp className="w-4 h-4 text-success" />
-              ) : ev < 0 ? (
-                <TrendingDown className="w-4 h-4 text-error" />
-              ) : null}
-              <p className={`text-xl font-black font-mono ${ev > 0 ? 'text-success' : ev < 0 ? 'text-error' : 'text-base-content'}`}>
-                {ev > 0 ? '+' : ''}{ev.toFixed(1)}%
-              </p>
-            </div>
+          <span className="text-[10px] font-bold text-base-content/50 mt-2 uppercase tracking-widest">
+            Confiança
+          </span>
+        </motion.div>
+      </div>
+
+      {/* Odd and EV */}
+      <div className="flex justify-between w-full mt-4 px-2 pt-4 border-t border-white/10 gap-4">
+        <div
+          className="text-center flex-1 surface-muted p-3 cursor-help"
+          title="Odd atual do mercado Over 1.5. Usada para calcular EV e Edge."
+        >
+          <p className="kpi-label mb-2">Odd</p>
+          <p className="text-xl font-black font-mono text-base-content">{odd?.toFixed(2) || '—'}</p>
+        </div>
+        <div
+          className="text-center flex-1 surface-muted p-3 cursor-help"
+          title="EV (Expected Value): valor esperado em %. EV = (Prob × Odd - 1) × 100."
+        >
+          <p className="kpi-label mb-2">EV</p>
+          <div className="flex items-center justify-center gap-1">
+            {ev > 0 ? (
+              <TrendingUp className="w-4 h-4 text-success" />
+            ) : ev < 0 ? (
+              <TrendingDown className="w-4 h-4 text-error" />
+            ) : null}
+            <p
+              className={`text-xl font-black font-mono ${ev > 0 ? 'text-success' : ev < 0 ? 'text-error' : 'text-base-content'}`}
+            >
+              {ev > 0 ? '+' : ''}
+              {ev.toFixed(1)}%
+            </p>
           </div>
         </div>
+      </div>
     </div>
   );
 };
 
 export default ProbabilityGauge;
-

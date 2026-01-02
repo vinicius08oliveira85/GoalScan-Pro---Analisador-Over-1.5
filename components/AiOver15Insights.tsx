@@ -1,7 +1,20 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { Sparkles, Loader2, X, RefreshCw, ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react';
+import {
+  Sparkles,
+  Loader2,
+  X,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  Maximize2,
+  Minimize2,
+} from 'lucide-react';
 import { MatchData } from '../types';
-import { generateAiOver15Report, extractProbabilityFromMarkdown, extractConfidenceFromMarkdown } from '../services/aiOver15Service';
+import {
+  generateAiOver15Report,
+  extractProbabilityFromMarkdown,
+  extractConfidenceFromMarkdown,
+} from '../services/aiOver15Service';
 
 type Props = {
   data: MatchData;
@@ -35,16 +48,16 @@ function parseMarkdownIntoSections(md: string): Section[] {
       if (currentSection) {
         sections.push({
           ...currentSection,
-          content: currentContent
+          content: currentContent,
         });
       }
-      
+
       // Iniciar nova seção
       const title = line.replace(/^#+\s*/, '').trim();
       currentSection = {
         title,
         content: [],
-        index: sections.length
+        index: sections.length,
       };
       currentContent = [];
     } else {
@@ -53,7 +66,7 @@ function parseMarkdownIntoSections(md: string): Section[] {
         currentSection = {
           title: 'Análise',
           content: [],
-          index: 0
+          index: 0,
         };
       }
       // Adicionar linha ao conteúdo da seção atual
@@ -65,7 +78,7 @@ function parseMarkdownIntoSections(md: string): Section[] {
   if (currentSection) {
     sections.push({
       ...currentSection,
-      content: currentContent
+      content: currentContent,
     });
   }
 
@@ -74,7 +87,7 @@ function parseMarkdownIntoSections(md: string): Section[] {
     sections.push({
       title: 'Análise',
       content: lines,
-      index: 0
+      index: 0,
     });
   }
 
@@ -87,7 +100,7 @@ function renderMarkdownContent(lines: string[]): React.ReactNode[] {
     if (line.trim() === '---') {
       return <hr key={idx} className="my-4 border-t border-primary/20" />;
     }
-    
+
     // Detectar títulos (### ou menores - não ## pois já foram processados)
     if (line.trim().startsWith('###')) {
       const level = line.match(/^#+/)?.[0].length || 3;
@@ -96,15 +109,13 @@ function renderMarkdownContent(lines: string[]): React.ReactNode[] {
       return (
         <HeadingTag
           key={idx}
-          className={`font-bold mt-4 mb-2 ${
-            level === 3 ? 'text-base' : 'text-sm'
-          }`}
+          className={`font-bold mt-4 mb-2 ${level === 3 ? 'text-base' : 'text-sm'}`}
         >
           {text}
         </HeadingTag>
       );
     }
-    
+
     // Detectar listas (- ou *)
     if (line.trim().startsWith('-') || line.trim().startsWith('*')) {
       const text = line.replace(/^[-*]\s+/, '');
@@ -121,12 +132,12 @@ function renderMarkdownContent(lines: string[]): React.ReactNode[] {
         </li>
       );
     }
-    
+
     // Linha vazia
     if (line.length === 0) {
       return <br key={idx} />;
     }
-    
+
     // Texto normal
     return (
       <p key={idx} className="whitespace-pre-wrap leading-relaxed mb-2">
@@ -142,7 +153,11 @@ interface CollapsibleSectionProps {
   onToggle: () => void;
 }
 
-const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ section, isExpanded, onToggle }) => {
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
+  section,
+  isExpanded,
+  onToggle,
+}) => {
   return (
     <div className="border-b border-base-300/50 last:border-b-0">
       <button
@@ -163,10 +178,10 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ section, isExpa
         </div>
       </button>
       {isExpanded && (
-        <div 
+        <div
           className="px-3 pb-4 pt-2 text-sm overflow-hidden"
           style={{
-            animation: 'fadeIn 0.3s ease-out'
+            animation: 'fadeIn 0.3s ease-out',
           }}
         >
           <div className="space-y-2 text-base-content/90">
@@ -178,14 +193,22 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ section, isExpa
   );
 };
 
-const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnalysisGenerated, savedReportMarkdown }) => {
+const AiOver15Insights: React.FC<Props> = ({
+  data,
+  className,
+  onError,
+  onAiAnalysisGenerated,
+  savedReportMarkdown,
+}) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState<'gemini' | 'local' | null>(null);
   const [report, setReport] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ kind: 'info' | 'warning' | 'error'; title: string; message: string } | null>(
-    null
-  );
+  const [notice, setNotice] = useState<{
+    kind: 'info' | 'warning' | 'error';
+    title: string;
+    message: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0]));
 
@@ -210,7 +233,7 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
   }, [sections.length]);
 
   const toggleSection = useCallback((index: number) => {
-    setExpandedSections(prev => {
+    setExpandedSections((prev) => {
       const next = new Set(prev);
       if (next.has(index)) {
         next.delete(index);
@@ -230,7 +253,6 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
   }, []);
 
   const allExpanded = sections.length > 0 && expandedSections.size === sections.length;
-  const allCollapsed = expandedSections.size === 0;
 
   const openSavedReport = () => {
     if (!hasSavedReport) return;
@@ -363,7 +385,9 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
           )}
 
           {notice && !error && (
-            <div className={`mt-3 alert ${notice.kind === 'error' ? 'alert-error' : notice.kind === 'info' ? 'alert-info' : 'alert-warning'}`}>
+            <div
+              className={`mt-3 alert ${notice.kind === 'error' ? 'alert-error' : notice.kind === 'info' ? 'alert-info' : 'alert-warning'}`}
+            >
               <div className="min-w-0">
                 <p className="text-sm font-black">{notice.title}</p>
                 <p className="text-xs opacity-80 whitespace-pre-wrap mt-1">{notice.message}</p>
@@ -427,4 +451,3 @@ const AiOver15Insights: React.FC<Props> = ({ data, className, onError, onAiAnaly
 };
 
 export default AiOver15Insights;
-

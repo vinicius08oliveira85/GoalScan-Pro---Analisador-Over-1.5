@@ -7,5 +7,3 @@ import type { AnalysisResult } from '../types';
 export function getPrimaryProbability(result: AnalysisResult): number {
   return result.combinedProbability ?? result.probabilityOver15;
 }
-
-

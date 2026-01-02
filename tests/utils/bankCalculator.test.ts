@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { calculateBankUpdate } from '../../utils/bankCalculator';
-import { BetInfo } from '../../types';
 
 describe('calculateBankUpdate', () => {
   it('deve descontar valor quando aposta muda de undefined para pending', () => {
@@ -27,4 +26,3 @@ describe('calculateBankUpdate', () => {
     expect(result).toBe(100); // Devolve o valor apostado
   });
 });
-

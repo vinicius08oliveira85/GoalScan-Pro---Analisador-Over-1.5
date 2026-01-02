@@ -1,6 +1,7 @@
 # ⚡ Configuração Rápida - Vercel
 
 ## 🎯 Você já tem a URL do Supabase!
+
 ✅ URL: `https://vebpalhcvzbbzmdzglag.supabase.co`
 
 ## 📋 Agora você precisa:
@@ -68,10 +69,10 @@ O script vai pedir sua chave anônima e configurar automaticamente via API do Ve
 Acesse: **https://goal-scan-pro-analisador-over-1-5.vercel.app**
 
 Abra o Console (F12) e procure por:
+
 - ✅ `[Supabase] ✅ Cliente inicializado com sucesso`
 - ✅ `[Supabase] X análise(s) carregada(s) com sucesso`
 
 ## 🚀 Pronto!
 
 Seu app agora deve carregar as partidas do Supabase corretamente!
-

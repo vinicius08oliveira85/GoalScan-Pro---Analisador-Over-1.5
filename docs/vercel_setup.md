@@ -17,6 +17,7 @@ Este guia explica como configurar as variáveis de ambiente do Supabase no Verce
 3. Adicione as seguintes variáveis:
 
 #### Variável 1: VITE_SUPABASE_URL
+
 - **Key:** `VITE_SUPABASE_URL`
 - **Value:** `https://seu-projeto-id.supabase.co`
   - Substitua `seu-projeto-id` pelo ID do seu projeto Supabase
@@ -24,12 +25,14 @@ Este guia explica como configurar as variáveis de ambiente do Supabase no Verce
 - **Environments:** Selecione todas (Production, Preview, Development)
 
 #### Variável 2: VITE_SUPABASE_ANON_KEY
+
 - **Key:** `VITE_SUPABASE_ANON_KEY`
 - **Value:** Sua chave anônima pública do Supabase
   - Você pode encontrar essa chave no painel do Supabase: Settings > API > Project API keys > `anon` `public`
 - **Environments:** Selecione todas (Production, Preview, Development)
 
 #### Variável 3: GEMINI_API_KEY
+
 - **Key:** `GEMINI_API_KEY`
 - **Value:** Sua chave da API do Google Gemini
   - Você pode obter uma chave em: https://aistudio.google.com/
@@ -37,6 +40,7 @@ Este guia explica como configurar as variáveis de ambiente do Supabase no Verce
 - **Environments:** Selecione todas (Production, Preview, Development)
 
 #### Variável 4: GEMINI_API_KEY_FALLBACK (Opcional)
+
 - **Key:** `GEMINI_API_KEY_FALLBACK`
 - **Value:** Chave fallback da API do Google Gemini
   - Esta chave será usada automaticamente se a principal atingir quota ou falhar
@@ -73,10 +77,12 @@ Após o deploy:
 ⚠️ **As variáveis DEVE começar com `VITE_`** para serem expostas ao cliente no Vite.
 
 ❌ **NÃO use:**
-- `SUPABASE_URL` (sem VITE_)
-- `SUPABASE_ANON_KEY` (sem VITE_)
+
+- `SUPABASE_URL` (sem VITE\_)
+- `SUPABASE_ANON_KEY` (sem VITE\_)
 
 ✅ **USE:**
+
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
@@ -112,4 +118,3 @@ Após o deploy:
 ## Suporte
 
 Se ainda tiver problemas, verifique os logs no console do navegador. Os logs começam com `[Supabase]` e fornecem informações detalhadas sobre o que está acontecendo.
-

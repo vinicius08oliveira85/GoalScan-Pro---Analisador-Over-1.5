@@ -15,7 +15,7 @@ export function getMatchDateInBrasilia(date: string, time?: string): Date {
   const timeStr = time || '00:00';
   const [hours, minutes] = timeStr.split(':').map(Number);
   const [year, month, day] = date.split('-').map(Number);
-  
+
   // Criar Date assumindo que a data/hora está no fuso de Brasília
   // Brasília é UTC-3, então precisamos converter para UTC
   // Se temos 15:00 em Brasília, isso corresponde a 18:00 UTC
@@ -23,7 +23,7 @@ export function getMatchDateInBrasilia(date: string, time?: string): Date {
   // Para representar 15:00 em Brasília (UTC-3), precisamos de 18:00 UTC
   const utcHours = hours + 3; // Adicionar 3 horas para converter Brasília -> UTC
   const utcDate = new Date(Date.UTC(year, month - 1, day, utcHours, minutes, 0));
-  
+
   return utcDate;
 }
 
@@ -33,15 +33,12 @@ export function getMatchDateInBrasilia(date: string, time?: string): Date {
  * @param options - Opções de formatação do Intl.DateTimeFormat
  * @returns String formatada no fuso de Brasília
  */
-export function formatDateInBrasilia(
-  date: Date,
-  options?: Intl.DateTimeFormatOptions
-): string {
+export function formatDateInBrasilia(date: Date, options?: Intl.DateTimeFormatOptions): string {
   const defaultOptions: Intl.DateTimeFormatOptions = {
     timeZone: BRASILIA_TIMEZONE,
-    ...options
+    ...options,
   };
-  
+
   return new Intl.DateTimeFormat('pt-BR', defaultOptions).format(date);
 }
 
@@ -62,9 +59,9 @@ export function formatMatchDate(
     day: '2-digit',
     month: 'short',
     timeZone: BRASILIA_TIMEZONE,
-    ...options
+    ...options,
   };
-  
+
   return formatDateInBrasilia(matchDate, defaultOptions);
 }
 
@@ -79,7 +76,7 @@ export function formatMatchTime(date: string, time: string): string {
   return formatDateInBrasilia(matchDate, {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: BRASILIA_TIMEZONE
+    timeZone: BRASILIA_TIMEZONE,
   });
 }
 
@@ -96,7 +93,7 @@ export function formatMatchDateTime(date: string, time?: string): string {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: BRASILIA_TIMEZONE
+    timeZone: BRASILIA_TIMEZONE,
   });
 }
 
@@ -121,4 +118,3 @@ export function formatTimestampInBrasilia(
 export function parseBrasiliaDateTime(date: string, time?: string): Date {
   return getMatchDateInBrasilia(date, time);
 }
-

@@ -11,10 +11,18 @@ interface TabNavigationProps {
 
 const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange }) => {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" /> },
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" />,
+    },
     { id: 'matches', label: 'Partidas', icon: <Target className="w-4 h-4 md:w-5 md:h-5" /> },
     { id: 'bank', label: 'Banca', icon: <Wallet className="w-4 h-4 md:w-5 md:h-5" /> },
-    { id: 'settings', label: 'Configurações', icon: <Settings className="w-4 h-4 md:w-5 md:h-5" /> },
+    {
+      id: 'settings',
+      label: 'Configurações',
+      icon: <Settings className="w-4 h-4 md:w-5 md:h-5" />,
+    },
   ];
 
   return (
@@ -66,4 +74,3 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange })
 };
 
 export default TabNavigation;
-

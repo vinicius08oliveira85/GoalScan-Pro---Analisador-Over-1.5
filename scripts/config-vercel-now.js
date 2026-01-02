@@ -17,33 +17,33 @@ function addEnvVariable(token, key, value) {
   return new Promise((resolve, reject) => {
     // Para múltiplos targets, precisamos fazer múltiplas requisições
     const targets = ['production', 'preview', 'development'];
-    const promises = targets.map(target => {
+    const promises = targets.map((target) => {
       return new Promise((resolveTarget, rejectTarget) => {
         const postData = new URLSearchParams({
           key: key,
           value: value,
           type: 'plain',
-          target: target
+          target: target,
         }).toString();
-        
+
         const options = {
           hostname: 'api.vercel.com',
           path: `/v10/projects/${PROJECT_ID}/env?teamId=${TEAM_ID}&upsert=true`,
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': Buffer.byteLength(postData)
-          }
+            'Content-Length': Buffer.byteLength(postData),
+          },
         };
-        
+
         const req = https.request(options, (res) => {
           let data = '';
-          
+
           res.on('data', (chunk) => {
             data += chunk;
           });
-          
+
           res.on('end', () => {
             if (res.statusCode >= 200 && res.statusCode < 300) {
               resolveTarget({ target, success: true });
@@ -52,19 +52,19 @@ function addEnvVariable(token, key, value) {
             }
           });
         });
-        
+
         req.on('error', (error) => {
           rejectTarget(error);
         });
-        
+
         req.write(postData);
         req.end();
       });
     });
-    
+
     Promise.all(promises)
-      .then(results => resolve(results))
-      .catch(error => reject(error));
+      .then((results) => resolve(results))
+      .catch((error) => reject(error));
   });
 }
 
@@ -73,10 +73,10 @@ async function main() {
   console.log(`📋 Projeto: goal-scan-pro-analisador-over-1-5`);
   console.log(`🔗 URL: ${SUPABASE_URL}`);
   console.log(`🔑 Chave: ${SUPABASE_ANON_KEY.substring(0, 20)}...\n`);
-  
+
   // Verificar se há token do Vercel
   const token = process.env.VERCEL_TOKEN;
-  
+
   if (!token) {
     console.log('⚠️  Token do Vercel não encontrado!\n');
     console.log('📝 Para configurar automaticamente, você precisa:');
@@ -97,33 +97,31 @@ async function main() {
     console.log('5. Faça um redeploy\n');
     return;
   }
-  
+
   try {
     console.log('🔧 Configurando via API do Vercel...\n');
-    
+
     console.log('1. Adicionando VITE_SUPABASE_URL...');
     await addEnvVariable(token, 'VITE_SUPABASE_URL', SUPABASE_URL);
     console.log('   ✅ VITE_SUPABASE_URL configurada!\n');
-    
+
     console.log('2. Adicionando VITE_SUPABASE_ANON_KEY...');
     await addEnvVariable(token, 'VITE_SUPABASE_ANON_KEY', SUPABASE_ANON_KEY);
     console.log('   ✅ VITE_SUPABASE_ANON_KEY configurada!\n');
-    
+
     console.log('🎉 Variáveis configuradas com sucesso!\n');
     console.log('📝 Próximos passos:');
     console.log('   1. Vá em: https://vercel.com/dashboard');
     console.log('   2. Selecione: goal-scan-pro-analisador-over-1-5');
     console.log('   3. Vá em Deployments > Redeploy');
     console.log('   4. Aguarde 2-3 minutos\n');
-    
   } catch (error) {
     console.error('\n❌ Erro ao configurar via API:', error.message);
     console.log('\n📝 Configure manualmente seguindo as instruções acima.\n');
   }
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error('❌ Erro:', error);
   process.exit(1);
 });
-

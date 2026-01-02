@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Wallet, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Percent, 
+import {
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Percent,
   Target,
   CheckCircle,
   XCircle,
@@ -13,41 +13,34 @@ import {
   Save,
   AlertCircle,
   Check,
-  Loader2
+  Loader2,
 } from 'lucide-react';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   Area,
-  AreaChart
+  AreaChart,
 } from 'recharts';
-import { BankSettings } from '../types';
+import { BankSettings, SavedAnalysis } from '../types';
 import { calculateBankStats, prepareBankEvolutionData } from '../utils/dashboardStats';
-import { getCurrencySymbol } from '../utils/currency';
 import { validateBankSettings } from '../utils/validation';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
 
 interface BankScreenProps {
   bankSettings?: BankSettings;
-  savedMatches: any[];
+  savedMatches: SavedAnalysis[];
   onSave: (settings: BankSettings) => Promise<void>;
   onError?: (message: string) => void;
 }
 
 type SaveStatus = 'idle' | 'loading' | 'success' | 'error';
 
-const BankScreen: React.FC<BankScreenProps> = ({
-  bankSettings,
-  savedMatches,
-  onSave,
-  onError,
-}) => {
+const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onSave, onError }) => {
   const windowSize = useWindowSize();
   const [totalBank, setTotalBank] = useState<number>(bankSettings?.totalBank || 0);
   const [inputValue, setInputValue] = useState<string>('');
@@ -56,8 +49,14 @@ const BankScreen: React.FC<BankScreenProps> = ({
   const [validationMessage, setValidationMessage] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const bankStats = useMemo(() => calculateBankStats(savedMatches, bankSettings), [savedMatches, bankSettings]);
-  const bankEvolutionData = useMemo(() => prepareBankEvolutionData(savedMatches, bankSettings), [savedMatches, bankSettings]);
+  const bankStats = useMemo(
+    () => calculateBankStats(savedMatches, bankSettings),
+    [savedMatches, bankSettings]
+  );
+  const bankEvolutionData = useMemo(
+    () => prepareBankEvolutionData(savedMatches, bankSettings),
+    [savedMatches, bankSettings]
+  );
 
   // Formatar número com separadores
   const formatNumber = useCallback((value: number | string): string => {
@@ -101,7 +100,7 @@ const BankScreen: React.FC<BankScreenProps> = ({
       const testSettings: BankSettings = {
         totalBank,
         currency: 'BRL', // Apenas REAL
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
       validateBankSettings(testSettings);
       setValidationState('valid');
@@ -122,23 +121,26 @@ const BankScreen: React.FC<BankScreenProps> = ({
     }
   }, [bankSettings, formatNumber]);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^\d,.-]/g, '');
-    setInputValue(value);
-    const parsed = parseFormattedValue(value);
-    setTotalBank(parsed);
-  }, [parseFormattedValue]);
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value.replace(/[^\d,.-]/g, '');
+      setInputValue(value);
+      const parsed = parseFormattedValue(value);
+      setTotalBank(parsed);
+    },
+    [parseFormattedValue]
+  );
 
   const handleSave = useCallback(async () => {
     if (validationState !== 'valid' || totalBank <= 0) return;
-    
+
     setSaveStatus('loading');
-    
+
     try {
       const newSettings: BankSettings = {
         totalBank,
         currency: 'BRL', // Apenas REAL
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
 
       const validatedSettings = validateBankSettings(newSettings);
@@ -160,8 +162,14 @@ const BankScreen: React.FC<BankScreenProps> = ({
       title: 'Lucro Total',
       value: `R$ ${bankStats.totalProfit.toFixed(2)}`,
       icon: DollarSign,
-      color: bankStats.totalProfit > 0 ? 'success' : bankStats.totalProfit < 0 ? 'error' : 'primary',
-      subtitle: bankStats.totalProfit > 0 ? 'Ganhos acumulados' : bankStats.totalProfit < 0 ? 'Prejuízo acumulado' : 'Sem movimentação',
+      color:
+        bankStats.totalProfit > 0 ? 'success' : bankStats.totalProfit < 0 ? 'error' : 'primary',
+      subtitle:
+        bankStats.totalProfit > 0
+          ? 'Ganhos acumulados'
+          : bankStats.totalProfit < 0
+            ? 'Prejuízo acumulado'
+            : 'Sem movimentação',
     },
     {
       title: 'ROI',
@@ -243,7 +251,9 @@ const BankScreen: React.FC<BankScreenProps> = ({
       >
         <div className="mb-4">
           <h3 className="text-lg md:text-xl font-black mb-1">Editar Banca</h3>
-          <p className="text-xs md:text-sm opacity-60">Atualize o valor da sua banca (apenas REAL - R$)</p>
+          <p className="text-xs md:text-sm opacity-60">
+            Atualize o valor da sua banca (apenas REAL - R$)
+          </p>
         </div>
         <div className="space-y-4">
           <div className="form-control">
@@ -347,7 +357,9 @@ const BankScreen: React.FC<BankScreenProps> = ({
               className="custom-card p-4 md:p-6"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className={`p-2 md:p-3 rounded-xl bg-${card.color}/10 border border-${card.color}/20`}>
+                <div
+                  className={`p-2 md:p-3 rounded-xl bg-${card.color}/10 border border-${card.color}/20`}
+                >
                   <Icon className={`w-5 h-5 md:w-6 md:h-6 text-${card.color}`} />
                 </div>
               </div>
@@ -355,12 +367,17 @@ const BankScreen: React.FC<BankScreenProps> = ({
                 <p className="text-xs md:text-sm font-semibold opacity-60 uppercase tracking-wide mb-1">
                   {card.title}
                 </p>
-                <p className={`text-2xl md:text-3xl font-black ${
-                  card.color === 'success' ? 'text-success' :
-                  card.color === 'error' ? 'text-error' :
-                  card.color === 'warning' ? 'text-warning' :
-                  'text-primary'
-                }`}>
+                <p
+                  className={`text-2xl md:text-3xl font-black ${
+                    card.color === 'success'
+                      ? 'text-success'
+                      : card.color === 'error'
+                        ? 'text-error'
+                        : card.color === 'warning'
+                          ? 'text-warning'
+                          : 'text-primary'
+                  }`}
+                >
                   {card.value}
                 </p>
                 <p className="text-xs opacity-50 mt-1">{card.subtitle}</p>
@@ -385,7 +402,9 @@ const BankScreen: React.FC<BankScreenProps> = ({
                 <TrendingUp className="w-5 h-5 text-success" />
                 <h3 className="text-lg font-black text-success">Maior Ganho</h3>
               </div>
-              <p className="text-3xl font-black text-success">R$ {bankStats.biggestWin.toFixed(2)}</p>
+              <p className="text-3xl font-black text-success">
+                R$ {bankStats.biggestWin.toFixed(2)}
+              </p>
             </motion.div>
           )}
           {bankStats.biggestLoss > 0 && (
@@ -400,7 +419,9 @@ const BankScreen: React.FC<BankScreenProps> = ({
                 <TrendingDown className="w-5 h-5 text-error" />
                 <h3 className="text-lg font-black text-error">Maior Perda</h3>
               </div>
-              <p className="text-3xl font-black text-error">R$ {bankStats.biggestLoss.toFixed(2)}</p>
+              <p className="text-3xl font-black text-error">
+                R$ {bankStats.biggestLoss.toFixed(2)}
+              </p>
             </motion.div>
           )}
         </div>
@@ -417,34 +438,41 @@ const BankScreen: React.FC<BankScreenProps> = ({
         >
           <div className="mb-4">
             <h3 className="text-lg md:text-xl font-black mb-1">Evolução da Banca</h3>
-            <p className="text-xs md:text-sm opacity-60">Crescimento do capital ao longo do tempo</p>
+            <p className="text-xs md:text-sm opacity-60">
+              Crescimento do capital ao longo do tempo
+            </p>
           </div>
           <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
-            <AreaChart 
-              data={bankEvolutionData}
-              margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
-            >
+            <AreaChart data={bankEvolutionData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
               <defs>
                 <linearGradient id="bankGradientBank" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
                 <filter id="glowBank">
-                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur" />
                   <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.2} />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fill: 'currentColor', opacity: 0.7, fontSize: windowSize.isMobile ? 10 : 12 }}
+              <XAxis
+                dataKey="date"
+                tick={{
+                  fill: 'currentColor',
+                  opacity: 0.7,
+                  fontSize: windowSize.isMobile ? 10 : 12,
+                }}
                 tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
               />
-              <YAxis 
-                tick={{ fill: 'currentColor', opacity: 0.7, fontSize: windowSize.isMobile ? 10 : 12 }}
+              <YAxis
+                tick={{
+                  fill: 'currentColor',
+                  opacity: 0.7,
+                  fontSize: windowSize.isMobile ? 10 : 12,
+                }}
                 tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
                 tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
               />
@@ -453,13 +481,17 @@ const BankScreen: React.FC<BankScreenProps> = ({
                   if (active && payload && payload.length) {
                     const data = payload[0];
                     const currentValue = data.value as number;
-                    const currentIndex = bankEvolutionData.findIndex(d => d.value === currentValue);
-                    const previousValue = currentIndex > 0 ? bankEvolutionData[currentIndex - 1].value : null;
+                    const currentIndex = bankEvolutionData.findIndex(
+                      (d) => d.value === currentValue
+                    );
+                    const previousValue =
+                      currentIndex > 0 ? bankEvolutionData[currentIndex - 1].value : null;
                     const change = previousValue !== null ? currentValue - previousValue : null;
-                    const changePercent = previousValue && previousValue > 0 
-                      ? ((change! / previousValue) * 100).toFixed(1) 
-                      : null;
-                    
+                    const changePercent =
+                      previousValue && previousValue > 0
+                        ? ((change! / previousValue) * 100).toFixed(1)
+                        : null;
+
                     return (
                       <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-4 shadow-xl">
                         <div className="mb-2">
@@ -469,13 +501,20 @@ const BankScreen: React.FC<BankScreenProps> = ({
                               R$ {currentValue.toFixed(2)}
                             </p>
                             {change !== null && (
-                              <span className={`text-sm font-bold flex items-center gap-1 ${
-                                change > 0 ? 'text-success' : change < 0 ? 'text-error' : ''
-                              }`}>
-                                {change > 0 ? <TrendingUp className="w-3 h-3" /> : 
-                                 change < 0 ? <TrendingDown className="w-3 h-3" /> : null}
-                                {change > 0 ? '+' : ''}{change.toFixed(2)}
-                                {changePercent && ` (${changePercent > 0 ? '+' : ''}${changePercent}%)`}
+                              <span
+                                className={`text-sm font-bold flex items-center gap-1 ${
+                                  change > 0 ? 'text-success' : change < 0 ? 'text-error' : ''
+                                }`}
+                              >
+                                {change > 0 ? (
+                                  <TrendingUp className="w-3 h-3" />
+                                ) : change < 0 ? (
+                                  <TrendingDown className="w-3 h-3" />
+                                ) : null}
+                                {change > 0 ? '+' : ''}
+                                {change.toFixed(2)}
+                                {changePercent &&
+                                  ` (${changePercent > 0 ? '+' : ''}${changePercent}%)`}
                               </span>
                             )}
                           </div>
@@ -502,18 +541,18 @@ const BankScreen: React.FC<BankScreenProps> = ({
                 dataKey="value"
                 stroke="#3b82f6"
                 strokeWidth={3}
-                dot={{ 
-                  fill: '#3b82f6', 
-                  strokeWidth: 2, 
+                dot={{
+                  fill: '#3b82f6',
+                  strokeWidth: 2,
                   stroke: '#ffffff',
                   r: windowSize.isMobile ? 4 : 5,
-                  filter: 'url(#glowBank)'
+                  filter: 'url(#glowBank)',
                 }}
-                activeDot={{ 
-                  r: windowSize.isMobile ? 7 : 8, 
+                activeDot={{
+                  r: windowSize.isMobile ? 7 : 8,
                   stroke: '#ffffff',
                   strokeWidth: 2,
-                  filter: 'url(#glowBank)'
+                  filter: 'url(#glowBank)',
                 }}
                 animationBegin={0}
                 animationDuration={1000}
@@ -546,4 +585,3 @@ const BankScreen: React.FC<BankScreenProps> = ({
 };
 
 export default BankScreen;
-

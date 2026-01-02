@@ -1,40 +1,37 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Activity, 
-  TrendingUp, 
-  Target, 
-  DollarSign, 
-  Percent, 
+import {
+  Activity,
+  TrendingUp,
+  Target,
+  DollarSign,
+  Percent,
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
 } from 'lucide-react';
 import { formatTimestampInBrasilia } from '../utils/dateFormatter';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
   Area,
-  AreaChart
+  AreaChart,
 } from 'recharts';
 import { SavedAnalysis, BankSettings } from '../types';
-import { 
-  calculateDashboardStats, 
-  prepareBankEvolutionData, 
-  prepareResultDistributionData 
+import {
+  calculateDashboardStats,
+  prepareBankEvolutionData,
+  prepareResultDistributionData,
 } from '../utils/dashboardStats';
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
@@ -52,22 +49,29 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onMatchClick,
 }) => {
   const windowSize = useWindowSize();
-  const stats = useMemo(() => calculateDashboardStats(savedMatches, bankSettings), [savedMatches, bankSettings]);
-  const bankEvolutionData = useMemo(() => prepareBankEvolutionData(savedMatches, bankSettings), [savedMatches, bankSettings]);
-  const resultDistributionData = useMemo(() => prepareResultDistributionData(savedMatches), [savedMatches]);
+  const stats = useMemo(
+    () => calculateDashboardStats(savedMatches, bankSettings),
+    [savedMatches, bankSettings]
+  );
+  const bankEvolutionData = useMemo(
+    () => prepareBankEvolutionData(savedMatches, bankSettings),
+    [savedMatches, bankSettings]
+  );
+  const resultDistributionData = useMemo(
+    () => prepareResultDistributionData(savedMatches),
+    [savedMatches]
+  );
 
   // Partidas recentes (últimas 10)
   const recentMatches = useMemo(() => {
-    return [...savedMatches]
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 10);
+    return [...savedMatches].sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
   }, [savedMatches]);
 
   // Cores vibrantes para o gráfico de distribuição
   const CHART_COLORS = {
-    won: '#22c55e',      // Verde vibrante
-    lost: '#ef4444',     // Vermelho vibrante
-    pending: '#f59e0b',  // Amarelo/Laranja vibrante
+    won: '#22c55e', // Verde vibrante
+    lost: '#ef4444', // Vermelho vibrante
+    pending: '#f59e0b', // Amarelo/Laranja vibrante
   };
 
   // Mapear dados para cores
@@ -107,7 +111,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       value: `${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${stats.totalProfit.toFixed(2)}`,
       icon: DollarSign,
       color: stats.totalProfit > 0 ? 'success' : stats.totalProfit < 0 ? 'error' : 'primary',
-      subtitle: stats.totalProfit > 0 ? 'Lucro positivo' : stats.totalProfit < 0 ? 'Prejuízo' : 'Sem lucro',
+      subtitle:
+        stats.totalProfit > 0 ? 'Lucro positivo' : stats.totalProfit < 0 ? 'Prejuízo' : 'Sem lucro',
     },
     {
       title: 'ROI',
@@ -141,7 +146,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               className="custom-card p-4 md:p-6"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className={`p-2 md:p-3 rounded-xl bg-${card.color}/10 border border-${card.color}/20`}>
+                <div
+                  className={`p-2 md:p-3 rounded-xl bg-${card.color}/10 border border-${card.color}/20`}
+                >
                   <Icon className={`w-5 h-5 md:w-6 md:h-6 text-${card.color}`} />
                 </div>
                 {card.title === 'Lucro Total' && (
@@ -158,11 +165,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <p className="text-xs md:text-sm font-semibold opacity-60 uppercase tracking-wide mb-1">
                   {card.title}
                 </p>
-                <p className={`text-2xl md:text-3xl font-black ${
-                  card.color === 'success' ? 'text-success' :
-                  card.color === 'error' ? 'text-error' :
-                  'text-primary'
-                }`}>
+                <p
+                  className={`text-2xl md:text-3xl font-black ${
+                    card.color === 'success'
+                      ? 'text-success'
+                      : card.color === 'error'
+                        ? 'text-error'
+                        : 'text-primary'
+                  }`}
+                >
                   {card.value}
                 </p>
                 <p className="text-xs opacity-50 mt-1">{card.subtitle}</p>
@@ -184,34 +195,44 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           >
             <div className="mb-4">
               <h3 className="text-lg md:text-xl font-black mb-1">Evolução da Banca</h3>
-              <p className="text-xs md:text-sm opacity-60">Crescimento do capital ao longo do tempo</p>
+              <p className="text-xs md:text-sm opacity-60">
+                Crescimento do capital ao longo do tempo
+              </p>
             </div>
             <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
-              <AreaChart 
+              <AreaChart
                 data={bankEvolutionData}
                 margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
               >
                 <defs>
                   <linearGradient id="bankGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                   <filter id="glow">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur" />
                     <feMerge>
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
                     </feMerge>
                   </filter>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.2} />
-                <XAxis 
-                  dataKey="date" 
-                  tick={{ fill: 'currentColor', opacity: 0.7, fontSize: windowSize.isMobile ? 10 : 12 }}
+                <XAxis
+                  dataKey="date"
+                  tick={{
+                    fill: 'currentColor',
+                    opacity: 0.7,
+                    fontSize: windowSize.isMobile ? 10 : 12,
+                  }}
                   tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
                 />
-                <YAxis 
-                  tick={{ fill: 'currentColor', opacity: 0.7, fontSize: windowSize.isMobile ? 10 : 12 }}
+                <YAxis
+                  tick={{
+                    fill: 'currentColor',
+                    opacity: 0.7,
+                    fontSize: windowSize.isMobile ? 10 : 12,
+                  }}
                   tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
                   tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
                 />
@@ -220,13 +241,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     if (active && payload && payload.length) {
                       const data = payload[0];
                       const currentValue = data.value as number;
-                      const currentIndex = bankEvolutionData.findIndex(d => d.value === currentValue);
-                      const previousValue = currentIndex > 0 ? bankEvolutionData[currentIndex - 1].value : null;
+                      const currentIndex = bankEvolutionData.findIndex(
+                        (d) => d.value === currentValue
+                      );
+                      const previousValue =
+                        currentIndex > 0 ? bankEvolutionData[currentIndex - 1].value : null;
                       const change = previousValue !== null ? currentValue - previousValue : null;
-                      const changePercent = previousValue && previousValue > 0 
-                        ? ((change! / previousValue) * 100).toFixed(1) 
-                        : null;
-                      
+                      const changePercent =
+                        previousValue && previousValue > 0
+                          ? ((change! / previousValue) * 100).toFixed(1)
+                          : null;
+
                       return (
                         <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-4 shadow-xl">
                           <div className="mb-2">
@@ -236,13 +261,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                                 R$ {currentValue.toFixed(2)}
                               </p>
                               {change !== null && (
-                                <span className={`text-sm font-bold flex items-center gap-1 ${
-                                  change > 0 ? 'text-success' : change < 0 ? 'text-error' : ''
-                                }`}>
-                                  {change > 0 ? <TrendingUp className="w-3 h-3" /> : 
-                                   change < 0 ? <ArrowDownRight className="w-3 h-3" /> : null}
-                                  {change > 0 ? '+' : ''}{change.toFixed(2)}
-                                  {changePercent && ` (${changePercent > 0 ? '+' : ''}${changePercent}%)`}
+                                <span
+                                  className={`text-sm font-bold flex items-center gap-1 ${
+                                    change > 0 ? 'text-success' : change < 0 ? 'text-error' : ''
+                                  }`}
+                                >
+                                  {change > 0 ? (
+                                    <TrendingUp className="w-3 h-3" />
+                                  ) : change < 0 ? (
+                                    <ArrowDownRight className="w-3 h-3" />
+                                  ) : null}
+                                  {change > 0 ? '+' : ''}
+                                  {change.toFixed(2)}
+                                  {changePercent &&
+                                    ` (${changePercent > 0 ? '+' : ''}${changePercent}%)`}
                                 </span>
                               )}
                             </div>
@@ -269,18 +301,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   dataKey="value"
                   stroke="#3b82f6"
                   strokeWidth={3}
-                  dot={{ 
-                    fill: '#3b82f6', 
-                    strokeWidth: 2, 
+                  dot={{
+                    fill: '#3b82f6',
+                    strokeWidth: 2,
                     stroke: '#ffffff',
                     r: windowSize.isMobile ? 4 : 5,
-                    filter: 'url(#glow)'
+                    filter: 'url(#glow)',
                   }}
-                  activeDot={{ 
-                    r: windowSize.isMobile ? 7 : 8, 
+                  activeDot={{
+                    r: windowSize.isMobile ? 7 : 8,
                     stroke: '#ffffff',
                     strokeWidth: 2,
-                    filter: 'url(#glow)'
+                    filter: 'url(#glow)',
                   }}
                   animationBegin={0}
                   animationDuration={1000}
@@ -292,7 +324,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         )}
 
         {/* Distribuição de Resultados */}
-        {resultDistributionData.some(d => d.value > 0) && (
+        {resultDistributionData.some((d) => d.value > 0) && (
           <motion.div
             variants={animations.fadeInUp}
             initial="initial"
@@ -308,26 +340,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <PieChart>
                   <defs>
                     <filter id="shadow">
-                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3"/>
+                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
                     </filter>
                   </defs>
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0];
-                        const percentage = totalBets > 0 
-                          ? ((data.value as number) / totalBets * 100).toFixed(1) 
-                          : '0';
+                        const percentage =
+                          totalBets > 0
+                            ? (((data.value as number) / totalBets) * 100).toFixed(1)
+                            : '0';
                         const color = getColorForCategory(data.name as string);
-                        const icon = data.name === 'Ganhas' ? CheckCircle : 
-                                   data.name === 'Perdidas' ? XCircle : Clock;
+                        const icon =
+                          data.name === 'Ganhas'
+                            ? CheckCircle
+                            : data.name === 'Perdidas'
+                              ? XCircle
+                              : Clock;
                         const Icon = icon;
-                        
+
                         return (
                           <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-3 shadow-xl">
                             <div className="flex items-center gap-2 mb-2">
-                              <div 
-                                className="w-4 h-4 rounded-full" 
+                              <div
+                                className="w-4 h-4 rounded-full"
                                 style={{ backgroundColor: color }}
                               />
                               <span className="font-bold text-sm">{data.name}</span>
@@ -339,9 +376,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                                   {data.value}
                                 </p>
                               </div>
-                              <p className="text-xs opacity-70">
-                                {percentage}% do total
-                              </p>
+                              <p className="text-xs opacity-70">{percentage}% do total</p>
                             </div>
                           </div>
                         );
@@ -364,13 +399,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     {resultDistributionData.map((entry, index) => {
                       const color = getColorForCategory(entry.name);
                       return (
-                        <Cell 
-                          key={`cell-${index}`} 
+                        <Cell
+                          key={`cell-${index}`}
                           fill={color}
-                          style={{ 
+                          style={{
                             filter: 'url(#shadow)',
                             transition: 'opacity 0.2s',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.opacity = '0.8';
@@ -387,20 +422,23 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <div className="space-y-4 w-full md:w-auto">
                 {resultDistributionData.map((item) => {
                   const color = getColorForCategory(item.name);
-                  const percentage = totalBets > 0 
-                    ? ((item.value / totalBets) * 100).toFixed(1) 
-                    : '0';
-                  const icon = item.name === 'Ganhas' ? CheckCircle : 
-                             item.name === 'Perdidas' ? XCircle : Clock;
+                  const percentage =
+                    totalBets > 0 ? ((item.value / totalBets) * 100).toFixed(1) : '0';
+                  const icon =
+                    item.name === 'Ganhas'
+                      ? CheckCircle
+                      : item.name === 'Perdidas'
+                        ? XCircle
+                        : Clock;
                   const Icon = icon;
-                  
+
                   return (
-                    <div 
-                      key={item.name} 
+                    <div
+                      key={item.name}
                       className="flex items-center gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors"
                     >
-                      <div 
-                        className="w-5 h-5 rounded-full shadow-md flex-shrink-0" 
+                      <div
+                        className="w-5 h-5 rounded-full shadow-md flex-shrink-0"
                         style={{ backgroundColor: color }}
                       />
                       <div className="flex-1 min-w-0">
@@ -412,9 +450,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           <span className="text-lg font-black" style={{ color }}>
                             {item.value}
                           </span>
-                          <span className="text-xs opacity-60">
-                            ({percentage}%)
-                          </span>
+                          <span className="text-xs opacity-60">({percentage}%)</span>
                         </div>
                       </div>
                     </div>
@@ -462,11 +498,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <tbody>
                 {recentMatches.map((match) => {
                   const hasBet = match.betInfo && match.betInfo.betAmount > 0;
-                  const profit = hasBet && match.betInfo?.status === 'won' 
-                    ? match.betInfo.potentialProfit 
-                    : hasBet && match.betInfo?.status === 'lost'
-                    ? -match.betInfo.betAmount
-                    : 0;
+                  const profit =
+                    hasBet && match.betInfo?.status === 'won'
+                      ? match.betInfo.potentialProfit
+                      : hasBet && match.betInfo?.status === 'lost'
+                        ? -match.betInfo.betAmount
+                        : 0;
 
                   return (
                     <tr
@@ -485,33 +522,49 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       <td className="py-3 px-2 md:px-4 text-right text-sm font-semibold">
                         {match.data.oddOver15?.toFixed(2) || '-'}
                       </td>
-                      <td className={`py-3 px-2 md:px-4 text-right text-sm font-semibold ${
-                        match.result.ev > 0 ? 'text-success' : match.result.ev < 0 ? 'text-error' : ''
-                      }`}>
-                        {match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%
+                      <td
+                        className={`py-3 px-2 md:px-4 text-right text-sm font-semibold ${
+                          match.result.ev > 0
+                            ? 'text-success'
+                            : match.result.ev < 0
+                              ? 'text-error'
+                              : ''
+                        }`}
+                      >
+                        {match.result.ev > 0 ? '+' : ''}
+                        {match.result.ev.toFixed(1)}%
                       </td>
                       <td className="py-3 px-2 md:px-4 text-center">
                         {hasBet ? (
-                          <span className={`badge badge-sm ${
-                            match.betInfo?.status === 'won' ? 'badge-success' :
-                            match.betInfo?.status === 'lost' ? 'badge-error' :
-                            'badge-warning'
-                          }`}>
-                            {match.betInfo?.status === 'won' ? 'Ganhou' :
-                             match.betInfo?.status === 'lost' ? 'Perdeu' :
-                             'Pendente'}
+                          <span
+                            className={`badge badge-sm ${
+                              match.betInfo?.status === 'won'
+                                ? 'badge-success'
+                                : match.betInfo?.status === 'lost'
+                                  ? 'badge-error'
+                                  : 'badge-warning'
+                            }`}
+                          >
+                            {match.betInfo?.status === 'won'
+                              ? 'Ganhou'
+                              : match.betInfo?.status === 'lost'
+                                ? 'Perdeu'
+                                : 'Pendente'}
                           </span>
                         ) : (
                           <span className="badge badge-sm badge-ghost">Sem aposta</span>
                         )}
                       </td>
-                      <td className={`py-3 px-2 md:px-4 text-right text-sm font-semibold ${
-                        profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''
-                      }`}>
+                      <td
+                        className={`py-3 px-2 md:px-4 text-right text-sm font-semibold ${
+                          profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''
+                        }`}
+                      >
                         {profit !== 0 ? (
                           <>
                             {profit > 0 ? '+' : ''}
-                            {getCurrencySymbol(bankSettings?.currency || 'BRL')} {Math.abs(profit).toFixed(2)}
+                            {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                            {Math.abs(profit).toFixed(2)}
                           </>
                         ) : (
                           '-'
@@ -548,4 +601,3 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 };
 
 export default DashboardScreen;
-

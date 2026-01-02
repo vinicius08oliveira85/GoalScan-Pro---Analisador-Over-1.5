@@ -1,4 +1,3 @@
-
 import { BetInfo } from '../types';
 
 /**
@@ -23,18 +22,26 @@ export function calculateBankUpdate(
 
   // NOVA APOSTA: Quando criar aposta (oldStatus não existe e newStatus é 'pending')
   // Descontar o valor apostado imediatamente
-  if ((oldStatus === undefined || oldStatus === null || oldStatus === 'cancelled') && newStatus === 'pending') {
+  if (
+    (oldStatus === undefined || oldStatus === null || oldStatus === 'cancelled') &&
+    newStatus === 'pending'
+  ) {
     return -betAmount; // Desconta o valor apostado
   }
 
   // CANCELAR APOSTA PENDING: Devolver o valor se estava pending
-  if (oldStatus === 'pending' && (newStatus === 'cancelled' || newStatus === undefined || newStatus === null)) {
+  if (
+    oldStatus === 'pending' &&
+    (newStatus === 'cancelled' || newStatus === undefined || newStatus === null)
+  ) {
     return betAmount; // Devolve o valor apostado
   }
 
   // Se ambos são pending ou cancelled, não altera banca
-  if ((oldStatus === 'pending' || oldStatus === 'cancelled') && 
-      (newStatus === 'pending' || newStatus === 'cancelled')) {
+  if (
+    (oldStatus === 'pending' || oldStatus === 'cancelled') &&
+    (newStatus === 'pending' || newStatus === 'cancelled')
+  ) {
     return 0;
   }
 
@@ -100,7 +107,7 @@ export function calculateCurrentBank(
     } else if (betInfo.status === 'won') {
       // Won: descontou quando pending, então adiciona apenas o lucro
       // Lucro = retorno total - valor apostado (que já foi descontado)
-      currentBank += (betInfo.potentialReturn - betInfo.betAmount);
+      currentBank += betInfo.potentialReturn - betInfo.betAmount;
     } else if (betInfo.status === 'lost') {
       // Lost: já estava descontado quando pending, então não precisa fazer nada
       // O valor já foi descontado quando a aposta foi criada
@@ -111,4 +118,3 @@ export function calculateCurrentBank(
 
   return Math.max(0, currentBank); // Banca não pode ser negativa
 }
-

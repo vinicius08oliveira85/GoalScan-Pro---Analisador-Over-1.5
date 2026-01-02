@@ -1,27 +1,34 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SavedAnalysis } from '../types';
-import { TrendingUp, TrendingDown, Calendar, X, Plus, Target, Activity, TrendingUp as TrendingUpIcon, CheckCircle, XCircle, Clock, Ban } from 'lucide-react';
+import {
+  Plus,
+  Target,
+  Activity,
+  TrendingUp as TrendingUpIcon,
+  CheckCircle,
+  Clock,
+} from 'lucide-react';
 import { SkeletonMatchCard } from './Skeleton';
-import { cardHover, animations } from '../utils/animations';
+import { animations } from '../utils/animations';
 import MatchTabs, { TabCategory } from './MatchTabs';
 import MatchFilters from './MatchFilters';
 import MatchCardList from './MatchCardList';
 import MatchCardCompact from './MatchCardCompact';
 import { useWindowSize } from '../hooks/useWindowSize';
-import { 
-  filterMatchesByCategory, 
+import {
+  filterMatchesByCategory,
   getCategoryCounts,
   FilterState,
   SortState,
   applyAllFilters,
-  sortMatches
+  sortMatches,
 } from '../utils/matchFilters';
 import { getPrimaryProbability } from '../utils/probability';
 
 // Componente de Empty State por categoria
-const EmptyStateByCategory: React.FC<{ 
-  category: TabCategory; 
+const EmptyStateByCategory: React.FC<{
+  category: TabCategory;
   onNewMatch: () => void;
   totalMatches: number;
 }> = ({ category, onNewMatch, totalMatches }) => {
@@ -29,23 +36,26 @@ const EmptyStateByCategory: React.FC<{
     pendentes: {
       icon: Clock,
       title: 'Nenhuma Partida Pendente',
-      description: totalMatches > 0 
-        ? 'Todas as suas partidas já foram finalizadas ou não possuem apostas pendentes.'
-        : 'Adicione partidas e registre apostas para acompanhar seus resultados.',
-      showButton: totalMatches === 0
+      description:
+        totalMatches > 0
+          ? 'Todas as suas partidas já foram finalizadas ou não possuem apostas pendentes.'
+          : 'Adicione partidas e registre apostas para acompanhar seus resultados.',
+      showButton: totalMatches === 0,
     },
     finalizadas: {
       icon: CheckCircle,
       title: 'Nenhuma Partida Finalizada',
-      description: 'Ainda não há partidas finalizadas. As partidas aparecerão aqui após serem concluídas.',
-      showButton: false
+      description:
+        'Ainda não há partidas finalizadas. As partidas aparecerão aqui após serem concluídas.',
+      showButton: false,
     },
     todas: {
       icon: Target,
       title: 'Nenhuma Partida Salva',
-      description: 'Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida e começar a usar o GoalScan Pro.',
-      showButton: true
-    }
+      description:
+        'Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida e começar a usar o GoalScan Pro.',
+      showButton: true,
+    },
   };
 
   const state = emptyStates[category];
@@ -57,15 +67,15 @@ const EmptyStateByCategory: React.FC<{
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
+      transition={{ type: 'spring', bounce: 0.4, duration: 0.6 }}
       className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2 relative overflow-hidden"
     >
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-50" />
-      
+
       <motion.div
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: "spring", bounce: 0.6, delay: 0.2 }}
+        transition={{ type: 'spring', bounce: 0.6, delay: 0.2 }}
         className="relative mb-6"
       >
         <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center shadow-lg">
@@ -75,16 +85,16 @@ const EmptyStateByCategory: React.FC<{
           className="absolute inset-0 rounded-full border-4 border-primary/20"
           animate={{
             scale: [1, 1.2, 1],
-            opacity: [0.5, 0, 0.5]
+            opacity: [0.5, 0, 0.5],
           }}
           transition={{
             duration: 2,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: 'easeInOut',
           }}
         />
       </motion.div>
-      
+
       <motion.h3
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -93,7 +103,7 @@ const EmptyStateByCategory: React.FC<{
       >
         {state.title}
       </motion.h3>
-      
+
       <motion.p
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -102,7 +112,7 @@ const EmptyStateByCategory: React.FC<{
       >
         {state.description}
       </motion.p>
-      
+
       {state.showButton && (
         <motion.button
           initial={{ opacity: 0, y: 20 }}
@@ -131,17 +141,17 @@ interface MatchesScreenProps {
   isUpdatingBetStatus?: boolean;
 }
 
-const MatchesScreen: React.FC<MatchesScreenProps> = ({ 
-  savedMatches, 
-  onMatchClick, 
-  onNewMatch, 
-  onDeleteMatch, 
-  onUpdateBetStatus, 
-  isLoading = false, 
-  isUpdatingBetStatus = false 
+const MatchesScreen: React.FC<MatchesScreenProps> = ({
+  savedMatches,
+  onMatchClick,
+  onNewMatch,
+  onDeleteMatch,
+  onUpdateBetStatus,
+  isLoading = false,
+  isUpdatingBetStatus = false,
 }) => {
   const categoryCounts = useMemo(() => getCategoryCounts(savedMatches), [savedMatches]);
-  
+
   // Estados iniciais com persistência no localStorage
   const [activeTab, setActiveTab] = useState<TabCategory>(() => {
     const counts = getCategoryCounts(savedMatches);
@@ -162,7 +172,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
       probability: 'all',
       riskLevels: [],
       betStatus: 'all',
-      dateRange: 'all'
+      dateRange: 'all',
     };
   });
 
@@ -177,7 +187,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
     }
     return {
       field: 'date',
-      order: 'desc'
+      order: 'desc',
     };
   });
 
@@ -193,29 +203,28 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
   useEffect(() => {
     localStorage.setItem('matchesSortState', JSON.stringify(sortState));
   }, [sortState]);
-  
+
   // Filtrar e ordenar partidas
   const filteredMatches = useMemo(() => {
     // Primeiro filtra por categoria (abas)
     let matches = filterMatchesByCategory(savedMatches, activeTab);
-    
+
     // Depois aplica filtros avançados
     matches = applyAllFilters(matches, filterState);
-    
+
     // Por fim ordena
     matches = sortMatches(matches, sortState.field, sortState.order);
-    
+
     return matches;
   }, [savedMatches, activeTab, filterState, sortState]);
-  
+
   const totalMatches = filteredMatches.length;
-  const positiveEV = filteredMatches.filter(m => m.result.ev > 0).length;
-  const avgProbability = filteredMatches.length > 0 
-    ? filteredMatches.reduce((sum, m) => sum + getPrimaryProbability(m.result), 0) / filteredMatches.length 
-    : 0;
-  const avgEV = filteredMatches.length > 0
-    ? filteredMatches.reduce((sum, m) => sum + m.result.ev, 0) / filteredMatches.length
-    : 0;
+  const positiveEV = filteredMatches.filter((m) => m.result.ev > 0).length;
+  const avgProbability =
+    filteredMatches.length > 0
+      ? filteredMatches.reduce((sum, m) => sum + getPrimaryProbability(m.result), 0) /
+        filteredMatches.length
+      : 0;
 
   const handleClearFilters = () => {
     setFilterState({
@@ -223,18 +232,14 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
       probability: 'all',
       riskLevels: [],
       betStatus: 'all',
-      dateRange: 'all'
+      dateRange: 'all',
     });
   };
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
       {/* Sistema de Abas */}
-      <MatchTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        counts={categoryCounts}
-      />
+      <MatchTabs activeTab={activeTab} onTabChange={setActiveTab} counts={categoryCounts} />
 
       {/* Filtros e Visualização */}
       <div className="flex flex-col gap-4">
@@ -248,11 +253,11 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
           totalCount={filterMatchesByCategory(savedMatches, activeTab).length}
         />
       </div>
-      
+
       {/* Estatísticas Gerais */}
       {totalMatches > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
-          <motion.div 
+          <motion.div
             variants={animations.fadeInUp}
             initial="initial"
             animate="animate"
@@ -263,11 +268,13 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">Total de Partidas</p>
+              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
+                Total de Partidas
+              </p>
               <p className="text-lg md:text-xl font-black">{totalMatches}</p>
             </div>
           </motion.div>
-          <motion.div 
+          <motion.div
             variants={animations.fadeInUp}
             initial="initial"
             animate="animate"
@@ -278,11 +285,13 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               <Target className="w-4 h-4 md:w-5 md:h-5 text-success" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">EV Positivo</p>
+              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
+                EV Positivo
+              </p>
               <p className="text-lg md:text-xl font-black text-success">{positiveEV}</p>
             </div>
           </motion.div>
-          <motion.div 
+          <motion.div
             variants={animations.fadeInUp}
             initial="initial"
             animate="animate"
@@ -293,8 +302,12 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               <TrendingUpIcon className="w-4 h-4 md:w-5 md:h-5 text-teal-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">Prob. Média</p>
-              <p className="text-lg md:text-xl font-black text-teal-400">{avgProbability.toFixed(1)}%</p>
+              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
+                Prob. Média
+              </p>
+              <p className="text-lg md:text-xl font-black text-teal-400">
+                {avgProbability.toFixed(1)}%
+              </p>
             </div>
           </motion.div>
         </div>
@@ -328,15 +341,15 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
+          transition={{ type: 'spring', bounce: 0.4, duration: 0.6 }}
           className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2 relative overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-50" />
-          
+
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", bounce: 0.6, delay: 0.2 }}
+            transition={{ type: 'spring', bounce: 0.6, delay: 0.2 }}
             className="relative mb-6"
           >
             <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center shadow-lg">
@@ -346,16 +359,16 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               className="absolute inset-0 rounded-full border-4 border-primary/20"
               animate={{
                 scale: [1, 1.2, 1],
-                opacity: [0.5, 0, 0.5]
+                opacity: [0.5, 0, 0.5],
               }}
               transition={{
                 duration: 2,
                 repeat: Infinity,
-                ease: "easeInOut"
+                ease: 'easeInOut',
               }}
             />
           </motion.div>
-          
+
           <motion.h3
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -364,16 +377,17 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
           >
             Nenhuma Partida Salva
           </motion.h3>
-          
+
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
             className="text-sm md:text-base opacity-70 mb-8 max-w-md leading-relaxed"
           >
-            Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida e começar a usar o GoalScan Pro.
+            Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova
+            partida e começar a usar o GoalScan Pro.
           </motion.p>
-          
+
           <motion.button
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -388,8 +402,8 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
           </motion.button>
         </motion.div>
       ) : filteredMatches.length === 0 ? (
-        <EmptyStateByCategory 
-          category={activeTab} 
+        <EmptyStateByCategory
+          category={activeTab}
           onNewMatch={onNewMatch}
           totalMatches={savedMatches.length}
         />
@@ -437,4 +451,3 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
 };
 
 export default MatchesScreen;
-

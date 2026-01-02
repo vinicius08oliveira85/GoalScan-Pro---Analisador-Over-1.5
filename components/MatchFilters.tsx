@@ -1,31 +1,29 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Filter, 
-  X, 
-  TrendingUp, 
-  TrendingDown, 
-  Target, 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  Filter,
+  X,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock,
   Calendar,
   ChevronDown,
   ChevronUp,
-  ArrowUpDown
+  ArrowUpDown,
 } from 'lucide-react';
-import { 
-  FilterState, 
-  EVFilter, 
-  ProbabilityRange, 
-  RiskLevel, 
-  BetStatusFilter, 
+import {
+  FilterState,
+  EVFilter,
+  ProbabilityRange,
+  RiskLevel,
+  BetStatusFilter,
   DateRange,
   SortField,
-  SortOrder,
   SortState,
-  countActiveFilters 
+  countActiveFilters,
 } from '../utils/matchFilters';
 
 interface MatchFiltersProps {
@@ -45,25 +43,22 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
   onSortChange,
   onClearFilters,
   filteredCount,
-  totalCount
+  totalCount,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const activeFiltersCount = countActiveFilters(filterState);
 
-  const handleFilterChange = <K extends keyof FilterState>(
-    key: K,
-    value: FilterState[K]
-  ) => {
+  const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     onFilterChange({
       ...filterState,
-      [key]: value
+      [key]: value,
     });
   };
 
   const handleRiskLevelToggle = (level: RiskLevel) => {
     const currentLevels = filterState.riskLevels;
     const newLevels = currentLevels.includes(level)
-      ? currentLevels.filter(l => l !== level)
+      ? currentLevels.filter((l) => l !== level)
       : [...currentLevels, level];
     handleFilterChange('riskLevels', newLevels);
   };
@@ -73,12 +68,12 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
     if (sortState.field === field) {
       onSortChange({
         ...sortState,
-        order: sortState.order === 'asc' ? 'desc' : 'asc'
+        order: sortState.order === 'asc' ? 'desc' : 'asc',
       });
     } else {
       onSortChange({
         field,
-        order: 'desc' // Padrão: maior para menor
+        order: 'desc', // Padrão: maior para menor
       });
     }
   };
@@ -86,14 +81,14 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
   const evOptions: { value: EVFilter; label: string; icon: React.ReactNode }[] = [
     { value: 'all', label: 'Todos', icon: null },
     { value: 'positive', label: 'EV Positivo', icon: <TrendingUp className="w-3 h-3" /> },
-    { value: 'negative', label: 'EV Negativo', icon: <TrendingDown className="w-3 h-3" /> }
+    { value: 'negative', label: 'EV Negativo', icon: <TrendingDown className="w-3 h-3" /> },
   ];
 
   const probabilityOptions: { value: ProbabilityRange; label: string }[] = [
     { value: 'all', label: 'Todas' },
     { value: 'high', label: 'Alta (≥70%)' },
     { value: 'medium', label: 'Média (50-70%)' },
-    { value: 'low', label: 'Baixa (<50%)' }
+    { value: 'low', label: 'Baixa (<50%)' },
   ];
 
   const riskLevels: RiskLevel[] = ['Baixo', 'Moderado', 'Alto', 'Muito Alto'];
@@ -103,7 +98,7 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
     { value: 'won', label: 'Ganhou', icon: <CheckCircle className="w-3 h-3" /> },
     { value: 'lost', label: 'Perdeu', icon: <XCircle className="w-3 h-3" /> },
     { value: 'pending', label: 'Pendente', icon: <Clock className="w-3 h-3" /> },
-    { value: 'no-bet', label: 'Sem aposta', icon: <X className="w-3 h-3" /> }
+    { value: 'no-bet', label: 'Sem aposta', icon: <X className="w-3 h-3" /> },
   ];
 
   const dateRangeOptions: { value: DateRange; label: string }[] = [
@@ -112,7 +107,7 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
     { value: 'this-week', label: 'Esta semana' },
     { value: 'this-month', label: 'Este mês' },
     { value: 'last-7-days', label: 'Últimos 7 dias' },
-    { value: 'last-30-days', label: 'Últimos 30 dias' }
+    { value: 'last-30-days', label: 'Últimos 30 dias' },
   ];
 
   const sortOptions: { value: SortField; label: string }[] = [
@@ -120,7 +115,7 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
     { value: 'ev', label: 'EV' },
     { value: 'probability', label: 'Probabilidade' },
     { value: 'risk', label: 'Risco' },
-    { value: 'timestamp', label: 'Criação' }
+    { value: 'timestamp', label: 'Criação' },
   ];
 
   return (
@@ -136,15 +131,9 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
             <Filter className="w-4 h-4" />
             <span>Filtros</span>
             {activeFiltersCount > 0 && (
-              <span className="badge badge-primary badge-sm">
-                {activeFiltersCount}
-              </span>
+              <span className="badge badge-primary badge-sm">{activeFiltersCount}</span>
             )}
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
           {/* Ordenação rápida */}
@@ -157,18 +146,17 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
                   onClick={() => handleSortFieldChange(option.value)}
                   className={`
                     px-3 py-1.5 rounded-lg text-xs font-medium transition-all
-                    ${sortState.field === option.value
-                      ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
-                      : 'text-base-content/60 hover:text-base-content/80 hover:bg-base-300/50'
+                    ${
+                      sortState.field === option.value
+                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
+                        : 'text-base-content/60 hover:text-base-content/80 hover:bg-base-300/50'
                     }
                   `}
                   title={`Ordenar por ${option.label} ${sortState.field === option.value ? (sortState.order === 'asc' ? '(crescente)' : '(decrescente)') : ''}`}
                 >
                   {option.label}
                   {sortState.field === option.value && (
-                    <span className="ml-1">
-                      {sortState.order === 'asc' ? '↑' : '↓'}
-                    </span>
+                    <span className="ml-1">{sortState.order === 'asc' ? '↑' : '↓'}</span>
                   )}
                 </button>
               ))}
@@ -189,10 +177,8 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
 
         {/* Contador de resultados */}
         <div className="text-sm opacity-70">
-          <span className="font-semibold">{filteredCount}</span>
-          {' '}de{' '}
-          <span>{totalCount}</span>
-          {' '}partidas
+          <span className="font-semibold">{filteredCount}</span> de <span>{totalCount}</span>{' '}
+          partidas
         </div>
       </div>
 
@@ -218,9 +204,10 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
                     onClick={() => handleFilterChange('ev', option.value)}
                     className={`
                       px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
-                      ${filterState.ev === option.value
-                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
-                        : 'bg-base-200/50 text-base-content/70 hover:bg-base-200 border border-base-300/50'
+                      ${
+                        filterState.ev === option.value
+                          ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
+                          : 'bg-base-200/50 text-base-content/70 hover:bg-base-200 border border-base-300/50'
                       }
                     `}
                   >
@@ -243,9 +230,10 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
                     onClick={() => handleFilterChange('probability', option.value)}
                     className={`
                       px-3 py-2 rounded-lg text-sm font-medium transition-all
-                      ${filterState.probability === option.value
-                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
-                        : 'bg-base-200/50 text-base-content/70 hover:bg-base-200 border border-base-300/50'
+                      ${
+                        filterState.probability === option.value
+                          ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
+                          : 'bg-base-200/50 text-base-content/70 hover:bg-base-200 border border-base-300/50'
                       }
                     `}
                   >
@@ -305,9 +293,10 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
                     onClick={() => handleFilterChange('betStatus', option.value)}
                     className={`
                       px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
-                      ${filterState.betStatus === option.value
-                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
-                        : 'bg-base-200/50 text-base-content/70 hover:bg-base-200 border border-base-300/50'
+                      ${
+                        filterState.betStatus === option.value
+                          ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
+                          : 'bg-base-200/50 text-base-content/70 hover:bg-base-200 border border-base-300/50'
                       }
                     `}
                   >
@@ -331,9 +320,10 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
                     onClick={() => handleFilterChange('dateRange', option.value)}
                     className={`
                       px-3 py-2 rounded-lg text-sm font-medium transition-all
-                      ${filterState.dateRange === option.value
-                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
-                        : 'bg-base-200/50 text-base-content/70 hover:bg-base-200 border border-base-300/50'
+                      ${
+                        filterState.dateRange === option.value
+                          ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md'
+                          : 'bg-base-200/50 text-base-content/70 hover:bg-base-200 border border-base-300/50'
                       }
                     `}
                   >
@@ -350,4 +340,3 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
 };
 
 export default MatchFilters;
-

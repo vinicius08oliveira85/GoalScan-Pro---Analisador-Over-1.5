@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    cleartext: true
+    cleartext: true,
   },
   android: {
     buildOptions: {
@@ -14,12 +14,11 @@ const config: CapacitorConfig = {
       keystorePassword: undefined,
       keystoreAlias: undefined,
       keystoreAliasPassword: undefined,
-      releaseType: 'APK' // 'APK' para gerar APK diretamente ou 'AAB' para Android App Bundle
-    }
-  }
+      releaseType: 'APK', // 'APK' para gerar APK diretamente ou 'AAB' para Android App Bundle
+    },
+  },
   // Plugins podem ser adicionados aqui quando necessário
   // Exemplo: instalar @capacitor/splash-screen e configurar
 };
 
 export default config;
-

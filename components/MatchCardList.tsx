@@ -1,19 +1,23 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { SavedAnalysis } from '../types';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Calendar, 
-  X, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Ban 
+import {
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  X,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Ban,
 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
-import { formatMatchDate, formatMatchTime, formatTimestampInBrasilia } from '../utils/dateFormatter';
+import {
+  formatMatchDate,
+  formatMatchTime,
+  formatTimestampInBrasilia,
+} from '../utils/dateFormatter';
 
 interface MatchCardListProps {
   match: SavedAnalysis;
@@ -30,30 +34,30 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
   onMatchClick,
   onDeleteMatch,
   onUpdateBetStatus,
-  isUpdatingBetStatus = false
+  isUpdatingBetStatus = false,
 }) => {
   const getStatusConfig = () => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
       if (match.betInfo.status === 'won') {
-        return { 
-          border: 'border-l-4 border-success', 
-          bg: 'bg-success/5'
+        return {
+          border: 'border-l-4 border-success',
+          bg: 'bg-success/5',
         };
       } else if (match.betInfo.status === 'lost') {
-        return { 
-          border: 'border-l-4 border-error', 
-          bg: 'bg-error/5'
+        return {
+          border: 'border-l-4 border-error',
+          bg: 'bg-error/5',
         };
       } else if (match.betInfo.status === 'pending') {
-        return { 
-          border: 'border-l-4 border-warning', 
-          bg: 'bg-warning/5'
+        return {
+          border: 'border-l-4 border-warning',
+          bg: 'bg-warning/5',
         };
       }
     }
-    return { 
-      border: 'border-l-4 border-primary', 
-      bg: 'bg-base-200/30'
+    return {
+      border: 'border-l-4 border-primary',
+      bg: 'bg-base-200/30',
     };
   };
 
@@ -98,9 +102,7 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
             <Calendar className="w-3 h-3" />
             {match.data.matchDate ? (
               <>
-                <span>
-                  {formatMatchDate(match.data.matchDate, match.data.matchTime)}
-                </span>
+                <span>{formatMatchDate(match.data.matchDate, match.data.matchTime)}</span>
                 {match.data.matchTime && (
                   <>
                     <span>•</span>
@@ -111,14 +113,16 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
               </>
             ) : (
               <span>
-                {formatTimestampInBrasilia(match.timestamp, { 
-                  day: '2-digit', 
-                  month: 'short'
+                {formatTimestampInBrasilia(match.timestamp, {
+                  day: '2-digit',
+                  month: 'short',
                 })}
               </span>
             )}
           </div>
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRiskColor(match.result.riskLevel)}`}>
+          <span
+            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRiskColor(match.result.riskLevel)}`}
+          >
             {match.result.riskLevel}
           </span>
         </div>
@@ -134,13 +138,9 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${probability}%` }}
-              transition={{ duration: 1, ease: "easeOut" }}
+              transition={{ duration: 1, ease: 'easeOut' }}
               className={`h-full rounded-full ${
-                probability >= 70 
-                  ? 'bg-success' 
-                  : probability >= 50
-                  ? 'bg-warning'
-                  : 'bg-error'
+                probability >= 70 ? 'bg-success' : probability >= 50 ? 'bg-warning' : 'bg-error'
               }`}
             />
           </div>
@@ -149,21 +149,30 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
         {/* EV */}
         <div className="flex flex-col items-center min-w-[60px]">
           <div className="text-[10px] font-semibold opacity-70 uppercase mb-1">EV</div>
-          <div className={`text-lg font-black flex items-center gap-1 ${
-            match.result.ev > 0 ? 'text-success' :
-            match.result.ev < 0 ? 'text-error' :
-            'opacity-50'
-          }`}>
+          <div
+            className={`text-lg font-black flex items-center gap-1 ${
+              match.result.ev > 0
+                ? 'text-success'
+                : match.result.ev < 0
+                  ? 'text-error'
+                  : 'opacity-50'
+            }`}
+          >
             {match.result.ev > 0 && <TrendingUp className="w-4 h-4" />}
             {match.result.ev < 0 && <TrendingDown className="w-4 h-4" />}
-            <span>{match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%</span>
+            <span>
+              {match.result.ev > 0 ? '+' : ''}
+              {match.result.ev.toFixed(1)}%
+            </span>
           </div>
         </div>
 
         {/* Odd */}
         <div className="flex flex-col items-center min-w-[50px]">
           <div className="text-[10px] font-semibold opacity-70 uppercase mb-1">Odd</div>
-          <div className="text-lg font-black text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</div>
+          <div className="text-lg font-black text-primary">
+            {match.data.oddOver15?.toFixed(2) || '-'}
+          </div>
         </div>
 
         {/* Stake */}
@@ -178,24 +187,29 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
       {/* Status e Ações - Lado Direito */}
       <div className="flex items-center gap-3">
         {match.betInfo && match.betInfo.betAmount > 0 && (
-          <div className={`badge gap-1 px-3 py-1.5 text-xs font-bold flex-shrink-0 ${
-            match.betInfo.status === 'won' 
-              ? 'bg-success/20 text-success border-success/50' 
-              : match.betInfo.status === 'lost'
-              ? 'bg-error/20 text-error border-error/50'
-              : match.betInfo.status === 'pending'
-              ? 'bg-warning/20 text-warning border-warning/50 animate-pulse'
-              : 'bg-base-300/20 text-base-content/60 border-base-300/30'
-          }`}>
+          <div
+            className={`badge gap-1 px-3 py-1.5 text-xs font-bold flex-shrink-0 ${
+              match.betInfo.status === 'won'
+                ? 'bg-success/20 text-success border-success/50'
+                : match.betInfo.status === 'lost'
+                  ? 'bg-error/20 text-error border-error/50'
+                  : match.betInfo.status === 'pending'
+                    ? 'bg-warning/20 text-warning border-warning/50 animate-pulse'
+                    : 'bg-base-300/20 text-base-content/60 border-base-300/30'
+            }`}
+          >
             {match.betInfo.status === 'won' && <CheckCircle className="w-3 h-3" />}
             {match.betInfo.status === 'lost' && <XCircle className="w-3 h-3" />}
             {match.betInfo.status === 'pending' && <Clock className="w-3 h-3" />}
             {match.betInfo.status === 'cancelled' && <Ban className="w-3 h-3" />}
             <span>
-              {match.betInfo.status === 'won' ? 'Ganhou' :
-               match.betInfo.status === 'lost' ? 'Perdeu' :
-               match.betInfo.status === 'pending' ? 'Pendente' :
-               'Cancelada'}
+              {match.betInfo.status === 'won'
+                ? 'Ganhou'
+                : match.betInfo.status === 'lost'
+                  ? 'Perdeu'
+                  : match.betInfo.status === 'pending'
+                    ? 'Pendente'
+                    : 'Cancelada'}
             </span>
           </div>
         )}
@@ -244,4 +258,3 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
 };
 
 export default MatchCardList;
-

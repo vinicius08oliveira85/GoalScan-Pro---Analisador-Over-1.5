@@ -13,5 +13,3 @@ export function getEdgePp(probability: number, odd: number): number | null {
   if (implied == null) return null;
   return probability - implied;
 }
-
-

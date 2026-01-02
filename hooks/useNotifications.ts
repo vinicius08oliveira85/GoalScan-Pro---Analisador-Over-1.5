@@ -5,7 +5,7 @@ import {
   cancelNotification,
   restoreScheduledNotifications,
   getMatchesWithinNotificationWindow,
-  requestNotificationPermission
+  requestNotificationPermission,
 } from '../services/notificationService';
 
 export const useNotifications = (savedMatches: SavedAnalysis[]) => {
@@ -15,21 +15,22 @@ export const useNotifications = (savedMatches: SavedAnalysis[]) => {
   useEffect(() => {
     const checkNotifications = () => {
       const matchesToNotify = getMatchesWithinNotificationWindow(savedMatches);
-      
-      setActiveNotifications(prev => {
+
+      setActiveNotifications((prev) => {
         // Filtrar apenas partidas que ainda não estão sendo exibidas
         const newNotifications = matchesToNotify.filter(
-          match => !prev.some(n => n.id === match.id)
+          (match) => !prev.some((n) => n.id === match.id)
         );
-        
+
         // Combinar notificações existentes com novas
         const allNotifications = [...prev, ...newNotifications];
 
         // Remover notificações de partidas que já passaram
-        return allNotifications.filter(match => {
-          const matchTimestamp = match.data.matchDate && match.data.matchTime
-            ? new Date(`${match.data.matchDate}T${match.data.matchTime}:00`).getTime()
-            : null;
+        return allNotifications.filter((match) => {
+          const matchTimestamp =
+            match.data.matchDate && match.data.matchTime
+              ? new Date(`${match.data.matchDate}T${match.data.matchTime}:00`).getTime()
+              : null;
           if (!matchTimestamp) return false;
           return matchTimestamp > Date.now();
         });
@@ -65,18 +66,17 @@ export const useNotifications = (savedMatches: SavedAnalysis[]) => {
   }, [savedMatches]);
 
   const removeNotification = useCallback((matchId: string) => {
-    setActiveNotifications(prev => prev.filter(n => n.id !== matchId));
+    setActiveNotifications((prev) => prev.filter((n) => n.id !== matchId));
   }, []);
 
   const cancelMatchNotification = useCallback((matchId: string) => {
     cancelNotification(matchId);
-    setActiveNotifications(prev => prev.filter(n => n.id !== matchId));
+    setActiveNotifications((prev) => prev.filter((n) => n.id !== matchId));
   }, []);
 
   return {
     activeNotifications,
     removeNotification,
-    cancelMatchNotification
+    cancelMatchNotification,
   };
 };
-

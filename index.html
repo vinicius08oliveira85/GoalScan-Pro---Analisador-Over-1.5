@@ -1,23 +1,28 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-br" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="description" content="Análise inteligente de partidas de futebol com cálculo de EV (Expected Value) e probabilidades usando algoritmo Poisson v3.8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta
+      name="description"
+      content="Análise inteligente de partidas de futebol com cálculo de EV (Expected Value) e probabilidades usando algoritmo Poisson v3.8"
+    />
     <meta name="theme-color" content="#6366f1" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="GoalScan Pro" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>GoalScan Pro - Analisador Over 1.5</title>
-    
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
-    
+
     <!-- Apple Touch Icons -->
     <link rel="apple-touch-icon" href="/icons/icon.svg" />
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
   </head>
@@ -28,7 +33,8 @@
       // Registrar Service Worker para PWA
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker
+            .register('/sw.js')
             .then((registration) => {
               console.log('Service Worker registrado com sucesso:', registration.scope);
             })
@@ -37,21 +43,25 @@
             });
         });
       }
-      
+
       // Detectar se está sendo executado como PWA
       if (window.matchMedia('(display-mode: standalone)').matches) {
         document.documentElement.setAttribute('data-pwa', 'true');
       }
-      
+
       // Prevenir zoom duplo toque no iOS
       let lastTouchEnd = 0;
-      document.addEventListener('touchend', (event) => {
-        const now = Date.now();
-        if (now - lastTouchEnd <= 300) {
-          event.preventDefault();
-        }
-        lastTouchEnd = now;
-      }, false);
+      document.addEventListener(
+        'touchend',
+        (event) => {
+          const now = Date.now();
+          if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+          }
+          lastTouchEnd = now;
+        },
+        false
+      );
     </script>
   </body>
 </html>

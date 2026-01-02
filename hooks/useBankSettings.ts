@@ -18,14 +18,14 @@ export const useBankSettings = (onError?: (message: string) => void) => {
     try {
       setIsLoading(true);
       setSyncError(null);
-      
+
       const bank = await loadBankSettings();
-      
+
       if (bank) {
         // Normalizar currency para código ISO (compatibilidade com dados antigos)
         const normalizedBank = {
           ...bank,
-          currency: normalizeCurrency(bank.currency)
+          currency: normalizeCurrency(bank.currency),
         };
         setBankSettings(normalizedBank);
         try {
@@ -43,22 +43,22 @@ export const useBankSettings = (onError?: (message: string) => void) => {
             // Normalizar currency para código ISO (compatibilidade com dados antigos)
             setBankSettings({
               ...parsedBank,
-              currency: normalizeCurrency(parsedBank.currency)
+              currency: normalizeCurrency(parsedBank.currency),
             });
           } catch (e) {
             logger.error('Erro ao carregar configurações de banca do localStorage:', e);
           }
         }
       }
-      
+
       setLastSyncTime(Date.now());
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       errorService.logError(error instanceof Error ? error : new Error(errorMessage), {
         component: 'useBankSettings',
-        action: 'loadSettings'
+        action: 'loadSettings',
       });
-      
+
       // Tentar carregar do localStorage como fallback
       const storedBank = localStorage.getItem('goalscan_bank_settings');
       if (storedBank) {
@@ -67,7 +67,7 @@ export const useBankSettings = (onError?: (message: string) => void) => {
           // Normalizar currency para código ISO (compatibilidade com dados antigos)
           setBankSettings({
             ...parsedBank,
-            currency: normalizeCurrency(parsedBank.currency)
+            currency: normalizeCurrency(parsedBank.currency),
           });
         } catch (e) {
           console.error('Erro ao carregar configurações de banca do localStorage:', e);
@@ -83,16 +83,16 @@ export const useBankSettings = (onError?: (message: string) => void) => {
     try {
       setIsSyncing(true);
       setSyncError(null);
-      
+
       // Normalizar currency para código ISO antes de salvar
       const normalizedSettings = {
         ...settings,
-        currency: normalizeCurrency(settings.currency)
+        currency: normalizeCurrency(settings.currency),
       };
-      
+
       await saveBankSettings(normalizedSettings);
       setBankSettings(normalizedSettings);
-      
+
       // Salvar no localStorage como backup
       try {
         localStorage.setItem('goalscan_bank_settings', JSON.stringify(normalizedSettings));
@@ -100,25 +100,25 @@ export const useBankSettings = (onError?: (message: string) => void) => {
       } catch (e) {
         console.warn('Erro ao salvar no localStorage (backup):', e);
       }
-      
+
       setLastSyncTime(Date.now());
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       errorService.logError(error instanceof Error ? error : new Error(errorMessage), {
         component: 'useBankSettings',
-        action: 'saveSettings'
+        action: 'saveSettings',
       });
       setSyncError('Erro ao sincronizar banca. Dados salvos localmente.');
       if (onError) {
         onError('Erro ao salvar configurações de banca. Dados salvos localmente.');
       }
-      
+
       // Salvar no localStorage mesmo em caso de erro
       try {
         // Normalizar currency antes de salvar no localStorage
         const normalizedSettings = {
           ...settings,
-          currency: normalizeCurrency(settings.currency)
+          currency: normalizeCurrency(settings.currency),
         };
         localStorage.setItem('goalscan_bank_settings', JSON.stringify(normalizedSettings));
       } catch (e) {
@@ -141,7 +141,6 @@ export const useBankSettings = (onError?: (message: string) => void) => {
     syncError,
     lastSyncTime,
     saveSettings,
-    reloadSettings: loadSettings
+    reloadSettings: loadSettings,
   };
 };
-

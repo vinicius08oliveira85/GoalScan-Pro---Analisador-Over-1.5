@@ -3,6 +3,7 @@
 ## ✅ Credenciais
 
 Você precisa das credenciais do Supabase:
+
 - **URL:** Encontre em Settings > API > Project URL
 - **Chave Anônima:** Encontre em Settings > API > Project API keys > `anon` `public`
 
@@ -47,10 +48,10 @@ npm run config:vercel
 Acesse: https://goal-scan-pro-analisador-over-1-5.vercel.app
 
 Abra o Console (F12) e procure por:
+
 - ✅ `[Supabase] ✅ Cliente inicializado com sucesso`
 - ✅ `[Supabase] X análise(s) carregada(s) com sucesso`
 
 ## 🎉 Pronto!
 
 Seu app agora deve carregar as partidas do Supabase!
-

@@ -37,17 +37,19 @@ Se a tabela `saved_analyses` já existe mas não possui a coluna `bet_info`, exe
 3. Clique em **Run** (ou pressione `Ctrl+Enter`)
 
 O script irá:
+
 - Adicionar a coluna `bet_info` como JSONB (permite NULL)
 - Adicionar comentário descritivo na coluna
 
 **Estrutura do JSON bet_info:**
+
 ```json
 {
-  "betAmount": 100,           // Valor da aposta
-  "odd": 1.85,                // Odd da aposta
-  "potentialReturn": 185,     // Retorno potencial
-  "profit": 85,                // Lucro potencial
-  "status": "pending"         // Status: "pending" | "won" | "lost"
+  "betAmount": 100, // Valor da aposta
+  "odd": 1.85, // Odd da aposta
+  "potentialReturn": 185, // Retorno potencial
+  "profit": 85, // Lucro potencial
+  "status": "pending" // Status: "pending" | "won" | "lost"
 }
 ```
 
@@ -60,11 +62,13 @@ Se a tabela `saved_analyses` já existe mas não possui a coluna `ai_analysis`, 
 3. Clique em **Run** (ou pressione `Ctrl+Enter`)
 
 O script irá:
+
 - Adicionar a coluna `ai_analysis` como TEXT (permite NULL)
 - Adicionar comentário descritivo na coluna
 
 **Conteúdo da coluna ai_analysis:**
 A coluna armazena o texto completo da análise gerada pela IA (Gemini) em formato Markdown, incluindo todas as seções:
+
 - Painel de Resultados e EV
 - Análise Quantitativa
 - Sinais a Favor
@@ -87,6 +91,7 @@ A coluna armazena o texto completo da análise gerada pela IA (Gemini) em format
 3. Clique em **Run** (ou pressione `Ctrl+Enter`)
 
 O script irá:
+
 - Criar a tabela `bank_settings` com a estrutura necessária
 - Criar um índice para otimizar buscas
 - Habilitar Row Level Security (RLS)
@@ -177,4 +182,3 @@ Após criar a tabela `bank_settings`:
 - [Documentação do Supabase](https://supabase.com/docs)
 - [SQL Editor do Supabase](https://supabase.com/docs/guides/database/tables)
 - [Row Level Security](https://supabase.com/docs/guides/auth/row-level-security)
-

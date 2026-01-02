@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import { getMatchDateInBrasilia, formatMatchTime } from '../utils/dateFormatter';
 
 // Armazenar timeouts agendados
-const scheduledNotifications: Map<string, NodeJS.Timeout> = new Map();
+const scheduledNotifications: Map<string, number> = new Map();
 const NOTIFICATION_MINUTES_BEFORE = 5;
 
 /**
@@ -35,7 +35,7 @@ function getMatchTimestamp(matchDate?: string, matchTime?: string): number | nul
 
   try {
     const matchDateTime = getMatchDateInBrasilia(matchDate, matchTime);
-    
+
     // Verificar se a data é válida
     if (isNaN(matchDateTime.getTime())) {
       return null;
@@ -56,7 +56,7 @@ export function isMatchWithinNotificationWindow(match: SavedAnalysis): boolean {
   if (!matchTimestamp) return false;
 
   const now = Date.now();
-  const notificationTime = matchTimestamp - (NOTIFICATION_MINUTES_BEFORE * 60 * 1000);
+  const notificationTime = matchTimestamp - NOTIFICATION_MINUTES_BEFORE * 60 * 1000;
   const matchStartTime = matchTimestamp;
 
   // Verificar se está entre o tempo de notificação e o início da partida
@@ -71,7 +71,7 @@ function shouldScheduleNotification(match: SavedAnalysis): boolean {
   if (!matchTimestamp) return false;
 
   const now = Date.now();
-  const notificationTime = matchTimestamp - (NOTIFICATION_MINUTES_BEFORE * 60 * 1000);
+  const notificationTime = matchTimestamp - NOTIFICATION_MINUTES_BEFORE * 60 * 1000;
 
   // Só agendar se a notificação ainda não passou e a partida é futura
   return notificationTime > now;
@@ -85,7 +85,7 @@ async function scheduleBrowserNotification(match: SavedAnalysis): Promise<void> 
   if (!matchTimestamp) return;
 
   const now = Date.now();
-  const notificationTime = matchTimestamp - (NOTIFICATION_MINUTES_BEFORE * 60 * 1000);
+  const notificationTime = matchTimestamp - NOTIFICATION_MINUTES_BEFORE * 60 * 1000;
   const delay = notificationTime - now;
 
   if (delay <= 0) {
@@ -98,15 +98,16 @@ async function scheduleBrowserNotification(match: SavedAnalysis): Promise<void> 
 
   const timeoutId = setTimeout(async () => {
     const hasPermission = await requestNotificationPermission();
-    
+
     if (hasPermission) {
-      const timeStr = match.data.matchDate && match.data.matchTime
-        ? formatMatchTime(match.data.matchDate, match.data.matchTime)
-        : new Date(matchTimestamp).toLocaleTimeString('pt-BR', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            timeZone: 'America/Sao_Paulo'
-          });
+      const timeStr =
+        match.data.matchDate && match.data.matchTime
+          ? formatMatchTime(match.data.matchDate, match.data.matchTime)
+          : new Date(matchTimestamp).toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'America/Sao_Paulo',
+            });
 
       new Notification('Partida começando em breve! ⚽', {
         body: `${match.data.homeTeam} vs ${match.data.awayTeam}\nInício: ${timeStr}`,
@@ -114,7 +115,7 @@ async function scheduleBrowserNotification(match: SavedAnalysis): Promise<void> 
         badge: '/icons/icon-192x192.png',
         tag: `match-${match.id}`,
         requireInteraction: false,
-        silent: false
+        silent: false,
       });
 
       // Remover do mapa após disparar
@@ -213,19 +214,19 @@ export function cancelAllNotifications(): void {
  * Limpa notificações de partidas que já passaram ou não existem mais
  */
 function cleanupOldNotifications(currentMatches: SavedAnalysis[]): void {
-  const currentMatchIds = new Set(currentMatches.map(m => m.id));
+  const currentMatchIds = new Set(currentMatches.map((m) => m.id));
   const scheduled = getScheduledNotifications();
   const now = Date.now();
 
   // Cancelar notificações de partidas que não existem mais
-  Object.keys(scheduled).forEach(matchId => {
+  Object.keys(scheduled).forEach((matchId) => {
     if (!currentMatchIds.has(matchId)) {
       cancelNotification(matchId);
     }
   });
 
   // Cancelar notificações de partidas que já passaram
-  currentMatches.forEach(match => {
+  currentMatches.forEach((match) => {
     const matchTimestamp = getMatchTimestamp(match.data.matchDate, match.data.matchTime);
     if (matchTimestamp && matchTimestamp < now) {
       cancelNotification(match.id);
@@ -248,6 +249,5 @@ export async function restoreScheduledNotifications(matches: SavedAnalysis[]): P
  * Obtém partidas que estão dentro da janela de notificação (para notificação in-app)
  */
 export function getMatchesWithinNotificationWindow(matches: SavedAnalysis[]): SavedAnalysis[] {
-  return matches.filter(match => isMatchWithinNotificationWindow(match));
+  return matches.filter((match) => isMatchWithinNotificationWindow(match));
 }
-

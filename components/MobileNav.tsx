@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Plus, Wallet, Menu, X } from 'lucide-react';
+import { Wallet, Menu, X } from 'lucide-react';
 import { animations } from '../utils/animations';
 
 interface MobileNavItem {
@@ -18,12 +18,7 @@ interface MobileNavProps {
   className?: string;
 }
 
-const MobileNav: React.FC<MobileNavProps> = ({ 
-  items, 
-  onBankClick, 
-  bankLabel,
-  className = '' 
-}) => {
+const MobileNav: React.FC<MobileNavProps> = ({ items, onBankClick, bankLabel, className = '' }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   return (
@@ -49,7 +44,7 @@ const MobileNav: React.FC<MobileNavProps> = ({
             </div>
           </motion.button>
         ))}
-        
+
         {onBankClick && (
           <motion.button
             onClick={onBankClick}
@@ -131,9 +126,11 @@ const MobileNav: React.FC<MobileNavProps> = ({
                       whileHover={{ scale: 1.02, x: 4 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      <div className={`p-2 rounded-lg ${
-                        item.active ? 'bg-primary/20' : 'bg-base-300/50'
-                      }`}>
+                      <div
+                        className={`p-2 rounded-lg ${
+                          item.active ? 'bg-primary/20' : 'bg-base-300/50'
+                        }`}
+                      >
                         {item.icon}
                       </div>
                       <span className="font-semibold">{item.label}</span>
@@ -143,9 +140,7 @@ const MobileNav: React.FC<MobileNavProps> = ({
 
                 {/* Footer */}
                 <div className="p-4 border-t border-base-300/50">
-                  <div className="text-xs text-base-content/60 text-center">
-                    GoalScan Pro v3.8
-                  </div>
+                  <div className="text-xs text-base-content/60 text-center">GoalScan Pro v3.8</div>
                 </div>
               </div>
             </motion.aside>
@@ -157,4 +152,3 @@ const MobileNav: React.FC<MobileNavProps> = ({
 };
 
 export default MobileNav;
-

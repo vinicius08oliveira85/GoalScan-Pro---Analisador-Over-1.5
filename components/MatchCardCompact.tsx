@@ -1,15 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { SavedAnalysis } from '../types';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Calendar, 
-  X, 
-  CheckCircle, 
-  XCircle, 
-  Clock 
-} from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, X, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { cardHover } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
 import { formatMatchDate, formatTimestampInBrasilia } from '../utils/dateFormatter';
@@ -25,7 +17,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
   match,
   index,
   onMatchClick,
-  onDeleteMatch
+  onDeleteMatch,
 }) => {
   const getStatusColor = () => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
@@ -40,12 +32,15 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
 
   const getRiskBadge = (risk: string) => {
     const colors = {
-      'Baixo': 'bg-success/20 text-success border-success/40',
-      'Moderado': 'bg-warning/20 text-warning border-warning/40',
-      'Alto': 'bg-error/20 text-error border-error/40',
-      'Muito Alto': 'bg-error/20 text-error border-error/40'
+      Baixo: 'bg-success/20 text-success border-success/40',
+      Moderado: 'bg-warning/20 text-warning border-warning/40',
+      Alto: 'bg-error/20 text-error border-error/40',
+      'Muito Alto': 'bg-error/20 text-error border-error/40',
     };
-    return colors[risk as keyof typeof colors] || 'bg-base-300/20 text-base-content/60 border-base-300/40';
+    return (
+      colors[risk as keyof typeof colors] ||
+      'bg-base-300/20 text-base-content/60 border-base-300/40'
+    );
   };
 
   return (
@@ -73,21 +68,23 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
               <Calendar className="w-2.5 h-2.5" />
               {match.data.matchDate ? (
                 <span>
-                  {formatMatchDate(match.data.matchDate, match.data.matchTime, { 
-                    day: '2-digit', 
-                    month: '2-digit'
+                  {formatMatchDate(match.data.matchDate, match.data.matchTime, {
+                    day: '2-digit',
+                    month: '2-digit',
                   })}
                 </span>
               ) : (
                 <span>
-                  {formatTimestampInBrasilia(match.timestamp, { 
-                    day: '2-digit', 
-                    month: '2-digit'
+                  {formatTimestampInBrasilia(match.timestamp, {
+                    day: '2-digit',
+                    month: '2-digit',
                   })}
                 </span>
               )}
             </div>
-            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getRiskBadge(match.result.riskLevel)}`}>
+            <span
+              className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getRiskBadge(match.result.riskLevel)}`}
+            >
               {match.result.riskLevel}
             </span>
           </div>
@@ -103,10 +100,9 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${probability}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
+                transition={{ duration: 1, ease: 'easeOut' }}
                 className={`h-full rounded-full ${
-                  probability >= 70 ? 'bg-success' : 
-                  probability >= 50 ? 'bg-warning' : 'bg-error'
+                  probability >= 70 ? 'bg-success' : probability >= 50 ? 'bg-warning' : 'bg-error'
                 }`}
               />
             </div>
@@ -115,41 +111,56 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           {/* EV */}
           <div className="flex flex-col items-center min-w-[40px]">
             <div className="text-[9px] font-semibold opacity-70 uppercase">EV</div>
-            <div className={`text-sm font-black flex items-center gap-0.5 ${
-              match.result.ev > 0 ? 'text-success' :
-              match.result.ev < 0 ? 'text-error' :
-              'opacity-50'
-            }`}>
+            <div
+              className={`text-sm font-black flex items-center gap-0.5 ${
+                match.result.ev > 0
+                  ? 'text-success'
+                  : match.result.ev < 0
+                    ? 'text-error'
+                    : 'opacity-50'
+              }`}
+            >
               {match.result.ev > 0 && <TrendingUp className="w-3 h-3" />}
               {match.result.ev < 0 && <TrendingDown className="w-3 h-3" />}
-              <span className="text-xs">{match.result.ev > 0 ? '+' : ''}{match.result.ev.toFixed(1)}%</span>
+              <span className="text-xs">
+                {match.result.ev > 0 ? '+' : ''}
+                {match.result.ev.toFixed(1)}%
+              </span>
             </div>
           </div>
 
           {/* Odd */}
           <div className="flex flex-col items-center min-w-[35px]">
             <div className="text-[9px] font-semibold opacity-70 uppercase">Odd</div>
-            <div className="text-sm font-black text-primary">{match.data.oddOver15?.toFixed(2) || '-'}</div>
+            <div className="text-sm font-black text-primary">
+              {match.data.oddOver15?.toFixed(2) || '-'}
+            </div>
           </div>
 
           {/* Status Badge */}
           {match.betInfo && match.betInfo.betAmount > 0 && (
-            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
-              match.betInfo.status === 'won' 
-                ? 'bg-success/20 text-success' 
-                : match.betInfo.status === 'lost'
-                ? 'bg-error/20 text-error'
-                : match.betInfo.status === 'pending'
-                ? 'bg-warning/20 text-warning'
-                : 'bg-base-300/20 text-base-content/60'
-            }`}>
+            <div
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                match.betInfo.status === 'won'
+                  ? 'bg-success/20 text-success'
+                  : match.betInfo.status === 'lost'
+                    ? 'bg-error/20 text-error'
+                    : match.betInfo.status === 'pending'
+                      ? 'bg-warning/20 text-warning'
+                      : 'bg-base-300/20 text-base-content/60'
+              }`}
+            >
               {match.betInfo.status === 'won' && <CheckCircle className="w-2.5 h-2.5" />}
               {match.betInfo.status === 'lost' && <XCircle className="w-2.5 h-2.5" />}
               {match.betInfo.status === 'pending' && <Clock className="w-2.5 h-2.5" />}
               <span>
-                {match.betInfo.status === 'won' ? '✓' :
-                 match.betInfo.status === 'lost' ? '✗' :
-                 match.betInfo.status === 'pending' ? '⏱' : ''}
+                {match.betInfo.status === 'won'
+                  ? '✓'
+                  : match.betInfo.status === 'lost'
+                    ? '✗'
+                    : match.betInfo.status === 'pending'
+                      ? '⏱'
+                      : ''}
               </span>
             </div>
           )}
@@ -169,4 +180,3 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
 };
 
 export default MatchCardCompact;
-

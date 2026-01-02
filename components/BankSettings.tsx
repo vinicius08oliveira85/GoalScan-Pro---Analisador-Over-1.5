@@ -1,7 +1,20 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { BankSettings } from '../types';
-import { Wallet, Save, DollarSign, TrendingUp, TrendingDown, Check, Loader2, Euro, PoundSterling, AlertCircle, Info, X, Sparkles } from 'lucide-react';
+import {
+  Wallet,
+  Save,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Check,
+  Loader2,
+  Euro,
+  PoundSterling,
+  AlertCircle,
+  Info,
+  X,
+  Sparkles,
+} from 'lucide-react';
 import { validateBankSettings } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { normalizeCurrency, getCurrencySymbol } from '../utils/currency';
@@ -20,7 +33,12 @@ const currencies: CurrencyOption[] = [
   { code: 'BRL', symbol: 'R$', label: 'Real Brasileiro', icon: <DollarSign className="w-5 h-5" /> },
   { code: 'USD', symbol: '$', label: 'Dólar Americano', icon: <DollarSign className="w-5 h-5" /> },
   { code: 'EUR', symbol: '€', label: 'Euro', icon: <Euro className="w-5 h-5" /> },
-  { code: 'GBP', symbol: '£', label: 'Libra Esterlina', icon: <PoundSterling className="w-5 h-5" /> },
+  {
+    code: 'GBP',
+    symbol: '£',
+    label: 'Libra Esterlina',
+    icon: <PoundSterling className="w-5 h-5" />,
+  },
 ];
 
 interface BankSettingsProps {
@@ -29,7 +47,7 @@ interface BankSettingsProps {
   onError?: (message: string) => void;
 }
 
-const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onError }) => {
+const BankSettingsComponent: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onError }) => {
   const [totalBank, setTotalBank] = useState<number>(bankSettings?.totalBank || 0);
   const [inputValue, setInputValue] = useState<string>('');
   // Normalizar currency para código ISO (compatibilidade com dados antigos)
@@ -39,7 +57,9 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [validationState, setValidationState] = useState<ValidationState>('idle');
   const [validationMessage, setValidationMessage] = useState<string>('');
-  const [previousBankValue, setPreviousBankValue] = useState<number | null>(bankSettings?.totalBank || null);
+  const [previousBankValue, setPreviousBankValue] = useState<number | null>(
+    bankSettings?.totalBank || null
+  );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showTips, setShowTips] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -86,7 +106,7 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
       const testSettings: BankSettings = {
         totalBank,
         currency: normalizeCurrency(currency),
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
       validateBankSettings(testSettings);
       setValidationState('valid');
@@ -99,24 +119,30 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
 
   // Detectar mudanças não salvas
   useEffect(() => {
-    const hasChanged = 
+    const hasChanged =
       totalBank !== (bankSettings?.totalBank || 0) ||
       normalizeCurrency(currency) !== normalizeCurrency(bankSettings?.currency || 'BRL');
     setHasUnsavedChanges(hasChanged);
   }, [totalBank, currency, bankSettings]);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^\d,.-]/g, ''); // Remove caracteres inválidos
-    setInputValue(value);
-    const parsed = parseFormattedValue(value);
-    setTotalBank(parsed);
-  }, [parseFormattedValue]);
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value.replace(/[^\d,.-]/g, ''); // Remove caracteres inválidos
+      setInputValue(value);
+      const parsed = parseFormattedValue(value);
+      setTotalBank(parsed);
+    },
+    [parseFormattedValue]
+  );
 
-  const handleQuickValue = useCallback((value: number) => {
-    setTotalBank(value);
-    setInputValue(formatNumber(value));
-    inputRef.current?.focus();
-  }, [formatNumber]);
+  const handleQuickValue = useCallback(
+    (value: number) => {
+      setTotalBank(value);
+      setInputValue(formatNumber(value));
+      inputRef.current?.focus();
+    },
+    [formatNumber]
+  );
 
   const handleReset = useCallback(() => {
     if (bankSettings) {
@@ -133,46 +159,47 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
 
   const handleSave = useCallback(async () => {
     if (validationState !== 'valid' || totalBank <= 0) return;
-    
+
     setSaveStatus('loading');
-    
+
     try {
       // Garantir que currency seja um código ISO válido
       const normalizedCurrency = normalizeCurrency(currency);
-      
+
       const newSettings: BankSettings = {
         totalBank,
         currency: normalizedCurrency,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
 
       // Validar dados antes de salvar
       const validatedSettings = validateBankSettings(newSettings);
-      
+
       // Simular pequeno delay para feedback visual
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       onSave(validatedSettings);
       setPreviousBankValue(totalBank);
       setHasUnsavedChanges(false);
       setSaveStatus('success');
-      
+
       // Resetar status após 3 segundos
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (error) {
       // Registrar erro no serviço centralizado
-      const errorMessage = error instanceof Error ? error.message : 'Erro de validação desconhecido';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro de validação desconhecido';
       errorService.logValidationError('BankSettings', { totalBank, currency }, errorMessage);
-      
+
       setSaveStatus('error');
-      
+
       // Mostrar erro de validação de forma amigável
       if (onError) {
         onError(`Erro ao validar configurações: ${errorMessage}`);
       } else {
         alert(`Erro ao validar configurações: ${errorMessage}`);
       }
-      
+
       // Resetar status após 3 segundos
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
@@ -196,7 +223,10 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Enter ou Cmd/Ctrl+Enter para salvar
-      if ((e.key === 'Enter' && (e.metaKey || e.ctrlKey)) || (e.key === 'Enter' && e.target === inputRef.current)) {
+      if (
+        (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) ||
+        (e.key === 'Enter' && e.target === inputRef.current)
+      ) {
         if (validationState === 'valid' && totalBank > 0 && saveStatus === 'idle') {
           e.preventDefault();
           handleSave();
@@ -212,11 +242,12 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [validationState, totalBank, saveStatus, handleSave, handleReset]);
 
-  const currentCurrency = currencies.find(c => c.code === currency);
+  const currentCurrency = currencies.find((c) => c.code === currency);
   const bankDifference = previousBankValue !== null ? totalBank - previousBankValue : 0;
-  const bankPercentageChange = previousBankValue && previousBankValue > 0 
-    ? ((totalBank - previousBankValue) / previousBankValue) * 100 
-    : 0;
+  const bankPercentageChange =
+    previousBankValue && previousBankValue > 0
+      ? ((totalBank - previousBankValue) / previousBankValue) * 100
+      : 0;
 
   const quickValues = [100, 500, 1000, 5000];
 
@@ -238,12 +269,17 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
             <div className="flex items-center gap-2">
               <h3 className="text-lg md:text-xl font-black uppercase">Configurações de Banca</h3>
               {hasUnsavedChanges && (
-                <span className="badge badge-warning badge-sm animate-pulse" title="Mudanças não salvas">
+                <span
+                  className="badge badge-warning badge-sm animate-pulse"
+                  title="Mudanças não salvas"
+                >
                   Não salvo
                 </span>
               )}
             </div>
-            <p className="text-xs md:text-sm opacity-60">Gerencie o capital da sua banca de apostas</p>
+            <p className="text-xs md:text-sm opacity-60">
+              Gerencie o capital da sua banca de apostas
+            </p>
           </div>
         </div>
         <button
@@ -259,7 +295,9 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
       <div className="space-y-6">
         {/* Card de Visualização da Banca Atual */}
         {(bankSettings && bankSettings.totalBank > 0) || totalBank > 0 ? (
-          <div className={`custom-card p-6 md:p-8 bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 border border-primary/20 backdrop-blur-sm relative overflow-hidden ${hasUnsavedChanges ? 'animate-pulse' : ''}`}>
+          <div
+            className={`custom-card p-6 md:p-8 bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 border border-primary/20 backdrop-blur-sm relative overflow-hidden ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-50" />
             <div className="relative space-y-2">
               <div className="flex items-center gap-2 text-sm opacity-70">
@@ -272,9 +310,13 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
                 )}
                 <span>Banca Atual</span>
                 {previousBankValue !== null && bankDifference !== 0 && (
-                  <span className={`text-xs font-semibold ${bankDifference > 0 ? 'text-success' : 'text-error'}`}>
-                    {bankDifference > 0 ? '+' : ''}{getCurrencySymbol(currency)} {Math.abs(bankDifference).toFixed(2)} 
-                    ({bankPercentageChange > 0 ? '+' : ''}{bankPercentageChange.toFixed(1)}%)
+                  <span
+                    className={`text-xs font-semibold ${bankDifference > 0 ? 'text-success' : 'text-error'}`}
+                  >
+                    {bankDifference > 0 ? '+' : ''}
+                    {getCurrencySymbol(currency)} {Math.abs(bankDifference).toFixed(2)}(
+                    {bankPercentageChange > 0 ? '+' : ''}
+                    {bankPercentageChange.toFixed(1)}%)
                   </span>
                 )}
               </div>
@@ -285,7 +327,8 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
               </div>
               {bankSettings?.updatedAt && !hasUnsavedChanges && (
                 <p className="text-xs opacity-50">
-                  {currency} • Última atualização: {new Date(bankSettings.updatedAt).toLocaleString('pt-BR')}
+                  {currency} • Última atualização:{' '}
+                  {new Date(bankSettings.updatedAt).toLocaleString('pt-BR')}
                 </p>
               )}
               {hasUnsavedChanges && (
@@ -310,7 +353,7 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none text-lg font-medium z-10">
               {currentCurrency?.symbol || 'R$'}
             </div>
-          <input
+            <input
               ref={inputRef}
               id="bank-amount-input"
               type="text"
@@ -349,12 +392,16 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
               {validationMessage || 'Digite o valor total disponível na sua banca'}
             </span>
             {validationMessage && (
-              <span id="validation-message" className="label-text-alt text-error text-xs" role="alert">
+              <span
+                id="validation-message"
+                className="label-text-alt text-error text-xs"
+                role="alert"
+              >
                 {validationMessage}
               </span>
             )}
           </label>
-          
+
           {/* Sugestões de Valores Rápidos */}
           <div className="flex flex-wrap gap-2 mt-2">
             {quickValues.map((value) => (
@@ -467,8 +514,8 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
 
         {/* Botão Salvar com Estados de Feedback */}
         <div className="pt-2">
-        <button
-          onClick={handleSave}
+          <button
+            onClick={handleSave}
             disabled={saveStatus === 'loading' || totalBank <= 0 || validationState === 'invalid'}
             className={`
               btn w-full flex items-center justify-center gap-2 min-h-[56px] text-base md:text-lg font-semibold transition-all duration-200 relative overflow-hidden group
@@ -498,12 +545,12 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
             {saveStatus === 'idle' && (
               <>
                 <Save className="w-5 h-5" />
-          Salvar Configurações
+                Salvar Configurações
                 <span className="text-xs opacity-60 hidden md:inline">(Enter)</span>
                 <div className="absolute inset-0 bg-base-content/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </>
             )}
-        </button>
+          </button>
 
           {/* Mensagens de Feedback */}
           {saveStatus === 'success' && (
@@ -527,5 +574,4 @@ const BankSettings: React.FC<BankSettingsProps> = ({ bankSettings, onSave, onErr
   );
 };
 
-export default BankSettings;
-
+export default BankSettingsComponent;

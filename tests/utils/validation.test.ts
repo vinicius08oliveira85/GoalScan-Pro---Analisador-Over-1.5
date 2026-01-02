@@ -24,7 +24,7 @@ describe('validateMatchData', () => {
       matchImportance: 5,
       keyAbsences: 'none' as const,
       homeHistory: [],
-      awayHistory: []
+      awayHistory: [],
     };
 
     expect(() => validateMatchData(validData)).not.toThrow();
@@ -52,7 +52,7 @@ describe('validateMatchData', () => {
       matchImportance: 5,
       keyAbsences: 'none' as const,
       homeHistory: [],
-      awayHistory: []
+      awayHistory: [],
     };
 
     expect(() => validateMatchData(invalidData)).toThrow();
@@ -80,7 +80,7 @@ describe('validateMatchData', () => {
       matchImportance: 5,
       keyAbsences: 'none' as const,
       homeHistory: [],
-      awayHistory: []
+      awayHistory: [],
     };
 
     expect(() => validateMatchData(invalidData)).toThrow();
@@ -95,7 +95,7 @@ describe('validateBetInfo', () => {
       potentialReturn: 250,
       potentialProfit: 150,
       bankPercentage: 10,
-      status: 'pending' as const
+      status: 'pending' as const,
     };
 
     expect(() => validateBetInfo(validBet)).not.toThrow();
@@ -108,7 +108,7 @@ describe('validateBetInfo', () => {
       potentialReturn: 0,
       potentialProfit: 0,
       bankPercentage: 0,
-      status: 'pending' as const
+      status: 'pending' as const,
     };
 
     expect(() => validateBetInfo(invalidBet)).toThrow();
@@ -116,12 +116,12 @@ describe('validateBetInfo', () => {
 
   it('deve aceitar valor pequeno (> 0) em pending', () => {
     const validBet = {
-      betAmount: 1.00,
+      betAmount: 1.0,
       odd: 2.5,
-      potentialReturn: 2.50,
-      potentialProfit: 1.50,
+      potentialReturn: 2.5,
+      potentialProfit: 1.5,
       bankPercentage: 0.1,
-      status: 'pending' as const
+      status: 'pending' as const,
     };
 
     expect(() => validateBetInfo(validBet)).not.toThrow();
@@ -134,7 +134,7 @@ describe('validateBetInfo', () => {
       potentialReturn: 0,
       potentialProfit: 0,
       bankPercentage: 0,
-      status: 'cancelled' as const
+      status: 'cancelled' as const,
     };
 
     expect(() => validateBetInfo(cancelledBet)).not.toThrow();
@@ -147,7 +147,7 @@ describe('validateBetInfo', () => {
       potentialReturn: 50,
       potentialProfit: -50,
       bankPercentage: 10,
-      status: 'pending' as const
+      status: 'pending' as const,
     };
 
     expect(() => validateBetInfo(invalidBet)).toThrow();
@@ -159,7 +159,7 @@ describe('validateBankSettings', () => {
     const validSettings = {
       totalBank: 1000,
       currency: 'BRL',
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     };
 
     expect(() => validateBankSettings(validSettings)).not.toThrow();
@@ -169,7 +169,7 @@ describe('validateBankSettings', () => {
     const invalidSettings = {
       totalBank: -100,
       currency: 'BRL',
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     };
 
     expect(() => validateBankSettings(invalidSettings)).toThrow();
@@ -179,10 +179,9 @@ describe('validateBankSettings', () => {
     const invalidSettings = {
       totalBank: 1000,
       currency: 'R$', // Deve ter 3 caracteres
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     };
 
     expect(() => validateBankSettings(invalidSettings)).toThrow();
   });
 });
-

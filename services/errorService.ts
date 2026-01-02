@@ -25,7 +25,7 @@ class ErrorService {
       timestamp: Date.now(),
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
       url: typeof window !== 'undefined' ? window.location.href : undefined,
-      ...context
+      ...context,
     };
 
     // Adicionar à fila
@@ -52,8 +52,8 @@ class ErrorService {
     this.logError(error, {
       component: 'Validation',
       action: `validate_${field}`,
-      // @ts-ignore
-      validationValue: value
+    // @ts-expect-error Adding validation-specific context properties
+    validationValue: value,
     });
   }
 
@@ -66,8 +66,8 @@ class ErrorService {
     this.logError(error, {
       component: 'API',
       action: endpoint,
-      // @ts-ignore
-      statusCode: status
+      // @ts-expect-error Adding API-specific context properties
+      statusCode: status,
     });
   }
 
@@ -88,7 +88,7 @@ class ErrorService {
   /**
    * Envia erros para serviço de tracking externo
    * (Implementar quando integrar Sentry ou similar)
-   * 
+   *
    * Para integrar Sentry:
    * 1. npm install @sentry/react
    * 2. Configurar em index.tsx:
@@ -98,18 +98,18 @@ class ErrorService {
    */
   private sendToErrorTracking(error: Error, context: ErrorContext): void {
     // Integração com Sentry (quando configurado)
-    // @ts-ignore
+    // @ts-expect-error Sentry may not be defined
     if (typeof window !== 'undefined' && window.Sentry) {
-      // @ts-ignore
-      window.Sentry.captureException(error, { 
+      // @ts-expect-error Sentry may not be defined
+      window.Sentry.captureException(error, {
         extra: context,
         tags: {
           component: context.component,
-          action: context.action
-        }
+          action: context.action,
+        },
       });
     }
-    
+
     // Em produção, também pode enviar para endpoint próprio
     if (process.env.NODE_ENV === 'production' && typeof fetch !== 'undefined') {
       // Opcional: enviar para endpoint de logging próprio
@@ -121,4 +121,3 @@ class ErrorService {
 
 // Singleton
 export const errorService = new ErrorService();
-

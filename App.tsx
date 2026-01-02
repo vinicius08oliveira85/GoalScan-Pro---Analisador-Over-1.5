@@ -1,10 +1,8 @@
-
 import React, { useState, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import MatchForm from './components/MatchForm';
 import InAppNotification from './components/InAppNotification';
 import ToastContainer from './components/ToastContainer';
-import Breadcrumb from './components/Breadcrumb';
 import CommandPalette from './components/CommandPalette';
 import TabNavigation, { TabType } from './components/TabNavigation';
 import DashboardScreen from './components/DashboardScreen';
@@ -16,24 +14,36 @@ import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
 import { Loader, Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
-import { animations } from './utils/animations';
 
 // Lazy loading de componentes pesados para code splitting
 const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 
-import { cancelNotification } from './services/notificationService';
 import { performAnalysis } from './services/analysisEngine';
-import { MatchData, AnalysisResult, SavedAnalysis, BankSettings as BankSettingsType, BetInfo } from './types';
+import {
+  MatchData,
+  AnalysisResult,
+  SavedAnalysis,
+  BankSettings as BankSettingsType,
+  BetInfo,
+} from './types';
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
 import { logger } from './utils/logger';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
-  const { savedMatches, isLoading, isSaving, syncError, isUsingLocalData, saveMatch, saveMatchPartial, removeMatch } = useSavedMatches(showError);
-  const { bankSettings, isSyncing, lastSyncTime, saveSettings } = useBankSettings(showError);
-  const { activeNotifications, removeNotification, cancelMatchNotification } = useNotifications(savedMatches);
-  
+  const {
+    savedMatches,
+    isLoading,
+    isUsingLocalData,
+    saveMatch,
+    saveMatchPartial,
+    removeMatch,
+  } = useSavedMatches(showError);
+  const { bankSettings, saveSettings } = useBankSettings(showError);
+  const { activeNotifications, removeNotification, cancelMatchNotification } =
+    useNotifications(savedMatches);
+
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [showAnalysisModal, setShowAnalysisModal] = useState<boolean>(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -41,7 +51,6 @@ const App: React.FC = () => {
   const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
   const [isUpdatingBetStatus, setIsUpdatingBetStatus] = useState<boolean>(false);
-
 
   // Funções de Navegação
   const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
@@ -107,14 +116,14 @@ const App: React.FC = () => {
           data,
           result: updatedResult,
           aiAnalysis: aiMarkdown,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         }
       : {
           id: Math.random().toString(36).slice(2, 11),
           timestamp: Date.now(),
           data,
           result: updatedResult,
-          aiAnalysis: aiMarkdown
+          aiAnalysis: aiMarkdown,
         };
 
     // Salvar automaticamente em background com validação parcial
@@ -130,7 +139,9 @@ const App: React.FC = () => {
         // Mostrar erro ao usuário
         const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         if (errorMessage.includes('validação') || errorMessage.includes('Dados inválidos')) {
-          showError('Erro ao salvar análise da IA: dados inválidos. Verifique os campos obrigatórios.');
+          showError(
+            'Erro ao salvar análise da IA: dados inválidos. Verifique os campos obrigatórios.'
+          );
         } else {
           showError('Erro ao salvar análise da IA. Tente salvar manualmente.');
         }
@@ -150,7 +161,7 @@ const App: React.FC = () => {
             result: analysisResult,
             aiAnalysis: selectedMatch.aiAnalysis, // Manter análise da IA se existir
             betInfo: selectedMatch.betInfo, // Manter betInfo se existir
-            timestamp: Date.now() // Atualizar timestamp
+            timestamp: Date.now(), // Atualizar timestamp
           };
         } else {
           // Criar nova partida
@@ -160,7 +171,7 @@ const App: React.FC = () => {
             data: currentMatchData,
             result: analysisResult,
             aiAnalysis: undefined, // Será preenchido quando análise da IA for gerada
-            betInfo: selectedMatch?.betInfo // Incluir betInfo se existir
+            betInfo: selectedMatch?.betInfo, // Incluir betInfo se existir
           };
         }
 
@@ -173,7 +184,7 @@ const App: React.FC = () => {
           handleCloseAnalysis();
           setActiveTab('matches');
         }, 300);
-      } catch (error) {
+      } catch {
         showError('Erro ao salvar partida. Tente novamente.');
       }
     }
@@ -183,7 +194,7 @@ const App: React.FC = () => {
     try {
       await saveSettings(settings);
       showSuccess('Configurações de banca salvas com sucesso!');
-    } catch (error) {
+    } catch {
       showError('Erro ao salvar configurações de banca.');
     }
   };
@@ -206,19 +217,19 @@ const App: React.FC = () => {
 
     try {
       setIsUpdatingBetStatus(true);
-      
+
       const oldBetInfo = match.betInfo;
       const updatedBetInfo: BetInfo = {
         ...oldBetInfo,
         status,
-        resultAt: Date.now()
+        resultAt: Date.now(),
       };
 
       // Atualizar a partida com o novo betInfo
       const updatedMatch: SavedAnalysis = {
         ...match,
         betInfo: updatedBetInfo,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
       // Se a partida está selecionada, atualizar o estado local também
@@ -234,9 +245,9 @@ const App: React.FC = () => {
 
       // Salvar a partida atualizada
       await saveMatch(updatedMatch);
-      
+
       showSuccess(`Aposta marcada como ${status === 'won' ? 'ganha' : 'perdida'}!`);
-    } catch (error) {
+    } catch {
       showError('Erro ao atualizar status da aposta. Tente novamente.');
     } finally {
       setIsUpdatingBetStatus(false);
@@ -256,11 +267,11 @@ const App: React.FC = () => {
       const oldBetInfo = providedOldBetInfo || selectedMatch?.betInfo;
       const isNewBet = !oldBetInfo || oldBetInfo.betAmount === 0;
       const isRemovingBet = betInfo.betAmount === 0 || betInfo.status === 'cancelled';
-      
+
       // Determinar oldStatus corretamente
       let oldStatus: BetInfo['status'] | undefined;
       let oldBetAmount = 0;
-      
+
       if (isNewBet) {
         // Nova aposta: oldStatus é undefined
         oldStatus = undefined;
@@ -269,10 +280,10 @@ const App: React.FC = () => {
         oldStatus = oldBetInfo.status;
         oldBetAmount = oldBetInfo.betAmount;
       }
-      
+
       const newStatus = betInfo.status;
       const newBetAmount = betInfo.betAmount;
-      
+
       // Verificação explícita: se oldStatus === newStatus, não processar atualização de banca
       if (oldStatus === newStatus && !isNewBet && !isRemovingBet) {
         // Status não mudou, não precisa atualizar banca
@@ -280,10 +291,10 @@ const App: React.FC = () => {
       } else {
         // Se está removendo a aposta, usar valores antigos para calcular devolução
         const betAmountForCalc = isRemovingBet ? oldBetAmount : newBetAmount;
-        const potentialReturnForCalc = isRemovingBet 
-          ? (oldBetInfo?.potentialReturn || 0)
+        const potentialReturnForCalc = isRemovingBet
+          ? oldBetInfo?.potentialReturn || 0
           : betInfo.potentialReturn;
-        
+
         // Tratar mudança de valor da aposta (quando não é nova e não está removendo)
         let valueChangeAdjustment = 0;
         if (!isNewBet && !isRemovingBet && oldBetAmount !== newBetAmount && oldStatus) {
@@ -298,14 +309,11 @@ const App: React.FC = () => {
           }
           // Se estava lost, não precisa ajustar (já estava descontado)
         }
-        
+
         // Calcular diferença na banca
-        const bankDifference = calculateBankUpdate(
-          oldStatus,
-          newStatus,
-          betAmountForCalc,
-          potentialReturnForCalc
-        ) + valueChangeAdjustment;
+        const bankDifference =
+          calculateBankUpdate(oldStatus, newStatus, betAmountForCalc, potentialReturnForCalc) +
+          valueChangeAdjustment;
 
         // Se houve mudança que afeta a banca, atualizar
         if (bankDifference !== 0) {
@@ -313,7 +321,7 @@ const App: React.FC = () => {
           const newBankSettings: BankSettingsType = {
             ...bankSettings,
             totalBank: Math.max(0, updatedBank), // Banca não pode ser negativa
-            updatedAt: Date.now()
+            updatedAt: Date.now(),
           };
           await saveSettings(newBankSettings);
           showSuccess('Banca atualizada com sucesso!');
@@ -333,14 +341,14 @@ const App: React.FC = () => {
           data: currentMatchData,
           result: analysisResult,
           betInfo,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
 
         // Salvar usando o hook
         const savedMatch = await saveMatch(updatedMatch);
         setSelectedMatch(savedMatch);
         showSuccess('Aposta atualizada com sucesso!');
-      } catch (error) {
+      } catch {
         showError('Erro ao salvar aposta. Tente novamente.');
       }
     } else if (currentMatchData && analysisResult) {
@@ -351,7 +359,7 @@ const App: React.FC = () => {
         timestamp: selectedMatch?.timestamp || Date.now(),
         data: currentMatchData,
         result: analysisResult,
-        betInfo
+        betInfo,
       };
       setSelectedMatch(tempMatch);
     }
@@ -365,7 +373,7 @@ const App: React.FC = () => {
       // Deletar usando o hook
       await removeMatch(id);
       showSuccess('Partida removida com sucesso!');
-    } catch (error) {
+    } catch {
       showError('Erro ao remover partida. Tente novamente.');
     }
   };
@@ -375,7 +383,7 @@ const App: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setShowCommandPalette(prev => !prev);
+        setShowCommandPalette((prev) => !prev);
       }
     };
 
@@ -395,7 +403,7 @@ const App: React.FC = () => {
         handleNewMatch();
         setShowCommandPalette(false);
       },
-      category: 'Ações'
+      category: 'Ações',
     },
     {
       id: 'home',
@@ -407,7 +415,7 @@ const App: React.FC = () => {
         setActiveTab('dashboard');
         setShowCommandPalette(false);
       },
-      category: 'Navegação'
+      category: 'Navegação',
     },
     {
       id: 'bank',
@@ -419,7 +427,7 @@ const App: React.FC = () => {
         setActiveTab('bank');
         setShowCommandPalette(false);
       },
-      category: 'Navegação'
+      category: 'Navegação',
     },
     {
       id: 'settings',
@@ -431,8 +439,8 @@ const App: React.FC = () => {
         setActiveTab('settings');
         setShowCommandPalette(false);
       },
-      category: 'Navegação'
-    }
+      category: 'Navegação',
+    },
   ];
 
   // Renderizar tela principal com abas
@@ -444,10 +452,10 @@ const App: React.FC = () => {
         onClose={() => setShowCommandPalette(false)}
         actions={commandActions}
       />
-      
+
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
-      
+
       {/* Notificações In-App */}
       <div className="fixed top-20 left-4 right-4 md:left-auto md:right-4 md:w-96 z-[100] space-y-3 pointer-events-none">
         {activeNotifications.map((match) => (
@@ -469,8 +477,12 @@ const App: React.FC = () => {
               G
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg md:text-xl font-black tracking-tighter leading-none truncate">GOALSCAN PRO</h1>
-              <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline">AI Goal Analysis Engine</span>
+              <h1 className="text-lg md:text-xl font-black tracking-tighter leading-none truncate">
+                GOALSCAN PRO
+              </h1>
+              <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline">
+                AI Goal Analysis Engine
+              </span>
             </div>
             <div className="hidden md:flex gap-4 items-center">
               {isLoading && (
@@ -480,7 +492,10 @@ const App: React.FC = () => {
                 </div>
               )}
               {!isLoading && isUsingLocalData && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg" title="Usando dados locais">
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg"
+                  title="Usando dados locais"
+                >
                   <div className="w-2 h-2 bg-warning rounded-full animate-pulse" />
                   <span className="text-xs font-bold text-warning">Offline</span>
                 </div>
@@ -580,7 +595,7 @@ const App: React.FC = () => {
               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
               onClick={handleCloseAnalysis}
             />
-            
+
             {/* Modal */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -591,21 +606,17 @@ const App: React.FC = () => {
               {/* Header do Modal */}
               <div className="bg-base-200/80 backdrop-blur-md border-b border-base-300 p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleCloseAnalysis}
-                    className="btn btn-sm btn-ghost gap-2"
-                  >
+                  <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2">
                     <ArrowLeft className="w-4 h-4" />
                     <span className="hidden sm:inline">Voltar</span>
                   </button>
                   <h2 className="text-lg md:text-xl font-black">
-                    {currentMatchData ? `${currentMatchData.homeTeam} vs ${currentMatchData.awayTeam}` : 'Nova Análise'}
+                    {currentMatchData
+                      ? `${currentMatchData.homeTeam} vs ${currentMatchData.awayTeam}`
+                      : 'Nova Análise'}
                   </h2>
                 </div>
-                <button
-                  onClick={handleCloseAnalysis}
-                  className="btn btn-sm btn-circle btn-ghost"
-                >
+                <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -621,8 +632,12 @@ const App: React.FC = () => {
                         Análise Manual
                       </h3>
                       {analysisResult && (
-                        <button 
-                          onClick={() => { setAnalysisResult(null); setCurrentMatchData(null); setSelectedMatch(null); }}
+                        <button
+                          onClick={() => {
+                            setAnalysisResult(null);
+                            setCurrentMatchData(null);
+                            setSelectedMatch(null);
+                          }}
                           className="btn btn-xs btn-ghost text-error"
                         >
                           Limpar
@@ -643,17 +658,19 @@ const App: React.FC = () => {
                       <span className="w-2 h-6 bg-primary rounded-full"></span>
                       <h3 className="text-lg font-bold">Painel de Resultados e EV</h3>
                     </div>
-                    
+
                     {analysisResult && currentMatchData ? (
-                      <Suspense fallback={
-                        <div className="flex flex-col items-center justify-center py-20">
-                          <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
-                          <p className="text-sm opacity-60">Carregando análise...</p>
-                        </div>
-                      }>
-                        <AnalysisDashboard 
-                          result={analysisResult} 
-                          data={currentMatchData} 
+                      <Suspense
+                        fallback={
+                          <div className="flex flex-col items-center justify-center py-20">
+                            <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
+                            <p className="text-sm opacity-60">Carregando análise...</p>
+                          </div>
+                        }
+                      >
+                        <AnalysisDashboard
+                          result={analysisResult}
+                          data={currentMatchData}
                           onSave={handleSaveMatch}
                           betInfo={selectedMatch?.betInfo}
                           bankSettings={bankSettings}
@@ -665,12 +682,26 @@ const App: React.FC = () => {
                     ) : (
                       <div className="custom-card p-12 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2">
                         <div className="w-24 h-24 mb-6 rounded-full border-4 border-current flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-12 w-12"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                            />
                           </svg>
                         </div>
                         <h3 className="text-2xl font-bold">Aguardando Análise</h3>
-                        <p className="max-w-xs mx-auto mt-2 italic">Insira os dados e as odds para descobrir o valor esperado (EV) e a confiança matemática da partida.</p>
+                        <p className="max-w-xs mx-auto mt-2 italic">
+                          Insira os dados e as odds para descobrir o valor esperado (EV) e a
+                          confiança matemática da partida.
+                        </p>
                       </div>
                     )}
                   </section>

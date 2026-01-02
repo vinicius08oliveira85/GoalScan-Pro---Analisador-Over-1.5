@@ -1,14 +1,18 @@
 import { logger } from '../utils/logger';
+import type { SavedAnalysis, BankSettings } from '../types';
 
 export interface WidgetSyncPlugin {
-  syncData(options: { savedMatches?: string; bankSettings?: string }): Promise<{ success: boolean }>;
+  syncData(options: {
+    savedMatches?: string;
+    bankSettings?: string;
+  }): Promise<{ success: boolean }>;
 }
 
 // Verificar se estamos em ambiente web (build Vercel) ou nativo
-const isWebBuild = typeof window === 'undefined' || !(window as any).Capacitor;
+const isWebBuild = typeof window === 'undefined' || !(window as Window & { Capacitor?: unknown }).Capacitor;
 
 // Importação condicional do Capacitor (apenas disponível no ambiente nativo)
-let Capacitor: any = null;
+let Capacitor: typeof import('@capacitor/core') | null = null;
 let WidgetSync: WidgetSyncPlugin | null = null;
 
 // Função para inicializar Capacitor de forma segura
@@ -24,11 +28,11 @@ async function initCapacitor() {
     const capacitorModule = await import('@capacitor/core');
     Capacitor = capacitorModule.Capacitor;
     const { registerPlugin } = capacitorModule;
-    
+
     WidgetSync = registerPlugin<WidgetSyncPlugin>('WidgetSync', {
-      web: () => import('./widgetSyncService.web').then(m => new m.WidgetSyncWeb()),
+      web: () => import('./widgetSyncService.web').then((m) => new m.WidgetSyncWeb()),
     });
-  } catch (e) {
+  } catch {
     // Capacitor não disponível - usar fallback
     Capacitor = { getPlatform: () => 'web' };
   }
@@ -41,7 +45,7 @@ let initPromise: Promise<void> | null = null;
  * Sincroniza dados com os widgets Android
  * Deve ser chamado sempre que os dados forem salvos/atualizados
  */
-export const syncDataToWidgets = async (savedMatches?: any[], bankSettings?: any) => {
+export const syncDataToWidgets = async (savedMatches?: SavedAnalysis[], bankSettings?: BankSettings) => {
   // Inicializar Capacitor se ainda não foi inicializado
   if (!initPromise) {
     initPromise = initCapacitor();
@@ -79,14 +83,13 @@ export const syncDataToWidgets = async (savedMatches?: any[], bankSettings?: any
 /**
  * Sincroniza apenas partidas salvas
  */
-export const syncMatchesToWidgets = async (savedMatches: any[]) => {
+export const syncMatchesToWidgets = async (savedMatches: SavedAnalysis[]) => {
   await syncDataToWidgets(savedMatches, undefined);
 };
 
 /**
  * Sincroniza apenas configurações de banca
  */
-export const syncBankToWidgets = async (bankSettings: any) => {
+export const syncBankToWidgets = async (bankSettings: BankSettings) => {
   await syncDataToWidgets(undefined, bankSettings);
 };
-

@@ -7,15 +7,15 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   BRL: 'R$',
   USD: '$',
   EUR: '€',
-  GBP: '£'
+  GBP: '£',
 };
 
 // Mapeamento reverso: símbolos para códigos ISO
 const SYMBOL_TO_CODE: Record<string, string> = {
-  'R$': 'BRL',
-  '$': 'USD',
+  R$: 'BRL',
+  $: 'USD',
   '€': 'EUR',
-  '£': 'GBP'
+  '£': 'GBP',
 };
 
 /**
@@ -28,7 +28,7 @@ export function getCurrencySymbol(code: string): string {
   if (SYMBOL_TO_CODE[code]) {
     return code;
   }
-  
+
   // Converte código ISO para símbolo
   return CURRENCY_SYMBOLS[code.toUpperCase()] || code;
 }
@@ -43,7 +43,7 @@ export function getCurrencyCode(symbol: string): string {
   if (CURRENCY_SYMBOLS[symbol.toUpperCase()]) {
     return symbol.toUpperCase();
   }
-  
+
   // Converte símbolo para código ISO
   return SYMBOL_TO_CODE[symbol] || 'BRL'; // Default para BRL
 }
@@ -59,7 +59,7 @@ export function normalizeCurrency(currency: string): string {
   if (currency.length === 3 && CURRENCY_SYMBOLS[currency.toUpperCase()]) {
     return currency.toUpperCase();
   }
-  
+
   // Tenta converter símbolo para código
   const code = getCurrencyCode(currency);
   return code;
@@ -76,4 +76,3 @@ export function formatCurrency(value: number, currency: string, decimals: number
   const symbol = getCurrencySymbol(currency);
   return `${symbol} ${value.toFixed(decimals)}`;
 }
-
