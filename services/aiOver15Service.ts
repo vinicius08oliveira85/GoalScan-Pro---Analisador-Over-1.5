@@ -1,6 +1,7 @@
 import { MatchData } from '../types';
 import { performAnalysis } from './analysisEngine';
 import { generateGeminiContent, getGeminiSettings, toGeminiFriendlyError } from './geminiClient';
+import { syncMatchScore, MatchScore } from './googleMatchSync';
 
 type AiOver15Result = {
   reportMarkdown: string;
@@ -138,7 +139,7 @@ export function extractConfidenceFromMarkdown(markdown: string): number | null {
   return null;
 }
 
-function buildContext(data: MatchData) {
+function buildContext(data: MatchData, liveScore?: MatchScore) {
   const result = performAnalysis(data);
 
   // Usar estatísticas específicas: home para time da casa, away para visitante
@@ -151,6 +152,14 @@ function buildContext(data: MatchData) {
       awayTeam: data.awayTeam,
       matchDate: data.matchDate ?? null,
       matchTime: data.matchTime ?? null,
+      // Add live data if available
+      liveData: liveScore ? {
+        homeScore: liveScore.homeScore,
+        awayScore: liveScore.awayScore,
+        minute: liveScore.minute,
+        status: liveScore.status,
+        lastUpdated: new Date(liveScore.lastUpdated).toISOString(),
+      } : null,
     },
     market: {
       oddOver15: safeNumber(data.oddOver15),
@@ -181,8 +190,8 @@ function buildContext(data: MatchData) {
   };
 }
 
-function buildPrompt(data: MatchData): string {
-  const ctx = buildContext(data);
+function buildPrompt(data: MatchData, liveScore?: MatchScore): string {
+  const ctx = buildContext(data, liveScore);
   return [
     '# Análise Quantitativa de Apostas - Over 1.5 Gols',
     '',
@@ -205,6 +214,34 @@ function buildPrompt(data: MatchData): string {
     '- Reconheça explicitamente quais campos estão ausentes (null)',
     '- Explique como a ausência desses dados afeta a confiabilidade da análise',
     '- NÃO assuma valores ou faça estimativas baseadas em conhecimento externo',
+    '',
+    '## Análise com Dados em Tempo Real',
+    '',
+    'Quando dados de placar ao vivo estiverem disponíveis no JSON (campo liveData), considere o estado atual da partida para refinar sua análise:',
+    '',
+    '**Dados ao Vivo Disponíveis:**',
+    '- `homeScore` / `awayScore`: Placar atual da partida',
+    '- `minute`: Minuto atual do jogo (0-90+)',
+    '- `status`: Estado da partida (not_started, live, finished)',
+    '- `lastUpdated`: Quando os dados foram atualizados',
+    '',
+    '**Instruções para Análise ao Vivo:**',
+    '- Avalie se o placar atual (ex: 0-0 aos 30min) é consistente com as estatísticas pré-jogo',
+    '- Considere o tempo decorrido: jogos com 0-0 após 60+ minutos têm menor probabilidade de Over 1.5',
+    '- Para jogos já com 1+ gol: ajuste probabilidade baseada no ritmo atual vs esperado',
+    '- Status "live": foque em dinâmica atual; "finished": use apenas para validação histórica',
+    '- Mantenha análise baseada em dados, não em especulação sobre o que "pode acontecer"',
+    '',
+    '**Cenários Específicos:**',
+    '- **0-0 até 30min**: Probabilidade reduzida se estatísticas indicam ataque forte (possível cautela tática)',
+    '- **0-0 após 60min**: Forte indicação de Under 1.5, independente de estatísticas',
+    '- **1-0 ou 0-1**: Probabilidade moderada; considere se time atrás costuma reagir',
+    '- **Já com 2+ gols**: Alta probabilidade de Over 1.5, confirme com estatísticas de over25%',
+    '',
+    '**Análise Pré-Jogo (sem liveData):**',
+    '- Use apenas estatísticas históricas e probabilidades pré-jogo',
+    '- Indique claramente que é análise pré-jogo',
+    '- Foque em tendências históricas e comparações com média da competição',
     '',
     '## Instruções de Interpretação de Dados',
     '',
@@ -335,8 +372,8 @@ function buildPrompt(data: MatchData): string {
   ].join('\n');
 }
 
-function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice']): AiOver15Result {
-  const ctx = buildContext(data);
+function localFallbackReport(data: MatchData, liveScore?: MatchScore, notice?: AiOver15Result['notice']): AiOver15Result {
+  const ctx = buildContext(data, liveScore);
   const p = ctx.modelBaseline.probabilityOver15Pct ?? 0;
   const c = ctx.modelBaseline.confidenceScorePct ?? 0;
   const ev = ctx.modelBaseline.evPct;
@@ -425,6 +462,16 @@ function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice'])
     '',
     '---',
     '',
+    ...(liveScore ? [
+      '## Dados ao Vivo',
+      `- Placar atual: ${liveScore.homeScore ?? '?'} - ${liveScore.awayScore ?? '?'}`,
+      `- Minuto: ${liveScore.minute ?? '?'}'`,
+      `- Status: ${liveScore.status === 'live' ? 'Ao vivo' : liveScore.status === 'finished' ? 'Finalizado' : 'Não iniciado'}`,
+      `- Atualizado: ${new Date(liveScore.lastUpdated).toLocaleTimeString()}`,
+      '',
+      '---',
+      '',
+    ] : []),
     '## Observações e Limitações',
     hasGoodData
       ? '- Base de dados razoável para análise estatística'
@@ -439,10 +486,30 @@ function localFallbackReport(data: MatchData, notice?: AiOver15Result['notice'])
   return { reportMarkdown: md, provider: 'local', notice };
 }
 
-export async function generateAiOver15Report(data: MatchData): Promise<AiOver15Result> {
+export async function generateAiOver15Report(
+  data: MatchData,
+  options?: {
+    fetchLiveData?: boolean;
+    liveScore?: MatchScore;
+  }
+): Promise<AiOver15Result> {
+  // Attempt to fetch live data if requested and match date available
+  let liveScore = options?.liveScore;
+  if (options?.fetchLiveData && data.matchDate && !liveScore) {
+    try {
+      const liveResult = await syncMatchScore(data.homeTeam, data.awayTeam, data.matchDate);
+      if (liveResult.success && liveResult.score) {
+        liveScore = liveResult.score;
+      }
+    } catch (error) {
+      // Log but don't fail - continue with stats-only analysis
+      console.warn('Failed to fetch live data:', error);
+    }
+  }
+
   const apiKey = getGeminiSettings().apiKey;
   if (!apiKey) {
-    return localFallbackReport(data, {
+    return localFallbackReport(data, liveScore, {
       kind: 'info',
       title: 'IA online desativada',
       message:
@@ -450,7 +517,7 @@ export async function generateAiOver15Report(data: MatchData): Promise<AiOver15R
     });
   }
 
-  const prompt = buildPrompt(data);
+  const prompt = buildPrompt(data, liveScore);
   try {
     const reportMarkdown = await generateGeminiContent(prompt, apiKey);
     return { reportMarkdown, provider: 'gemini' };
@@ -459,7 +526,7 @@ export async function generateAiOver15Report(data: MatchData): Promise<AiOver15R
 
     // Se o erro não for um GeminiCallError, mas contém mensagem sobre modelos não disponíveis
     if (!friendly && e instanceof Error && e.message.includes('Nenhum modelo Gemini disponível')) {
-      return localFallbackReport(data, {
+      return localFallbackReport(data, liveScore, {
         kind: 'warning',
         title: 'Modelos Gemini não disponíveis (404)',
         message:
@@ -473,7 +540,7 @@ export async function generateAiOver15Report(data: MatchData): Promise<AiOver15R
         ? ` (tente novamente em ~${friendly.retryAfterSeconds}s)`
         : '';
 
-    return localFallbackReport(data, {
+    return localFallbackReport(data, liveScore, {
       kind:
         friendly?.kind === 'quota_exceeded'
           ? 'warning'
