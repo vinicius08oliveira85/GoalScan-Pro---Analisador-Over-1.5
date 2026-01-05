@@ -156,3 +156,43 @@ export function sortMatches(
     return order === 'asc' ? -res : res;
   });
 }
+
+/**
+ * Filtra partidas por categoria (abas)
+ */
+export function filterMatchesByCategory(matches: SavedAnalysis[], category: string): SavedAnalysis[] {
+  switch (category) {
+    case 'pendentes':
+      return matches.filter(match => match.betInfo?.status === 'pending');
+    case 'finalizadas':
+      return matches.filter(match => match.betInfo?.status && ['won', 'lost', 'cancelled'].includes(match.betInfo.status));
+    case 'todas':
+    default:
+      return matches;
+  }
+}
+
+/**
+ * Conta partidas por categoria
+ */
+export function getCategoryCounts(matches: SavedAnalysis[]): {
+  pendentes: number;
+  finalizadas: number;
+  todas: number;
+} {
+  const counts = {
+    pendentes: 0,
+    finalizadas: 0,
+    todas: matches.length,
+  };
+
+  matches.forEach(match => {
+    if (match.betInfo?.status === 'pending') {
+      counts.pendentes++;
+    } else if (match.betInfo?.status && ['won', 'lost', 'cancelled'].includes(match.betInfo.status)) {
+      counts.finalizadas++;
+    }
+  });
+
+  return counts;
+}

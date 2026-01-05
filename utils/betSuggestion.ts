@@ -9,6 +9,8 @@ const RISK_LEVELS = {
   MAX_BANK_EXPOSURE: 0.10 // Nunca sugerir mais de 10% da banca em uma única bet
 };
 
+export const MIN_BET_AMOUNT = 1; // Valor mínimo de aposta em R$
+
 export interface BetSuggestion {
   conservative: number;
   moderate: number;
@@ -29,7 +31,7 @@ function calculateEdge(probability: number, odd: number): number {
 /**
  * Calcula o Valor Esperado (EV) em porcentagem
  */
-function calculateEV(probability: number, odd: number): number {
+export function calculateEV(probability: number, odd: number): number {
   const p = probability / 100;
   const ev = (p * (odd - 1) - (1 - p)) * 100;
   return ev;
