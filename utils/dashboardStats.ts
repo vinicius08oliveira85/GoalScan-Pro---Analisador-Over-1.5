@@ -209,6 +209,8 @@ export function prepareBankEvolutionData(
         currentBank += match.betInfo.potentialReturn;
       } else if (match.betInfo.status === 'lost') {
         // Já foi descontado quando pending
+      } else if (match.betInfo.status === 'cancelled') {
+        currentBank += match.betInfo.betAmount;
       }
 
       data.push({
