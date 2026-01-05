@@ -151,9 +151,14 @@ export function calculateBankStats(
     return amount > max ? amount : max;
   }, 0);
 
+  // Calcular valor total em apostas pendentes
+  const pendingAmount = pendingBets.reduce((sum, match) => {
+    return sum + (match.betInfo?.betAmount || 0);
+  }, 0);
+
   // Banca inicial definida como 20 reais
   const initialBank = 20;
-  const currentBank = initialBank + totalProfit;
+  const currentBank = initialBank + totalProfit - pendingAmount;
 
   return {
     totalProfit,
