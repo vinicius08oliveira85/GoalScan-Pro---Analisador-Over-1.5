@@ -632,7 +632,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         type="submit"
         className="btn btn-primary btn-lg mt-4 uppercase font-black tracking-widest shadow-2xl hover:scale-[1.01] active:scale-95 transition-all min-h-[44px] text-base md:text-lg w-full sm:w-auto"
       >
-        PROCESSAR ALGORITMO GOALSCAN
+        Processar
       </button>
     </motion.form>
   );
