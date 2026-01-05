@@ -109,7 +109,7 @@ export function calculateDashboardStats(
  */
 export function calculateBankStats(
   savedMatches: SavedAnalysis[],
-  bankSettings?: BankSettings
+  _bankSettings?: BankSettings
 ): BankStats {
   const matchesWithBets = savedMatches.filter(
     (match) => match.betInfo && match.betInfo.betAmount > 0
@@ -151,9 +151,9 @@ export function calculateBankStats(
     return amount > max ? amount : max;
   }, 0);
 
-  // Banca inicial (estimada: banca atual - lucro total)
-  const currentBank = bankSettings?.totalBank || 0;
-  const initialBank = currentBank - totalProfit;
+  // Banca inicial definida como 20 reais
+  const initialBank = 20;
+  const currentBank = initialBank + totalProfit;
 
   return {
     totalProfit,
@@ -181,18 +181,8 @@ export function prepareBankEvolutionData(
   // Ordenar partidas por data
   const sortedMatches = [...savedMatches].sort((a, b) => a.timestamp - b.timestamp);
 
-  // Calcular banca inicial estimada
-  const totalProfit = savedMatches.reduce((sum, match) => {
-    if (match.betInfo && match.betInfo.betAmount > 0) {
-      if (match.betInfo.status === 'won') {
-        return sum + match.betInfo.potentialProfit;
-      } else if (match.betInfo.status === 'lost') {
-        return sum - match.betInfo.betAmount;
-      }
-    }
-    return sum;
-  }, 0);
-  const initialBank = Math.max(0, bankSettings.totalBank - totalProfit);
+  // Banca inicial definida como 20 reais
+  const initialBank = 20;
 
   // Simular evolução da banca ao longo do tempo
   let currentBank = initialBank;
@@ -230,7 +220,7 @@ export function prepareBankEvolutionData(
   if (data.length > 0) {
     data.push({
       date: 'Atual',
-      value: bankSettings.totalBank,
+      value: currentBank,
     });
   }
 
