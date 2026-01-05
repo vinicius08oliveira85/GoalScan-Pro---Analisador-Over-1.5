@@ -13,8 +13,13 @@ const getEnvVar = (key: string): string => {
     return process.env[key] as string;
   }
   // Fallback para import.meta.env (se disponível)
-  if (typeof import !== 'undefined' && (import.meta as any)?.env?.[key]) {
-    return (import.meta as any).env[key] as string;
+  try {
+    const env = (globalThis as { import?: { meta?: { env?: Record<string, string | undefined> } } }).import?.meta?.env;
+    if (env?.[key]) {
+      return env[key] as string;
+    }
+  } catch {
+    // Ignora erros
   }
   return '';
 };
@@ -63,12 +68,13 @@ export function hasGeminiKeys(): boolean {
 /**
  * Verifica se um erro indica que a quota foi excedida ou há problema com a chave
  */
-export function isQuotaExceededError(error: any): boolean {
+export function isQuotaExceededError(error: unknown): boolean {
   if (!error) return false;
   
-  const errorMessage = error.message?.toLowerCase() || '';
-  const errorCode = error.code || error.status || '';
-  const statusCode = typeof error.status === 'number' ? error.status : 
+  const err = error as { message?: string; code?: string | number; status?: string | number };
+  const errorMessage = err.message?.toLowerCase() || '';
+  const errorCode = err.code || err.status || '';
+  const statusCode = typeof err.status === 'number' ? err.status : 
                      typeof errorCode === 'number' ? errorCode : 
                      parseInt(String(errorCode)) || 0;
   
@@ -110,7 +116,7 @@ export async function callWithFallback<T>(
   apiCall: (apiKey: string) => Promise<T>,
   options: {
     onKeySwitch?: (fromKey: string, toKey: string) => void;
-    onError?: (error: any, keyIndex: number) => void;
+    onError?: (error: unknown, keyIndex: number) => void;
   } = {}
 ): Promise<T> {
   const keys = getGeminiApiKeys();
@@ -119,7 +125,7 @@ export async function callWithFallback<T>(
     throw new Error('Nenhuma chave da API do Gemini configurada. Configure GEMINI_API_KEY no .env');
   }
   
-  let lastError: any = null;
+  let lastError: unknown = null;
   
   for (let i = 0; i < keys.length; i++) {
     const currentKey = keys[i];
@@ -134,7 +140,7 @@ export async function callWithFallback<T>(
       }
       
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
       
       // Log do erro
@@ -181,4 +187,3 @@ export async function callWithFallback<T>(
   // Se chegou aqui, todas as chaves falharam
   throw lastError || new Error('Todas as chaves da API do Gemini falharam');
 }
-

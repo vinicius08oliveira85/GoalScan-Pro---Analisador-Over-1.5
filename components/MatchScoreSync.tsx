@@ -44,15 +44,6 @@ const MatchScoreSync: React.FC<MatchScoreSyncProps> = ({
       if (result.success && result.score) {
         setScore(result.score);
         
-        // Converter MatchScore para formato liveScore do SavedAnalysis
-        const liveScore = {
-          homeScore: result.score.homeScore ?? 0,
-          awayScore: result.score.awayScore ?? 0,
-          minute: result.score.minute,
-          status: result.score.status === 'unknown' ? 'finished' : result.score.status,
-          lastSynced: result.score.lastUpdated
-        };
-        
         if (onScoreUpdated) {
           onScoreUpdated(result.score);
         }

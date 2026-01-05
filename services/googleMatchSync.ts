@@ -208,7 +208,7 @@ function identifyStatus(text: string): 'not_started' | 'live' | 'finished' | 'un
 /**
  * Extrai dados de placar e tempo do HTML do Google
  */
-function extractScoreFromGoogle(html: string, homeTeam: string, awayTeam: string): MatchScore | null {
+function extractScoreFromGoogle(html: string, _homeTeam: string, _awayTeam: string): MatchScore | null {
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');

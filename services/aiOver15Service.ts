@@ -3,6 +3,9 @@ import { performAnalysis } from './analysisEngine';
 import { generateGeminiContent, getGeminiSettings, toGeminiFriendlyError } from './geminiClient';
 import { syncMatchScore, MatchScore } from './googleMatchSync';
 
+/**
+ * TIPAGEM E CONFIGURAÇÕES
+ */
 type AiOver15Result = {
   reportMarkdown: string;
   provider: 'gemini' | 'local';
@@ -13,136 +16,48 @@ type AiOver15Result = {
   };
 };
 
+/**
+ * PARSERS E UTILS
+ */
+
 function safeNumber(n: unknown): number | null {
-  if (typeof n !== 'number' || !Number.isFinite(n)) return null;
-  return n;
+  return (typeof n === 'number' && Number.isFinite(n)) ? n : null;
 }
 
 /**
- * Extrai a probabilidade da análise da IA do markdown.
- * Procura por padrões como "**Probabilidade (IA)**: XX%" ou "Probabilidade (IA): XX%"
- * Melhorado com mais padrões e validação robusta
+ * Helper unificado para extração de métricas (Probabilidade/Confiança)
+ * Suporta variações de Markdown, negritos, espaços e separadores decimais.
  */
-export function extractProbabilityFromMarkdown(markdown: string): number | null {
-  if (!markdown || typeof markdown !== 'string') return null;
+function extractMetric(markdown: string, label: string): number | null {
+  if (!markdown) return null;
+  
+  // Captura rótulos como "**Probabilidade (IA)**:", "Probabilidade IA -", etc.
+  const regex = new RegExp(
+    `(?:\\*\\*|\\*|__|_)?${label}(?:\\s|\\(IA\\))?(?:\\*\\*|\\*|__|_)?\\s*[:\\-]?\\s*([\\d,]+\\.?\\d*)\\s*%`,
+    'i'
+  );
 
-  // Padrões expandidos para capturar mais variações:
-  // - **Probabilidade (IA)**: XX%
-  // - Probabilidade (IA): XX%
-  // - **Probabilidade (IA)**: XX,XX%
-  // - Probabilidade IA: XX%
-  // - Probabilidade: XX% (dentro de contexto de IA)
-  // - Prob. (IA): XX%
-  const patterns = [
-    /\*\*Probabilidade\s*\(?IA\)?\*\*:\s*([\d,]+\.?\d*)\s*%/i,
-    /Probabilidade\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
-    /Probabilidade.*?IA.*?:\s*([\d,]+\.?\d*)\s*%/i,
-    /Prob\.?\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
-    /Probabilidade\s*\(IA\):\s*([\d,]+\.?\d*)\s*%/i,
-    // Padrão mais flexível com espaços variados
-    /Probabilidade\s*[: -]\s*([\d,]+\.?\d*)\s*%/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = markdown.match(pattern);
-    if (match && match[1]) {
-      // Normalizar separador decimal (aceitar vírgula ou ponto)
-      const normalized = match[1].replace(',', '.');
-      const value = parseFloat(normalized);
-
-      // Validação robusta: deve ser número válido e estar em range razoável
-      if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
-        // Validação adicional: valores muito extremos podem ser erros
-        if (value < 5 || value > 95) {
-          // Log para debug (em produção, usar logger)
-          console.warn(`Probabilidade extraída parece extrema: ${value}%`);
-        }
-        return value;
-      }
-    }
+  const match = markdown.match(regex);
+  if (match?.[1]) {
+    const value = parseFloat(match[1].replace(',', '.'));
+    return (!isNaN(value) && value >= 0 && value <= 100) ? value : null;
   }
 
-  // Tentar extrair de JSON estruturado como fallback
-  try {
-    const jsonMatch = markdown.match(/\{[\s\S]*?"probabilidade"[^}]*?([\d,]+\.?\d*)[\s\S]*?\}/i);
-    if (jsonMatch && jsonMatch[1]) {
-      const normalized = jsonMatch[1].replace(',', '.');
-      const value = parseFloat(normalized);
-      if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
-        return value;
-      }
-    }
-  } catch {
-    // Ignorar erros de parsing JSON
-  }
-
-  return null;
+  // Fallback: busca por estrutura similar a JSON no texto
+  const jsonRegex = new RegExp(`"${label.toLowerCase()}"\\s*:\\s*([\\d.]+)`, 'i');
+  const jsonMatch = markdown.match(jsonRegex);
+  return jsonMatch ? parseFloat(jsonMatch[1]) : null;
 }
+
+export const extractProbabilityFromMarkdown = (md: string) => extractMetric(md, 'Probabilidade');
+export const extractConfidenceFromMarkdown = (md: string) => extractMetric(md, 'Confiança');
 
 /**
- * Extrai a confiança da análise da IA do markdown.
- * Procura por padrões como "**Confiança (IA)**: XX%" ou "Confiança (IA): XX%"
- * Melhorado com mais padrões e validação robusta
+ * CONSTRUÇÃO DE CONTEXTO E PROMPT
  */
-export function extractConfidenceFromMarkdown(markdown: string): number | null {
-  if (!markdown || typeof markdown !== 'string') return null;
-
-  // Padrões expandidos para capturar mais variações:
-  // - **Confiança (IA)**: XX%
-  // - Confiança (IA): XX%
-  // - **Confiança (IA)**: XX,XX%
-  // - Confiança IA: XX%
-  // - Conf. (IA): XX%
-  const patterns = [
-    /\*\*Confiança\s*\(?IA\)?\*\*:\s*([\d,]+\.?\d*)\s*%/i,
-    /Confiança\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
-    /Confiança.*?IA.*?:\s*([\d,]+\.?\d*)\s*%/i,
-    /Conf\.?\s*\(?IA\)?:\s*([\d,]+\.?\d*)\s*%/i,
-    /Confiança\s*\(IA\):\s*([\d,]+\.?\d*)\s*%/i,
-    // Padrão mais flexível com espaços variados
-    /Confiança\s*[: -]\s*([\d,]+\.?\d*)\s*%/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = markdown.match(pattern);
-    if (match && match[1]) {
-      // Normalizar separador decimal (aceitar vírgula ou ponto)
-      const normalized = match[1].replace(',', '.');
-      const value = parseFloat(normalized);
-
-      // Validação robusta: deve ser número válido e estar em range razoável
-      if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
-        // Validação adicional: valores muito baixos podem ser erros
-        if (value < 10) {
-          // Log para debug (em produção, usar logger)
-          console.warn(`Confiança extraída parece muito baixa: ${value}%`);
-        }
-        return value;
-      }
-    }
-  }
-
-  // Tentar extrair de JSON estruturado como fallback
-  try {
-    const jsonMatch = markdown.match(/\{[\s\S]*?"confiança"[^}]*?([\d,]+\.?\d*)[\s\S]*?\}/i);
-    if (jsonMatch && jsonMatch[1]) {
-      const normalized = jsonMatch[1].replace(',', '.');
-      const value = parseFloat(normalized);
-      if (!isNaN(value) && Number.isFinite(value) && value >= 0 && value <= 100) {
-        return value;
-      }
-    }
-  } catch {
-    // Ignorar erros de parsing JSON
-  }
-
-  return null;
-}
 
 function buildContext(data: MatchData, liveScore?: MatchScore) {
   const result = performAnalysis(data);
-
-  // Usar estatísticas específicas: home para time da casa, away para visitante
   const home = data.homeTeamStats?.gols?.home;
   const away = data.awayTeamStats?.gols?.away;
 
@@ -151,404 +66,129 @@ function buildContext(data: MatchData, liveScore?: MatchScore) {
       homeTeam: data.homeTeam,
       awayTeam: data.awayTeam,
       matchDate: data.matchDate ?? null,
-      matchTime: data.matchTime ?? null,
-      // Add live data if available
       liveData: liveScore ? {
         homeScore: liveScore.homeScore,
         awayScore: liveScore.awayScore,
         minute: liveScore.minute,
         status: liveScore.status,
-        lastUpdated: new Date(liveScore.lastUpdated).toISOString(),
       } : null,
     },
     market: {
       oddOver15: safeNumber(data.oddOver15),
-      competitionAvgOver15Pct: safeNumber(data.competitionAvg),
+      competitionAvg: safeNumber(data.competitionAvg),
     },
-    inputs: {
-      homeOver15Pct: safeNumber(data.homeOver15Freq),
-      awayOver15Pct: safeNumber(data.awayOver15Freq),
-      homeAvgScored: safeNumber(home?.avgScored),
-      homeAvgConceded: safeNumber(home?.avgConceded),
-      homeAvgTotal: safeNumber(home?.avgTotal),
-      homeCleanSheetPct: safeNumber(home?.cleanSheetPct),
-      homeNoGoalsPct: safeNumber(home?.noGoalsPct),
-      homeOver25Pct: safeNumber(home?.over25Pct),
-      awayAvgScored: safeNumber(away?.avgScored),
-      awayAvgConceded: safeNumber(away?.avgConceded),
-      awayAvgTotal: safeNumber(away?.avgTotal),
-      awayCleanSheetPct: safeNumber(away?.cleanSheetPct),
-      awayNoGoalsPct: safeNumber(away?.noGoalsPct),
-      awayOver25Pct: safeNumber(away?.over25Pct),
+    stats: {
+      home: { over15: safeNumber(data.homeOver15Freq), avgScored: home?.avgScored, avgTotal: home?.avgTotal },
+      away: { over15: safeNumber(data.awayOver15Freq), avgScored: away?.avgScored, avgTotal: away?.avgTotal },
     },
-    modelBaseline: {
-      probabilityOver15Pct: safeNumber(result.probabilityOver15),
-      confidenceScorePct: safeNumber(result.confidenceScore),
-      riskLevel: result.riskLevel,
-      evPct: safeNumber(result.ev),
-    },
+    baseline: {
+      prob: safeNumber(result.probabilityOver15),
+      ev: safeNumber(result.ev),
+      risk: result.riskLevel,
+    }
   };
 }
 
 function buildPrompt(data: MatchData, liveScore?: MatchScore): string {
   const ctx = buildContext(data, liveScore);
+  
   return [
-    '# Análise Quantitativa de Apostas - Over 1.5 Gols',
+    '# PERSONA: Analista Quantitativo de Apostas (Over 1.5 Gols)',
+    '# OBJETIVO: Gerar relatório técnico baseado exclusivamente nos dados fornecidos.',
     '',
-    '## Identidade e Objetivo',
-    'Você é um analista quantitativo especializado em apostas esportivas, com expertise em análise estatística de mercados de gols no futebol.',
-    'Sua função é gerar uma análise profissional, baseada exclusivamente em dados, para avaliar a probabilidade de OVER 1.5 gols em uma partida.',
-    'Foque em análise objetiva, interpretação técnica de métricas e recomendações acionáveis para apostadores.',
+    '## REGRAS CRÍTICAS:',
+    '1. Use APENAS o JSON abaixo. Proibido inventar dados ou usar conhecimento externo.',
+    '2. O formato da primeira seção DEVE ser exatamente:',
+    '   - **Probabilidade (IA)**: XX%',
+    '   - **Confiança (IA)**: XX%',
+    '3. Se houver liveData (minute > 0), priorize o cenário atual da partida sobre o histórico.',
     '',
-    '## Regras Estritas - Dados Externos PROIBIDOS',
-    '⚠️ **CRÍTICO**: Você DEVE trabalhar APENAS com os dados fornecidos no JSON abaixo.',
+    '## ESTRUTURA DO RELATÓRIO:',
+    '## Painel de Resultados e EV -> Análise Quantitativa -> Sinais a Favor -> Red Flags -> Plano de Entrada',
     '',
-    '**PROIBIÇÕES ABSOLUTAS:**',
-    '- ❌ NÃO invente, assuma ou crie estatísticas que não estão nos dados fornecidos',
-    '- ❌ NÃO cite fontes externas, URLs, sites ou referências a dados não fornecidos',
-    '- ❌ NÃO faça "pesquisa na web" ou busque informações adicionais',
-    '- ❌ NÃO mencione informações sobre escalações, lesões, ou contexto externo que não esteja nos dados',
-    '- ❌ NÃO use conhecimento pré-treinado sobre times, jogadores ou competições específicas',
-    '',
-    '**QUANDO DADOS ESTIVEREM AUSENTES:**',
-    '- Reconheça explicitamente quais campos estão ausentes (null)',
-    '- Explique como a ausência desses dados afeta a confiabilidade da análise',
-    '- NÃO assuma valores ou faça estimativas baseadas em conhecimento externo',
-    '',
-    '## Análise com Dados em Tempo Real',
-    '',
-    'Quando dados de placar ao vivo estiverem disponíveis no JSON (campo liveData), considere o estado atual da partida para refinar sua análise:',
-    '',
-    '**Dados ao Vivo Disponíveis:**',
-    '- `homeScore` / `awayScore`: Placar atual da partida',
-    '- `minute`: Minuto atual do jogo (0-90+)',
-    '- `status`: Estado da partida (not_started, live, finished)',
-    '- `lastUpdated`: Quando os dados foram atualizados',
-    '',
-    '**Instruções para Análise ao Vivo:**',
-    '- Avalie se o placar atual (ex: 0-0 aos 30min) é consistente com as estatísticas pré-jogo',
-    '- Considere o tempo decorrido: jogos com 0-0 após 60+ minutos têm menor probabilidade de Over 1.5',
-    '- Para jogos já com 1+ gol: ajuste probabilidade baseada no ritmo atual vs esperado',
-    '- Status "live": foque em dinâmica atual; "finished": use apenas para validação histórica',
-    '- Mantenha análise baseada em dados, não em especulação sobre o que "pode acontecer"',
-    '',
-    '**Cenários Específicos:**',
-    '- **0-0 até 30min**: Probabilidade reduzida se estatísticas indicam ataque forte (possível cautela tática)',
-    '- **0-0 após 60min**: Forte indicação de Under 1.5, independente de estatísticas',
-    '- **1-0 ou 0-1**: Probabilidade moderada; considere se time atrás costuma reagir',
-    '- **Já com 2+ gols**: Alta probabilidade de Over 1.5, confirme com estatísticas de over25%',
-    '',
-    '**Análise Pré-Jogo (sem liveData):**',
-    '- Use apenas estatísticas históricas e probabilidades pré-jogo',
-    '- Indique claramente que é análise pré-jogo',
-    '- Foque em tendências históricas e comparações com média da competição',
-    '',
-    '## Instruções de Interpretação de Dados',
-    '',
-    '**Médias de Gols:**',
-    '- `avgScored`: Média de gols marcados por jogo (indica força ofensiva)',
-    '- `avgConceded`: Média de gols sofridos por jogo (indica fragilidade defensiva)',
-    '- `avgTotal`: Média total de gols por jogo (soma de marcados + sofridos, dividido por 2)',
-    '- **Interpretação**: avgTotal > 2.5 indica jogos com muitos gols; < 1.8 indica jogos trancados',
-    '',
-    '**Percentuais de Mercado:**',
-    '- `homeOver15Pct` / `awayOver15Pct`: % de jogos com mais de 1.5 gols (dado mais relevante)',
-    '- `homeOver25Pct` / `awayOver25Pct`: % de jogos com mais de 2.5 gols (confirma tendência ofensiva)',
-    '- `homeCleanSheetPct` / `awayCleanSheetPct`: % de jogos sem sofrer gols (indica defesa sólida)',
-    '- `homeNoGoalsPct` / `awayNoGoalsPct`: % de jogos sem marcar (indica ataque fraco)',
-    '- **Interpretação**: Percentuais altos de Over 1.5% favorecem a aposta; Clean Sheet alto e No Goals alto são red flags',
-    '',
-    '**Análise de Valor (EV):**',
-    '- `evPct`: Expected Value em percentual. Positivo = valor positivo; Negativo = odd desfavorável',
-    '- `oddOver15`: Odd oferecida pela casa de apostas',
-    '- `probabilityOver15Pct`: Probabilidade calculada pelo modelo quantitativo',
-    '- **Interpretação**: EV > 0% indica aposta com valor; compare probabilidade do modelo com odd implícita (1/odd * 100)',
-    '',
-    '**Baseline do Modelo:**',
-    '- `probabilityOver15Pct`: Probabilidade calculada pelo modelo estatístico (baseline)',
-    '- `confidenceScorePct`: Nível de confiança do modelo (baseado na qualidade dos dados)',
-    '- `riskLevel`: Nível de risco (Baixo/Moderado/Alto/Muito Alto)',
-    '- **Interpretação**: Compare sua análise com o baseline; explique convergências ou divergências',
-    '',
-    '## Estrutura Obrigatória da Análise',
-    '',
-    '⚠️ **IMPORTANTE**: Siga EXATAMENTE esta ordem. Cada seção deve ser um bloco separado com quebra de linha antes e depois.',
-    '',
-    '### 1. ## Painel de Resultados e EV',
-    '**PRIMEIRO BLOCO** - Informações principais consolidadas:',
-    '⚠️ **FORMATO OBRIGATÓRIO**: Use EXATAMENTE estes formatos para facilitar extração automática:',
-    '- **Probabilidade (IA)**: XX% (sua estimativa baseada nos dados - DEVE ser um número entre 0 e 100)',
-    '- **Confiança (IA)**: XX% (baseada na qualidade e completude dos dados fornecidos - DEVE ser um número entre 0 e 100) + breve justificativa',
-    '- **EV (Expected Value)**: XX% (se odd disponível) + interpretação (positivo = valor, negativo = desfavorável)',
-    '- **Convergência com modelo**: (maior/igual/menor) + explicação técnica em 1-2 frases',
-    '- **Nível de risco**: (Baixo/Moderado/Alto/Muito Alto) baseado na análise',
-    '',
-    '**IMPORTANTE**:',
-    '- Use ponto (.) ou vírgula (,) como separador decimal, mas seja consistente',
-    '- Os valores de Probabilidade e Confiança DEVEM aparecer na primeira seção',
-    '- Não use formatação adicional que possa confundir a extração (ex: "~XX%", "aproximadamente XX%")',
-    '',
-    '---',
-    '',
-    '### 2. ## Análise Quantitativa',
-    '**SEGUNDO BLOCO** - Interpretação técnica detalhada dos dados:',
-    '- Compare médias de gols (avgScored, avgConceded, avgTotal) entre os times',
-    '- Analise percentuais de Over 1.5% e Over 2.5% de cada time',
-    '- Avalie indicadores defensivos (Clean Sheet%, No Goals%)',
-    '- Compare com média da competição (competitionAvgOver15Pct)',
-    '- Use linguagem técnica mas acessível, focando em dados e probabilidades',
-    '- Forneça análise comparativa entre time da casa e visitante',
-    '',
-    '---',
-    '',
-    '### 3. ## Sinais a Favor',
-    '**TERCEIRO BLOCO** - Fatores quantitativos que suportam Over 1.5:',
-    '- Liste cada sinal com explicação técnica clara',
-    '- Exemplo: "Média total de gols combinada de 2.8 indica ritmo ofensivo acima da média"',
-    '- Exemplo: "Over 1.5% de 75% no time da casa sugere consistência ofensiva"',
-    '- Foque em dados, não em opiniões subjetivas',
-    '- Quantifique o impacto de cada sinal na probabilidade',
-    '',
-    '---',
-    '',
-    '### 4. ## Red Flags (Contra)',
-    '**QUARTO BLOCO** - Fatores quantitativos que reduzem probabilidade:',
-    '- Liste cada red flag com análise de risco',
-    '- Exemplo: "Clean Sheet% de 60% no time visitante indica defesa muito sólida"',
-    '- Exemplo: "Média total abaixo de 1.6 gols sugere cenário de jogo trancado"',
-    '- Quantifique o impacto de cada red flag na probabilidade',
-    '- Se não houver red flags significativos, indique claramente',
-    '',
-    '---',
-    '',
-    '### 5. ## Plano de Entrada',
-    '**QUINTO BLOCO** - Recomendações práticas para apostas:',
-    '- **Pré-live**: Recomendação baseada em probabilidade e EV (entrar apenas se probabilidade alta E EV positivo)',
-    '- **Live (gatilhos)**: Sinais quantitativos para monitorar (ex: 3+ finalizações nos primeiros 10min, pressão ofensiva contínua)',
-    '- **Evitar**: Cenários quantitativos que indicam baixa probabilidade (ex: jogo com médias muito baixas, times com alta taxa de clean sheet)',
-    '',
-    '---',
-    '',
-    '### 6. ## Observações e Limitações',
-    '**ÚLTIMO BLOCO** - Transparência sobre dados e confiabilidade:',
-    '- Liste explicitamente quais dados estão ausentes (null)',
-    '- Explique como a ausência desses dados afeta a confiabilidade da análise',
-    '- Indique nível de confiança baseado na completude dos dados',
-    '- Se todos os dados estiverem presentes, indique "Base de dados completa"',
-    '',
-    '## Formato de Saída',
-    '- Responda em português brasileiro (pt-BR)',
-    '- Use Markdown para formatação',
-    '- **CRÍTICO**: Cada seção (##) deve ter uma linha em branco ANTES e DEPOIS para separação visual clara',
-    '- Use `---` (três hífens) como separador entre seções principais para melhor legibilidade',
-    '- Mantenha tom profissional, analítico e baseado em dados',
-    '- Evite linguagem casual ou informal',
-    '- Foque em probabilidades, estatísticas e análise quantitativa',
-    '- Garanta que os blocos apareçam um embaixo do outro, na ordem especificada',
-    '',
-    '**Exemplo de estrutura visual:**',
-    '```',
-    '',
-    '## Painel de Resultados e EV',
-    '[conteúdo]',
-    '',
-    '---',
-    '',
-    '## Análise Quantitativa',
-    '[conteúdo]',
-    '',
-    '---',
-    '',
-    '## Sinais a Favor',
-    '[conteúdo]',
-    '```',
-    '',
-    '---',
-    '',
-    '## Dados Fornecidos (JSON)',
-    'Analise APENAS estes dados. Não invente, não assuma, não cite fontes externas:',
-    '',
-    JSON.stringify(ctx, null, 2),
+    '## DADOS PARA ANÁLISE (JSON):',
+    JSON.stringify(ctx, null, 2)
   ].join('\n');
 }
 
+/**
+ * FALLBACK LOCAL (Lógica Estatística de Segurança)
+ */
+
 function localFallbackReport(data: MatchData, liveScore?: MatchScore, notice?: AiOver15Result['notice']): AiOver15Result {
   const ctx = buildContext(data, liveScore);
-  const p = ctx.modelBaseline.probabilityOver15Pct ?? 0;
-  const c = ctx.modelBaseline.confidenceScorePct ?? 0;
-  const ev = ctx.modelBaseline.evPct;
-  const risk = ctx.modelBaseline.riskLevel;
-
-  // Análise mais detalhada do fallback local
-  const home = ctx.inputs;
-  const hasGoodData = (home.homeOver15Pct ?? 0) > 0 && (home.awayOver15Pct ?? 0) > 0;
-  const avgTotal = ((home.homeAvgTotal ?? 0) + (home.awayAvgTotal ?? 0)) / 2;
-  const avgCleanSheet = ((home.homeCleanSheetPct ?? 0) + (home.awayCleanSheetPct ?? 0)) / 2;
-  const avgNoGoals = ((home.homeNoGoalsPct ?? 0) + (home.awayNoGoalsPct ?? 0)) / 2;
-
-  // Construir sinais a favor baseados nos dados
-  const positiveSignals: string[] = [];
-  if ((home.homeOver15Pct ?? 0) > 70) {
-    positiveSignals.push(
-      `Time da casa com ${home.homeOver15Pct?.toFixed(0)}% de Over 1.5 indica consistência ofensiva`
-    );
-  }
-  if ((home.awayOver15Pct ?? 0) > 70) {
-    positiveSignals.push(
-      `Time visitante com ${home.awayOver15Pct?.toFixed(0)}% de Over 1.5 sugere ritmo ofensivo`
-    );
-  }
-  if (avgTotal > 2.5) {
-    positiveSignals.push(
-      `Média total de gols de ${avgTotal.toFixed(2)} indica jogos com muitos gols`
-    );
-  }
-  if ((home.homeOver25Pct ?? 0) > 60 || (home.awayOver25Pct ?? 0) > 60) {
-    positiveSignals.push(`Over 2.5% alto confirma tendência ofensiva`);
-  }
-
-  // Construir red flags baseados nos dados
-  const redFlags: string[] = [];
-  if (avgCleanSheet > 50) {
-    redFlags.push(`Clean Sheet médio de ${avgCleanSheet.toFixed(0)}% indica defesas muito sólidas`);
-  }
-  if (avgNoGoals > 30) {
-    redFlags.push(`Taxa de "sem marcar" de ${avgNoGoals.toFixed(0)}% sugere ataques fracos`);
-  }
-  if (avgTotal < 1.8) {
-    redFlags.push(`Média total de gols de ${avgTotal.toFixed(2)} indica cenário de jogo trancado`);
-  }
-  if (!hasGoodData) {
-    redFlags.push(`Dados limitados reduzem confiabilidade da análise`);
+  const baseProb = ctx.baseline.prob ?? 0;
+  
+  // Ajuste de probabilidade em tempo real para o fallback
+  let adjustedProb = baseProb;
+  if (liveScore && liveScore.status === 'live') {
+    const goals = (liveScore.homeScore ?? 0) + (liveScore.awayScore ?? 0);
+    const min = liveScore.minute ?? 0;
+    
+    if (goals >= 2) adjustedProb = 100;
+    else if (goals === 0 && min > 60) adjustedProb *= 0.4; // Desconto por tempo esgotando
+    else if (goals === 1) adjustedProb = Math.max(adjustedProb, 75);
   }
 
   const md = [
-    ...(notice ? [`> **${notice.title}**`, `> ${notice.message}`, '>'] : []),
+    ...(notice ? [`> **${notice.title}**\n> ${notice.message}\n`] : []),
     '## Painel de Resultados e EV',
-    `- **Probabilidade (IA)**: ${p.toFixed(1)}%`,
-    `- **Confiança (IA)**: ${c.toFixed(1)}% (baseada na completude dos dados fornecidos)`,
-    `- **EV (Expected Value)**: ${typeof ev === 'number' ? `${ev.toFixed(1)}% ${ev > 0 ? '(valor positivo)' : ev < 0 ? '(odd desfavorável)' : '(sem valor)'}` : 'indisponível (odd não informada)'}`,
-    `- **Convergência com modelo**: igual (fallback local usando o modelo estatístico atual)`,
-    `- **Nível de risco**: ${risk}`,
+    `- **Probabilidade (IA)**: ${adjustedProb.toFixed(1)}%`,
+    `- **Confiança (IA)**: 100% (Modelo Estatístico Local)`,
+    `- **EV**: ${ctx.baseline.ev?.toFixed(1) ?? 'N/A'}%`,
+    `- **Nível de Risco**: ${ctx.baseline.risk}`,
     '',
     '---',
     '',
-    '## Análise Quantitativa',
-    hasGoodData
-      ? `Análise baseada em dados de Over 1.5% dos times (casa: ${home.homeOver15Pct?.toFixed(0)}%, visitante: ${home.awayOver15Pct?.toFixed(0)}%) e média da competição (${ctx.market.competitionAvgOver15Pct?.toFixed(0)}%).`
-      : 'Análise baseada principalmente na média da competição devido à limitação de dados dos times.',
-    avgTotal > 0 && `Média total de gols combinada: ${avgTotal.toFixed(2)} gols por jogo.`,
+    '## Análise Quantitativa (Fallback Local)',
+    `Partida entre ${data.homeTeam} e ${data.awayTeam}.`,
+    liveScore ? `Placar Atual: ${liveScore.homeScore}-${liveScore.awayScore} (${liveScore.minute}').` : 'Análise Pré-Jogo.',
+    `Média da Competição: ${ctx.market.competitionAvg}% para Over 1.5.`,
     '',
-    '---',
-    '',
-    '## Sinais a Favor',
-    positiveSignals.length > 0
-      ? positiveSignals.map((s) => `- ${s}`).join('\n')
-      : '- Dados limitados impedem identificação clara de sinais favoráveis',
-    '',
-    '---',
-    '',
-    '## Red Flags (Contra)',
-    redFlags.length > 0
-      ? redFlags.map((s) => `- ${s}`).join('\n')
-      : '- Nenhum red flag significativo identificado com os dados disponíveis',
-    '',
-    '---',
-    '',
-    '## Plano de Entrada',
-    `- **Pré-live**: ${p > 75 && typeof ev === 'number' && ev > 0 ? 'Entrada recomendada se probabilidade alta e EV positivo' : 'Aguardar análise mais detalhada ou monitorar no live'}`,
-    '- **Live (gatilhos)**: Monitorar intensidade ofensiva nos primeiros 10-15 minutos (finalizações perigosas, pressão contínua)',
-    '- **Evitar**: Jogos com médias muito baixas, times com alta taxa de clean sheet ou baixa criação de chances',
-    '',
-    '---',
-    '',
-    ...(liveScore ? [
-      '## Dados ao Vivo',
-      `- Placar atual: ${liveScore.homeScore ?? '?'} - ${liveScore.awayScore ?? '?'}`,
-      `- Minuto: ${liveScore.minute ?? '?'}'`,
-      `- Status: ${liveScore.status === 'live' ? 'Ao vivo' : liveScore.status === 'finished' ? 'Finalizado' : 'Não iniciado'}`,
-      `- Atualizado: ${new Date(liveScore.lastUpdated).toLocaleTimeString()}`,
-      '',
-      '---',
-      '',
-    ] : []),
-    '## Observações e Limitações',
-    hasGoodData
-      ? '- Base de dados razoável para análise estatística'
-      : '- Dados limitados: análise baseada principalmente em baseline da competição',
-    typeof ev !== 'number' && '- Odd não informada: cálculo de EV indisponível',
-    '- Esta é uma análise local (fallback). Para análise mais detalhada com IA, configure `VITE_GEMINI_API_KEY` no ambiente.',
-    `- **Risco**: ${risk}`,
-  ]
-    .filter(Boolean)
-    .join('\n');
+    '## Observações',
+    'Este relatório foi gerado localmente devido à indisponibilidade da API do Gemini.'
+  ].join('\n');
 
   return { reportMarkdown: md, provider: 'local', notice };
 }
 
+/**
+ * FUNÇÃO PRINCIPAL EXPORTADA
+ */
+
 export async function generateAiOver15Report(
   data: MatchData,
-  options?: {
-    fetchLiveData?: boolean;
-    liveScore?: MatchScore;
-  }
+  options?: { fetchLiveData?: boolean; liveScore?: MatchScore; }
 ): Promise<AiOver15Result> {
-  // Attempt to fetch live data if requested and match date available
   let liveScore = options?.liveScore;
+
+  // Sync de dados ao vivo
   if (options?.fetchLiveData && data.matchDate && !liveScore) {
     try {
-      const liveResult = await syncMatchScore(data.homeTeam, data.awayTeam, data.matchDate);
-      if (liveResult.success && liveResult.score) {
-        liveScore = liveResult.score;
-      }
-    } catch (error) {
-      // Log but don't fail - continue with stats-only analysis
-      console.warn('Failed to fetch live data:', error);
-    }
+      const res = await syncMatchScore(data.homeTeam, data.awayTeam, data.matchDate);
+      if (res.success) liveScore = res.score;
+    } catch (e) { console.warn('Live sync failed', e); }
   }
 
   const apiKey = getGeminiSettings().apiKey;
   if (!apiKey) {
     return localFallbackReport(data, liveScore, {
       kind: 'info',
-      title: 'IA online desativada',
-      message:
-        'Nenhuma chave do Gemini foi encontrada no ambiente. Usando análise local (modelo atual).',
+      title: 'IA Local Ativa',
+      message: 'Chave API não configurada. Usando processamento estatístico local.'
     });
   }
 
-  const prompt = buildPrompt(data, liveScore);
   try {
+    const prompt = buildPrompt(data, liveScore);
     const reportMarkdown = await generateGeminiContent(prompt, apiKey);
     return { reportMarkdown, provider: 'gemini' };
   } catch (e) {
     const friendly = toGeminiFriendlyError(e);
-
-    // Se o erro não for um GeminiCallError, mas contém mensagem sobre modelos não disponíveis
-    if (!friendly && e instanceof Error && e.message.includes('Nenhum modelo Gemini disponível')) {
-      return localFallbackReport(data, liveScore, {
-        kind: 'warning',
-        title: 'Modelos Gemini não disponíveis (404)',
-        message:
-          e.message +
-          '\n\nO sistema usará análise local (fallback) até que a API key seja configurada corretamente.',
-      });
-    }
-
-    const retryHint =
-      friendly?.retryAfterSeconds != null && friendly.retryAfterSeconds > 0
-        ? ` (tente novamente em ~${friendly.retryAfterSeconds}s)`
-        : '';
-
     return localFallbackReport(data, liveScore, {
-      kind:
-        friendly?.kind === 'quota_exceeded'
-          ? 'warning'
-          : friendly?.kind === 'invalid_key' || friendly?.kind === 'forbidden'
-            ? 'error'
-            : 'warning',
-      title: friendly?.title ?? 'Falha ao chamar IA online',
-      message: `${friendly?.message ?? (e instanceof Error ? e.message : 'Não foi possível usar o Gemini agora.')}${retryHint} Usando fallback local.`,
+      kind: 'warning',
+      title: friendly?.title ?? 'Erro na IA',
+      message: friendly?.message ?? 'Falha na comunicação com o Gemini. Usando fallback.'
     });
   }
 }
