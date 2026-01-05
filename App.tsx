@@ -20,6 +20,11 @@ const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 
 import { performAnalysis } from './services/analysisEngine';
 import {
+  generateAiOver15Report,
+  extractProbabilityFromMarkdown,
+  extractConfidenceFromMarkdown,
+} from './services/aiOver15Service';
+import {
   MatchData,
   AnalysisResult,
   SavedAnalysis,
@@ -85,12 +90,29 @@ const App: React.FC = () => {
     handleNavigateToAnalysis(match);
   };
 
-  const handleAnalyze = (data: MatchData) => {
+  const handleAnalyze = async (data: MatchData) => {
+    // 1. Executar análise estatística primeiro (síncrona)
     const result = performAnalysis(data);
     setAnalysisResult(result);
     setCurrentMatchData(data);
+    
+    // Scroll para resultados em mobile
     if (window.innerWidth < 768) {
       window.scrollTo({ top: 600, behavior: 'smooth' });
+    }
+
+    // 2. Executar análise de IA automaticamente após análise estatística (assíncrona)
+    try {
+      const aiResult = await generateAiOver15Report(data);
+      const aiProbability = extractProbabilityFromMarkdown(aiResult.reportMarkdown);
+      const aiConfidence = extractConfidenceFromMarkdown(aiResult.reportMarkdown);
+
+      // 3. Integrar resultados usando handleAiAnalysisGenerated
+      handleAiAnalysisGenerated(data, aiResult.reportMarkdown, aiProbability, aiConfidence);
+    } catch (error) {
+      logger.error('Erro na análise automática da IA:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido na análise de IA';
+      showError(`Análise estatística concluída, mas houve erro na análise da IA: ${errorMessage}`);
     }
   };
 

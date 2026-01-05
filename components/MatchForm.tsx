@@ -7,7 +7,7 @@ import { animations } from '../utils/animations';
 import AiOver15Insights from './AiOver15Insights';
 
 interface MatchFormProps {
-  onAnalyze: (data: MatchData) => void;
+  onAnalyze: (data: MatchData) => void | Promise<void>;
   initialData?: MatchData | null;
   onError?: (message: string) => void;
   onAiAnalysisGenerated?: (
@@ -145,12 +145,13 @@ const MatchForm: React.FC<MatchFormProps> = ({
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       // Validar dados antes de enviar
       const validatedData = validateMatchData(formData);
-      onAnalyze(validatedData);
+      // onAnalyze agora é assíncrono e executa análise estatística + IA automaticamente
+      await onAnalyze(validatedData);
     } catch (error) {
       // Mostrar erro de validação de forma amigável
       const errorMessage =
