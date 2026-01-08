@@ -20,6 +20,11 @@ const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 
 import { performAnalysis } from './services/analysisEngine';
 import {
+  generateAiOver15Report,
+  extractProbabilityFromMarkdown,
+  extractConfidenceFromMarkdown,
+} from './services/aiOver15Service';
+import {
   MatchData,
   AnalysisResult,
   SavedAnalysis,
@@ -87,29 +92,28 @@ const App: React.FC = () => {
   };
 
   const handleAnalyze = async (data: MatchData) => {
-    // Executar análise estatística primeiro
+    // 1. Executar análise estatística primeiro (síncrona)
     const result = performAnalysis(data);
     setAnalysisResult(result);
     setCurrentMatchData(data);
-
+    
     // Scroll para resultados em mobile
     if (window.innerWidth < 768) {
       window.scrollTo({ top: 600, behavior: 'smooth' });
     }
 
-    // Executar análise da IA automaticamente
+    // 2. Executar análise de IA automaticamente após análise estatística (assíncrona)
     try {
-      showSuccess('Processando análise estatística...');
       const aiResult = await generateAiOver15Report(data);
-      const aiMarkdown = aiResult.reportMarkdown;
-      const aiProbability = extractProbabilityFromMarkdown(aiMarkdown);
-      const aiConfidence = extractConfidenceFromMarkdown(aiMarkdown);
+      const aiProbability = extractProbabilityFromMarkdown(aiResult.reportMarkdown);
+      const aiConfidence = extractConfidenceFromMarkdown(aiResult.reportMarkdown);
 
-      // Integrar resultados da IA com a análise estatística
-      handleAiAnalysisGenerated(data, aiMarkdown, aiProbability, aiConfidence);
+      // 3. Integrar resultados usando handleAiAnalysisGenerated
+      handleAiAnalysisGenerated(data, aiResult.reportMarkdown, aiProbability, aiConfidence);
     } catch (error) {
       logger.error('Erro na análise automática da IA:', error);
-      showError('Análise estatística concluída, mas houve erro na análise da IA. Você pode tentar novamente.');
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido na análise de IA';
+      showError(`Análise estatística concluída, mas houve erro na análise da IA: ${errorMessage}`);
     }
   };
 

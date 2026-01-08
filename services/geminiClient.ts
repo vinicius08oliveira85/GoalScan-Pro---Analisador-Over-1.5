@@ -68,7 +68,7 @@ export function getGeminiSettings(): GeminiSettings {
     normalizeEnvValue(viteEnv.VITE_GEMINI_MODEL) ||
     normalizeEnvValue((process.env as Record<string, string | undefined>).VITE_GEMINI_MODEL) ||
     normalizeEnvValue((process.env as Record<string, string | undefined>).GEMINI_MODEL) ||
-    'gemini-3.0-flash';
+    'gemini-1.5-flash'; // Modelo padrão mais estável e amplamente disponível
   const model = normalizeGeminiModel(modelRaw);
 
   return { apiKey, apiVersion, model };
@@ -76,15 +76,18 @@ export function getGeminiSettings(): GeminiSettings {
 
 function normalizeGeminiModel(model: string): string {
   const m = (model || '').trim();
-  if (!m) return 'gemini-3.0-flash';
+  if (!m) return 'gemini-1.5-flash'; // Modelo padrão mais estável
   // Aceita "models/gemini-..." mas normaliza para apenas "gemini-..."
   let normalized = m.startsWith('models/') ? m.slice('models/'.length) : m;
 
-  // Mapear modelos inválidos para válidos
+  // Mapear modelos inválidos para válidos (usar modelo mais estável)
   if (normalized === 'gemini-1.5-flash-latest') {
-    normalized = 'gemini-3.0-flash';
+    normalized = 'gemini-1.5-flash';
   } else if (normalized === 'gemini-2.0-flash') {
-    normalized = 'gemini-3.0-flash';
+    normalized = 'gemini-1.5-flash';
+  } else if (normalized === 'gemini-pro') {
+    // gemini-pro foi descontinuado, usar gemini-1.5-flash
+    normalized = 'gemini-1.5-flash';
   } else if (normalized.endsWith('-latest')) {
     // Remover sufixo -latest de outros modelos (não existe)
     normalized = normalized.replace(/-latest$/, '');
@@ -99,24 +102,22 @@ function normalizeGeminiModel(model: string): string {
  */
 function getValidModelsForVersion(apiVersion: GeminiApiVersion): string[] {
   if (apiVersion === 'v1beta') {
-    // v1beta: todos os modelos disponíveis, incluindo preview e modelos mais antigos
+    // v1beta: priorizar modelos mais estáveis e amplamente disponíveis
     return [
-      'gemini-3.0-flash',
-      'gemini-3.0-pro',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-3-flash-preview', // Modelo preview disponível
-      'gemini-pro', // Modelo mais antigo (pode estar disponível em algumas contas)
+      'gemini-1.5-flash', // Mais estável e amplamente disponível
+      'gemini-1.5-pro', // Modelo poderoso e estável
+      'gemini-3.0-flash', // Modelo mais novo (pode não estar disponível em todas as contas)
+      'gemini-3.0-pro', // Modelo mais novo (pode não estar disponível em todas as contas)
+      'gemini-3-flash-preview', // Modelo preview (pode não estar disponível)
+      // gemini-pro foi descontinuado e não está mais disponível
     ];
   } else {
-    // v1: gemini-1.5-pro NÃO está disponível, mas gemini-pro pode estar
+    // v1: apenas modelos mais estáveis e amplamente disponíveis
     return [
-      'gemini-3.0-flash',
-      'gemini-3.0-pro',
-      'gemini-1.5-flash',
-      'gemini-pro', // Modelo mais antigo (pode estar disponível em algumas contas)
+      'gemini-1.5-flash', // Mais estável e amplamente disponível
       // gemini-1.5-pro não está disponível em v1
-      // gemini-3-flash-preview pode não estar disponível em v1
+      // gemini-3.0-flash e gemini-3.0-pro podem não estar disponíveis em v1 para todas as contas
+      // gemini-pro foi descontinuado
     ];
   }
 }
@@ -129,14 +130,15 @@ function getFallbackOrderForVersion(startModel: string, apiVersion: GeminiApiVer
   const validModels = getValidModelsForVersion(apiVersion);
   const normalizedStart = normalizeGeminiModel(startModel);
 
-  // Ordem de prioridade padrão (modelos mais novos primeiro, depois mais antigos)
+  // Ordem de prioridade: modelos mais estáveis e amplamente disponíveis primeiro
+  // Priorizar gemini-1.5-flash e gemini-1.5-pro que são mais confiáveis
   const priorityOrder = [
-    'gemini-3.0-flash',
-    'gemini-3.0-pro',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-3-flash-preview',
-    'gemini-pro', // Fallback final para modelos mais antigos
+    'gemini-1.5-flash', // Mais estável e amplamente disponível
+    'gemini-1.5-pro', // Modelo poderoso e estável
+    'gemini-3.0-flash', // Modelo mais novo (pode não estar disponível em todas as contas)
+    'gemini-3.0-pro', // Modelo mais novo (pode não estar disponível em todas as contas)
+    'gemini-3-flash-preview', // Preview (pode não estar disponível)
+    'gemini-pro', // Modelo antigo (descontinuado, mas pode funcionar em algumas contas)
   ];
 
   // Filtrar apenas modelos válidos para esta versão
@@ -390,10 +392,10 @@ function uniqueAttempts(attempts: Array<{ apiVersion: GeminiApiVersion; model: s
 export async function generateGeminiContent(prompt: string, apiKey: string): Promise<string> {
   const { apiVersion, model } = getGeminiSettings();
 
-  // Priorizar v1 primeiro (mais estável), depois v1beta
-  // Isso ajuda quando a API key não tem acesso a modelos mais novos
-  const primaryVersion: GeminiApiVersion = 'v1';
-  const secondaryVersion: GeminiApiVersion = apiVersion === 'v1beta' ? 'v1beta' : 'v1';
+  // Priorizar v1beta primeiro (tem mais modelos disponíveis, incluindo gemini-1.5-pro)
+  // Depois tentar v1 como fallback
+  const primaryVersion: GeminiApiVersion = apiVersion === 'v1beta' ? 'v1beta' : 'v1beta';
+  const secondaryVersion: GeminiApiVersion = 'v1';
 
   // Obter modelos válidos para cada versão
   const primaryVersionModels = getFallbackOrderForVersion(model, primaryVersion);
