@@ -9,6 +9,7 @@ export interface DashboardStats {
   currentBank: number;
   positiveEVCount: number;
   avgProbability: number;
+  averageOdd: number;
 }
 
 export interface BankStats {
@@ -43,6 +44,7 @@ export function calculateDashboardStats(
       currentBank: bankSettings?.totalBank || 0,
       positiveEVCount: 0,
       avgProbability: 0,
+      averageOdd: 0,
     };
   }
 
@@ -89,6 +91,11 @@ export function calculateDashboardStats(
   }, 0);
   const avgProbability = totalProbability / totalMatches;
 
+  // Calcular média das odds
+  const matchesWithOdd = savedMatches.filter((match) => match.data.oddOver15 && match.data.oddOver15 > 0);
+  const totalOdd = matchesWithOdd.reduce((sum, match) => sum + (match.data.oddOver15 || 0), 0);
+  const averageOdd = matchesWithOdd.length > 0 ? totalOdd / matchesWithOdd.length : 0;
+
   // Banca atual
   const currentBank = bankSettings?.totalBank || 0;
 
@@ -101,6 +108,7 @@ export function calculateDashboardStats(
     currentBank,
     positiveEVCount,
     avgProbability,
+    averageOdd,
   };
 }
 

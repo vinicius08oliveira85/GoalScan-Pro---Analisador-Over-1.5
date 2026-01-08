@@ -12,6 +12,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Hash,
 } from 'lucide-react';
 import { formatTimestampInBrasilia } from '../utils/dateFormatter';
 import {
@@ -128,12 +129,19 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       color: 'primary',
       subtitle: 'Capital disponível',
     },
+    {
+      title: 'Média das Odds',
+      value: stats.averageOdd > 0 ? stats.averageOdd.toFixed(2) : '-',
+      icon: Hash,
+      color: 'primary',
+      subtitle: 'Odd média das partidas',
+    },
   ];
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
       {/* Grid de Estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
         {statCards.map((card, index) => {
           const Icon = card.icon;
           return (
