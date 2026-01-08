@@ -29,6 +29,7 @@ import {
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
 import { logger } from './utils/logger';
+import { generateAiOver15Report, extractProbabilityFromMarkdown, extractConfidenceFromMarkdown } from './services/aiOver15Service';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
@@ -85,12 +86,30 @@ const App: React.FC = () => {
     handleNavigateToAnalysis(match);
   };
 
-  const handleAnalyze = (data: MatchData) => {
+  const handleAnalyze = async (data: MatchData) => {
+    // Executar análise estatística primeiro
     const result = performAnalysis(data);
     setAnalysisResult(result);
     setCurrentMatchData(data);
+
+    // Scroll para resultados em mobile
     if (window.innerWidth < 768) {
       window.scrollTo({ top: 600, behavior: 'smooth' });
+    }
+
+    // Executar análise da IA automaticamente
+    try {
+      showSuccess('Processando análise estatística...');
+      const aiResult = await generateAiOver15Report(data);
+      const aiMarkdown = aiResult.reportMarkdown;
+      const aiProbability = extractProbabilityFromMarkdown(aiMarkdown);
+      const aiConfidence = extractConfidenceFromMarkdown(aiMarkdown);
+
+      // Integrar resultados da IA com a análise estatística
+      handleAiAnalysisGenerated(data, aiMarkdown, aiProbability, aiConfidence);
+    } catch (error) {
+      logger.error('Erro na análise automática da IA:', error);
+      showError('Análise estatística concluída, mas houve erro na análise da IA. Você pode tentar novamente.');
     }
   };
 
@@ -284,11 +303,12 @@ const App: React.FC = () => {
       const newStatus = betInfo.status;
       const newBetAmount = betInfo.betAmount;
 
-      // Verificação explícita: se oldStatus === newStatus, não processar atualização de banca
-      if (oldStatus === newStatus && !isNewBet && !isRemovingBet) {
-        // Status não mudou, não precisa atualizar banca
-        // Mas ainda precisa salvar a partida (pode ter mudado outros campos)
-      } else {
+      // Verificar se há mudança que afeta a banca (status ou valor)
+      const statusChanged = oldStatus !== newStatus;
+      const valueChanged = oldBetAmount !== newBetAmount;
+      const needsBankUpdate = isNewBet || isRemovingBet || statusChanged || valueChanged;
+
+      if (needsBankUpdate) {
         // Se está removendo a aposta, usar valores antigos para calcular devolução
         const betAmountForCalc = isRemovingBet ? oldBetAmount : newBetAmount;
         const potentialReturnForCalc = isRemovingBet
@@ -297,7 +317,7 @@ const App: React.FC = () => {
 
         // Tratar mudança de valor da aposta (quando não é nova e não está removendo)
         let valueChangeAdjustment = 0;
-        if (!isNewBet && !isRemovingBet && oldBetAmount !== newBetAmount && oldStatus) {
+        if (!isNewBet && !isRemovingBet && valueChanged && oldStatus) {
           // Se o valor mudou, precisa ajustar a diferença
           if (oldStatus === 'pending') {
             // Estava pending: reverter desconto antigo e aplicar novo desconto
@@ -317,10 +337,11 @@ const App: React.FC = () => {
 
         // Se houve mudança que afeta a banca, atualizar
         if (bankDifference !== 0) {
+          // Usar valor mais recente da banca para evitar inconsistência se múltiplas atualizações ocorrerem
           const updatedBank = bankSettings.totalBank + bankDifference;
           const newBankSettings: BankSettingsType = {
             ...bankSettings,
-            totalBank: Math.max(0, updatedBank), // Banca não pode ser negativa
+            totalBank: Math.max(0, Number(updatedBank.toFixed(2))), // Garantir 2 casas decimais e não negativa
             updatedAt: Date.now(),
           };
           await saveSettings(newBankSettings);
