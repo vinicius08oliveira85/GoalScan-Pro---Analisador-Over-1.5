@@ -66,6 +66,40 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     return null;
   }, [selectedBets]);
 
+  // Calcular qual probabilidade deve ser exibida no gauge
+  const displayProbability = useMemo(() => {
+    if (selectedBets.length === 1) {
+      // Se há 1 aposta selecionada, usar sua probabilidade
+      return selectedBets[0].probability;
+    } else if (selectedBets.length === 2 && combinedProbability !== null) {
+      // Se há 2 apostas selecionadas, usar probabilidade combinada
+      return combinedProbability;
+    }
+    // Caso contrário, usar probabilidade Over 1.5 padrão
+    return primaryProb;
+  }, [selectedBets, combinedProbability, primaryProb]);
+
+  // Calcular label descritivo para a probabilidade exibida
+  const displayLabel = useMemo(() => {
+    if (selectedBets.length === 1) {
+      const bet = selectedBets[0];
+      return `${bet.type === 'over' ? 'Over' : 'Under'} ${bet.line}`;
+    } else if (selectedBets.length === 2) {
+      const bet1 = selectedBets[0];
+      const bet2 = selectedBets[1];
+      return `${bet1.type === 'over' ? 'Over' : 'Under'} ${bet1.line} + ${bet2.type === 'over' ? 'Over' : 'Under'} ${bet2.line}`;
+    }
+    return 'Over 1.5';
+  }, [selectedBets]);
+
+  // Calcular EV com a probabilidade que está sendo exibida
+  const displayEv = useMemo(() => {
+    if (data.oddOver15 && data.oddOver15 > 1) {
+      return ((displayProbability / 100) * data.oddOver15 - 1) * 100;
+    }
+    return result.ev; // Fallback para EV do resultado se não houver odd
+  }, [displayProbability, data.oddOver15, result.ev]);
+
   // Função para lidar com clique em uma aposta
   const handleBetClick = (line: string, type: 'over' | 'under', probability: number) => {
     const newBet: SelectedBet = { line, type, probability };
@@ -143,9 +177,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           animate="animate"
         >
           <ProbabilityGauge 
-            probability={primaryProb} 
+            probability={primaryProb}
+            selectedProbability={displayProbability}
+            selectedLabel={displayLabel}
             odd={data.oddOver15} 
-            ev={result.ev}
+            ev={displayEv}
             onOddChange={onOddChange}
           />
         </motion.div>

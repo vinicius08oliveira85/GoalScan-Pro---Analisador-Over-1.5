@@ -5,13 +5,25 @@ import { Target, TrendingUp, TrendingDown } from 'lucide-react';
 import { animations } from '../utils/animations';
 
 interface ProbabilityGaugeProps {
-  probability: number;
+  probability: number; // Probabilidade padrão (Over 1.5)
+  selectedProbability?: number; // Probabilidade selecionada/combinada (quando houver seleção)
+  selectedLabel?: string; // Label descritivo da aposta selecionada/combinada
   odd?: number;
   ev: number;
   onOddChange?: (odd: number) => void;
 }
 
-const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, ev, onOddChange }) => {
+const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ 
+  probability, 
+  selectedProbability,
+  selectedLabel,
+  odd, 
+  ev, 
+  onOddChange 
+}) => {
+  // Usar probabilidade selecionada se disponível, caso contrário usar padrão
+  const displayProbability = selectedProbability ?? probability;
+  const displayLabel = selectedLabel ?? 'Over 1.5';
   const [isEditingOdd, setIsEditingOdd] = useState(false);
   const [localOdd, setLocalOdd] = useState<string>(odd?.toFixed(2) || '');
   const [calculatedEv, setCalculatedEv] = useState(ev);
@@ -30,13 +42,13 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
     if (isEditingOdd) {
       const oddValue = parseFloat(localOdd);
       if (!isNaN(oddValue) && oddValue > 1.0) {
-        const newEv = ((probability / 100) * oddValue - 1) * 100;
+        const newEv = ((displayProbability / 100) * oddValue - 1) * 100;
         setCalculatedEv(newEv);
       } else {
         setCalculatedEv(0);
       }
     }
-  }, [localOdd, probability, isEditingOdd]);
+  }, [localOdd, displayProbability, isEditingOdd]);
 
   // Focar no input quando entrar em modo de edição
   useEffect(() => {
@@ -79,8 +91,8 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
     }
   };
   const chartData = [
-    { name: 'Over 1.5', value: probability },
-    { name: 'Under 1.5', value: 100 - probability },
+    { name: displayLabel, value: displayProbability },
+    { name: `Não ${displayLabel}`, value: 100 - displayProbability },
   ];
 
   const COLORS = ['#2dd4bf', '#f87171'];
@@ -88,12 +100,12 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
   return (
     <div
       className="surface surface-hover p-6 cursor-help"
-      title="Probabilidade de Over 1.5 gols. Calculada com estatísticas históricas e análise da IA (quando disponível)."
+      title={`Probabilidade de ${displayLabel}. ${selectedProbability ? 'Baseada na seleção de apostas.' : 'Calculada com estatísticas históricas e análise da IA (quando disponível).'}`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Target className="w-4 h-4 text-teal-400" />
-          <h3 className="kpi-label">Probabilidade Over 1.5</h3>
+          <h3 className="kpi-label">Probabilidade {displayLabel}</h3>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-base-content/50">
           <Target className="w-3 h-3" />
@@ -129,8 +141,9 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
               strokeDasharray={`${2 * Math.PI * 80}`}
               initial={{ strokeDashoffset: 2 * Math.PI * 80 }}
               animate={{
-                strokeDashoffset: 2 * Math.PI * 80 * (1 - probability / 100),
+                strokeDashoffset: 2 * Math.PI * 80 * (1 - displayProbability / 100),
               }}
+              key={displayProbability}
               transition={{
                 type: 'spring',
                 stiffness: 50,
@@ -179,12 +192,12 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
           <div className="flex items-baseline gap-1">
             <motion.span
               className="text-3xl sm:text-4xl md:text-5xl font-black font-mono text-teal-400 leading-none tracking-tight"
-              key={probability}
+              key={displayProbability}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', bounce: 0.5 }}
             >
-              {probability.toFixed(1)}
+              {displayProbability.toFixed(1)}
             </motion.span>
             <span className="text-base font-bold text-teal-400 opacity-80">%</span>
           </div>
