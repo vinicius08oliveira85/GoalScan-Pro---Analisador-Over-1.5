@@ -133,10 +133,47 @@ function setupFetchInterceptor(): void {
   };
 }
 
+// Interceptor para suprimir erros 404 esperados da API do Gemini
+function setupGeminiErrorSuppression(): void {
+  if (typeof window === 'undefined') return;
+  
+  // Interceptar eventos de erro não capturados relacionados ao Gemini
+  window.addEventListener('error', (event) => {
+    const message = (event.message || '').toLowerCase();
+    const source = (event.filename || '').toLowerCase();
+    
+    // Suprimir erros 404 da API do Gemini (são esperados durante fallback de modelos)
+    if (
+      (message.includes('404') || message.includes('failed to load')) &&
+      (source.includes('generativelanguage.googleapis.com') || 
+       message.includes('generativelanguage.googleapis.com'))
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return false;
+    }
+  }, true);
+  
+  // Interceptar promessas rejeitadas não tratadas relacionadas ao Gemini
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = String(event.reason || '').toLowerCase();
+    
+    // Suprimir rejeições 404 da API do Gemini
+    if (
+      (reason.includes('404') || reason.includes('failed to fetch')) &&
+      reason.includes('generativelanguage.googleapis.com')
+    ) {
+      event.preventDefault();
+      return false;
+    }
+  });
+}
+
 // Configurar interceptor IMEDIATAMENTE quando o módulo é carregado
 // Isso garante que o interceptor esteja ativo antes de qualquer requisição
 if (typeof window !== 'undefined') {
   setupFetchInterceptor();
+  setupGeminiErrorSuppression();
 }
 
 export const getSupabaseClient = async () => {
