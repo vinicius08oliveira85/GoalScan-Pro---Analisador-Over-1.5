@@ -8,8 +8,13 @@ import ChampionshipTableView from './ChampionshipTableView';
 import { animations } from '../utils/animations';
 
 const ChampionshipsScreen: React.FC = () => {
+  const handleError = (message: string) => {
+    console.error('[ChampionshipsScreen]', message);
+    // Você pode adicionar um toast aqui se necessário
+  };
+
   const { championships, isLoading, isSaving, save, remove, loadTables, saveTable } =
-    useChampionships();
+    useChampionships(handleError);
   const [showForm, setShowForm] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<Championship | null>(null);
   const [viewingTables, setViewingTables] = useState<{
