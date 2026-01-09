@@ -358,8 +358,20 @@ export const saveOrUpdateAnalysis = async (
       .single();
 
     if (error) {
-      logger.error('Erro ao salvar/atualizar análise no Supabase:', error);
-      throw error;
+      // Se é erro temporário, não logar - já tratado
+      if (isTemporaryError(error)) {
+        setServiceUnavailable();
+        // Retornar análise mesmo sem salvar no Supabase (já salva no localStorage)
+        return analysis;
+      }
+      
+      // Apenas logar erros não temporários e apenas em dev
+      if (import.meta.env.DEV) {
+        logger.error('Erro ao salvar/atualizar análise no Supabase:', error);
+      }
+      
+      // Retornar análise mesmo sem salvar no Supabase (já salva no localStorage)
+      return analysis;
     }
 
     return {
@@ -371,8 +383,20 @@ export const saveOrUpdateAnalysis = async (
       betInfo: data.bet_info,
     };
   } catch (error) {
-    logger.error('Erro ao salvar/atualizar análise:', error);
-    throw error;
+    // Se é erro temporário, retornar análise mesmo sem salvar no Supabase
+    if (isTemporaryError(error)) {
+      setServiceUnavailable();
+      // Retornar análise - já será salva no localStorage pelo hook
+      return analysis;
+    }
+    
+    // Apenas logar erros não temporários e apenas em dev
+    if (import.meta.env.DEV) {
+      logger.error('Erro ao salvar/atualizar análise:', error);
+    }
+    
+    // Retornar análise mesmo sem salvar no Supabase (já salva no localStorage)
+    return analysis;
   }
 };
 

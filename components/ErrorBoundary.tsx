@@ -24,6 +24,28 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
+    // Verificar se é erro de lazy loading ANTES de definir hasError
+    const isLazyLoadError = 
+      error.message?.includes('Failed to fetch dynamically imported module') ||
+      error.message?.includes('Loading chunk') ||
+      error.message?.includes('404') ||
+      error.message?.includes('dynamically imported module');
+    
+    // Se for erro de lazy loading, tentar recarregar imediatamente sem renderizar erro
+    if (isLazyLoadError && typeof window !== 'undefined' && !window.location.href.includes('reload=true')) {
+      // Recarregar página imediatamente para resolver problema de cache
+      setTimeout(() => {
+        window.location.href = window.location.href.split('?')[0] + '?reload=true';
+        window.location.reload();
+      }, 100);
+      // Retornar estado sem erro para não renderizar tela de erro
+      return {
+        hasError: false,
+        error: null,
+        errorInfo: null,
+      };
+    }
+    
     return {
       hasError: true,
       error,
@@ -36,21 +58,12 @@ class ErrorBoundary extends Component<Props, State> {
     const isLazyLoadError = 
       error.message?.includes('Failed to fetch dynamically imported module') ||
       error.message?.includes('Loading chunk') ||
-      error.message?.includes('404');
+      error.message?.includes('404') ||
+      error.message?.includes('dynamically imported module');
     
     if (isLazyLoadError) {
-      // Tentar recarregar a página automaticamente para resolver problema de cache
-      if (typeof window !== 'undefined' && !window.location.href.includes('reload=true')) {
-        // Log apenas em dev
-        if (import.meta.env.DEV) {
-          logger.warn('ErrorBoundary: Erro de lazy loading detectado, recarregando página...');
-        }
-        // Recarregar página para resolver problema de cache
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-        return;
-      }
+      // Não logar - já está sendo tratado no getDerivedStateFromError
+      return;
     }
 
     // Log do erro para serviço de tracking (quando implementado)

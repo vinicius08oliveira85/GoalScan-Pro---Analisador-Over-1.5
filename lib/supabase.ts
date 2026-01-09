@@ -83,8 +83,6 @@ function setupFetchInterceptor(): void {
       });
     }
     
-    // Para requisições ao Gemini, fazer normalmente mas suprimir logs de 404 esperados
-    
     // Para outras requisições ou quando serviço está disponível, fazer requisição normal
     try {
       const response = await originalFetch(input, init);
@@ -107,7 +105,11 @@ function setupFetchInterceptor(): void {
       }
       
       // Para requisições ao Gemini, 404 são esperados (fallback de modelos)
-      // Não precisamos fazer nada especial, apenas deixar passar
+      // Suprimir logs no console para essas respostas
+      if (isGeminiRequest && response.status === 404) {
+        // Não fazer nada - o erro será tratado pelo sistema de fallback
+        // Apenas retornar a resposta normalmente
+      }
       
       return response;
     } catch (error) {
@@ -133,9 +135,24 @@ function setupFetchInterceptor(): void {
   };
 }
 
-// Interceptor para suprimir erros 404 esperados da API do Gemini
+// Interceptor para suprimir erros 404 esperados da API do Gemini no console
 function setupGeminiErrorSuppression(): void {
   if (typeof window === 'undefined') return;
+  
+  // Interceptar console.error para suprimir erros 404 do Gemini
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    const message = args.join(' ').toLowerCase();
+    // Suprimir erros 404 da API do Gemini (são esperados durante fallback de modelos)
+    if (
+      (message.includes('404') || message.includes('not found')) &&
+      message.includes('generativelanguage.googleapis.com')
+    ) {
+      // Não logar no console - erro esperado durante fallback
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
   
   // Interceptar eventos de erro não capturados relacionados ao Gemini
   window.addEventListener('error', (event) => {
@@ -160,7 +177,7 @@ function setupGeminiErrorSuppression(): void {
     
     // Suprimir rejeições 404 da API do Gemini
     if (
-      (reason.includes('404') || reason.includes('failed to fetch')) &&
+      (reason.includes('404') || reason.includes('failed to fetch') || reason.includes('not found')) &&
       reason.includes('generativelanguage.googleapis.com')
     ) {
       event.preventDefault();
