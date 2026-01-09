@@ -1,4 +1,5 @@
 import { SavedAnalysis, BankSettings } from '../types';
+import { getDisplayProbability } from './probability';
 
 export interface DashboardStats {
   totalMatches: number;
@@ -48,8 +49,14 @@ export function calculateDashboardStats(
     };
   }
 
-  // Calcular EV médio
-  const totalEV = savedMatches.reduce((sum, match) => sum + match.result.ev, 0);
+  // Calcular EV médio usando a mesma lógica dos cards (considera probabilidade selecionada/combinada)
+  const totalEV = savedMatches.reduce((sum, match) => {
+    const probability = getDisplayProbability(match);
+    const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
+      ? ((probability / 100) * match.data.oddOver15 - 1) * 100
+      : match.result.ev;
+    return sum + displayEv;
+  }, 0);
   const averageEV = totalEV / totalMatches;
 
   // Calcular taxa de acerto (win rate)
@@ -81,8 +88,14 @@ export function calculateDashboardStats(
   }, 0);
   const roi = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
 
-  // Contar partidas com EV positivo
-  const positiveEVCount = savedMatches.filter((match) => match.result.ev > 0).length;
+  // Contar partidas com EV positivo usando a mesma lógica dos cards
+  const positiveEVCount = savedMatches.filter((match) => {
+    const probability = getDisplayProbability(match);
+    const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
+      ? ((probability / 100) * match.data.oddOver15 - 1) * 100
+      : match.result.ev;
+    return displayEv > 0;
+  }).length;
 
   // Calcular probabilidade média
   const totalProbability = savedMatches.reduce((sum, match) => {

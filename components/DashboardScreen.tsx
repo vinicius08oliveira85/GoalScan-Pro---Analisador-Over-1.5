@@ -37,6 +37,7 @@ import {
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
+import { getDisplayProbability } from '../utils/probability';
 
 interface DashboardScreenProps {
   savedMatches: SavedAnalysis[];
@@ -513,6 +514,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         ? -match.betInfo.betAmount
                         : 0;
 
+                  // Calcular EV usando a mesma lógica dos cards (considera probabilidade selecionada/combinada)
+                  const probability = getDisplayProbability(match);
+                  const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
+                    ? ((probability / 100) * match.data.oddOver15 - 1) * 100
+                    : match.result.ev;
+
                   return (
                     <tr
                       key={match.id}
@@ -532,15 +539,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       </td>
                       <td
                         className={`py-3 px-2 md:px-4 text-right text-sm font-semibold ${
-                          match.result.ev > 0
+                          displayEv > 0
                             ? 'text-success'
-                            : match.result.ev < 0
+                            : displayEv < 0
                               ? 'text-error'
                               : ''
                         }`}
                       >
-                        {match.result.ev > 0 ? '+' : ''}
-                        {match.result.ev.toFixed(1)}%
+                        {displayEv > 0 ? '+' : ''}
+                        {displayEv.toFixed(1)}%
                       </td>
                       <td className="py-3 px-2 md:px-4 text-center">
                         {hasBet ? (
