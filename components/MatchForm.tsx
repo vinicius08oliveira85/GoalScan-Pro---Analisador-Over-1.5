@@ -472,7 +472,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
       {/* Odd Over 1.5 */}
       <div className="form-control">
         <label className="label ml-2 flex items-center">
-          <span className="label-text font-bold">Odd Over 1.5</span>
+          <span className="label-text font-bold">Odd</span>
           <InfoIcon text="Insira a odd atual do mercado Over 1.5 para calcular o EV (Valor Esperado)." />
         </label>
         <input
