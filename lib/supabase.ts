@@ -12,6 +12,113 @@ let supabaseModule: typeof import('@supabase/supabase-js') | null = null;
 // Promise compartilhada para evitar race conditions
 let initializationPromise: Promise<SupabaseClient> | null = null;
 
+// Cache de status do serviço (compartilhado com championshipService)
+const STORAGE_KEY_SERVICE_STATUS = 'goalscan_supabase_status';
+const SERVICE_STATUS_CACHE_DURATION = 60000; // 1 minuto
+
+interface ServiceStatus {
+  isUnavailable: boolean;
+  lastCheck: number;
+  retryAfter: number;
+}
+
+/**
+ * Verifica se o serviço Supabase está marcado como indisponível
+ */
+function isServiceUnavailable(): boolean {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return false;
+    }
+    
+    const stored = localStorage.getItem(STORAGE_KEY_SERVICE_STATUS);
+    if (!stored) return false;
+    
+    const status = JSON.parse(stored) as ServiceStatus;
+    const now = Date.now();
+    
+    // Verificar se o cache ainda é válido e se o serviço está indisponível
+    if (status.isUnavailable && now < status.retryAfter && (now - status.lastCheck) < SERVICE_STATUS_CACHE_DURATION) {
+      return true;
+    }
+    
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Intercepta requisições fetch para Supabase quando o serviço está indisponível
+ * Isso previne requisições desnecessárias e erros 503 no console
+ */
+function setupFetchInterceptor(): void {
+  if (typeof window === 'undefined') return;
+  
+  // Interceptar fetch globalmente para requisições ao Supabase
+  const originalFetch = window.fetch;
+  
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    // Verificar se é uma requisição ao Supabase
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const isSupabaseRequest = url.includes('supabase.co');
+    
+    // Se for requisição ao Supabase e o serviço está indisponível, retornar resposta 503 silenciosamente
+    if (isSupabaseRequest && isServiceUnavailable()) {
+      // Retornar uma resposta 503 sem fazer a requisição real
+      // Isso previne erros no console
+      return new Response('', {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Para outras requisições ou quando serviço está disponível, fazer requisição normal
+    try {
+      const response = await originalFetch(input, init);
+      
+      // Se a resposta for 503 do Supabase, marcar serviço como indisponível
+      if (isSupabaseRequest && response.status === 503) {
+        const retryAfter = Date.now() + SERVICE_STATUS_CACHE_DURATION;
+        try {
+          if (window.localStorage) {
+            const status: ServiceStatus = {
+              isUnavailable: true,
+              lastCheck: Date.now(),
+              retryAfter,
+            };
+            localStorage.setItem(STORAGE_KEY_SERVICE_STATUS, JSON.stringify(status));
+          }
+        } catch {
+          // Ignorar erros de localStorage
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      // Se for erro de rede em requisição ao Supabase, marcar como indisponível
+      if (isSupabaseRequest) {
+        const retryAfter = Date.now() + SERVICE_STATUS_CACHE_DURATION;
+        try {
+          if (window.localStorage) {
+            const status: ServiceStatus = {
+              isUnavailable: true,
+              lastCheck: Date.now(),
+              retryAfter,
+            };
+            localStorage.setItem(STORAGE_KEY_SERVICE_STATUS, JSON.stringify(status));
+          }
+        } catch {
+          // Ignorar erros de localStorage
+        }
+      }
+      
+      throw error;
+    }
+  };
+}
+
 export const getSupabaseClient = async () => {
   // Se já existe cliente, retornar imediatamente
   if (supabaseClient) {
@@ -126,6 +233,13 @@ export const getSupabaseClient = async () => {
       }
 
       logger.log('[Supabase] Criando cliente Supabase...');
+      
+      // Configurar interceptor de fetch antes de criar o cliente
+      // Isso previne requisições desnecessárias quando o serviço está indisponível
+      if (typeof window !== 'undefined') {
+        setupFetchInterceptor();
+      }
+      
       // Configurar opções para evitar múltiplas instâncias do GoTrueClient
       supabaseClient = supabaseModule.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {

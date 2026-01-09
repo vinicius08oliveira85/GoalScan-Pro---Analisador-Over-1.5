@@ -18,7 +18,10 @@ export const useChampionships = (onError?: (message: string) => void) => {
 
   // Carregar campeonatos
   const load = useCallback(async () => {
-    logger.log('[useChampionships] Iniciando carregamento de campeonatos...');
+    // Log apenas em modo dev
+    if (import.meta.env.DEV) {
+      logger.log('[useChampionships] Iniciando carregamento de campeonatos...');
+    }
     setIsLoading(true);
 
     // Primeiro, carregar do localStorage para renderização imediata
@@ -29,13 +32,17 @@ export const useChampionships = (onError?: (message: string) => void) => {
         localData = JSON.parse(stored);
         if (Array.isArray(localData) && localData.length > 0) {
           setChampionships(localData);
-          logger.log(`[useChampionships] Carregado ${localData.length} campeonato(s) do localStorage`);
+          if (import.meta.env.DEV) {
+            logger.log(`[useChampionships] Carregado ${localData.length} campeonato(s) do localStorage`);
+          }
           setIsLoading(false); // Renderizar imediatamente com dados locais
         }
       }
     } catch (localError) {
-      // Ignorar erro do localStorage
-      logger.warn('[useChampionships] Erro ao ler localStorage:', localError);
+      // Ignorar erro do localStorage silenciosamente
+      if (import.meta.env.DEV) {
+        logger.warn('[useChampionships] Erro ao ler localStorage:', localError);
+      }
     }
 
     // Se não houver dados locais, garantir que isLoading seja false
@@ -53,24 +60,28 @@ export const useChampionships = (onError?: (message: string) => void) => {
       const data = await Promise.race([loadChampionships(), timeoutPromise]);
       
       if (Array.isArray(data)) {
-        logger.log(`[useChampionships] ${data.length} campeonato(s) carregado(s) do Supabase`);
+        if (import.meta.env.DEV) {
+          logger.log(`[useChampionships] ${data.length} campeonato(s) carregado(s) do Supabase`);
+        }
         setChampionships(data);
         
         // Atualizar localStorage com dados do Supabase
         try {
           localStorage.setItem('goalscan_championships', JSON.stringify(data));
         } catch (storageError) {
-          logger.warn('[useChampionships] Erro ao salvar no localStorage:', storageError);
+          // Ignorar erro silenciosamente
+          if (import.meta.env.DEV) {
+            logger.warn('[useChampionships] Erro ao salvar no localStorage:', storageError);
+          }
         }
       }
     } catch (supabaseError) {
       // Se falhar, manter dados do localStorage se existirem
+      // Não logar erros de Supabase quando serviço está indisponível (já tratado no service)
       const errorMessage = supabaseError instanceof Error ? supabaseError.message : 'Erro desconhecido';
       
-      // Não logar timeout como erro crítico
-      if (errorMessage.includes('Timeout')) {
-        logger.warn('[useChampionships] Timeout ao carregar do Supabase, usando localStorage');
-      } else {
+      // Apenas logar em modo dev e se não for timeout/503
+      if (import.meta.env.DEV && !errorMessage.includes('Timeout') && !errorMessage.includes('503')) {
         logger.warn('[useChampionships] Erro ao carregar do Supabase, usando localStorage:', errorMessage);
       }
 

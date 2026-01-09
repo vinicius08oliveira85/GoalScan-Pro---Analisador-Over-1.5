@@ -147,8 +147,8 @@ async function withRetry<T>(
       // Calcular delay com backoff exponencial
       const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
       
-      // Log apenas na primeira tentativa para evitar spam
-      if (attempt === 0) {
+      // Log apenas na primeira tentativa e apenas em modo dev para evitar spam
+      if (attempt === 0 && import.meta.env.DEV) {
         logger.warn(
           `[ChampionshipService] ${operationName} falhou temporariamente (erro 503). ` +
           `Tentando novamente em ${delay}ms... (tentativa ${attempt + 1}/${maxRetries + 1})`
@@ -167,18 +167,19 @@ async function withRetry<T>(
  * Carrega todos os campeonatos do Supabase ou localStorage
  */
 export const loadChampionships = async (): Promise<Championship[]> => {
-  // Verificar cache de status do serviço
+  // Verificar cache de status do serviço ANTES de fazer qualquer requisição
   const serviceStatus = getServiceStatus();
   if (serviceStatus?.isUnavailable && Date.now() < serviceStatus.retryAfter) {
-    logger.warn(
-      '[ChampionshipService] Serviço Supabase temporariamente indisponível. ' +
-      'Usando dados do localStorage. Tentando novamente em breve...'
-    );
+    // Não logar warning - serviço está conhecidamente indisponível
+    // Retornar silenciosamente dados do localStorage
     return loadChampionshipsFromLocalStorage();
   }
 
   try {
-    logger.log('[ChampionshipService] Carregando campeonatos...');
+    // Log apenas em modo debug (não em produção)
+    if (import.meta.env.DEV) {
+      logger.log('[ChampionshipService] Carregando campeonatos...');
+    }
     
     const result = await withRetry(async () => {
       const supabase = await getSupabaseClient();
@@ -190,7 +191,9 @@ export const loadChampionships = async (): Promise<Championship[]> => {
       if (error) {
         // Se tabela não existe, usar localStorage
         if (error.code === 'PGRST116' || error.code === '42P01') {
-          logger.warn('[ChampionshipService] Tabela não encontrada, usando localStorage');
+          if (import.meta.env.DEV) {
+            logger.warn('[ChampionshipService] Tabela não encontrada, usando localStorage');
+          }
           return loadChampionshipsFromLocalStorage();
         }
         
@@ -199,7 +202,10 @@ export const loadChampionships = async (): Promise<Championship[]> => {
           throw error;
         }
         
-        logger.error('[ChampionshipService] Erro ao carregar campeonatos:', error);
+        // Apenas logar erros não temporários
+        if (import.meta.env.DEV) {
+          logger.error('[ChampionshipService] Erro ao carregar campeonatos:', error);
+        }
         throw error;
       }
 
@@ -218,7 +224,9 @@ export const loadChampionships = async (): Promise<Championship[]> => {
       updated_at: row.updated_at,
     }));
 
-    logger.log(`[ChampionshipService] ${championships.length} campeonato(s) carregado(s)`);
+    if (import.meta.env.DEV) {
+      logger.log(`[ChampionshipService] ${championships.length} campeonato(s) carregado(s)`);
+    }
 
     // Sincronizar com localStorage
     saveChampionshipsToLocalStorage(championships);
@@ -230,12 +238,12 @@ export const loadChampionships = async (): Promise<Championship[]> => {
     if (isTemporaryError(error)) {
       const retryAfter = Date.now() + SERVICE_STATUS_CACHE_DURATION;
       setServiceStatus(true, retryAfter);
-      logger.warn(
-        '[ChampionshipService] Serviço Supabase temporariamente indisponível. ' +
-        'Usando dados do localStorage. Próxima tentativa em 1 minuto.'
-      );
+      // Não logar warning - erro temporário esperado, já tratado
     } else {
-      logger.error('[ChampionshipService] Erro ao carregar campeonatos:', error);
+      // Apenas logar erros não temporários
+      if (import.meta.env.DEV) {
+        logger.error('[ChampionshipService] Erro ao carregar campeonatos:', error);
+      }
     }
     
     // Fallback para localStorage

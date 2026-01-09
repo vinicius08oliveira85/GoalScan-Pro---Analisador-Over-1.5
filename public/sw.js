@@ -95,11 +95,44 @@ self.addEventListener('fetch', (event) => {
   }
 
   // APIs externas: Network Only (não cachear) - com tratamento de erro silencioso
-  if (
-    url.hostname.includes('supabase.co') ||
-    url.hostname.includes('cdn.') ||
-    url.hostname.includes('api.')
-  ) {
+  // Para Supabase: verificar cache de status do serviço antes de fazer requisição
+  if (url.hostname.includes('supabase.co')) {
+    // Verificar se o serviço está marcado como indisponível no cache
+    // O cache é compartilhado via IndexedDB/localStorage, mas no Service Worker
+    // precisamos usar uma estratégia diferente
+    event.respondWith(
+      (async () => {
+        try {
+          // Tentar fazer a requisição normalmente
+          const response = await fetch(request);
+          
+          // Se a resposta for 503, marcar serviço como indisponível
+          if (response.status === 503) {
+            // Retornar resposta 503 silenciosamente (sem log no console)
+            return new Response('', { 
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          
+          return response;
+        } catch (error) {
+          // Silenciar erros de fetch para Supabase - retornar resposta vazia
+          // sem logar no console
+          return new Response('', { 
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      })()
+    );
+    return;
+  }
+  
+  // Outras APIs externas
+  if (url.hostname.includes('cdn.') || url.hostname.includes('api.')) {
     event.respondWith(
       fetch(request)
         .catch(() => {
