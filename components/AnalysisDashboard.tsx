@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { AnalysisResult, MatchData, BetInfo, BankSettings } from '../types';
+import { AnalysisResult, MatchData, BetInfo, BankSettings, SelectedBet } from '../types';
 import {
   TrendingUp,
   TrendingDown,
@@ -32,6 +32,7 @@ interface AnalysisDashboardProps {
   onBetSave?: (betInfo: BetInfo) => void;
   onError?: (message: string) => void;
   isUpdatingBetStatus?: boolean;
+  onOddChange?: (odd: number) => void;
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
@@ -43,10 +44,87 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   onBetSave,
   onError,
   isUpdatingBetStatus = false,
+  onOddChange,
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
+  const [selectedBets, setSelectedBets] = useState<SelectedBet[]>([]);
   const primaryProb = getPrimaryProbability(result);
   const edgePp = data.oddOver15 ? getEdgePp(primaryProb, data.oddOver15) : null;
+
+  // Função para calcular probabilidade combinada
+  const calculateCombinedProbability = (bets: SelectedBet[]): number => {
+    if (bets.length !== 2) return 0;
+    // Multiplicar as probabilidades (apostas independentes)
+    return (bets[0].probability / 100) * (bets[1].probability / 100) * 100;
+  };
+
+  // Calcular probabilidade combinada quando houver 2 apostas selecionadas
+  const combinedProbability = useMemo(() => {
+    if (selectedBets.length === 2) {
+      return calculateCombinedProbability(selectedBets);
+    }
+    return null;
+  }, [selectedBets]);
+
+  // Função para lidar com clique em uma aposta
+  const handleBetClick = (line: string, type: 'over' | 'under', probability: number) => {
+    const newBet: SelectedBet = { line, type, probability };
+    
+    // Verificar se a aposta já está selecionada
+    const isAlreadySelected = selectedBets.some(
+      (bet) => bet.line === line && bet.type === type
+    );
+
+    if (isAlreadySelected) {
+      // Se já está selecionada, desmarcar
+      setSelectedBets(selectedBets.filter((bet) => !(bet.line === line && bet.type === type)));
+      return;
+    }
+
+    // Verificar se já há 2 apostas selecionadas
+    if (selectedBets.length >= 2) {
+      // Se já há 2 apostas, verificar se podemos substituir
+      const hasOver = selectedBets.some((bet) => bet.type === 'over');
+      const hasUnder = selectedBets.some((bet) => bet.type === 'under');
+
+      // Se estamos tentando adicionar um tipo que já existe, substituir
+      if (type === 'over' && hasOver) {
+        setSelectedBets([selectedBets.find((bet) => bet.type === 'under')!, newBet]);
+        return;
+      }
+      if (type === 'under' && hasUnder) {
+        setSelectedBets([selectedBets.find((bet) => bet.type === 'over')!, newBet]);
+        return;
+      }
+
+      // Se já há 2 apostas e não podemos substituir, não fazer nada
+      // (ou mostrar mensagem de erro)
+      return;
+    }
+
+    // Verificar se já há uma aposta do mesmo tipo
+    const hasSameType = selectedBets.some((bet) => bet.type === type);
+    if (hasSameType) {
+      // Substituir a aposta do mesmo tipo
+      setSelectedBets(selectedBets.map((bet) => (bet.type === type ? newBet : bet)));
+      return;
+    }
+
+    // Verificar se estamos tentando selecionar Over e Under da mesma linha
+    const hasSameLine = selectedBets.some((bet) => bet.line === line);
+    if (hasSameLine) {
+      // Não permitir selecionar Over e Under da mesma linha
+      return;
+    }
+
+    // Adicionar nova aposta
+    setSelectedBets([...selectedBets, newBet]);
+  };
+
+  // Verificar se uma aposta está selecionada
+  const isBetSelected = (line: string, type: 'over' | 'under'): boolean => {
+    return selectedBets.some((bet) => bet.line === line && bet.type === type);
+  };
 
   return (
     <motion.div
@@ -64,7 +142,12 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           initial="initial"
           animate="animate"
         >
-          <ProbabilityGauge probability={primaryProb} odd={data.oddOver15} ev={result.ev} />
+          <ProbabilityGauge 
+            probability={primaryProb} 
+            odd={data.oddOver15} 
+            ev={result.ev}
+            onOddChange={onOddChange}
+          />
         </motion.div>
 
         {/* Card de Informações da Partida */}
@@ -263,6 +346,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
               const prob = result.overUnderProbabilities?.[line];
               if (!prob) return null;
+              const isOverSelected = isBetSelected(line, 'over');
+              const isUnderSelected = isBetSelected(line, 'under');
               return (
                 <div
                   key={line}
@@ -272,11 +357,27 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     Linha {line}
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div
+                      onClick={() => handleBetClick(line, 'over', prob.over)}
+                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                        isOverSelected
+                          ? 'bg-success/20 border-2 border-success shadow-lg scale-105'
+                          : 'hover:bg-base-300/50 border-2 border-transparent'
+                      }`}
+                      title={isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
+                    >
                       <span className="text-xs font-semibold text-success">Over</span>
                       <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div
+                      onClick={() => handleBetClick(line, 'under', prob.under)}
+                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                        isUnderSelected
+                          ? 'bg-error/20 border-2 border-error shadow-lg scale-105'
+                          : 'hover:bg-base-300/50 border-2 border-transparent'
+                      }`}
+                      title={isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
+                    >
                       <span className="text-xs font-semibold text-error">Under</span>
                       <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
                     </div>
@@ -285,6 +386,49 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               );
             })}
           </div>
+          
+          {/* Seção de Aposta Combinada Selecionada */}
+          {combinedProbability !== null && selectedBets.length === 2 && (
+            <motion.div
+              className="mt-6 p-4 rounded-xl border-2 border-primary bg-primary/10"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-base font-black uppercase tracking-tight text-primary">
+                  Aposta Combinada Selecionada
+                </h4>
+                <button
+                  onClick={() => setSelectedBets([])}
+                  className="btn btn-xs btn-ghost text-error"
+                  title="Limpar seleção"
+                >
+                  Limpar
+                </button>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-semibold">
+                    {selectedBets[0].type === 'over' ? 'Over' : 'Under'} {selectedBets[0].line}
+                  </span>
+                  <span className="text-primary font-black">+</span>
+                  <span className="font-semibold">
+                    {selectedBets[1].type === 'over' ? 'Over' : 'Under'} {selectedBets[1].line}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs opacity-70">Probabilidade Combinada:</span>
+                  <span className="text-lg font-black text-primary">
+                    {combinedProbability.toFixed(2)}%
+                  </span>
+                </div>
+                <div className="text-xs opacity-60 mt-2">
+                  {selectedBets[0].probability.toFixed(1)}% × {selectedBets[1].probability.toFixed(1)}% = {combinedProbability.toFixed(2)}%
+                </div>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       )}
 

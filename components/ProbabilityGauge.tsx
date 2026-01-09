@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Target, TrendingUp, TrendingDown } from 'lucide-react';
@@ -8,9 +8,76 @@ interface ProbabilityGaugeProps {
   probability: number;
   odd?: number;
   ev: number;
+  onOddChange?: (odd: number) => void;
 }
 
-const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, ev }) => {
+const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, ev, onOddChange }) => {
+  const [isEditingOdd, setIsEditingOdd] = useState(false);
+  const [localOdd, setLocalOdd] = useState<string>(odd?.toFixed(2) || '');
+  const [calculatedEv, setCalculatedEv] = useState(ev);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Atualizar localOdd quando odd prop mudar externamente
+  useEffect(() => {
+    if (!isEditingOdd) {
+      setLocalOdd(odd?.toFixed(2) || '');
+      setCalculatedEv(ev);
+    }
+  }, [odd, ev, isEditingOdd]);
+
+  // Calcular EV automaticamente quando localOdd mudar
+  useEffect(() => {
+    if (isEditingOdd) {
+      const oddValue = parseFloat(localOdd);
+      if (!isNaN(oddValue) && oddValue > 1.0) {
+        const newEv = ((probability / 100) * oddValue - 1) * 100;
+        setCalculatedEv(newEv);
+      } else {
+        setCalculatedEv(0);
+      }
+    }
+  }, [localOdd, probability, isEditingOdd]);
+
+  // Focar no input quando entrar em modo de edição
+  useEffect(() => {
+    if (isEditingOdd && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditingOdd]);
+
+  const handleOddClick = () => {
+    setIsEditingOdd(true);
+    setLocalOdd(odd?.toFixed(2) || '');
+  };
+
+  const handleOddSave = () => {
+    const oddValue = parseFloat(localOdd);
+    if (!isNaN(oddValue) && oddValue > 1.0) {
+      if (onOddChange) {
+        onOddChange(oddValue);
+      }
+      setIsEditingOdd(false);
+    } else {
+      // Se valor inválido, restaurar valor anterior
+      setLocalOdd(odd?.toFixed(2) || '');
+      setIsEditingOdd(false);
+    }
+  };
+
+  const handleOddCancel = () => {
+    setLocalOdd(odd?.toFixed(2) || '');
+    setCalculatedEv(ev);
+    setIsEditingOdd(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleOddSave();
+    } else if (e.key === 'Escape') {
+      handleOddCancel();
+    }
+  };
   const chartData = [
     { name: 'Over 1.5', value: probability },
     { name: 'Under 1.5', value: 100 - probability },
@@ -130,11 +197,26 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
       {/* Odd and EV */}
       <div className="flex justify-between w-full mt-4 px-2 pt-4 border-t border-white/10 gap-4">
         <div
-          className="text-center flex-1 surface-muted p-3 cursor-help"
-          title="Odd atual do mercado Over 1.5. Usada para calcular EV e Edge."
+          className={`text-center flex-1 surface-muted p-3 ${isEditingOdd ? '' : 'cursor-pointer hover:bg-base-300/50 transition-colors'}`}
+          title={isEditingOdd ? 'Pressione Enter para salvar ou Escape para cancelar' : 'Clique para editar a odd. Usada para calcular EV e Edge.'}
+          onClick={!isEditingOdd ? handleOddClick : undefined}
         >
           <p className="kpi-label mb-2">Odd</p>
-          <p className="text-xl font-black font-mono text-base-content">{odd?.toFixed(2) || '—'}</p>
+          {isEditingOdd ? (
+            <input
+              ref={inputRef}
+              type="number"
+              step="0.01"
+              min="1.01"
+              value={localOdd}
+              onChange={(e) => setLocalOdd(e.target.value)}
+              onBlur={handleOddSave}
+              onKeyDown={handleKeyDown}
+              className="text-xl font-black font-mono text-base-content bg-base-200 border-2 border-primary rounded px-2 py-1 w-full text-center focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          ) : (
+            <p className="text-xl font-black font-mono text-base-content">{odd?.toFixed(2) || '—'}</p>
+          )}
         </div>
         <div
           className="text-center flex-1 surface-muted p-3 cursor-help"
@@ -142,16 +224,16 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ probability, odd, e
         >
           <p className="kpi-label mb-2">EV</p>
           <div className="flex items-center justify-center gap-1">
-            {ev > 0 ? (
+            {calculatedEv > 0 ? (
               <TrendingUp className="w-4 h-4 text-success" />
-            ) : ev < 0 ? (
+            ) : calculatedEv < 0 ? (
               <TrendingDown className="w-4 h-4 text-error" />
             ) : null}
             <p
-              className={`text-xl font-black font-mono ${ev > 0 ? 'text-success' : ev < 0 ? 'text-error' : 'text-base-content'}`}
+              className={`text-xl font-black font-mono ${calculatedEv > 0 ? 'text-success' : calculatedEv < 0 ? 'text-error' : 'text-base-content'}`}
             >
-              {ev > 0 ? '+' : ''}
-              {ev.toFixed(1)}%
+              {calculatedEv > 0 ? '+' : ''}
+              {calculatedEv.toFixed(1)}%
             </p>
           </div>
         </div>

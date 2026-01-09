@@ -161,6 +161,13 @@ export interface AnalysisResult {
   }>;
 }
 
+// Aposta selecionada para combinação
+export interface SelectedBet {
+  line: string; // '0.5', '1.5', etc.
+  type: 'over' | 'under';
+  probability: number;
+}
+
 // Informações de Aposta
 export interface BetInfo {
   betAmount: number; // Valor apostado

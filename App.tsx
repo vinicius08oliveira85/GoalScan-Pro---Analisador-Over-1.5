@@ -190,6 +190,27 @@ const App: React.FC = () => {
       });
   };
 
+  const handleOddChange = (newOdd: number) => {
+    if (currentMatchData) {
+      // Atualizar odd no currentMatchData
+      const updatedData = { ...currentMatchData, oddOver15: newOdd };
+      setCurrentMatchData(updatedData);
+
+      // Recalcular análise com nova odd (EV será recalculado automaticamente)
+      if (analysisResult) {
+        const aiProb = analysisResult.aiProbability ?? null;
+        const aiConf = analysisResult.confidenceScore ?? null;
+        const updatedResult = performAnalysis(updatedData, aiProb, aiConf);
+        
+        // Manter as probabilidades Over/Under e combinações existentes
+        updatedResult.overUnderProbabilities = analysisResult.overUnderProbabilities;
+        updatedResult.recommendedCombinations = analysisResult.recommendedCombinations;
+        
+        setAnalysisResult(updatedResult);
+      }
+    }
+  };
+
   const handleSaveMatch = async () => {
     if (analysisResult && currentMatchData) {
       try {
@@ -732,6 +753,7 @@ const App: React.FC = () => {
                           onBetSave={handleSaveBetInfo}
                           onError={showError}
                           isUpdatingBetStatus={isUpdatingBetStatus}
+                          onOddChange={handleOddChange}
                         />
                       </Suspense>
                     ) : (
