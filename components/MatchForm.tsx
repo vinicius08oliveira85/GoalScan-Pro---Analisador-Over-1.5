@@ -110,6 +110,93 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }
   }, [selectedAwaySquad, selectedChampionshipId]);
 
+  // Função helper para converter dados da tabela em TeamStatistics
+  const convertTableDataToTeamStats = (tableData: TableRowGeral | null | undefined): TeamStatistics | undefined => {
+    if (!tableData) return undefined;
+
+    try {
+      // Converter strings para números
+      const mp = parseFloat(tableData.MP || '0');
+      const gf = parseFloat(tableData.GF || '0');
+      const ga = parseFloat(tableData.GA || '0');
+
+      if (mp === 0 || isNaN(mp)) return undefined;
+
+      // Calcular médias básicas
+      const avgScored = gf / mp;
+      const avgConceded = ga / mp;
+      const avgTotal = (gf + ga) / mp;
+
+      // Estimar percentuais baseados em médias (aproximações)
+      // Se média de gols sofridos é baixa, maior chance de clean sheets
+      const estimatedCleanSheetPct = Math.max(0, Math.min(100, (1 - avgConceded / 2) * 100));
+      // Se média de gols marcados é baixa, maior chance de jogos sem marcar
+      const estimatedNoGoalsPct = Math.max(0, Math.min(100, (1 - avgScored / 2) * 100));
+      // Se média total é alta, maior chance de Over 2.5
+      const estimatedOver25Pct = Math.max(0, Math.min(100, ((avgTotal - 2.0) / 1.5) * 100));
+      const estimatedUnder25Pct = Math.max(0, Math.min(100, 100 - estimatedOver25Pct));
+
+      if (import.meta.env.DEV) {
+        console.log('[MatchForm] Convertendo dados da tabela:', {
+          squad: tableData.Squad,
+          mp,
+          gf,
+          ga,
+          avgScored,
+          avgConceded,
+          avgTotal,
+        });
+      }
+
+      return {
+        percurso: {
+          home: {
+            winStreak: 0,
+            drawStreak: 0,
+            lossStreak: 0,
+            withoutWin: 0,
+            withoutDraw: 0,
+            withoutLoss: 0,
+          },
+          away: {
+            winStreak: 0,
+            drawStreak: 0,
+            lossStreak: 0,
+            withoutWin: 0,
+            withoutDraw: 0,
+            withoutLoss: 0,
+          },
+          global: {
+            winStreak: 0,
+            drawStreak: 0,
+            lossStreak: 0,
+            withoutWin: 0,
+            withoutDraw: 0,
+            withoutLoss: 0,
+          },
+        },
+        gols: {
+          home: createEmptyGols(), // Para time da casa, usar dados globais da tabela
+          away: createEmptyGols(), // Para time visitante, usar dados globais da tabela
+          global: {
+            avgScored,
+            avgConceded,
+            avgTotal,
+            cleanSheetPct: estimatedCleanSheetPct,
+            noGoalsPct: estimatedNoGoalsPct,
+            over25Pct: estimatedOver25Pct,
+            under25Pct: estimatedUnder25Pct,
+          },
+        },
+      };
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('[MatchForm] Erro ao converter dados da tabela:', error);
+      }
+      return undefined;
+    }
+  };
+
   // Função para sincronizar dados da tabela
   const handleSyncWithTable = async () => {
     if (!selectedChampionshipId || !selectedHomeSquad || !selectedAwaySquad) {
@@ -126,6 +213,43 @@ const MatchForm: React.FC<MatchFormProps> = ({
         selectedAwaySquad
       );
 
+      // Converter dados da tabela em TeamStatistics
+      const homeTeamStats = convertTableDataToTeamStats(homeTableData);
+      const awayTeamStats = convertTableDataToTeamStats(awayTableData);
+
+      // Preencher estatísticas globais (home/away) com dados da tabela quando disponíveis
+      // Para time da casa: usar dados globais da tabela como "home"
+      // Para time visitante: usar dados globais da tabela como "away"
+      const updatedHomeTeamStats = homeTeamStats
+        ? {
+            ...homeTeamStats,
+            gols: {
+              ...homeTeamStats.gols,
+              home: homeTeamStats.gols.global, // Usar dados globais como "home" para time da casa
+            },
+          }
+        : undefined;
+
+      const updatedAwayTeamStats = awayTeamStats
+        ? {
+            ...awayTeamStats,
+            gols: {
+              ...awayTeamStats.gols,
+              away: awayTeamStats.gols.global, // Usar dados globais como "away" para time visitante
+            },
+          }
+        : undefined;
+
+      if (import.meta.env.DEV) {
+        console.log('[MatchForm] Sincronização concluída:', {
+          homeTableData: !!homeTableData,
+          awayTableData: !!awayTableData,
+          homeTeamStats: !!updatedHomeTeamStats,
+          awayTeamStats: !!updatedAwayTeamStats,
+          competitionAvg,
+        });
+      }
+
       setFormData((prev) => ({
         ...prev,
         championshipId: selectedChampionshipId,
@@ -133,6 +257,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
         awayTableData: awayTableData || undefined,
         // Preencher automaticamente a média da competição calculada da tabela
         competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
+        // Preencher estatísticas dos times automaticamente a partir da tabela
+        homeTeamStats: updatedHomeTeamStats || prev.homeTeamStats,
+        awayTeamStats: updatedAwayTeamStats || prev.awayTeamStats,
       }));
 
       // Mostrar mensagem de sucesso se dados foram encontrados

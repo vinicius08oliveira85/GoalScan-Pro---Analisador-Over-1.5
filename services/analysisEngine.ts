@@ -155,6 +155,27 @@ function calculateAdaptiveWeights(
 }
 
 /**
+ * Normaliza dados de MatchData garantindo valores padrão seguros para campos opcionais
+ * Previne erros com dados antigos ou incompletos
+ */
+function normalizeMatchData(data: MatchData): MatchData {
+  return {
+    ...data,
+    // Campos deprecated: usar valores padrão se não existirem
+    homeOver15Freq: data.homeOver15Freq ?? 0,
+    awayOver15Freq: data.awayOver15Freq ?? 0,
+    // Garantir arrays vazios se não existirem
+    homeHistory: data.homeHistory ?? [],
+    awayHistory: data.awayHistory ?? [],
+    // Garantir valores numéricos padrão
+    competitionAvg: data.competitionAvg ?? 0,
+    h2hOver15Freq: data.h2hOver15Freq ?? 0,
+    matchImportance: data.matchImportance ?? 0,
+    keyAbsences: data.keyAbsences ?? 'none',
+  };
+}
+
+/**
  * Executa análise completa de uma partida para Over 1.5 goals usando algoritmo Poisson v3.8.
  * Combina estatísticas históricas, métricas avançadas e opcionalmente IA para calcular probabilidade,
  * EV, risco e recomendações de aposta.
@@ -179,35 +200,52 @@ export function performAnalysis(
     throw new Error('Dados de entrada inválidos: homeTeam e awayTeam são obrigatórios');
   }
 
+  // Normalizar dados para garantir valores padrão seguros
+  const normalizedData = normalizeMatchData(data);
+  
+  // Extrair campos deprecated com valores padrão (para compatibilidade com dados antigos)
+  const homeOver15Freq = normalizedData.homeOver15Freq ?? 0;
+  const awayOver15Freq = normalizedData.awayOver15Freq ?? 0;
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] Dados normalizados:', {
+      homeOver15Freq,
+      awayOver15Freq,
+      hasHomeTeamStats: !!normalizedData.homeTeamStats,
+      hasAwayTeamStats: !!normalizedData.awayTeamStats,
+      competitionAvg: normalizedData.competitionAvg,
+    });
+  }
+
   // NOVO ALGORITMO: Baseado em estatísticas da tabela e dados disponíveis
 
   // 1. Obter média da competição (baseline importante)
-  const competitionAvg = data.competitionAvg || 0;
+  const competitionAvg = normalizedData.competitionAvg || 0;
 
   // 2. Calcular média total de gols (avgTotal de ambos times)
   // Usar estatísticas específicas: home para time da casa, away para visitante
-  const homeAvgTotal = data.homeTeamStats?.gols?.home?.avgTotal || 0;
-  const awayAvgTotal = data.awayTeamStats?.gols?.away?.avgTotal || 0;
+  const homeAvgTotal = normalizedData.homeTeamStats?.gols?.home?.avgTotal || 0;
+  const awayAvgTotal = normalizedData.awayTeamStats?.gols?.away?.avgTotal || 0;
   const avgTotal = (homeAvgTotal + awayAvgTotal) / 2;
 
   // 3. Calcular médias de cleanSheet e noGoals
-  const homeCleanSheet = data.homeTeamStats?.gols?.home?.cleanSheetPct || 0;
-  const awayCleanSheet = data.awayTeamStats?.gols?.away?.cleanSheetPct || 0;
+  const homeCleanSheet = normalizedData.homeTeamStats?.gols?.home?.cleanSheetPct || 0;
+  const awayCleanSheet = normalizedData.awayTeamStats?.gols?.away?.cleanSheetPct || 0;
   const avgCleanSheet = (homeCleanSheet + awayCleanSheet) / 2;
 
-  const homeNoGoals = data.homeTeamStats?.gols?.home?.noGoalsPct || 0;
-  const awayNoGoals = data.awayTeamStats?.gols?.away?.noGoalsPct || 0;
+  const homeNoGoals = normalizedData.homeTeamStats?.gols?.home?.noGoalsPct || 0;
+  const awayNoGoals = normalizedData.awayTeamStats?.gols?.away?.noGoalsPct || 0;
   const avgNoGoals = (homeNoGoals + awayNoGoals) / 2;
 
   // 4. Calcular média de Over 2.5% (confirma tendência ofensiva)
-  const homeOver25 = data.homeTeamStats?.gols?.home?.over25Pct || 0;
-  const awayOver25 = data.awayTeamStats?.gols?.away?.over25Pct || 0;
+  const homeOver25 = normalizedData.homeTeamStats?.gols?.home?.over25Pct || 0;
+  const awayOver25 = normalizedData.awayTeamStats?.gols?.away?.over25Pct || 0;
   const avgOver25 = (homeOver25 + awayOver25) / 2;
 
   // 5. Calcular Over 1.5% estimado baseado em médias de gols e estatísticas
   // Se avgTotal > 1.5, probabilidade base é alta
   // Usar dados da tabela quando disponíveis
-  const hasTeamStats = !!(data.homeTeamStats && data.awayTeamStats);
+  const hasTeamStats = !!(normalizedData.homeTeamStats && normalizedData.awayTeamStats);
   
   // Estimar Over 1.5% baseado em avgTotal
   // Se média total > 2.5, Over 1.5% é muito alto (>90%)
@@ -274,14 +312,14 @@ export function performAnalysis(
   }
 
   // Considerar H2H se disponível
-  if (data.h2hOver15Freq > 0) {
+  if (normalizedData.h2hOver15Freq > 0) {
     const h2hWeight = 0.15; // Peso moderado para H2H
-    prob = prob * (1 - h2hWeight) + data.h2hOver15Freq * h2hWeight;
+    prob = prob * (1 - h2hWeight) + normalizedData.h2hOver15Freq * h2hWeight;
   }
 
   // Considerar xG se disponível (Expected Goals)
-  if (data.homeXG > 0 && data.awayXG > 0) {
-    const avgXG = (data.homeXG + data.awayXG) / 2;
+  if (normalizedData.homeXG > 0 && normalizedData.awayXG > 0) {
+    const avgXG = (normalizedData.homeXG + normalizedData.awayXG) / 2;
     // xG > 2.5 indica alta probabilidade de gols
     if (avgXG > 2.5) {
       prob += 3;
@@ -290,8 +328,9 @@ export function performAnalysis(
     }
   }
 
-  // Se não temos dados suficientes, usar apenas média da competição como baseline
-  if (homeOver15Freq === 0 && awayOver15Freq === 0 && competitionAvg > 0) {
+  // Se não temos dados suficientes (nem campos deprecated nem dados novos), usar apenas média da competição como baseline
+  // Usar estimatedOver15Freq em vez de campos deprecated
+  if (estimatedOver15Freq === 50 && competitionAvg > 0) {
     prob = competitionAvg;
   }
 
@@ -300,10 +339,10 @@ export function performAnalysis(
 
   // Calcular Poisson para visualização (usando médias de gols se disponíveis)
   // Usar estatísticas específicas: home para time da casa, away para visitante
-  const homeGoalsScored = data.homeTeamStats?.gols?.home?.avgScored || 1.0;
-  const homeGoalsConceded = data.homeTeamStats?.gols?.home?.avgConceded || 1.0;
-  const awayGoalsScored = data.awayTeamStats?.gols?.away?.avgScored || 1.0;
-  const awayGoalsConceded = data.awayTeamStats?.gols?.away?.avgConceded || 1.0;
+  const homeGoalsScored = normalizedData.homeTeamStats?.gols?.home?.avgScored || 1.0;
+  const homeGoalsConceded = normalizedData.homeTeamStats?.gols?.home?.avgConceded || 1.0;
+  const awayGoalsScored = normalizedData.awayTeamStats?.gols?.away?.avgScored || 1.0;
+  const awayGoalsConceded = normalizedData.awayTeamStats?.gols?.away?.avgConceded || 1.0;
 
   const lambdaHome = (homeGoalsScored + awayGoalsConceded) / 2;
   const lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;
@@ -317,8 +356,8 @@ export function performAnalysis(
 
   // Cálculo de EV: (Probabilidade * Odd) - 100
   let ev = 0;
-  if (data.oddOver15 && data.oddOver15 > 1) {
-    ev = ((prob / 100) * data.oddOver15 - 1) * 100;
+  if (normalizedData.oddOver15 && normalizedData.oddOver15 > 1) {
+    ev = ((prob / 100) * normalizedData.oddOver15 - 1) * 100;
   }
 
   // Métricas avançadas melhoradas
@@ -332,14 +371,14 @@ export function performAnalysis(
   // Calcular tendência de forma baseada em histórico recente se disponível
   let formTrend = 0;
   if (
-    data.homeHistory &&
-    data.awayHistory &&
-    data.homeHistory.length > 0 &&
-    data.awayHistory.length > 0
+    normalizedData.homeHistory &&
+    normalizedData.awayHistory &&
+    normalizedData.homeHistory.length > 0 &&
+    normalizedData.awayHistory.length > 0
   ) {
     // Analisar últimos 3 jogos de cada time
-    const recentHome = data.homeHistory.slice(0, 3);
-    const recentAway = data.awayHistory.slice(0, 3);
+    const recentHome = normalizedData.homeHistory.slice(0, 3);
+    const recentAway = normalizedData.awayHistory.slice(0, 3);
 
     // Contar gols totais nos últimos jogos
     const homeRecentGoals =
@@ -359,9 +398,10 @@ export function performAnalysis(
   // Score de confiança melhorado baseado na qualidade e completude dos dados
   let confidence = 30; // Base mais baixa
 
-  // Pontos por dados fundamentais
-  if (homeOver15Freq > 0) confidence += 15;
-  if (awayOver15Freq > 0) confidence += 15;
+  // Pontos por dados fundamentais (usar estimatedOver15Freq em vez de campos deprecated)
+  // Se temos dados estimados válidos (não é o baseline de 50), considerar como dados disponíveis
+  if (estimatedOver15Freq > 50) confidence += 15;
+  if (estimatedOver15Freq > 50) confidence += 15; // Mesmo valor para ambos (já calculado com dados de ambos)
   if (competitionAvg > 0) confidence += 10;
 
   // Pontos por estatísticas detalhadas
@@ -372,13 +412,13 @@ export function performAnalysis(
   }
 
   // Pontos por dados adicionais
-  if (data.h2hOver15Freq > 0) confidence += 5;
-  if (data.homeXG > 0 && data.awayXG > 0) confidence += 5;
+  if (normalizedData.h2hOver15Freq > 0) confidence += 5;
+  if (normalizedData.homeXG > 0 && normalizedData.awayXG > 0) confidence += 5;
 
   // Penalidade por dados incompletos
+  // Usar estimatedOver15Freq e hasTeamStats em vez de campos deprecated
   const dataCompleteness =
-    (homeOver15Freq > 0 ? 1 : 0) +
-    (awayOver15Freq > 0 ? 1 : 0) +
+    (estimatedOver15Freq > 50 ? 1 : 0) + // Temos dados estimados válidos
     (competitionAvg > 0 ? 1 : 0) +
     (hasTeamStats ? 1 : 0);
   if (dataCompleteness < 2) {
@@ -401,8 +441,8 @@ export function performAnalysis(
 
   // Recalcular EV com probabilidade combinada se odd disponível
   let finalEv = ev;
-  if (data.oddOver15 && data.oddOver15 > 1) {
-    finalEv = ((finalProb / 100) * data.oddOver15 - 1) * 100;
+  if (normalizedData.oddOver15 && normalizedData.oddOver15 > 1) {
+    finalEv = ((finalProb / 100) * normalizedData.oddOver15 - 1) * 100;
   }
 
   return {
