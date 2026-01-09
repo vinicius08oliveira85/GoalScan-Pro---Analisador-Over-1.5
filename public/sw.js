@@ -78,7 +78,12 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('cdn.') ||
     url.hostname.includes('api.')
   ) {
-    event.respondWith(fetch(request));
+    event.respondWith(
+      fetch(request).catch(() => {
+        // Silenciar erros de fetch para APIs externas
+        return new Response('', { status: 503 });
+      })
+    );
     return;
   }
 
@@ -166,6 +171,10 @@ self.addEventListener('fetch', (event) => {
         return caches.match(request).then((cachedResponse) => {
           return cachedResponse || new Response('Offline', { status: 503 });
         });
+      })
+      .catch(() => {
+        // Silenciar erros finais para evitar poluição no console
+        return new Response('', { status: 503 });
       })
   );
 });
