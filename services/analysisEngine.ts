@@ -207,21 +207,53 @@ export function performAnalysis(
   const homeOver15Freq = normalizedData.homeOver15Freq ?? 0;
   const awayOver15Freq = normalizedData.awayOver15Freq ?? 0;
 
+  // Validação e observabilidade de dados
+  const hasHomeTeamStats = !!normalizedData.homeTeamStats;
+  const hasAwayTeamStats = !!normalizedData.awayTeamStats;
+  const hasHomeTableData = !!normalizedData.homeTableData;
+  const hasAwayTableData = !!normalizedData.awayTableData;
+  const competitionAvg = normalizedData.competitionAvg || 0;
+
+  // Validar completude dos dados essenciais
+  const dataCompleteness = {
+    hasHomeTeamStats,
+    hasAwayTeamStats,
+    hasHomeTableData,
+    hasAwayTableData,
+    hasCompetitionAvg: competitionAvg > 0,
+  };
+
+  const missingData: string[] = [];
+  if (!hasHomeTeamStats) missingData.push('Estatísticas Globais do time da casa');
+  if (!hasAwayTeamStats) missingData.push('Estatísticas Globais do time visitante');
+  if (!hasCompetitionAvg) missingData.push('Média da competição');
+
   if (import.meta.env.DEV) {
     console.log('[AnalysisEngine] Dados normalizados:', {
       homeOver15Freq,
       awayOver15Freq,
-      hasHomeTeamStats: !!normalizedData.homeTeamStats,
-      hasAwayTeamStats: !!normalizedData.awayTeamStats,
-      competitionAvg: normalizedData.competitionAvg,
+      dataCompleteness,
+      missingData: missingData.length > 0 ? missingData : 'Nenhum',
     });
+
+    // Avisar se dados essenciais estão faltando
+    if (missingData.length > 0) {
+      console.warn('[AnalysisEngine] Dados essenciais faltando:', missingData);
+      console.warn('[AnalysisEngine] A análise pode ser menos confiável sem esses dados.');
+    }
+
+    // Informar sobre dados da tabela (usados apenas pela IA, não pela análise estatística)
+    if (hasHomeTableData || hasAwayTableData) {
+      console.log('[AnalysisEngine] Dados da tabela disponíveis (usados pela IA, não pela análise estatística):', {
+        hasHomeTableData,
+        hasAwayTableData,
+      });
+    }
   }
 
   // NOVO ALGORITMO: Baseado em estatísticas da tabela e dados disponíveis
 
   // 1. Obter média da competição (baseline importante)
-  const competitionAvg = normalizedData.competitionAvg || 0;
-
   // 2. Calcular média total de gols (avgTotal de ambos times)
   // Usar estatísticas específicas: home para time da casa, away para visitante
   const homeAvgTotal = normalizedData.homeTeamStats?.gols?.home?.avgTotal || 0;
@@ -417,12 +449,20 @@ export function performAnalysis(
 
   // Penalidade por dados incompletos
   // Usar estimatedOver15Freq e hasTeamStats em vez de campos deprecated
-  const dataCompleteness =
+  const dataCompletenessScore =
     (estimatedOver15Freq > 50 ? 1 : 0) + // Temos dados estimados válidos
     (competitionAvg > 0 ? 1 : 0) +
     (hasTeamStats ? 1 : 0);
-  if (dataCompleteness < 2) {
+  if (dataCompletenessScore < 2) {
     confidence = Math.max(confidence - 10, 20); // Penalizar se muito poucos dados
+    if (import.meta.env.DEV) {
+      console.warn('[AnalysisEngine] Confiança reduzida devido a dados incompletos:', {
+        dataCompletenessScore,
+        estimatedOver15Freq,
+        hasCompetitionAvg: competitionAvg > 0,
+        hasTeamStats,
+      });
+    }
   }
 
   confidence = Math.min(100, Math.max(0, confidence));

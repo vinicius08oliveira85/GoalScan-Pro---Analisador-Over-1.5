@@ -171,6 +171,40 @@ async function buildContext(data: MatchData, liveScore?: MatchScore) {
   const home = data.homeTeamStats?.gols?.home;
   const away = data.awayTeamStats?.gols?.away;
 
+  // Validação: Verificar que todos os dados necessários estão presentes
+  const hasHomeStats = !!home;
+  const hasAwayStats = !!away;
+  const hasHomeTableData = !!data.homeTableData;
+  const hasAwayTableData = !!data.awayTableData;
+  const hasCompetitionAvg = !!(data.competitionAvg && data.competitionAvg > 0);
+
+  if (import.meta.env.DEV) {
+    console.log('[AIOver15Service] Construindo contexto para IA:', {
+      hasHomeStats,
+      hasAwayStats,
+      hasHomeTableData,
+      hasAwayTableData,
+      hasCompetitionAvg,
+      homeTeam: data.homeTeam,
+      awayTeam: data.awayTeam,
+    });
+
+    // Avisar se dados importantes estão faltando
+    const missingForAI: string[] = [];
+    if (!hasHomeStats) missingForAI.push('Estatísticas Globais do time da casa');
+    if (!hasAwayStats) missingForAI.push('Estatísticas Globais do time visitante');
+    if (!hasHomeTableData) missingForAI.push('Dados da tabela do time da casa');
+    if (!hasAwayTableData) missingForAI.push('Dados da tabela do time visitante');
+    if (!hasCompetitionAvg) missingForAI.push('Média da competição');
+
+    if (missingForAI.length > 0) {
+      console.warn('[AIOver15Service] Dados faltando para análise da IA:', missingForAI);
+      console.warn('[AIOver15Service] A análise da IA pode ser menos precisa sem esses dados.');
+    } else {
+      console.log('[AIOver15Service] Todos os dados necessários estão presentes para análise completa.');
+    }
+  }
+
   return {
     match: {
       homeTeam: data.homeTeam,
@@ -187,7 +221,7 @@ async function buildContext(data: MatchData, liveScore?: MatchScore) {
       oddOver15: safeNumber(data.oddOver15),
       competitionAvg: safeNumber(data.competitionAvg),
     },
-    // Estatísticas Globais (inseridas manualmente pelo usuário)
+    // Estatísticas Globais (inseridas manualmente pelo usuário - 10 últimos jogos Casa/Fora)
     stats: {
       home: { 
         avgScored: home?.avgScored, 
@@ -208,7 +242,7 @@ async function buildContext(data: MatchData, liveScore?: MatchScore) {
         under25Pct: away?.under25Pct,
       },
     },
-    // Dados completos da tabela do campeonato (TODOS os campos)
+    // Dados completos da tabela do campeonato (TODOS os campos: Rk, Squad, MP, W, D, L, GF, GA, GD, Pts, xG, xGA, etc.)
     championshipTable: {
       home: data.homeTableData || null,
       away: data.awayTableData || null,
