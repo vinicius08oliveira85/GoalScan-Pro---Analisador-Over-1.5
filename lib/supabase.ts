@@ -105,11 +105,8 @@ function setupFetchInterceptor(): void {
       }
       
       // Para requisições ao Gemini, 404 são esperados (fallback de modelos)
-      // Suprimir logs no console para essas respostas
-      if (isGeminiRequest && response.status === 404) {
-        // Não fazer nada - o erro será tratado pelo sistema de fallback
-        // Apenas retornar a resposta normalmente
-      }
+      // O sistema de fallback tratará esses erros silenciosamente
+      // Os logs do console serão suprimidos pelo setupGeminiErrorSuppression
       
       return response;
     } catch (error) {
@@ -142,11 +139,14 @@ function setupGeminiErrorSuppression(): void {
   // Interceptar console.error para suprimir erros 404 do Gemini
   const originalConsoleError = console.error;
   console.error = (...args: unknown[]) => {
-    const message = args.join(' ').toLowerCase();
+    const message = String(args.join(' ')).toLowerCase();
     // Suprimir erros 404 da API do Gemini (são esperados durante fallback de modelos)
     if (
-      (message.includes('404') || message.includes('not found')) &&
-      message.includes('generativelanguage.googleapis.com')
+      (message.includes('404') || 
+       message.includes('not found') || 
+       message.includes('failed to load resource')) &&
+      (message.includes('generativelanguage.googleapis.com') ||
+       message.includes('gemini'))
     ) {
       // Não logar no console - erro esperado durante fallback
       return;
@@ -154,19 +154,57 @@ function setupGeminiErrorSuppression(): void {
     originalConsoleError.apply(console, args);
   };
   
+  // Interceptar console.warn também (alguns navegadores logam 404 como warning)
+  const originalConsoleWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    const message = String(args.join(' ')).toLowerCase();
+    if (
+      (message.includes('404') || 
+       message.includes('not found') || 
+       message.includes('failed to load resource')) &&
+      (message.includes('generativelanguage.googleapis.com') ||
+       message.includes('gemini'))
+    ) {
+      return;
+    }
+    originalConsoleWarn.apply(console, args);
+  };
+  
+  // Interceptar console.log também (caso algum código logue erros 404)
+  const originalConsoleLog = console.log;
+  console.log = (...args: unknown[]) => {
+    const message = String(args.join(' ')).toLowerCase();
+    if (
+      (message.includes('404') || 
+       message.includes('not found') || 
+       message.includes('failed to load resource') ||
+       message.includes('post') && message.includes('generativelanguage')) &&
+      (message.includes('generativelanguage.googleapis.com') ||
+       message.includes('gemini'))
+    ) {
+      return;
+    }
+    originalConsoleLog.apply(console, args);
+  };
+  
   // Interceptar eventos de erro não capturados relacionados ao Gemini
   window.addEventListener('error', (event) => {
     const message = (event.message || '').toLowerCase();
-    const source = (event.filename || '').toLowerCase();
+    const source = (event.filename || event.target?.toString() || '').toLowerCase();
     
     // Suprimir erros 404 da API do Gemini (são esperados durante fallback de modelos)
     if (
-      (message.includes('404') || message.includes('failed to load')) &&
+      (message.includes('404') || 
+       message.includes('failed to load') || 
+       message.includes('not found')) &&
       (source.includes('generativelanguage.googleapis.com') || 
-       message.includes('generativelanguage.googleapis.com'))
+       message.includes('generativelanguage.googleapis.com') ||
+       source.includes('gemini') ||
+       message.includes('gemini'))
     ) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
       return false;
     }
   }, true);
@@ -177,13 +215,17 @@ function setupGeminiErrorSuppression(): void {
     
     // Suprimir rejeições 404 da API do Gemini
     if (
-      (reason.includes('404') || reason.includes('failed to fetch') || reason.includes('not found')) &&
-      reason.includes('generativelanguage.googleapis.com')
+      (reason.includes('404') || 
+       reason.includes('failed to fetch') || 
+       reason.includes('not found')) &&
+      (reason.includes('generativelanguage.googleapis.com') ||
+       reason.includes('gemini'))
     ) {
       event.preventDefault();
+      event.stopPropagation();
       return false;
     }
-  });
+  }, true);
 }
 
 // Configurar interceptor IMEDIATAMENTE quando o módulo é carregado
