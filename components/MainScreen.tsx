@@ -19,7 +19,7 @@ import { SkeletonMatchCard } from './Skeleton';
 import { cardHover, animations } from '../utils/animations';
 import MatchTabs, { TabCategory } from './MatchTabs';
 import { filterMatchesByCategory, getCategoryCounts } from '../utils/matchFilters';
-import { getPrimaryProbability } from '../utils/probability';
+import { getDisplayProbability, getPrimaryProbability } from '../utils/probability';
 import {
   formatMatchDate,
   formatMatchTime,
@@ -475,30 +475,35 @@ const MainScreen: React.FC<MainScreenProps> = ({
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold opacity-80">Probabilidade</span>
                       <span className="font-black text-base">
-                        {getPrimaryProbability(match.result).toFixed(0)}%
+                        {getDisplayProbability(match).toFixed(0)}%
                       </span>
                     </div>
                     <div className="h-2.5 w-full bg-base-300/50 rounded-full overflow-hidden shadow-inner">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${getPrimaryProbability(match.result)}%` }}
-                        transition={{ duration: 1, ease: 'easeOut' }}
-                        className={`h-full rounded-full shadow-lg ${
-                          getPrimaryProbability(match.result) >= 70
-                            ? 'bg-gradient-to-r from-success via-emerald-400 to-emerald-300'
-                            : getPrimaryProbability(match.result) >= 50
-                              ? 'bg-gradient-to-r from-warning via-amber-400 to-amber-300'
-                              : 'bg-gradient-to-r from-error via-rose-400 to-rose-300'
-                        }`}
-                        style={{
-                          boxShadow:
-                            getPrimaryProbability(match.result) >= 70
-                              ? '0 0 8px rgba(34, 197, 94, 0.5)'
-                              : getPrimaryProbability(match.result) >= 50
-                                ? '0 0 8px rgba(245, 158, 11, 0.5)'
-                                : '0 0 8px rgba(239, 68, 68, 0.5)',
-                        }}
-                      />
+                      {(() => {
+                        const displayProb = getDisplayProbability(match);
+                        return (
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${displayProb}%` }}
+                            transition={{ duration: 1, ease: 'easeOut' }}
+                            className={`h-full rounded-full shadow-lg ${
+                              displayProb >= 70
+                                ? 'bg-gradient-to-r from-success via-emerald-400 to-emerald-300'
+                                : displayProb >= 50
+                                  ? 'bg-gradient-to-r from-warning via-amber-400 to-amber-300'
+                                  : 'bg-gradient-to-r from-error via-rose-400 to-rose-300'
+                            }`}
+                            style={{
+                              boxShadow:
+                                displayProb >= 70
+                                  ? '0 0 8px rgba(34, 197, 94, 0.5)'
+                                  : displayProb >= 50
+                                    ? '0 0 8px rgba(245, 158, 11, 0.5)'
+                                    : '0 0 8px rgba(239, 68, 68, 0.5)',
+                            }}
+                          />
+                        );
+                      })()}
                     </div>
                   </div>
 

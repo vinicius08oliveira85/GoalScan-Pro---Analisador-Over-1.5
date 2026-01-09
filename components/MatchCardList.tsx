@@ -12,7 +12,7 @@ import {
   Ban,
 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
-import { getPrimaryProbability } from '../utils/probability';
+import { getDisplayProbability } from '../utils/probability';
 import {
   formatMatchDate,
   formatMatchTime,
@@ -62,7 +62,12 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
   };
 
   const statusConfig = getStatusConfig();
-  const probability = getPrimaryProbability(match.result);
+  const probability = getDisplayProbability(match);
+  
+  // Calcular EV com a probabilidade correta (selecionada/combinada ou padrão)
+  const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
+    ? ((probability / 100) * match.data.oddOver15 - 1) * 100
+    : match.result.ev;
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
@@ -151,18 +156,18 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
           <div className="text-[10px] font-semibold opacity-70 uppercase mb-1">EV</div>
           <div
             className={`text-lg font-black flex items-center gap-1 ${
-              match.result.ev > 0
+              displayEv > 0
                 ? 'text-success'
-                : match.result.ev < 0
+                : displayEv < 0
                   ? 'text-error'
                   : 'opacity-50'
             }`}
           >
-            {match.result.ev > 0 && <TrendingUp className="w-4 h-4" />}
-            {match.result.ev < 0 && <TrendingDown className="w-4 h-4" />}
+            {displayEv > 0 && <TrendingUp className="w-4 h-4" />}
+            {displayEv < 0 && <TrendingDown className="w-4 h-4" />}
             <span>
-              {match.result.ev > 0 ? '+' : ''}
-              {match.result.ev.toFixed(1)}%
+              {displayEv > 0 ? '+' : ''}
+              {displayEv.toFixed(1)}%
             </span>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AnalysisResult, MatchData, BetInfo, BankSettings, SelectedBet } from '../types';
 import {
@@ -26,13 +26,14 @@ import { getEdgePp } from '../utils/betMetrics';
 interface AnalysisDashboardProps {
   result: AnalysisResult;
   data: MatchData;
-  onSave?: () => void;
+  onSave?: (selectedBets?: SelectedBet[]) => void;
   betInfo?: BetInfo;
   bankSettings?: BankSettings;
   onBetSave?: (betInfo: BetInfo) => void;
   onError?: (message: string) => void;
   isUpdatingBetStatus?: boolean;
   onOddChange?: (odd: number) => void;
+  initialSelectedBets?: SelectedBet[]; // Apostas selecionadas salvas (para restaurar ao carregar partida)
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
@@ -45,11 +46,18 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   onError,
   isUpdatingBetStatus = false,
   onOddChange,
+  initialSelectedBets,
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
-  const [selectedBets, setSelectedBets] = useState<SelectedBet[]>([]);
+  const [selectedBets, setSelectedBets] = useState<SelectedBet[]>(initialSelectedBets || []);
+  
+  // Restaurar apostas selecionadas quando initialSelectedBets mudar
+  useEffect(() => {
+    if (initialSelectedBets) {
+      setSelectedBets(initialSelectedBets);
+    }
+  }, [initialSelectedBets]);
   const primaryProb = getPrimaryProbability(result);
-  const edgePp = data.oddOver15 ? getEdgePp(primaryProb, data.oddOver15) : null;
 
   // Função para calcular probabilidade combinada
   const calculateCombinedProbability = (bets: SelectedBet[]): number => {
@@ -99,6 +107,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     }
     return result.ev; // Fallback para EV do resultado se não houver odd
   }, [displayProbability, data.oddOver15, result.ev]);
+
+  // Calcular Edge (pp) com a probabilidade que está sendo exibida
+  const edgePp = useMemo(() => {
+    if (data.oddOver15 && data.oddOver15 > 1) {
+      return getEdgePp(displayProbability, data.oddOver15);
+    }
+    return null;
+  }, [displayProbability, data.oddOver15]);
 
   // Função para lidar com clique em uma aposta
   const handleBetClick = (line: string, type: 'over' | 'under', probability: number) => {
@@ -226,7 +242,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 </div>
                 {onSave && (
                   <button
-                    onClick={onSave}
+                    onClick={() => onSave(selectedBets.length > 0 ? selectedBets : undefined)}
                     className="btn btn-primary btn-md sm:btn-lg uppercase font-bold tracking-tight hover:scale-105 transition-transform min-h-[44px] flex-1 sm:flex-none shadow-lg"
                   >
                     Salvar Partida
@@ -274,10 +290,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
                     title="Prob. Final"
-                    value={`${(result.combinedProbability ?? result.probabilityOver15).toFixed(1)}%`}
+                    value={`${displayProbability.toFixed(1)}%`}
                     icon={Target}
                     color="success"
-                    tooltip="Probabilidade final: usa Estatística quando não há IA, ou combina Estatística + IA (ponderada pela confiança) quando disponível. Usada para cálculos de EV e recomendações."
+                    tooltip={
+                      selectedBets.length > 0
+                        ? `Probabilidade da aposta ${selectedBets.length === 1 ? 'selecionada' : 'combinada'}: ${displayLabel}. Usada para cálculos de EV e recomendações.`
+                        : 'Probabilidade final: usa Estatística quando não há IA, ou combina Estatística + IA (ponderada pela confiança) quando disponível. Usada para cálculos de EV e recomendações.'
+                    }
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -696,7 +716,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           ) : (
             <BetManager
               odd={data.oddOver15 || 0}
-              probability={result.combinedProbability ?? result.probabilityOver15}
+              probability={displayProbability}
               betInfo={betInfo}
               bankSettings={bankSettings}
               onSave={(newBetInfo) => {

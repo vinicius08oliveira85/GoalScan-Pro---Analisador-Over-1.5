@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { SavedAnalysis } from '../types';
 import { TrendingUp, TrendingDown, Calendar, X, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { cardHover } from '../utils/animations';
-import { getPrimaryProbability } from '../utils/probability';
+import { getDisplayProbability } from '../utils/probability';
 import { formatMatchDate, formatTimestampInBrasilia } from '../utils/dateFormatter';
 
 interface MatchCardCompactProps {
@@ -28,7 +28,12 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
     return 'border-l-2 border-primary bg-base-200/30';
   };
 
-  const probability = getPrimaryProbability(match.result);
+  const probability = getDisplayProbability(match);
+  
+  // Calcular EV com a probabilidade correta (selecionada/combinada ou padrão)
+  const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
+    ? ((probability / 100) * match.data.oddOver15 - 1) * 100
+    : match.result.ev;
 
   const getRiskBadge = (risk: string) => {
     const colors = {
@@ -113,18 +118,18 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
             <div className="text-[9px] font-semibold opacity-70 uppercase">EV</div>
             <div
               className={`text-sm font-black flex items-center gap-0.5 ${
-                match.result.ev > 0
+                displayEv > 0
                   ? 'text-success'
-                  : match.result.ev < 0
+                  : displayEv < 0
                     ? 'text-error'
                     : 'opacity-50'
               }`}
             >
-              {match.result.ev > 0 && <TrendingUp className="w-3 h-3" />}
-              {match.result.ev < 0 && <TrendingDown className="w-3 h-3" />}
+              {displayEv > 0 && <TrendingUp className="w-3 h-3" />}
+              {displayEv < 0 && <TrendingDown className="w-3 h-3" />}
               <span className="text-xs">
-                {match.result.ev > 0 ? '+' : ''}
-                {match.result.ev.toFixed(1)}%
+                {displayEv > 0 ? '+' : ''}
+                {displayEv.toFixed(1)}%
               </span>
             </div>
           </div>

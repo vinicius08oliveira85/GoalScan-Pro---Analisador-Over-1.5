@@ -194,6 +194,7 @@ export interface SavedAnalysis {
   result: AnalysisResult;
   aiAnalysis?: string; // Markdown completo da análise da IA (opcional)
   betInfo?: BetInfo; // Informações da aposta (opcional)
+  selectedBets?: SelectedBet[]; // Apostas selecionadas quando a partida foi salva (opcional)
 }
 
 // Tipos de tabela de campeonato

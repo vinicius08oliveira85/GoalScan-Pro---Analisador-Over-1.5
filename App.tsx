@@ -31,6 +31,7 @@ import {
   SavedAnalysis,
   BankSettings as BankSettingsType,
   BetInfo,
+  SelectedBet,
 } from './types';
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
@@ -211,7 +212,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSaveMatch = async () => {
+  const handleSaveMatch = async (selectedBets?: SelectedBet[]) => {
     if (analysisResult && currentMatchData) {
       try {
         let matchToSave: SavedAnalysis;
@@ -224,6 +225,7 @@ const App: React.FC = () => {
             result: analysisResult,
             aiAnalysis: selectedMatch.aiAnalysis, // Manter análise da IA se existir
             betInfo: selectedMatch.betInfo, // Manter betInfo se existir
+            selectedBets: selectedBets, // Incluir apostas selecionadas
             timestamp: Date.now(), // Atualizar timestamp
           };
         } else {
@@ -235,6 +237,7 @@ const App: React.FC = () => {
             result: analysisResult,
             aiAnalysis: undefined, // Será preenchido quando análise da IA for gerada
             betInfo: selectedMatch?.betInfo, // Incluir betInfo se existir
+            selectedBets: selectedBets, // Incluir apostas selecionadas
           };
         }
 
@@ -754,6 +757,7 @@ const App: React.FC = () => {
                           onError={showError}
                           isUpdatingBetStatus={isUpdatingBetStatus}
                           onOddChange={handleOddChange}
+                          initialSelectedBets={selectedMatch?.selectedBets}
                         />
                       </Suspense>
                     ) : (
