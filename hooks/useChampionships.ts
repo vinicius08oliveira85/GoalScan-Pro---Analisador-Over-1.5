@@ -22,12 +22,29 @@ export const useChampionships = (onError?: (message: string) => void) => {
     setIsLoading(true);
 
     try {
-      const data = await loadChampionships();
+      // Timeout de segurança para evitar travamento
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout ao carregar campeonatos')), 10000)
+      );
+
+      const data = await Promise.race([loadChampionships(), timeoutPromise]);
       logger.log(`[useChampionships] ${data.length} campeonato(s) carregado(s)`);
       setChampionships(data);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       logger.error('[useChampionships] Erro ao carregar campeonatos:', errorMessage);
+
+      // Em caso de erro, carregar do localStorage como fallback
+      try {
+        const localData = JSON.parse(
+          localStorage.getItem('goalscan_championships') || '[]'
+        );
+        setChampionships(localData);
+        logger.log(`[useChampionships] Carregado ${localData.length} campeonato(s) do localStorage`);
+      } catch (localError) {
+        logger.error('[useChampionships] Erro ao carregar do localStorage:', localError);
+        setChampionships([]);
+      }
 
       if (onError) {
         onError(`Erro ao carregar campeonatos: ${errorMessage}`);
