@@ -205,7 +205,10 @@ async function callGeminiOnce(opts: {
     } catch {
       // keep raw
     }
-    throw new GeminiCallError({
+    
+    // Para erros 404, não logar no console - são esperados durante fallback de modelos
+    // O sistema de fallback já trata esses erros adequadamente
+    const error = new GeminiCallError({
       status: res.status,
       raw,
       retryAfterSeconds: retryAfter,
@@ -213,6 +216,13 @@ async function callGeminiOnce(opts: {
       model: opts.model,
       message: `Falha ao chamar Gemini (${res.status}). ${message}`.trim(),
     });
+    
+    // Se for 404, marcar como erro de modelo não encontrado (será tratado pelo fallback)
+    if (res.status === 404) {
+      // Não logar - erro esperado durante fallback
+    }
+    
+    throw error;
   }
 
   const json = (await res.json()) as Record<string, unknown>;

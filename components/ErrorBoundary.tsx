@@ -32,8 +32,32 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Ignorar erros de lazy loading de módulos (404 esperados em caso de cache/build)
+    const isLazyLoadError = 
+      error.message?.includes('Failed to fetch dynamically imported module') ||
+      error.message?.includes('Loading chunk') ||
+      error.message?.includes('404');
+    
+    if (isLazyLoadError) {
+      // Tentar recarregar a página automaticamente para resolver problema de cache
+      if (typeof window !== 'undefined' && !window.location.href.includes('reload=true')) {
+        // Log apenas em dev
+        if (import.meta.env.DEV) {
+          logger.warn('ErrorBoundary: Erro de lazy loading detectado, recarregando página...');
+        }
+        // Recarregar página para resolver problema de cache
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+        return;
+      }
+    }
+
     // Log do erro para serviço de tracking (quando implementado)
-    logger.error('ErrorBoundary capturou um erro:', error, errorInfo);
+    // Apenas logar em dev ou se não for erro de lazy loading
+    if (import.meta.env.DEV || !isLazyLoadError) {
+      logger.error('ErrorBoundary capturou um erro:', error, errorInfo);
+    }
 
     this.setState({
       error,

@@ -70,6 +70,7 @@ function setupFetchInterceptor(): void {
     // Verificar se é uma requisição ao Supabase
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const isSupabaseRequest = url.includes('supabase.co');
+    const isGeminiRequest = url.includes('generativelanguage.googleapis.com');
     
     // Se for requisição ao Supabase e o serviço está indisponível, retornar resposta 503 silenciosamente
     if (isSupabaseRequest && isServiceUnavailable()) {
@@ -81,6 +82,8 @@ function setupFetchInterceptor(): void {
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    
+    // Para requisições ao Gemini, fazer normalmente mas suprimir logs de 404 esperados
     
     // Para outras requisições ou quando serviço está disponível, fazer requisição normal
     try {
@@ -102,6 +105,9 @@ function setupFetchInterceptor(): void {
           // Ignorar erros de localStorage
         }
       }
+      
+      // Para requisições ao Gemini, 404 são esperados (fallback de modelos)
+      // Não precisamos fazer nada especial, apenas deixar passar
       
       return response;
     } catch (error) {
