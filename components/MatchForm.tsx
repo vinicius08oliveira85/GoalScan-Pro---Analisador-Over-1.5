@@ -489,19 +489,13 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
       {/* Estatísticas Globais - Time Casa */}
       <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center mb-4">
           <div className="flex items-center">
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
               Estatísticas Globais - {formData.homeTeam || 'Time Casa'}
             </span>
             <InfoIcon text="Estatísticas dos 10 últimos jogos do time jogando em Casa. Insira manualmente os dados baseados nos últimos 10 jogos em casa." />
           </div>
-          <AiOver15Insights
-            data={formData}
-            onError={onError}
-            onAiAnalysisGenerated={onAiAnalysisGenerated}
-            savedReportMarkdown={savedAiAnalysis ?? null}
-          />
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -795,6 +789,16 @@ const MatchForm: React.FC<MatchFormProps> = ({
       >
         Processar
       </button>
+
+      {/* Botão de Análise IA - Movido para abaixo do botão Processar */}
+      <div className="mt-4">
+        <AiOver15Insights
+          data={formData}
+          onError={onError}
+          onAiAnalysisGenerated={onAiAnalysisGenerated}
+          savedReportMarkdown={savedAiAnalysis ?? null}
+        />
+      </div>
     </motion.form>
   );
 };

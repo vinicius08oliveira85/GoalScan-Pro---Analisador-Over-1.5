@@ -324,11 +324,11 @@ const AiOver15Insights: React.FC<Props> = ({
             ? 'Preencha os nomes dos times para analisar.'
             : hasSavedReport
               ? 'Abrir análise salva de IA (sem gerar novamente)'
-              : 'Gerar análise com IA para Over 1.5'
+              : 'Gerar análise com IA'
         }
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-        IA Over 1.5
+        Análise IA
       </button>
 
       {open && (
