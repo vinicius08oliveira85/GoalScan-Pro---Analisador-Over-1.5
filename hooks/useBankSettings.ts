@@ -54,10 +54,18 @@ export const useBankSettings = (onError?: (message: string) => void) => {
       setLastSyncTime(Date.now());
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      errorService.logError(error instanceof Error ? error : new Error(errorMessage), {
-        component: 'useBankSettings',
-        action: 'loadSettings',
-      });
+      const errorStatus = (error as { status?: number })?.status;
+      const isTemporary = errorStatus === 503 || errorStatus === 502 || errorStatus === 504 || 
+                          errorMessage.includes('503') || errorMessage.includes('Service Unavailable') ||
+                          errorMessage.includes('insufficient resources');
+      
+      // Não logar erros temporários - serviço está indisponível, já tratado
+      if (!isTemporary && import.meta.env.DEV) {
+        errorService.logError(error instanceof Error ? error : new Error(errorMessage), {
+          component: 'useBankSettings',
+          action: 'loadSettings',
+        });
+      }
 
       // Tentar carregar do localStorage como fallback
       const storedBank = localStorage.getItem('goalscan_bank_settings');

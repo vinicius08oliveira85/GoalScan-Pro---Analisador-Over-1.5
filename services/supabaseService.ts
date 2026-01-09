@@ -9,6 +9,89 @@ import {
   validateBankSettings,
 } from '../utils/validation';
 
+// Cache de status do serviço (compartilhado com championshipService e lib/supabase)
+const STORAGE_KEY_SERVICE_STATUS = 'goalscan_supabase_status';
+const SERVICE_STATUS_CACHE_DURATION = 60000; // 1 minuto
+
+interface ServiceStatus {
+  isUnavailable: boolean;
+  lastCheck: number;
+  retryAfter: number;
+}
+
+/**
+ * Verifica se um erro é um erro HTTP temporário (503, 502, 504, etc)
+ */
+function isTemporaryError(error: unknown): boolean {
+  if (!error) return false;
+  
+  const err = error as { 
+    message?: string; 
+    code?: string | number; 
+    status?: number;
+    statusCode?: number;
+  };
+  
+  const statusCode = err.status || err.statusCode || 
+    (typeof err.code === 'number' ? err.code : null);
+  
+  const temporaryStatusCodes = [503, 502, 504, 429, 408];
+  if (statusCode && temporaryStatusCodes.includes(statusCode)) {
+    return true;
+  }
+  
+  const message = (err.message || '').toLowerCase();
+  return message.includes('503') || 
+         message.includes('service unavailable') ||
+         message.includes('502') ||
+         message.includes('504') ||
+         message.includes('gateway timeout') ||
+         message.includes('insufficient resources');
+}
+
+/**
+ * Verifica se o serviço Supabase está marcado como indisponível
+ */
+function isServiceUnavailable(): boolean {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return false;
+    }
+    
+    const stored = localStorage.getItem(STORAGE_KEY_SERVICE_STATUS);
+    if (!stored) return false;
+    
+    const status = JSON.parse(stored) as ServiceStatus;
+    const now = Date.now();
+    
+    if (status.isUnavailable && now < status.retryAfter && (now - status.lastCheck) < SERVICE_STATUS_CACHE_DURATION) {
+      return true;
+    }
+    
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Marca o serviço como indisponível
+ */
+function setServiceUnavailable(): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    
+    const status: ServiceStatus = {
+      isUnavailable: true,
+      lastCheck: Date.now(),
+      retryAfter: Date.now() + SERVICE_STATUS_CACHE_DURATION,
+    };
+    localStorage.setItem(STORAGE_KEY_SERVICE_STATUS, JSON.stringify(status));
+  } catch {
+    // Ignorar erros
+  }
+}
+
 export interface SavedAnalysisRow {
   id: string;
   timestamp: number;
@@ -32,60 +115,71 @@ export interface BankSettingsRow {
  * Carrega todas as análises salvas do Supabase
  */
 export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
+  // Verificar se o serviço está indisponível ANTES de fazer qualquer requisição
+  if (isServiceUnavailable()) {
+    // Retornar array vazio silenciosamente - serviço está conhecidamente indisponível
+    return [];
+  }
+
   try {
-    logger.log('[Supabase] Iniciando carregamento de análises salvas...');
+    // Log apenas em modo dev
+    if (import.meta.env.DEV) {
+      logger.log('[Supabase] Iniciando carregamento de análises salvas...');
+    }
+    
     const supabase = await getSupabaseClient();
 
-    logger.log('[Supabase] Cliente inicializado, fazendo query...');
+    if (import.meta.env.DEV) {
+      logger.log('[Supabase] Cliente inicializado, fazendo query...');
+    }
+    
     const { data, error } = await supabase
       .from('saved_analyses')
       .select('*')
       .order('timestamp', { ascending: false });
 
     if (error) {
-      // Log detalhado do erro
-      logger.error('[Supabase] Erro ao carregar análises:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        status: error.status,
-      });
+      // Se é erro temporário, marcar serviço como indisponível e retornar vazio
+      if (isTemporaryError(error)) {
+        setServiceUnavailable();
+        return [];
+      }
 
-      errorService.logApiError('loadSavedAnalyses', error.status || 500, error.message);
+      // Log apenas erros não temporários e apenas em dev
+      if (import.meta.env.DEV) {
+        logger.error('[Supabase] Erro ao carregar análises:', {
+          code: error.code,
+          message: error.message,
+          status: error.status,
+        });
+      }
 
       // Identificar tipo de erro específico
       if (error.code === 'PGRST116' || error.code === '42P01') {
-        // Tabela não existe
-        logger.warn(
-          '[Supabase] Tabela saved_analyses não encontrada. Verifique se a tabela foi criada no Supabase.'
-        );
-        throw new Error(
-          'Tabela saved_analyses não encontrada no Supabase. Verifique a configuração do banco de dados.'
-        );
+        // Tabela não existe - não é erro crítico, retornar vazio
+        if (import.meta.env.DEV) {
+          logger.warn('[Supabase] Tabela saved_analyses não encontrada.');
+        }
+        return [];
       } else if (error.code === '42501' || error.status === 401) {
-        // Erro de autenticação/permissão
-        logger.error(
-          '[Supabase] Erro de autenticação. Verifique as credenciais (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).'
-        );
-        throw new Error('Erro de autenticação com Supabase. Verifique as variáveis de ambiente.');
-      } else if (error.status === 0 || error.message?.includes('Failed to fetch')) {
-        // Erro de conexão
-        logger.error(
-          '[Supabase] Erro de conexão. Verifique sua conexão com a internet e a URL do Supabase.'
-        );
-        throw new Error('Erro de conexão com Supabase. Verifique sua conexão com a internet.');
+        // Erro de autenticação/permissão - apenas em dev
+        if (import.meta.env.DEV) {
+          logger.error('[Supabase] Erro de autenticação.');
+        }
+        return [];
       }
 
-      throw error;
-    }
-
-    if (!data) {
-      logger.log('[Supabase] Nenhum dado retornado (data é null)');
+      // Outros erros - retornar vazio silenciosamente
       return [];
     }
 
-    logger.log(`[Supabase] ${data.length} análise(s) carregada(s) com sucesso`);
+    if (!data) {
+      return [];
+    }
+
+    if (import.meta.env.DEV) {
+      logger.log(`[Supabase] ${data.length} análise(s) carregada(s) com sucesso`);
+    }
 
     // Converter do formato do banco para SavedAnalysis
     const analyses = data.map((row: SavedAnalysisRow) => ({
@@ -99,29 +193,22 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
 
     return analyses;
   } catch (error: unknown) {
-    // Log detalhado do erro capturado
-    logger.error('[Supabase] Erro capturado ao carregar análises:', {
-      message: error instanceof Error ? error.message : String(error),
-      name: error instanceof Error ? error.name : 'Unknown',
-      stack: error instanceof Error ? error.stack : undefined,
-      code: (error as { code?: string })?.code,
-      status: (error as { status?: number })?.status,
-    });
+    // Se é erro temporário, marcar serviço como indisponível e retornar vazio
+    if (isTemporaryError(error)) {
+      setServiceUnavailable();
+      return [];
+    }
 
-    errorService.logError(
-      error instanceof Error
-        ? error
-        : new Error(error?.message || 'Erro desconhecido ao carregar análises'),
-      {
-        component: 'supabaseService',
-        action: 'loadSavedAnalyses',
-        errorCode: error?.code,
-        errorStatus: error?.status,
-      }
-    );
+    // Log apenas erros não temporários e apenas em dev
+    if (import.meta.env.DEV) {
+      logger.error('[Supabase] Erro capturado ao carregar análises:', {
+        message: error instanceof Error ? error.message : String(error),
+        status: (error as { status?: number })?.status,
+      });
+    }
 
-    // Re-lançar o erro para que o hook possa tratá-lo adequadamente
-    throw error;
+    // Retornar array vazio em vez de lançar erro
+    return [];
   }
 };
 
@@ -298,6 +385,12 @@ export const saveOrUpdateAnalysis = async (
  * Acesse: Supabase Dashboard > SQL Editor > Execute o script
  */
 export const loadBankSettings = async (): Promise<BankSettings | null> => {
+  // Verificar se o serviço está indisponível ANTES de fazer qualquer requisição
+  if (isServiceUnavailable()) {
+    // Retornar null silenciosamente - serviço está conhecidamente indisponível
+    return null;
+  }
+
   try {
     const supabase = await getSupabaseClient();
     const { data, error } = await supabase
@@ -307,19 +400,20 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
       .single();
 
     if (error) {
-      // Se não encontrar registro (PGRST116) ou tabela não existe (404), retornar null silenciosamente
-      if (error.code === 'PGRST116' || error.code === '42P01' || error.status === 404) {
-        // Tabela não existe ou registro não encontrado - não é erro crítico
-        // O sistema continuará usando localStorage como fallback
-        logger.warn(
-          'Tabela bank_settings não encontrada. Usando localStorage como fallback. Execute o SQL em supabase/migrations/create_bank_settings.sql'
-        );
+      // Se é erro temporário, marcar serviço como indisponível e retornar null
+      if (isTemporaryError(error)) {
+        setServiceUnavailable();
         return null;
       }
 
-      // Outros erros: logar apenas em desenvolvimento
-      logger.error('Erro ao carregar configurações de banca do Supabase:', error);
-      return null; // Retornar null em vez de lançar erro para não quebrar a aplicação
+      // Se não encontrar registro (PGRST116) ou tabela não existe (404), retornar null silenciosamente
+      if (error.code === 'PGRST116' || error.code === '42P01' || error.status === 404) {
+        // Tabela não existe ou registro não encontrado - não é erro crítico
+        return null;
+      }
+
+      // Outros erros: retornar null silenciosamente
+      return null;
     }
 
     if (!data) {
@@ -333,18 +427,19 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
       updatedAt: data.updated_at || Date.now(),
     };
   } catch (error: unknown) {
-    // Tratar erros de rede ou outros erros inesperados
-    if ((error as { status?: number; code?: string })?.status === 404 || (error as { status?: number; code?: string })?.code === '42P01') {
-      // Tabela não existe - não é erro crítico
-      logger.warn(
-        'Tabela bank_settings não encontrada. Execute o SQL em supabase/migrations/create_bank_settings.sql'
-      );
+    // Se é erro temporário, marcar serviço como indisponível e retornar null
+    if (isTemporaryError(error)) {
+      setServiceUnavailable();
       return null;
     }
 
-    // Outros erros: logar apenas em desenvolvimento
-    logger.error('Erro ao carregar configurações de banca:', error);
-    // Em caso de erro, retornar null para não quebrar a aplicação
+    // Tratar erros de rede ou outros erros inesperados
+    if ((error as { status?: number; code?: string })?.status === 404 || (error as { status?: number; code?: string })?.code === '42P01') {
+      // Tabela não existe - não é erro crítico
+      return null;
+    }
+
+    // Outros erros: retornar null silenciosamente
     return null;
   }
 };

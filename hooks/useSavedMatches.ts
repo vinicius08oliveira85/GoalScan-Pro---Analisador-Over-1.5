@@ -44,9 +44,14 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
 
     // Agora tentar carregar do Supabase para sincronizar
     try {
-      logger.log('[useSavedMatches] Tentando carregar do Supabase...');
+      // Log apenas em modo dev
+      if (import.meta.env.DEV) {
+        logger.log('[useSavedMatches] Tentando carregar do Supabase...');
+      }
       const matches = await loadSavedAnalyses();
-      logger.log(`[useSavedMatches] ${matches.length} partida(s) carregada(s) do Supabase`);
+      if (import.meta.env.DEV && matches.length > 0) {
+        logger.log(`[useSavedMatches] ${matches.length} partida(s) carregada(s) do Supabase`);
+      }
 
       setSavedMatches(matches);
       setIsUsingLocalData(false);
@@ -61,19 +66,29 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      logger.error('[useSavedMatches] Erro ao carregar do Supabase:', {
-        message: errorMessage,
-        code: (error as { code?: string })?.code,
-        status: (error as { status?: number })?.status,
-        name: error instanceof Error ? error.name : 'Unknown',
-      });
+      const errorStatus = (error as { status?: number })?.status;
+      const isTemporary = errorStatus === 503 || errorStatus === 502 || errorStatus === 504 || 
+                          errorMessage.includes('503') || errorMessage.includes('Service Unavailable') ||
+                          errorMessage.includes('insufficient resources');
+      
+      // Não logar erros temporários - serviço está indisponível, já tratado
+      if (!isTemporary && import.meta.env.DEV) {
+        logger.error('[useSavedMatches] Erro ao carregar do Supabase:', {
+          message: errorMessage,
+          code: (error as { code?: string })?.code,
+          status: errorStatus,
+        });
+      }
 
-      errorService.logError(error instanceof Error ? error : new Error(errorMessage), {
-        component: 'useSavedMatches',
-        action: 'loadMatches',
-        errorCode: error?.code,
-        errorStatus: error?.status,
-      });
+      // Não registrar erros temporários no errorService
+      if (!isTemporary) {
+        errorService.logError(error instanceof Error ? error : new Error(errorMessage), {
+          component: 'useSavedMatches',
+          action: 'loadMatches',
+          errorCode: (error as { code?: string })?.code,
+          errorStatus: errorStatus,
+        });
+      }
 
       // Determinar tipo de erro para mensagem mais específica
       let errorMsg = 'Erro ao sincronizar com o servidor. Usando dados locais...';
