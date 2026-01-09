@@ -168,3 +168,56 @@ export interface SavedAnalysis {
   aiAnalysis?: string; // Markdown completo da análise da IA (opcional)
   betInfo?: BetInfo; // Informações da aposta (opcional)
 }
+
+// Tipos de tabela de campeonato
+export type TableType =
+  | 'geral'
+  | 'casa_fora'
+  | 'estatisticas_elenco'
+  | 'chutes_equipe'
+  | 'criacao_gols_chutes';
+
+// Interface para linha da tabela "Geral" (traduzida para PT-BR)
+export interface TableRowGeral {
+  Rk: string; // Classificação
+  Squad: string; // Equipe
+  MP: string; // Partidas Jogadas
+  W: string; // Vitórias
+  D: string; // Empates
+  L: string; // Derrotas
+  GF: string; // Gols a Favor
+  GA: string; // Gols Contra
+  GD: string; // Saldo de Gols
+  Pts: string; // Pontos
+  'Pts/MP': string; // Pontos por Partida
+  xG: string; // Gols Esperados
+  xGA: string; // Gols Esperados Permitidos
+  xGD: string; // Diferença de Gols Esperados
+  'xGD/90': string; // Diferença de xG por 90 Minutos
+  'Last 5': string; // Últimos 5 Jogos
+  Attendance: string; // Público por Jogo
+  'Top Team Scorer_link'?: string;
+  'Top Team Scorer': string; // Artilheiro da Equipe
+  'Goalkeeper_link'?: string;
+  Goalkeeper: string; // Goleiro
+  Notes: string; // Observações
+}
+
+// Dados do campeonato
+export interface Championship {
+  id: string;
+  nome: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Dados de uma tabela de campeonato
+export interface ChampionshipTable {
+  id: string;
+  championship_id: string;
+  table_type: TableType;
+  table_name: string;
+  table_data: unknown; // JSON genérico (pode ser TableRowGeral[] ou outras estruturas)
+  created_at?: string;
+  updated_at?: string;
+}

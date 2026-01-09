@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MatchData, TeamStatistics, GolsStats } from '../types';
+import { MatchData, TeamStatistics, GolsStats, Championship } from '../types';
 import { validateMatchData } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
 import AiOver15Insights from './AiOver15Insights';
+import { useChampionships } from '../hooks/useChampionships';
 
 interface MatchFormProps {
   onAnalyze: (data: MatchData) => void | Promise<void>;
@@ -62,6 +63,11 @@ const MatchForm: React.FC<MatchFormProps> = ({
   savedAiAnalysis,
 }) => {
   const [formData, setFormData] = useState<MatchData>(initialData || createEmptyMatchData());
+  const { championships, getSquads } = useChampionships();
+  const [selectedChampionshipId, setSelectedChampionshipId] = useState<string>('');
+  const [availableSquads, setAvailableSquads] = useState<string[]>([]);
+  const [selectedHomeSquad, setSelectedHomeSquad] = useState<string>('');
+  const [selectedAwaySquad, setSelectedAwaySquad] = useState<string>('');
 
   useEffect(() => {
     if (initialData) {
@@ -70,6 +76,38 @@ const MatchForm: React.FC<MatchFormProps> = ({
       setFormData(createEmptyMatchData());
     }
   }, [initialData]);
+
+  // Carregar Squads quando campeonato for selecionado
+  useEffect(() => {
+    const loadSquads = async () => {
+      if (selectedChampionshipId) {
+        const squads = await getSquads(selectedChampionshipId, 'geral');
+        setAvailableSquads(squads);
+      } else {
+        setAvailableSquads([]);
+      }
+    };
+    loadSquads();
+  }, [selectedChampionshipId, getSquads]);
+
+  // Preencher nomes dos times quando Squad for selecionado
+  useEffect(() => {
+    if (selectedHomeSquad) {
+      setFormData((prev) => ({
+        ...prev,
+        homeTeam: selectedHomeSquad,
+      }));
+    }
+  }, [selectedHomeSquad]);
+
+  useEffect(() => {
+    if (selectedAwaySquad) {
+      setFormData((prev) => ({
+        ...prev,
+        awayTeam: selectedAwaySquad,
+      }));
+    }
+  }, [selectedAwaySquad]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -196,6 +234,70 @@ const MatchForm: React.FC<MatchFormProps> = ({
       initial="initial"
       animate="animate"
     >
+      {/* Seleção de Campeonato e Squad */}
+      <div className="bg-primary/5 p-4 rounded-3xl border border-primary/10">
+        <h3 className="text-lg font-bold mb-4">Campeonato e Equipes</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-bold">Campeonato</span>
+            </label>
+            <select
+              value={selectedChampionshipId}
+              onChange={(e) => {
+                setSelectedChampionshipId(e.target.value);
+                setSelectedHomeSquad('');
+                setSelectedAwaySquad('');
+              }}
+              className="select select-bordered w-full"
+            >
+              <option value="">Selecione um campeonato</option>
+              {championships.map((championship) => (
+                <option key={championship.id} value={championship.id}>
+                  {championship.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-bold">Time Casa (Squad)</span>
+            </label>
+            <select
+              value={selectedHomeSquad}
+              onChange={(e) => setSelectedHomeSquad(e.target.value)}
+              className="select select-bordered w-full"
+              disabled={!selectedChampionshipId || availableSquads.length === 0}
+            >
+              <option value="">Selecione o Squad</option>
+              {availableSquads.map((squad) => (
+                <option key={squad} value={squad}>
+                  {squad}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-bold">Time Visitante (Squad)</span>
+            </label>
+            <select
+              value={selectedAwaySquad}
+              onChange={(e) => setSelectedAwaySquad(e.target.value)}
+              className="select select-bordered w-full"
+              disabled={!selectedChampionshipId || availableSquads.length === 0}
+            >
+              <option value="">Selecione o Squad</option>
+              {availableSquads.map((squad) => (
+                <option key={squad} value={squad}>
+                  {squad}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Informações Básicas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="form-control">

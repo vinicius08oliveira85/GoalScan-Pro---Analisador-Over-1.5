@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, Target, Wallet, Settings } from 'lucide-react';
+import { LayoutDashboard, Target, Wallet, Settings, Trophy } from 'lucide-react';
 
-export type TabType = 'dashboard' | 'matches' | 'bank' | 'settings';
+export type TabType = 'dashboard' | 'matches' | 'bank' | 'settings' | 'championships';
 
 interface TabNavigationProps {
   activeTab: TabType;
@@ -17,6 +17,11 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange })
       icon: <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" />,
     },
     { id: 'matches', label: 'Partidas', icon: <Target className="w-4 h-4 md:w-5 md:h-5" /> },
+    {
+      id: 'championships',
+      label: 'Campeonatos',
+      icon: <Trophy className="w-4 h-4 md:w-5 md:h-5" />,
+    },
     { id: 'bank', label: 'Banca', icon: <Wallet className="w-4 h-4 md:w-5 md:h-5" /> },
     {
       id: 'settings',

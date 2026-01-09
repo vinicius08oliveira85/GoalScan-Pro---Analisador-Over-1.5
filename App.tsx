@@ -7,6 +7,7 @@ import CommandPalette from './components/CommandPalette';
 import TabNavigation, { TabType } from './components/TabNavigation';
 import DashboardScreen from './components/DashboardScreen';
 import MatchesScreen from './components/MatchesScreen';
+import ChampionshipsScreen from './components/ChampionshipsScreen';
 import BankScreen from './components/BankScreen';
 import SettingsScreen from './components/SettingsScreen';
 import { useToast } from './hooks/useToast';
@@ -576,6 +577,17 @@ const App: React.FC = () => {
                 isLoading={isLoading}
                 isUpdatingBetStatus={isUpdatingBetStatus}
               />
+            </motion.div>
+          )}
+          {activeTab === 'championships' && (
+            <motion.div
+              key="championships"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChampionshipsScreen />
             </motion.div>
           )}
           {activeTab === 'bank' && (
