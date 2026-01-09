@@ -120,7 +120,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }
 
     try {
-      const { homeTableData, awayTableData } = await syncTeamStatsFromTable(
+      const { homeTableData, awayTableData, competitionAvg } = await syncTeamStatsFromTable(
         selectedChampionshipId,
         selectedHomeSquad,
         selectedAwaySquad
@@ -131,6 +131,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
         championshipId: selectedChampionshipId,
         homeTableData: homeTableData || undefined,
         awayTableData: awayTableData || undefined,
+        // Preencher automaticamente a média da competição calculada da tabela
+        competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
       }));
 
       // Mostrar mensagem de sucesso se dados foram encontrados

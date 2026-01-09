@@ -38,6 +38,9 @@ export const matchDataSchema = z.object({
   homeCleanSheetFreq: z.number().min(0).max(100).default(0),
   awayCleanSheetFreq: z.number().min(0).max(100).default(0),
   h2hOver15Freq: z.number().min(0).max(100).default(0),
+  // Campos deprecated (mantidos para compatibilidade com dados antigos)
+  homeOver15Freq: z.number().min(0).max(100).optional(),
+  awayOver15Freq: z.number().min(0).max(100).optional(),
 
   // Métricas avançadas
   homeXG: z.number().min(0).max(10).default(0),

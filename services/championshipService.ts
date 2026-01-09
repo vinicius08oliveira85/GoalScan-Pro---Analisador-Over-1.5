@@ -652,6 +652,61 @@ export const getTeamDataFromTable = async (
 };
 
 /**
+ * Calcula a média de gols por partida do campeonato baseado na tabela
+ * Fórmula: (soma de todos os gols marcados) / (número total de partidas)
+ * Como cada partida envolve 2 times: média = 2 * soma(GF) / soma(MP)
+ */
+export const calculateCompetitionAverageGoals = async (
+  championshipId: string,
+  tableType: TableType = 'geral'
+): Promise<number | null> => {
+  try {
+    const tables = await loadChampionshipTables(championshipId);
+    const table = tables.find((t) => t.table_type === tableType);
+
+    if (!table || !table.table_data || !Array.isArray(table.table_data)) {
+      return null;
+    }
+
+    const rows = table.table_data as TableRowGeral[];
+    
+    if (rows.length === 0) {
+      return null;
+    }
+
+    let totalGoals = 0; // Soma de todos os gols marcados (GF)
+    let totalMatches = 0; // Soma de todas as partidas jogadas (MP)
+
+    for (const row of rows) {
+      // Converter GF e MP para números
+      const gf = parseFloat(row.GF || '0');
+      const mp = parseFloat(row.MP || '0');
+
+      if (!isNaN(gf) && !isNaN(mp) && mp > 0) {
+        totalGoals += gf;
+        totalMatches += mp;
+      }
+    }
+
+    if (totalMatches === 0) {
+      return null;
+    }
+
+    // Média de gols por partida = 2 * totalGoals / totalMatches
+    // (multiplicamos por 2 porque cada partida envolve 2 times)
+    const averageGoals = (2 * totalGoals) / totalMatches;
+
+    // Arredondar para 2 casas decimais
+    return Math.round(averageGoals * 100) / 100;
+  } catch (error: unknown) {
+    if (import.meta.env.DEV) {
+      logger.error('[ChampionshipService] Erro ao calcular média de gols do campeonato:', error);
+    }
+    return null;
+  }
+};
+
+/**
  * Sincroniza dados completos da tabela do campeonato para ambas equipes
  * Retorna TODOS os campos da tabela para análise pela IA
  */
@@ -662,14 +717,19 @@ export const syncTeamStatsFromTable = async (
 ): Promise<{
   homeTableData: TableRowGeral | null;
   awayTableData: TableRowGeral | null;
+  competitionAvg?: number; // Média de gols do campeonato calculada automaticamente
 }> => {
   try {
     const homeData = await getTeamDataFromTable(championshipId, homeSquad);
     const awayData = await getTeamDataFromTable(championshipId, awaySquad);
+    
+    // Calcular média de gols do campeonato automaticamente
+    const competitionAvg = await calculateCompetitionAverageGoals(championshipId, 'geral');
 
     return {
       homeTableData: homeData,
       awayTableData: awayData,
+      competitionAvg: competitionAvg || undefined,
     };
   } catch (error: unknown) {
     logger.error('[ChampionshipService] Erro ao sincronizar dados da tabela:', error);
