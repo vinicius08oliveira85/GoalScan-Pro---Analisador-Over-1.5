@@ -2,6 +2,7 @@ import { MatchData } from '../types';
 import { performAnalysis } from './analysisEngine';
 import { generateGeminiContent, getGeminiSettings, toGeminiFriendlyError } from './geminiClient';
 import { syncMatchScore, MatchScore } from './googleMatchSync';
+import { getTeamDataFromTable } from './championshipService';
 
 /**
  * TIPAGEM E CONFIGURAÇÕES
@@ -53,13 +54,135 @@ export const extractProbabilityFromMarkdown = (md: string) => extractMetric(md, 
 export const extractConfidenceFromMarkdown = (md: string) => extractMetric(md, 'Confiança');
 
 /**
+ * Extrai probabilidades Over/Under para diferentes linhas do markdown retornado pela IA
+ */
+export function parseOverUnderProbabilities(markdown: string): {
+  [line: string]: { over: number; under: number };
+} {
+  const probabilities: { [line: string]: { over: number; under: number } } = {};
+  const lines = ['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'];
+
+  // Tentar extrair do JSON primeiro
+  const jsonMatch = markdown.match(/```json\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    try {
+      const jsonData = JSON.parse(jsonMatch[1]);
+      if (jsonData.overUnderProbabilities) {
+        return jsonData.overUnderProbabilities;
+      }
+    } catch (e) {
+      // Continuar com parsing de texto
+    }
+  }
+
+  // Extrair de formato de texto
+  for (const line of lines) {
+    // Procurar por padrões como "Over 1.5: 75%", "Under 1.5: 25%"
+    const overRegex = new RegExp(
+      `(?:Over|Mais)\\s*${line.replace('.', '\\.')}\\s*[:\\-]?\\s*(\\d+(?:\\.\\d+)?)\\s*%`,
+      'i'
+    );
+    const underRegex = new RegExp(
+      `(?:Under|Menos)\\s*${line.replace('.', '\\.')}\\s*[:\\-]?\\s*(\\d+(?:\\.\\d+)?)\\s*%`,
+      'i'
+    );
+
+    const overMatch = markdown.match(overRegex);
+    const underMatch = markdown.match(underRegex);
+
+    const over = overMatch ? parseFloat(overMatch[1]) : null;
+    const under = underMatch ? parseFloat(underMatch[1]) : null;
+
+    if (over !== null || under !== null) {
+      probabilities[line] = {
+        over: over !== null ? Math.min(Math.max(over, 0), 100) : 0,
+        under: under !== null ? Math.min(Math.max(under, 0), 100) : 0,
+      };
+    }
+  }
+
+  return probabilities;
+}
+
+/**
+ * Extrai combinações recomendadas (Over E Under >= 75%) do markdown retornado pela IA
+ */
+export function parseRecommendedCombinations(markdown: string): Array<{
+  overLine: number;
+  underLine: number;
+  overProb: number;
+  underProb: number;
+  combinedProb: number;
+}> {
+  const combinations: Array<{
+    overLine: number;
+    underLine: number;
+    overProb: number;
+    underProb: number;
+    combinedProb: number;
+  }> = [];
+
+  // Tentar extrair do JSON primeiro
+  const jsonMatch = markdown.match(/```json\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    try {
+      const jsonData = JSON.parse(jsonMatch[1]);
+      if (jsonData.recommendedCombinations && Array.isArray(jsonData.recommendedCombinations)) {
+        return jsonData.recommendedCombinations.filter(
+          (c: { overProb: number; underProb: number }) => c.overProb >= 75 && c.underProb >= 75
+        );
+      }
+    } catch (e) {
+      // Continuar com parsing de texto
+    }
+  }
+
+  // Extrair de formato de texto
+  // Procurar por padrões como "Over 1.5 (75%) E Under 3.5 (80%) = 60% combinado"
+  const combinationRegex = /(?:Over|Mais)\s*(\d+\.?\d*)\s*\((\d+(?:\.\d+)?)%\)\s*(?:E|AND)\s*(?:Under|Menos)\s*(\d+\.?\d*)\s*\((\d+(?:\.\d+)?)%\)\s*(?:=|combinado|combined)\s*(\d+(?:\.\d+)?)%/gi;
+  
+  let match;
+  while ((match = combinationRegex.exec(markdown)) !== null) {
+    const overLine = parseFloat(match[1]);
+    const overProb = parseFloat(match[2]);
+    const underLine = parseFloat(match[3]);
+    const underProb = parseFloat(match[4]);
+    const combinedProb = parseFloat(match[5]);
+
+    if (overProb >= 75 && underProb >= 75) {
+      combinations.push({
+        overLine,
+        underLine,
+        overProb: Math.min(Math.max(overProb, 0), 100),
+        underProb: Math.min(Math.max(underProb, 0), 100),
+        combinedProb: Math.min(Math.max(combinedProb, 0), 100),
+      });
+    }
+  }
+
+  return combinations;
+}
+
+/**
  * CONSTRUÇÃO DE CONTEXTO E PROMPT
  */
 
-function buildContext(data: MatchData, liveScore?: MatchScore) {
+async function buildContext(data: MatchData, liveScore?: MatchScore) {
   const result = performAnalysis(data);
   const home = data.homeTeamStats?.gols?.home;
   const away = data.awayTeamStats?.gols?.away;
+
+  // Buscar dados da tabela do campeonato se disponível
+  let homeTableData = null;
+  let awayTableData = null;
+  if (data.championshipId && data.homeTeam && data.awayTeam) {
+    try {
+      homeTableData = await getTeamDataFromTable(data.championshipId, data.homeTeam);
+      awayTableData = await getTeamDataFromTable(data.championshipId, data.awayTeam);
+    } catch (error) {
+      console.warn('Erro ao buscar dados da tabela:', error);
+    }
+  }
 
   return {
     match: {
@@ -78,8 +201,32 @@ function buildContext(data: MatchData, liveScore?: MatchScore) {
       competitionAvg: safeNumber(data.competitionAvg),
     },
     stats: {
-      home: { over15: safeNumber(data.homeOver15Freq), avgScored: home?.avgScored, avgTotal: home?.avgTotal },
-      away: { over15: safeNumber(data.awayOver15Freq), avgScored: away?.avgScored, avgTotal: away?.avgTotal },
+      home: { 
+        avgScored: home?.avgScored, 
+        avgConceded: home?.avgConceded,
+        avgTotal: home?.avgTotal,
+        cleanSheetPct: home?.cleanSheetPct,
+        noGoalsPct: home?.noGoalsPct,
+        over25Pct: home?.over25Pct,
+        under25Pct: home?.under25Pct,
+      },
+      away: { 
+        avgScored: away?.avgScored, 
+        avgConceded: away?.avgConceded,
+        avgTotal: away?.avgTotal,
+        cleanSheetPct: away?.cleanSheetPct,
+        noGoalsPct: away?.noGoalsPct,
+        over25Pct: away?.over25Pct,
+        under25Pct: away?.under25Pct,
+      },
+    },
+    championshipTable: {
+      home: homeTableData,
+      away: awayTableData,
+    },
+    last10Matches: {
+      home: data.last10HomeMatches || [],
+      away: data.last10AwayMatches || [],
     },
     baseline: {
       prob: safeNumber(result.probabilityOver15),
@@ -89,12 +236,12 @@ function buildContext(data: MatchData, liveScore?: MatchScore) {
   };
 }
 
-function buildPrompt(data: MatchData, liveScore?: MatchScore): string {
-  const ctx = buildContext(data, liveScore);
+async function buildPrompt(data: MatchData, liveScore?: MatchScore): Promise<string> {
+  const ctx = await buildContext(data, liveScore);
   
   return [
-    '# PERSONA: Analista Quantitativo de Apostas (Over 1.5 Gols)',
-    '# OBJETIVO: Gerar relatório técnico baseado exclusivamente nos dados fornecidos.',
+    '# PERSONA: Analista Quantitativo de Apostas (Over/Under Gols)',
+    '# OBJETIVO: Gerar relatório técnico completo com probabilidades Over/Under para múltiplas linhas.',
     '',
     '## REGRAS CRÍTICAS:',
     '1. Use APENAS o JSON abaixo. Proibido inventar dados ou usar conhecimento externo.',
@@ -102,9 +249,40 @@ function buildPrompt(data: MatchData, liveScore?: MatchScore): string {
     '   - **Probabilidade (IA)**: XX%',
     '   - **Confiança (IA)**: XX%',
     '3. Se houver liveData (minute > 0), priorize o cenário atual da partida sobre o histórico.',
+    '4. Calcule probabilidades Over/Under para as seguintes linhas: 0.5, 1.5, 2.5, 3.5, 4.5, 5.5',
+    '5. Identifique combinações de apostas (Over X.5 E Under Y.5) onde ambas probabilidades >= 75%',
     '',
     '## ESTRUTURA DO RELATÓRIO:',
-    '## Painel de Resultados e EV -> Análise Quantitativa -> Sinais a Favor -> Red Flags -> Plano de Entrada',
+    '## Painel de Resultados e EV',
+    '## Probabilidades Over/Under por Linha',
+    '## Combinações Recomendadas (Over E Under >= 75%)',
+    '## Análise Quantitativa',
+    '## Sinais a Favor',
+    '## Red Flags',
+    '## Plano de Entrada',
+    '',
+    '## FORMATO ESPERADO DAS PROBABILIDADES:',
+    '```json',
+    '{',
+    '  "overUnderProbabilities": {',
+    '    "0.5": { "over": 95, "under": 5 },',
+    '    "1.5": { "over": 75, "under": 25 },',
+    '    "2.5": { "over": 60, "under": 40 },',
+    '    "3.5": { "over": 40, "under": 60 },',
+    '    "4.5": { "over": 20, "under": 80 },',
+    '    "5.5": { "over": 10, "under": 90 }',
+    '  },',
+    '  "recommendedCombinations": [',
+    '    {',
+    '      "overLine": 1.5,',
+    '      "underLine": 3.5,',
+    '      "overProb": 75,',
+    '      "underProb": 80,',
+    '      "combinedProb": 60',
+    '    }',
+    '  ]',
+    '}',
+    '```',
     '',
     '## DADOS PARA ANÁLISE (JSON):',
     JSON.stringify(ctx, null, 2)
@@ -115,8 +293,8 @@ function buildPrompt(data: MatchData, liveScore?: MatchScore): string {
  * FALLBACK LOCAL (Lógica Estatística de Segurança)
  */
 
-function localFallbackReport(data: MatchData, liveScore?: MatchScore, notice?: AiOver15Result['notice']): AiOver15Result {
-  const ctx = buildContext(data, liveScore);
+async function localFallbackReport(data: MatchData, liveScore?: MatchScore, notice?: AiOver15Result['notice']): Promise<AiOver15Result> {
+  const ctx = await buildContext(data, liveScore);
   const baseProb = ctx.baseline.prob ?? 0;
   
   // Ajuste de probabilidade em tempo real para o fallback
@@ -172,7 +350,7 @@ export async function generateAiOver15Report(
 
   const apiKey = getGeminiSettings().apiKey;
   if (!apiKey) {
-    return localFallbackReport(data, liveScore, {
+    return await localFallbackReport(data, liveScore, {
       kind: 'info',
       title: 'IA Local Ativa',
       message: 'Chave API não configurada. Usando processamento estatístico local.'
@@ -180,12 +358,12 @@ export async function generateAiOver15Report(
   }
 
   try {
-    const prompt = buildPrompt(data, liveScore);
+    const prompt = await buildPrompt(data, liveScore);
     const reportMarkdown = await generateGeminiContent(prompt, apiKey);
     return { reportMarkdown, provider: 'gemini' };
   } catch (e) {
     const friendly = toGeminiFriendlyError(e);
-    return localFallbackReport(data, liveScore, {
+    return await localFallbackReport(data, liveScore, {
       kind: 'warning',
       title: friendly?.title ?? 'Erro na IA',
       message: friendly?.message ?? 'Falha na comunicação com o Gemini. Usando fallback.'

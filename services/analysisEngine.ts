@@ -120,35 +120,34 @@ export function combineProbabilities(
  * Calcula pesos adaptativos baseados na qualidade e disponibilidade dos dados
  */
 function calculateAdaptiveWeights(
-  homeOver15Freq: number,
-  awayOver15Freq: number,
+  estimatedOver15Freq: number,
+  _awayOver15Freq: number, // Mantido para compatibilidade, mas não usado
   competitionAvg: number,
   hasTeamStats: boolean
 ): { homeWeight: number; awayWeight: number; competitionWeight: number } {
   // Base: se temos dados dos times, dar mais peso a eles
-  const hasHomeData = homeOver15Freq > 0;
-  const hasAwayData = awayOver15Freq > 0;
+  const hasEstimatedData = estimatedOver15Freq > 0;
   const hasCompetitionData = competitionAvg > 0;
 
   // Contar quantos dados temos
-  const dataCount = (hasHomeData ? 1 : 0) + (hasAwayData ? 1 : 0) + (hasCompetitionData ? 1 : 0);
+  const dataCount = (hasEstimatedData ? 1 : 0) + (hasCompetitionData ? 1 : 0);
 
   if (dataCount === 0) {
     // Sem dados, usar pesos padrão
     return { homeWeight: 0.25, awayWeight: 0.25, competitionWeight: 0.5 };
   }
 
-  // Se temos dados dos times E estatísticas detalhadas, dar mais peso aos times
-  if (hasTeamStats && hasHomeData && hasAwayData) {
+  // Se temos dados estimados E estatísticas detalhadas, dar mais peso aos times
+  if (hasTeamStats && hasEstimatedData) {
     return { homeWeight: 0.35, awayWeight: 0.35, competitionWeight: 0.3 };
   }
 
-  // Se temos apenas um time, ajustar pesos
-  if (hasHomeData && !hasAwayData) {
-    return { homeWeight: 0.4, awayWeight: 0, competitionWeight: 0.6 };
+  // Se temos apenas dados estimados, ajustar pesos
+  if (hasEstimatedData && !hasCompetitionData) {
+    return { homeWeight: 0.4, awayWeight: 0.4, competitionWeight: 0.2 };
   }
-  if (!hasHomeData && hasAwayData) {
-    return { homeWeight: 0, awayWeight: 0.4, competitionWeight: 0.6 };
+  if (!hasEstimatedData && hasCompetitionData) {
+    return { homeWeight: 0.25, awayWeight: 0.25, competitionWeight: 0.5 };
   }
 
   // Padrão: balanceado
@@ -180,22 +179,18 @@ export function performAnalysis(
     throw new Error('Dados de entrada inválidos: homeTeam e awayTeam são obrigatórios');
   }
 
-  // NOVO ALGORITMO SIMPLIFICADO: Baseado em estatísticas específicas (home para time da casa, away para visitante)
+  // NOVO ALGORITMO: Baseado em estatísticas da tabela e dados disponíveis
 
-  // 1. Obter Over 1.5% de cada time (dado mais importante)
-  const homeOver15Freq = data.homeOver15Freq || 0;
-  const awayOver15Freq = data.awayOver15Freq || 0;
-
-  // 2. Obter média da competição (baseline importante)
+  // 1. Obter média da competição (baseline importante)
   const competitionAvg = data.competitionAvg || 0;
 
-  // 3. Calcular média total de gols (avgTotal de ambos times)
+  // 2. Calcular média total de gols (avgTotal de ambos times)
   // Usar estatísticas específicas: home para time da casa, away para visitante
   const homeAvgTotal = data.homeTeamStats?.gols?.home?.avgTotal || 0;
   const awayAvgTotal = data.awayTeamStats?.gols?.away?.avgTotal || 0;
   const avgTotal = (homeAvgTotal + awayAvgTotal) / 2;
 
-  // 4. Calcular médias de cleanSheet e noGoals
+  // 3. Calcular médias de cleanSheet e noGoals
   const homeCleanSheet = data.homeTeamStats?.gols?.home?.cleanSheetPct || 0;
   const awayCleanSheet = data.awayTeamStats?.gols?.away?.cleanSheetPct || 0;
   const avgCleanSheet = (homeCleanSheet + awayCleanSheet) / 2;
@@ -204,24 +199,53 @@ export function performAnalysis(
   const awayNoGoals = data.awayTeamStats?.gols?.away?.noGoalsPct || 0;
   const avgNoGoals = (homeNoGoals + awayNoGoals) / 2;
 
-  // 5. Calcular média de Over 2.5% (confirma tendência ofensiva)
+  // 4. Calcular média de Over 2.5% (confirma tendência ofensiva)
   const homeOver25 = data.homeTeamStats?.gols?.home?.over25Pct || 0;
   const awayOver25 = data.awayTeamStats?.gols?.away?.over25Pct || 0;
   const avgOver25 = (homeOver25 + awayOver25) / 2;
 
-  // 6. Calcular pesos adaptativos baseados na qualidade dos dados
+  // 5. Calcular Over 1.5% estimado baseado em médias de gols e estatísticas
+  // Se avgTotal > 1.5, probabilidade base é alta
+  // Usar dados da tabela quando disponíveis
   const hasTeamStats = !!(data.homeTeamStats && data.awayTeamStats);
+  
+  // Estimar Over 1.5% baseado em avgTotal
+  // Se média total > 2.5, Over 1.5% é muito alto (>90%)
+  // Se média total > 2.0, Over 1.5% é alto (>80%)
+  // Se média total > 1.5, Over 1.5% é moderado (>60%)
+  let estimatedOver15Freq = 50; // Baseline
+  if (avgTotal > 0) {
+    if (avgTotal >= 2.5) {
+      estimatedOver15Freq = 90 + (avgTotal - 2.5) * 4; // 90-100%
+    } else if (avgTotal >= 2.0) {
+      estimatedOver15Freq = 75 + (avgTotal - 2.0) * 30; // 75-90%
+    } else if (avgTotal >= 1.5) {
+      estimatedOver15Freq = 60 + (avgTotal - 1.5) * 30; // 60-75%
+    } else {
+      estimatedOver15Freq = 30 + (avgTotal / 1.5) * 30; // 30-60%
+    }
+  }
+
+  // Ajustar baseado em cleanSheet e noGoals
+  estimatedOver15Freq -= avgCleanSheet * 0.3; // Reduzir se muitas clean sheets
+  estimatedOver15Freq -= avgNoGoals * 0.2; // Reduzir se muitos jogos sem gols
+  estimatedOver15Freq += avgOver25 * 0.2; // Aumentar se muitos Over 2.5
+
+  // Limitar entre 10% e 98%
+  estimatedOver15Freq = Math.max(10, Math.min(98, estimatedOver15Freq));
+
+  // 6. Calcular pesos adaptativos
   const weights = calculateAdaptiveWeights(
-    homeOver15Freq,
-    awayOver15Freq,
+    estimatedOver15Freq,
+    estimatedOver15Freq, // Usar mesma estimativa para ambos (já calculada com dados de ambos)
     competitionAvg,
     hasTeamStats
   );
 
   // Aplicar fórmula ponderada adaptativa
   let prob =
-    homeOver15Freq * weights.homeWeight +
-    awayOver15Freq * weights.awayWeight +
+    estimatedOver15Freq * weights.homeWeight +
+    estimatedOver15Freq * weights.awayWeight +
     competitionAvg * weights.competitionWeight;
 
   // Ajustes suaves baseados em métricas (usando funções sigmoid em vez de if/else fixos)

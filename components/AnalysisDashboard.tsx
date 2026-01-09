@@ -247,6 +247,89 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
         </motion.div>
       </div>
 
+      {/* Probabilidades Over/Under por Linha */}
+      {result.overUnderProbabilities && Object.keys(result.overUnderProbabilities).length > 0 && (
+        <motion.div
+          className="surface surface-hover p-4 md:p-6"
+          variants={animations.fadeInUp}
+          initial="initial"
+          animate="animate"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-black uppercase tracking-tight">Probabilidades Over/Under</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
+              const prob = result.overUnderProbabilities?.[line];
+              if (!prob) return null;
+              return (
+                <div
+                  key={line}
+                  className="surface-muted p-4 rounded-xl border border-base-300/60"
+                >
+                  <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
+                    Linha {line}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-success">Over</span>
+                      <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-error">Under</span>
+                      <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Combinações Recomendadas */}
+      {result.recommendedCombinations && result.recommendedCombinations.length > 0 && (
+        <motion.div
+          className="surface surface-hover p-4 md:p-6 border-l-4 border-l-success/60"
+          variants={animations.fadeInUp}
+          initial="initial"
+          animate="animate"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Zap className="w-5 h-5 text-success" />
+            <h3 className="text-lg font-black uppercase tracking-tight">
+              Combinações Recomendadas (Over E Under ≥ 75%)
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {result.recommendedCombinations
+              .sort((a, b) => b.combinedProb - a.combinedProb)
+              .map((combo, index) => (
+                <div
+                  key={index}
+                  className="surface-muted p-4 rounded-xl border border-success/30 bg-success/5"
+                >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="text-sm font-black mb-1">
+                        Over {combo.overLine} ({combo.overProb.toFixed(1)}%) E Under{' '}
+                        {combo.underLine} ({combo.underProb.toFixed(1)}%)
+                      </div>
+                      <div className="text-xs opacity-70">
+                        Probabilidade Combinada: <span className="font-bold">{combo.combinedProb.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="badge badge-success badge-lg font-black">
+                      {combo.combinedProb.toFixed(0)}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* Seção de Aposta - Design Moderno e Compacto */}
       {onBetSave && (
         <div>

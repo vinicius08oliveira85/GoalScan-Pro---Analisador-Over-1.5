@@ -35,7 +35,13 @@ import {
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
 import { logger } from './utils/logger';
-import { generateAiOver15Report, extractProbabilityFromMarkdown, extractConfidenceFromMarkdown } from './services/aiOver15Service';
+import {
+  generateAiOver15Report,
+  extractProbabilityFromMarkdown,
+  extractConfidenceFromMarkdown,
+  parseOverUnderProbabilities,
+  parseRecommendedCombinations,
+} from './services/aiOver15Service';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
@@ -127,8 +133,20 @@ const App: React.FC = () => {
     // Garantir que a partida atual esteja no estado do App (mesmo se o usuário não clicou em "Analisar")
     setCurrentMatchData(data);
 
+    // Extrair probabilidades Over/Under e combinações recomendadas do markdown
+    const overUnderProbabilities = parseOverUnderProbabilities(aiMarkdown);
+    const recommendedCombinations = parseRecommendedCombinations(aiMarkdown);
+
     // Recalcular análise com probabilidade da IA
     const updatedResult = performAnalysis(data, aiProbability, aiConfidence);
+
+    // Adicionar probabilidades Over/Under e combinações ao resultado
+    updatedResult.overUnderProbabilities = Object.keys(overUnderProbabilities).length > 0
+      ? overUnderProbabilities
+      : undefined;
+    updatedResult.recommendedCombinations = recommendedCombinations.length > 0
+      ? recommendedCombinations
+      : undefined;
 
     // Atualizar resultado com análise da IA incluída
     setAnalysisResult(updatedResult);

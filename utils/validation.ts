@@ -33,8 +33,6 @@ export const matchDataSchema = z.object({
   awayGoalsConcededAvg: z.number().min(0).max(10).default(0),
 
   // Frequências (percentuais)
-  homeOver15Freq: z.number().min(0).max(100).default(0),
-  awayOver15Freq: z.number().min(0).max(100).default(0),
   homeBTTSFreq: z.number().min(0).max(100).default(0),
   awayBTTSFreq: z.number().min(0).max(100).default(0),
   homeCleanSheetFreq: z.number().min(0).max(100).default(0),
@@ -95,6 +93,29 @@ export const matchDataSchema = z.object({
     .optional(),
   homeTeamStats: z.any().optional(),
   awayTeamStats: z.any().optional(),
+
+  // Novos campos
+  championshipId: z.string().optional(),
+  last10HomeMatches: z
+    .array(
+      z.object({
+        date: z.string(),
+        opponent: z.string(),
+        homeScore: z.number().min(0).max(20),
+        awayScore: z.number().min(0).max(20),
+      })
+    )
+    .optional(),
+  last10AwayMatches: z
+    .array(
+      z.object({
+        date: z.string(),
+        opponent: z.string(),
+        homeScore: z.number().min(0).max(20),
+        awayScore: z.number().min(0).max(20),
+      })
+    )
+    .optional(),
 });
 
 // Schema para validação de BetInfo

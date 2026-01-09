@@ -625,6 +625,110 @@ export const getSquadsFromTable = async (
   }
 };
 
+/**
+ * Obtém dados de uma equipe específica da tabela do campeonato
+ */
+export const getTeamDataFromTable = async (
+  championshipId: string,
+  squad: string,
+  tableType: TableType = 'geral'
+): Promise<TableRowGeral | null> => {
+  try {
+    const tables = await loadChampionshipTables(championshipId);
+    const table = tables.find((t) => t.table_type === tableType);
+
+    if (!table || !table.table_data || !Array.isArray(table.table_data)) {
+      return null;
+    }
+
+    const rows = table.table_data as TableRowGeral[];
+    const teamRow = rows.find((row) => row.Squad === squad);
+
+    return teamRow || null;
+  } catch (error: unknown) {
+    logger.error('[ChampionshipService] Erro ao obter dados da equipe:', error);
+    return null;
+  }
+};
+
+/**
+ * Sincroniza estatísticas de ambas equipes da tabela do campeonato
+ * Calcula médias e percentuais baseados nos dados da tabela
+ */
+export const syncTeamStatsFromTable = async (
+  championshipId: string,
+  homeSquad: string,
+  awaySquad: string
+): Promise<{
+  homeStats: Partial<import('../types').TeamStatistics>;
+  awayStats: Partial<import('../types').TeamStatistics>;
+}> => {
+  try {
+    const homeData = await getTeamDataFromTable(championshipId, homeSquad);
+    const awayData = await getTeamDataFromTable(championshipId, awaySquad);
+
+    const calculateStats = (data: TableRowGeral | null) => {
+      if (!data) {
+        return {};
+      }
+
+      const mp = parseFloat(data.MP) || 0;
+      const gf = parseFloat(data.GF) || 0;
+      const ga = parseFloat(data.GA) || 0;
+      const w = parseFloat(data.W) || 0;
+      const d = parseFloat(data.D) || 0;
+      const l = parseFloat(data.L) || 0;
+
+      // Calcular médias
+      const avgScored = mp > 0 ? gf / mp : 0;
+      const avgConceded = mp > 0 ? ga / mp : 0;
+      const avgTotal = avgScored + avgConceded;
+
+      // Calcular percentuais (aproximações baseadas em vitórias/empates)
+      // Clean Sheet %: estimativa baseada em derrotas sem gols
+      const cleanSheetPct = mp > 0 ? (l / mp) * 100 : 0;
+      
+      // No Goals %: estimativa baseada em derrotas
+      const noGoalsPct = mp > 0 ? (l / mp) * 100 : 0;
+
+      // Over 2.5 %: estimativa baseada em média de gols
+      const over25Pct = avgTotal > 2.5 ? (avgTotal / 5) * 100 : (avgTotal / 2.5) * 50;
+      const under25Pct = 100 - over25Pct;
+
+      return {
+        gols: {
+          home: {
+            avgScored,
+            avgConceded,
+            avgTotal,
+            cleanSheetPct: Math.min(cleanSheetPct, 100),
+            noGoalsPct: Math.min(noGoalsPct, 100),
+            over25Pct: Math.min(Math.max(over25Pct, 0), 100),
+            under25Pct: Math.min(Math.max(under25Pct, 0), 100),
+          },
+          away: {
+            avgScored,
+            avgConceded,
+            avgTotal,
+            cleanSheetPct: Math.min(cleanSheetPct, 100),
+            noGoalsPct: Math.min(noGoalsPct, 100),
+            over25Pct: Math.min(Math.max(over25Pct, 0), 100),
+            under25Pct: Math.min(Math.max(under25Pct, 0), 100),
+          },
+        },
+      };
+    };
+
+    return {
+      homeStats: calculateStats(homeData),
+      awayStats: calculateStats(awayData),
+    };
+  } catch (error: unknown) {
+    logger.error('[ChampionshipService] Erro ao sincronizar estatísticas:', error);
+    return { homeStats: {}, awayStats: {} };
+  }
+};
+
 // Funções auxiliares para localStorage
 
 function loadChampionshipsFromLocalStorage(): Championship[] {

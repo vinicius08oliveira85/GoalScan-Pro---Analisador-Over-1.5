@@ -69,6 +69,7 @@ export interface MatchData {
   matchTime?: string; // Hora da partida (HH:mm)
   competitionAvg?: number; // Média da competição
   oddOver15?: number; // Nova: Odd do mercado
+  championshipId?: string; // ID do campeonato selecionado
   // Médias Reais
   homeGoalsScoredAvg: number;
   homeGoalsConcededAvg: number;
@@ -98,8 +99,8 @@ export interface MatchData {
   awayKeyPasses?: number;
 
   // Frequências
-  homeOver15Freq: number;
-  awayOver15Freq: number;
+  homeOver15Freq?: number; // Deprecated: removido do formulário, mantido para compatibilidade
+  awayOver15Freq?: number; // Deprecated: removido do formulário, mantido para compatibilidade
   homeBTTSFreq: number;
   awayBTTSFreq: number;
   homeCleanSheetFreq: number;
@@ -120,6 +121,20 @@ export interface MatchData {
   // Estatísticas Detalhadas (Últimos 10 Jogos) - Novo modelo
   homeTeamStats?: TeamStatistics;
   awayTeamStats?: TeamStatistics;
+
+  // Últimos 10 jogos Casa/Fora
+  last10HomeMatches?: Array<{
+    date: string;
+    opponent: string;
+    homeScore: number;
+    awayScore: number;
+  }>;
+  last10AwayMatches?: Array<{
+    date: string;
+    opponent: string;
+    homeScore: number;
+    awayScore: number;
+  }>;
 }
 
 export interface AnalysisResult {
@@ -139,6 +154,21 @@ export interface AnalysisResult {
     bttsCorrelation: number;
     formTrend: number;
   };
+  // Probabilidades Over/Under para diferentes linhas (calculadas pela IA)
+  overUnderProbabilities?: {
+    [line: string]: {
+      over: number;
+      under: number;
+    };
+  };
+  // Combinações recomendadas de apostas (Over E Under >= 75%)
+  recommendedCombinations?: Array<{
+    overLine: number;
+    underLine: number;
+    overProb: number;
+    underProb: number;
+    combinedProb: number;
+  }>;
 }
 
 // Informações de Aposta
