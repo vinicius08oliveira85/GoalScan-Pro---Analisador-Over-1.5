@@ -50,7 +50,19 @@ function isTemporaryError(error: unknown): boolean {
     code?: string | number; 
     status?: number;
     statusCode?: number;
+    error?: string; // Para detectar {error: 'Service Unavailable'}
   };
+  
+  // Verificar propriedade 'error' quando o erro é um objeto
+  if (err.error && typeof err.error === 'string') {
+    const errorStr = err.error.toLowerCase();
+    if (errorStr.includes('service unavailable') || 
+        errorStr.includes('503') ||
+        errorStr.includes('502') ||
+        errorStr.includes('504')) {
+      return true;
+    }
+  }
   
   // Verificar status code direto
   const statusCode = err.status || err.statusCode || 
@@ -317,6 +329,13 @@ export const loadChampionship = async (id: string): Promise<Championship | null>
  * Salva ou atualiza um campeonato
  */
 export const saveChampionship = async (championship: Championship): Promise<Championship> => {
+  // Verificar cache de status do serviço ANTES de fazer qualquer requisição
+  const serviceStatus = getServiceStatus();
+  if (serviceStatus?.isUnavailable && Date.now() < serviceStatus.retryAfter) {
+    // Serviço está conhecidamente indisponível - salvar apenas no localStorage silenciosamente
+    return saveChampionshipToLocalStorage(championship);
+  }
+
   try {
     const result = await withRetry(async () => {
       const supabase = await getSupabaseClient();
@@ -345,7 +364,10 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
           throw error;
         }
         
-        logger.error('[ChampionshipService] Erro ao salvar campeonato:', error);
+        // Apenas logar erros não temporários e apenas em modo dev
+        if (import.meta.env.DEV) {
+          logger.error('[ChampionshipService] Erro ao salvar campeonato:', error);
+        }
         throw error;
       }
 
@@ -370,8 +392,12 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
   } catch (error: unknown) {
     if (isTemporaryError(error)) {
       setServiceStatus(true, Date.now() + SERVICE_STATUS_CACHE_DURATION);
+      // Não logar - erro temporário esperado, já tratado
     } else {
-      logger.error('[ChampionshipService] Erro ao salvar campeonato:', error);
+      // Apenas logar erros não temporários e apenas em modo dev
+      if (import.meta.env.DEV) {
+        logger.error('[ChampionshipService] Erro ao salvar campeonato:', error);
+      }
     }
     // Fallback para localStorage
     return saveChampionshipToLocalStorage(championship);
@@ -484,6 +510,13 @@ export const loadChampionshipTables = async (
 export const saveChampionshipTable = async (
   table: ChampionshipTable
 ): Promise<ChampionshipTable> => {
+  // Verificar cache de status do serviço ANTES de fazer qualquer requisição
+  const serviceStatus = getServiceStatus();
+  if (serviceStatus?.isUnavailable && Date.now() < serviceStatus.retryAfter) {
+    // Serviço está conhecidamente indisponível - salvar apenas no localStorage silenciosamente
+    return saveChampionshipTableToLocalStorage(table);
+  }
+
   try {
     const result = await withRetry(async () => {
       const supabase = await getSupabaseClient();
@@ -514,7 +547,10 @@ export const saveChampionshipTable = async (
           throw error;
         }
         
-        logger.error('[ChampionshipService] Erro ao salvar tabela:', error);
+        // Apenas logar erros não temporários e apenas em modo dev
+        if (import.meta.env.DEV) {
+          logger.error('[ChampionshipService] Erro ao salvar tabela:', error);
+        }
         throw error;
       }
 
@@ -542,8 +578,12 @@ export const saveChampionshipTable = async (
   } catch (error: unknown) {
     if (isTemporaryError(error)) {
       setServiceStatus(true, Date.now() + SERVICE_STATUS_CACHE_DURATION);
+      // Não logar - erro temporário esperado, já tratado
     } else {
-      logger.error('[ChampionshipService] Erro ao salvar tabela:', error);
+      // Apenas logar erros não temporários e apenas em modo dev
+      if (import.meta.env.DEV) {
+        logger.error('[ChampionshipService] Erro ao salvar tabela:', error);
+      }
     }
     return saveChampionshipTableToLocalStorage(table);
   }
