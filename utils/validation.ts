@@ -96,26 +96,8 @@ export const matchDataSchema = z.object({
 
   // Novos campos
   championshipId: z.string().optional(),
-  last10HomeMatches: z
-    .array(
-      z.object({
-        date: z.string(),
-        opponent: z.string(),
-        homeScore: z.number().min(0).max(20),
-        awayScore: z.number().min(0).max(20),
-      })
-    )
-    .optional(),
-  last10AwayMatches: z
-    .array(
-      z.object({
-        date: z.string(),
-        opponent: z.string(),
-        homeScore: z.number().min(0).max(20),
-        awayScore: z.number().min(0).max(20),
-      })
-    )
-    .optional(),
+  homeTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
+  awayTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
 });
 
 // Schema para validação de BetInfo

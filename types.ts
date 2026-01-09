@@ -122,19 +122,9 @@ export interface MatchData {
   homeTeamStats?: TeamStatistics;
   awayTeamStats?: TeamStatistics;
 
-  // Últimos 10 jogos Casa/Fora
-  last10HomeMatches?: Array<{
-    date: string;
-    opponent: string;
-    homeScore: number;
-    awayScore: number;
-  }>;
-  last10AwayMatches?: Array<{
-    date: string;
-    opponent: string;
-    homeScore: number;
-    awayScore: number;
-  }>;
+  // Dados completos da tabela do campeonato (para análise da IA)
+  homeTableData?: TableRowGeral;
+  awayTableData?: TableRowGeral;
 }
 
 export interface AnalysisResult {

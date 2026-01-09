@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MatchData, TeamStatistics, GolsStats, Championship } from '../types';
+import { MatchData, TeamStatistics, GolsStats, Championship, TableRowGeral } from '../types';
 import { validateMatchData } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
@@ -120,7 +120,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }
 
     try {
-      const { homeStats, awayStats } = await syncTeamStatsFromTable(
+      const { homeTableData, awayTableData } = await syncTeamStatsFromTable(
         selectedChampionshipId,
         selectedHomeSquad,
         selectedAwaySquad
@@ -129,13 +129,17 @@ const MatchForm: React.FC<MatchFormProps> = ({
       setFormData((prev) => ({
         ...prev,
         championshipId: selectedChampionshipId,
-        homeTeamStats: homeStats as TeamStatistics,
-        awayTeamStats: awayStats as TeamStatistics,
+        homeTableData: homeTableData || undefined,
+        awayTableData: awayTableData || undefined,
       }));
 
-      if (onError) {
-        // Usar onError como callback de sucesso também (pode ser melhorado)
-        // Por enquanto, não fazer nada em caso de sucesso
+      // Mostrar mensagem de sucesso se dados foram encontrados
+      if (homeTableData && awayTableData) {
+        // Silencioso - dados sincronizados com sucesso
+      } else {
+        if (onError) {
+          onError('Alguns dados da tabela não foram encontrados. Verifique se as equipes existem no campeonato.');
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao sincronizar';
@@ -745,151 +749,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
               className="input input-sm text-center min-h-[44px]"
               placeholder="0"
             />
-          </div>
-        </div>
-      </div>
-
-      {/* Últimos 10 Jogos Casa/Fora */}
-      <div className="bg-blue-500/5 p-4 rounded-3xl border border-blue-500/10">
-        <h3 className="text-lg font-bold mb-4">Últimos 10 Jogos Casa/Fora</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Últimos 10 Jogos em Casa */}
-          <div>
-            <h4 className="text-sm font-bold mb-2">Time Casa - Últimos 10 Jogos em Casa</h4>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {Array.from({ length: 10 }).map((_, index) => (
-                <div key={`home-${index}`} className="grid grid-cols-4 gap-2">
-                  <input
-                    type="date"
-                    value={formData.last10HomeMatches?.[index]?.date || ''}
-                    onChange={(e) => {
-                      const matches = [...(formData.last10HomeMatches || [])];
-                      while (matches.length <= index) {
-                        matches.push({ date: '', opponent: '', homeScore: 0, awayScore: 0 });
-                      }
-                      matches[index] = { ...matches[index], date: e.target.value };
-                      setFormData((prev) => ({ ...prev, last10HomeMatches: matches }));
-                    }}
-                    className="input input-sm text-xs"
-                    placeholder="Data"
-                  />
-                  <input
-                    type="text"
-                    value={formData.last10HomeMatches?.[index]?.opponent || ''}
-                    onChange={(e) => {
-                      const matches = [...(formData.last10HomeMatches || [])];
-                      while (matches.length <= index) {
-                        matches.push({ date: '', opponent: '', homeScore: 0, awayScore: 0 });
-                      }
-                      matches[index] = { ...matches[index], opponent: e.target.value };
-                      setFormData((prev) => ({ ...prev, last10HomeMatches: matches }));
-                    }}
-                    className="input input-sm text-xs"
-                    placeholder="Adversário"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.last10HomeMatches?.[index]?.homeScore || ''}
-                    onChange={(e) => {
-                      const matches = [...(formData.last10HomeMatches || [])];
-                      while (matches.length <= index) {
-                        matches.push({ date: '', opponent: '', homeScore: 0, awayScore: 0 });
-                      }
-                      matches[index] = { ...matches[index], homeScore: Number(e.target.value) || 0 };
-                      setFormData((prev) => ({ ...prev, last10HomeMatches: matches }));
-                    }}
-                    className="input input-sm text-xs"
-                    placeholder="Gols Casa"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.last10HomeMatches?.[index]?.awayScore || ''}
-                    onChange={(e) => {
-                      const matches = [...(formData.last10HomeMatches || [])];
-                      while (matches.length <= index) {
-                        matches.push({ date: '', opponent: '', homeScore: 0, awayScore: 0 });
-                      }
-                      matches[index] = { ...matches[index], awayScore: Number(e.target.value) || 0 };
-                      setFormData((prev) => ({ ...prev, last10HomeMatches: matches }));
-                    }}
-                    className="input input-sm text-xs"
-                    placeholder="Gols Fora"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Últimos 10 Jogos Fora */}
-          <div>
-            <h4 className="text-sm font-bold mb-2">Time Visitante - Últimos 10 Jogos Fora</h4>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {Array.from({ length: 10 }).map((_, index) => (
-                <div key={`away-${index}`} className="grid grid-cols-4 gap-2">
-                  <input
-                    type="date"
-                    value={formData.last10AwayMatches?.[index]?.date || ''}
-                    onChange={(e) => {
-                      const matches = [...(formData.last10AwayMatches || [])];
-                      while (matches.length <= index) {
-                        matches.push({ date: '', opponent: '', homeScore: 0, awayScore: 0 });
-                      }
-                      matches[index] = { ...matches[index], date: e.target.value };
-                      setFormData((prev) => ({ ...prev, last10AwayMatches: matches }));
-                    }}
-                    className="input input-sm text-xs"
-                    placeholder="Data"
-                  />
-                  <input
-                    type="text"
-                    value={formData.last10AwayMatches?.[index]?.opponent || ''}
-                    onChange={(e) => {
-                      const matches = [...(formData.last10AwayMatches || [])];
-                      while (matches.length <= index) {
-                        matches.push({ date: '', opponent: '', homeScore: 0, awayScore: 0 });
-                      }
-                      matches[index] = { ...matches[index], opponent: e.target.value };
-                      setFormData((prev) => ({ ...prev, last10AwayMatches: matches }));
-                    }}
-                    className="input input-sm text-xs"
-                    placeholder="Adversário"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.last10AwayMatches?.[index]?.homeScore || ''}
-                    onChange={(e) => {
-                      const matches = [...(formData.last10AwayMatches || [])];
-                      while (matches.length <= index) {
-                        matches.push({ date: '', opponent: '', homeScore: 0, awayScore: 0 });
-                      }
-                      matches[index] = { ...matches[index], homeScore: Number(e.target.value) || 0 };
-                      setFormData((prev) => ({ ...prev, last10AwayMatches: matches }));
-                    }}
-                    className="input input-sm text-xs"
-                    placeholder="Gols Casa"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.last10AwayMatches?.[index]?.awayScore || ''}
-                    onChange={(e) => {
-                      const matches = [...(formData.last10AwayMatches || [])];
-                      while (matches.length <= index) {
-                        matches.push({ date: '', opponent: '', homeScore: 0, awayScore: 0 });
-                      }
-                      matches[index] = { ...matches[index], awayScore: Number(e.target.value) || 0 };
-                      setFormData((prev) => ({ ...prev, last10AwayMatches: matches }));
-                    }}
-                    className="input input-sm text-xs"
-                    placeholder="Gols Fora"
-                  />
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>

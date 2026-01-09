@@ -2,7 +2,6 @@ import { MatchData } from '../types';
 import { performAnalysis } from './analysisEngine';
 import { generateGeminiContent, getGeminiSettings, toGeminiFriendlyError } from './geminiClient';
 import { syncMatchScore, MatchScore } from './googleMatchSync';
-import { getTeamDataFromTable } from './championshipService';
 
 /**
  * TIPAGEM E CONFIGURAÇÕES
@@ -172,18 +171,6 @@ async function buildContext(data: MatchData, liveScore?: MatchScore) {
   const home = data.homeTeamStats?.gols?.home;
   const away = data.awayTeamStats?.gols?.away;
 
-  // Buscar dados da tabela do campeonato se disponível
-  let homeTableData = null;
-  let awayTableData = null;
-  if (data.championshipId && data.homeTeam && data.awayTeam) {
-    try {
-      homeTableData = await getTeamDataFromTable(data.championshipId, data.homeTeam);
-      awayTableData = await getTeamDataFromTable(data.championshipId, data.awayTeam);
-    } catch (error) {
-      console.warn('Erro ao buscar dados da tabela:', error);
-    }
-  }
-
   return {
     match: {
       homeTeam: data.homeTeam,
@@ -200,6 +187,7 @@ async function buildContext(data: MatchData, liveScore?: MatchScore) {
       oddOver15: safeNumber(data.oddOver15),
       competitionAvg: safeNumber(data.competitionAvg),
     },
+    // Estatísticas Globais (inseridas manualmente pelo usuário)
     stats: {
       home: { 
         avgScored: home?.avgScored, 
@@ -220,13 +208,10 @@ async function buildContext(data: MatchData, liveScore?: MatchScore) {
         under25Pct: away?.under25Pct,
       },
     },
+    // Dados completos da tabela do campeonato (TODOS os campos)
     championshipTable: {
-      home: homeTableData,
-      away: awayTableData,
-    },
-    last10Matches: {
-      home: data.last10HomeMatches || [],
-      away: data.last10AwayMatches || [],
+      home: data.homeTableData || null,
+      away: data.awayTableData || null,
     },
     baseline: {
       prob: safeNumber(result.probabilityOver15),
@@ -285,7 +270,13 @@ async function buildPrompt(data: MatchData, liveScore?: MatchScore): Promise<str
     '```',
     '',
     '## DADOS PARA ANÁLISE (JSON):',
-    JSON.stringify(ctx, null, 2)
+    JSON.stringify(ctx, null, 2),
+    '',
+    '## NOTAS IMPORTANTES:',
+    '- "stats" contém as Estatísticas Globais inseridas manualmente pelo usuário (baseadas nos últimos 10 jogos Casa/Fora)',
+    '- "championshipTable" contém TODOS os campos da tabela do campeonato para cada equipe',
+    '- Analise todos os campos da tabela (Classificação, Partidas Jogadas, Vitórias, Empates, Derrotas, Gols, Pontos, xG, etc.)',
+    '- Use os dados da tabela + Estatísticas Globais para calcular probabilidades precisas'
   ].join('\n');
 }
 
