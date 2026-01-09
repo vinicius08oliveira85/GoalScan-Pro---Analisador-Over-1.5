@@ -16,6 +16,9 @@ let initializationPromise: Promise<SupabaseClient> | null = null;
 const STORAGE_KEY_SERVICE_STATUS = 'goalscan_supabase_status';
 const SERVICE_STATUS_CACHE_DURATION = 60000; // 1 minuto
 
+// Flag para garantir que o interceptor seja configurado apenas uma vez
+let fetchInterceptorSetup = false;
+
 interface ServiceStatus {
   isUnavailable: boolean;
   lastCheck: number;
@@ -51,9 +54,14 @@ function isServiceUnavailable(): boolean {
 /**
  * Intercepta requisições fetch para Supabase quando o serviço está indisponível
  * Isso previne requisições desnecessárias e erros 503 no console
+ * IMPORTANTE: Esta função deve ser chamada ANTES de qualquer requisição ao Supabase
  */
 function setupFetchInterceptor(): void {
   if (typeof window === 'undefined') return;
+  
+  // Garantir que o interceptor seja configurado apenas uma vez
+  if (fetchInterceptorSetup) return;
+  fetchInterceptorSetup = true;
   
   // Interceptar fetch globalmente para requisições ao Supabase
   const originalFetch = window.fetch;
@@ -66,8 +74,8 @@ function setupFetchInterceptor(): void {
     // Se for requisição ao Supabase e o serviço está indisponível, retornar resposta 503 silenciosamente
     if (isSupabaseRequest && isServiceUnavailable()) {
       // Retornar uma resposta 503 sem fazer a requisição real
-      // Isso previne erros no console
-      return new Response('', {
+      // Isso previne erros no console e requisições desnecessárias
+      return new Response(JSON.stringify({ error: 'Service Unavailable' }), {
         status: 503,
         statusText: 'Service Unavailable',
         headers: { 'Content-Type': 'application/json' },
@@ -117,6 +125,12 @@ function setupFetchInterceptor(): void {
       throw error;
     }
   };
+}
+
+// Configurar interceptor IMEDIATAMENTE quando o módulo é carregado
+// Isso garante que o interceptor esteja ativo antes de qualquer requisição
+if (typeof window !== 'undefined') {
+  setupFetchInterceptor();
 }
 
 export const getSupabaseClient = async () => {
@@ -234,9 +248,9 @@ export const getSupabaseClient = async () => {
 
       logger.log('[Supabase] Criando cliente Supabase...');
       
-      // Configurar interceptor de fetch antes de criar o cliente
-      // Isso previne requisições desnecessárias quando o serviço está indisponível
-      if (typeof window !== 'undefined') {
+      // O interceptor já foi configurado no nível do módulo
+      // Apenas garantir que está ativo
+      if (typeof window !== 'undefined' && !fetchInterceptorSetup) {
         setupFetchInterceptor();
       }
       

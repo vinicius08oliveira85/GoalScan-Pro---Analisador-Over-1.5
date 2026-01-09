@@ -35,6 +35,10 @@ const SERVICE_STATUS_CACHE_DURATION = 60000; // 1 minuto
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000; // 1 segundo
 
+// Proteção contra requisições excessivas
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 2000; // 2 segundos entre requisições
+
 /**
  * Verifica se um erro é um erro HTTP temporário (503, 502, 504, etc)
  */
@@ -174,6 +178,14 @@ export const loadChampionships = async (): Promise<Championship[]> => {
     // Retornar silenciosamente dados do localStorage
     return loadChampionshipsFromLocalStorage();
   }
+
+  // Proteção contra requisições excessivas (throttle)
+  const now = Date.now();
+  if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
+    // Se a última requisição foi há menos de 2 segundos, retornar dados do localStorage
+    return loadChampionshipsFromLocalStorage();
+  }
+  lastRequestTime = now;
 
   try {
     // Log apenas em modo debug (não em produção)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Championship, ChampionshipTable, TableType } from '../types';
 import {
   loadChampionships,
@@ -104,9 +104,14 @@ export const useChampionships = (onError?: (message: string) => void) => {
   }, [onError]);
 
   // Carregar ao montar componente
+  // Usar useRef para garantir que load() seja chamado apenas uma vez
+  const hasLoadedRef = React.useRef(false);
   useEffect(() => {
+    // Prevenir múltiplas chamadas simultâneas
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     load();
-  }, [load]);
+  }, []); // Array vazio para executar apenas uma vez na montagem
 
   // Salvar campeonato
   const save = useCallback(
