@@ -1,4 +1,4 @@
-import { SavedAnalysis, MatchData, AnalysisResult, BetInfo, BankSettings } from '../types';
+import { SavedAnalysis, MatchData, AnalysisResult, BetInfo, BankSettings, SelectedBet } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
@@ -99,6 +99,7 @@ export interface SavedAnalysisRow {
   analysis_result: AnalysisResult;
   ai_analysis?: string; // Markdown completo da análise da IA
   bet_info?: BetInfo;
+  selected_bets?: SelectedBet[]; // Apostas selecionadas quando a partida foi salva
   created_at?: string;
   updated_at?: string;
 }
@@ -189,6 +190,7 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
       result: row.analysis_result,
       aiAnalysis: row.ai_analysis,
       betInfo: row.bet_info,
+      selectedBets: row.selected_bets,
     }));
 
     return analyses;
@@ -227,6 +229,7 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
         analysis_result: analysis.result,
         ai_analysis: analysis.aiAnalysis,
         bet_info: analysis.betInfo,
+        selected_bets: analysis.selectedBets,
       })
       .select()
       .single();
@@ -243,6 +246,7 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
       result: data.analysis_result,
       aiAnalysis: data.ai_analysis,
       betInfo: data.bet_info,
+      selectedBets: data.selected_bets,
     };
   } catch (error) {
     logger.error('Erro ao salvar análise:', error);
@@ -349,6 +353,7 @@ export const saveOrUpdateAnalysis = async (
           analysis_result: analysis.result,
           ai_analysis: analysis.aiAnalysis,
           bet_info: analysis.betInfo,
+          selected_bets: analysis.selectedBets,
         },
         {
           onConflict: 'id',
@@ -381,6 +386,7 @@ export const saveOrUpdateAnalysis = async (
       result: data.analysis_result,
       aiAnalysis: data.ai_analysis,
       betInfo: data.bet_info,
+      selectedBets: data.selected_bets,
     };
   } catch (error) {
     // Se é erro temporário, retornar análise mesmo sem salvar no Supabase
