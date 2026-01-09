@@ -129,6 +129,7 @@ export interface MatchData {
 
 export interface AnalysisResult {
   probabilityOver15: number; // Probabilidade estatística pura
+  tableProbability?: number | null; // Probabilidade baseada apenas em dados da tabela (se disponível)
   aiProbability?: number | null; // Probabilidade da IA (se disponível)
   combinedProbability?: number; // Probabilidade final combinada (IA + estatística)
   confidenceScore: number;

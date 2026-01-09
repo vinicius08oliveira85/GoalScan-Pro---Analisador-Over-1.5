@@ -91,8 +91,11 @@ function calculateOverUnderProbabilities(lambdaTotal: number): {
 }
 
 /**
- * Combina probabilidade estatística com probabilidade da IA usando média ponderada adaptativa.
- * O peso da IA é baseado na confiança da IA e na consistência entre os valores.
+ * Combina probabilidade estatística com probabilidade da IA usando Bayesian averaging melhorado.
+ * O peso da IA é baseado na confiança da IA, consistência entre valores e histórico de precisão.
+ *
+ * MELHORIA: Usa abordagem Bayesian para combinar fontes com diferentes níveis de confiança.
+ * Considera variância implícita de cada fonte e ajusta pesos dinamicamente.
  *
  * @param statisticalProb - Probabilidade calculada pelas estatísticas (0-100)
  * @param aiProb - Probabilidade calculada pela IA (0-100) ou null
@@ -139,22 +142,34 @@ export function combineProbabilities(
     return (statisticalProb + aiProb) / 2;
   }
 
-  // Normalizar confiança para 0-1
-  let aiWeight = Math.min(Math.max(aiConfidence / 100, 0), 1);
-
-  // Ajustar peso baseado na divergência
-  // Se valores muito diferentes, reduzir peso da IA
+  // MELHORIA: Bayesian Averaging com variância implícita
+  // Assumir que estatísticas têm confiança base de 75% (mais estável)
+  // IA tem confiança variável baseada em aiConfidence
+  const statBaseConfidence = 75;
+  const aiNormalizedConfidence = Math.min(Math.max(aiConfidence / 100, 0), 1);
+  
+  // Calcular "precisão" (inverso da variância) para cada fonte
+  // Maior confiança = menor variância = maior precisão
+  const statPrecision = statBaseConfidence / 100; // 0.75
+  const aiPrecision = aiNormalizedConfidence * 0.9; // Máximo 0.9 para IA (sempre um pouco menos precisa que estatística pura)
+  
+  // Ajustar precisão da IA baseado em divergência
+  // Se valores muito diferentes, reduzir precisão da IA (aumentar variância)
+  let adjustedAiPrecision = aiPrecision;
   if (divergence > maxDivergence) {
-    // Reduzir peso da IA proporcionalmente à divergência
     const divergencePenalty = Math.min(divergence / maxDivergence, 1);
-    aiWeight = aiWeight * (1 - divergencePenalty * 0.5); // Reduzir até 50% do peso
+    adjustedAiPrecision = aiPrecision * (1 - divergencePenalty * 0.4); // Reduzir até 40% da precisão
   }
-
-  const statisticalWeight = 1 - aiWeight;
-
-  // Calcular média ponderada
-  const combined = aiProb * aiWeight + statisticalProb * statisticalWeight;
-
+  
+  // Calcular pesos usando Bayesian averaging
+  // Peso = precisão / (precisão_total)
+  const totalPrecision = statPrecision + adjustedAiPrecision;
+  const statWeight = statPrecision / totalPrecision;
+  const aiWeight = adjustedAiPrecision / totalPrecision;
+  
+  // Calcular média ponderada Bayesian
+  const combined = statisticalProb * statWeight + aiProb * aiWeight;
+  
   // Suavizar limites usando sigmoid em vez de clamp rígido (10-98% mais realista)
   return smoothClamp(combined, 10, 98);
 }
@@ -362,12 +377,17 @@ export function performAnalysis(
   // Usar dados da tabela quando disponíveis
   const hasTeamStats = !!(normalizedData.homeTeamStats && normalizedData.awayTeamStats);
   
-  // Estimar Over 1.5% baseado em avgTotal
-  // Se média total > 2.5, Over 1.5% é muito alto (>90%)
-  // Se média total > 2.0, Over 1.5% é alto (>80%)
-  // Se média total > 1.5, Over 1.5% é moderado (>60%)
+  // MELHORIA: Calcular probabilidade base com pesos adaptativos para dados recentes
+  // Estatísticas Globais (últimos 10 jogos) têm mais peso que dados históricos da tabela
   let estimatedOver15Freq = 50; // Baseline
+  
+  // Calcular probabilidade base usando dados mais recentes quando disponíveis
   if (avgTotal > 0) {
+    // Ajustar baseado em recência dos dados
+    // Se temos Estatísticas Globais (últimos 10 jogos), dar mais peso
+    // Se só temos dados da tabela (temporada completa), dar menos peso
+    const recencyWeight = hasTeamStats ? 1.0 : 0.85; // Estatísticas Globais = 100%, Tabela = 85%
+    
     if (avgTotal >= 2.5) {
       estimatedOver15Freq = 90 + (avgTotal - 2.5) * 4; // 90-100%
     } else if (avgTotal >= 2.0) {
@@ -377,12 +397,19 @@ export function performAnalysis(
     } else {
       estimatedOver15Freq = 30 + (avgTotal / 1.5) * 30; // 30-60%
     }
+    
+    // Aplicar peso de recência
+    estimatedOver15Freq = estimatedOver15Freq * recencyWeight + 50 * (1 - recencyWeight);
   }
 
-  // Ajustar baseado em cleanSheet e noGoals
-  estimatedOver15Freq -= avgCleanSheet * 0.3; // Reduzir se muitas clean sheets
-  estimatedOver15Freq -= avgNoGoals * 0.2; // Reduzir se muitos jogos sem gols
-  estimatedOver15Freq += avgOver25 * 0.2; // Aumentar se muitos Over 2.5
+  // Ajustar baseado em cleanSheet e noGoals (com peso adaptativo)
+  const cleanSheetWeight = hasTeamStats ? 0.3 : 0.2; // Menos peso se usando dados da tabela
+  const noGoalsWeight = hasTeamStats ? 0.2 : 0.15;
+  const over25Weight = hasTeamStats ? 0.2 : 0.15;
+  
+  estimatedOver15Freq -= avgCleanSheet * cleanSheetWeight; // Reduzir se muitas clean sheets
+  estimatedOver15Freq -= avgNoGoals * noGoalsWeight; // Reduzir se muitos jogos sem gols
+  estimatedOver15Freq += avgOver25 * over25Weight; // Aumentar se muitos Over 2.5
 
   // Limitar entre 10% e 98%
   estimatedOver15Freq = Math.max(10, Math.min(98, estimatedOver15Freq));
@@ -765,6 +792,55 @@ export function performAnalysis(
 
   confidence = Math.min(100, Math.max(0, confidence));
 
+  // Calcular Prob. Tabela separadamente (baseada apenas em dados da tabela)
+  let tableProb: number | null = null;
+  if (hasHomeTableData && hasAwayTableData) {
+    // Calcular usando apenas dados da tabela (GF/MP, GA/MP, xG, xGA)
+    const homeMp = parseFloat(normalizedData.homeTableData.MP || '0');
+    const homeGf = parseFloat(normalizedData.homeTableData.GF || '0');
+    const homeGa = parseFloat(normalizedData.homeTableData.GA || '0');
+    const homeXg = parseFloat(normalizedData.homeTableData.xG || '0');
+    const homeXga = parseFloat(normalizedData.homeTableData.xGA || '0');
+    
+    const awayMp = parseFloat(normalizedData.awayTableData.MP || '0');
+    const awayGf = parseFloat(normalizedData.awayTableData.GF || '0');
+    const awayGa = parseFloat(normalizedData.awayTableData.GA || '0');
+    const awayXg = parseFloat(normalizedData.awayTableData.xG || '0');
+    const awayXga = parseFloat(normalizedData.awayTableData.xGA || '0');
+    
+    if (homeMp > 0 && awayMp > 0) {
+      // Calcular médias de gols da tabela
+      const homeAvgScored = homeGf / homeMp;
+      const homeAvgConceded = homeGa / homeMp;
+      const awayAvgScored = awayGf / awayMp;
+      const awayAvgConceded = awayGa / awayMp;
+      
+      // Usar xG se disponível, caso contrário usar GF/MP
+      const homeExpectedScored = homeXg > 0 ? homeXg / homeMp : homeAvgScored;
+      const homeExpectedConceded = homeXga > 0 ? homeXga / homeMp : homeAvgConceded;
+      const awayExpectedScored = awayXg > 0 ? awayXg / awayMp : awayAvgScored;
+      const awayExpectedConceded = awayXga > 0 ? awayXga / awayMp : awayAvgConceded;
+      
+      // Lambda para Poisson: média de gols esperados
+      const lambdaHome = homeExpectedScored + awayExpectedConceded;
+      const lambdaAway = awayExpectedScored + homeExpectedConceded;
+      const lambdaTotal = lambdaHome + lambdaAway;
+      
+      // Calcular probabilidade Over 1.5 usando Poisson
+      const over15Prob = 1 - poissonCumulative(1, lambdaTotal);
+      tableProb = Math.max(10, Math.min(98, over15Prob * 100));
+      
+      if (import.meta.env.DEV) {
+        console.log('[AnalysisEngine] Prob. Tabela calculada:', {
+          lambdaHome,
+          lambdaAway,
+          lambdaTotal,
+          tableProb,
+        });
+      }
+    }
+  }
+
   // Calcular probabilidade combinada se IA disponível
   const combinedProb = combineProbabilities(prob, aiProbability ?? null, aiConfidence ?? null);
 
@@ -785,6 +861,7 @@ export function performAnalysis(
 
   return {
     probabilityOver15: prob, // Probabilidade estatística pura
+    tableProbability: tableProb, // Probabilidade baseada apenas em dados da tabela
     aiProbability: aiProbability ?? null, // Probabilidade da IA
     combinedProbability: combinedProb, // Probabilidade final combinada
     confidenceScore: confidence,

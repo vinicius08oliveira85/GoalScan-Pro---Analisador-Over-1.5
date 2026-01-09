@@ -22,6 +22,13 @@ import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
 import { getEdgePp } from '../utils/betMetrics';
+import {
+  getStatisticalProbabilityTooltip,
+  getAiProbabilityTooltip,
+  getFinalProbabilityTooltip,
+  getEdgeTooltip,
+  calculateDataQuality,
+} from '../utils/probabilityTooltips';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
@@ -109,9 +116,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   }, [displayProbability, data.oddOver15, result.ev]);
 
   // Calcular Edge (pp) com a probabilidade que está sendo exibida
+  // Usando margem padrão de 6% (típica de casas de apostas)
   const edgePp = useMemo(() => {
     if (data.oddOver15 && data.oddOver15 > 1) {
-      return getEdgePp(displayProbability, data.oddOver15);
+      return getEdgePp(displayProbability, data.oddOver15, 0.06);
     }
     return null;
   }, [displayProbability, data.oddOver15]);
@@ -253,14 +261,32 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
             {/* Probabilidades (Estatística, IA, Final) */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Calculator className="w-4 h-4 text-primary opacity-60" />
-                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
-                  Probabilidades
-                </h4>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-primary opacity-60" />
+                  <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
+                    Probabilidades
+                  </h4>
+                </div>
+                {/* Indicador de Qualidade dos Dados */}
+                {(() => {
+                  const dataQuality = calculateDataQuality(data);
+                  const qualityColor = dataQuality >= 80 ? 'text-success' : dataQuality >= 60 ? 'text-warning' : 'text-error';
+                  const qualityLabel = dataQuality >= 80 ? 'Alta' : dataQuality >= 60 ? 'Média' : 'Baixa';
+                  return (
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold ${qualityColor} tooltip tooltip-left`} data-tip={`Qualidade dos Dados: ${qualityLabel} (${dataQuality.toFixed(0)}%)\n\nIndica a completude e qualidade dos dados disponíveis para análise. Dados mais completos resultam em análises mais precisas.`}>
+                      <div className={`w-2 h-2 rounded-full ${dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-error'}`} />
+                      <span className="hidden sm:inline">Qualidade: {qualityLabel}</span>
+                    </div>
+                  );
+                })()}
               </div>
               <motion.div
-                className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4"
+                className={`grid gap-3 md:gap-4 ${
+                  result.tableProbability != null
+                    ? 'grid-cols-2 sm:grid-cols-5'
+                    : 'grid-cols-2 sm:grid-cols-4'
+                }`}
                 variants={animations.staggerChildren}
                 initial="initial"
                 animate="animate"
@@ -271,9 +297,27 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={`${result.probabilityOver15.toFixed(1)}%`}
                     icon={Calculator}
                     color="secondary"
-                    tooltip="Probabilidade baseada apenas em estatísticas históricas (médias de gols, frequências Over 1.5). Não considera análise da IA."
+                    tooltip={getStatisticalProbabilityTooltip(result, data)}
                   />
                 </motion.div>
+                {result.tableProbability != null && (
+                  <motion.div variants={animations.fadeInUp}>
+                    <MetricCard
+                      title="Prob. Tabela"
+                      value={`${Number(result.tableProbability).toFixed(1)}%`}
+                      icon={Target}
+                      color="warning"
+                      tooltip={`Probabilidade baseada apenas em dados da tabela (GF/MP, GA/MP, xG, xGA).
+
+📊 Calculada usando:
+• Gols Marcados/Sofridos por jogo (GF/MP, GA/MP)
+• Expected Goals (xG, xGA) quando disponível
+• Distribuição Poisson
+
+💡 Útil para comparar com Prob. Estatística (que usa Estatísticas Globais dos últimos 10 jogos). Se houver divergência significativa, pode indicar mudança recente de forma.`}
+                    />
+                  </motion.div>
+                )}
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
                     title="Prob. IA"
@@ -284,7 +328,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     }
                     icon={Sparkles}
                     color="accent"
-                    tooltip="Probabilidade estimada pela IA após análise cruzada das estatísticas. Aparece apenas quando a análise da IA foi gerada."
+                    tooltip={getAiProbabilityTooltip(result, data)}
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -293,11 +337,12 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={`${displayProbability.toFixed(1)}%`}
                     icon={Target}
                     color="success"
-                    tooltip={
-                      selectedBets.length > 0
-                        ? `Probabilidade da aposta ${selectedBets.length === 1 ? 'selecionada' : 'combinada'}: ${displayLabel}. Usada para cálculos de EV e recomendações.`
-                        : 'Probabilidade final: usa Estatística quando não há IA, ou combina Estatística + IA (ponderada pela confiança) quando disponível. Usada para cálculos de EV e recomendações.'
-                    }
+                    tooltip={getFinalProbabilityTooltip(
+                      result,
+                      displayProbability,
+                      selectedBets,
+                      result.aiProbability != null
+                    )}
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -306,7 +351,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={edgePp == null ? '—' : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`}
                     icon={TrendingUp}
                     color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
-                    tooltip="Edge = Prob. Final - Prob. Implícita da Odd. Valores positivos indicam aposta com valor (sua análise vê mais chance que a casa). Valores negativos indicam odd desfavorável."
+                    tooltip={getEdgeTooltip(edgePp, displayProbability, data.oddOver15, result.confidenceScore)}
                   />
                 </motion.div>
               </motion.div>
