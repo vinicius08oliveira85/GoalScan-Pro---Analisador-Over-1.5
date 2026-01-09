@@ -51,10 +51,18 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
   }, [table.table_data]);
 
   // Obter colunas disponíveis (campos do primeiro registro)
+  // Garantir que Squad seja sempre a primeira coluna (chave primária lógica)
   const columns = useMemo(() => {
     if (rows.length === 0) return [];
     const firstRow = rows[0];
-    return Object.keys(firstRow).filter((key) => !hiddenFields.includes(key));
+    const allColumns = Object.keys(firstRow).filter((key) => !hiddenFields.includes(key));
+    
+    // Separar Squad das outras colunas
+    const squadIndex = allColumns.indexOf('Squad');
+    const otherColumns = allColumns.filter((col) => col !== 'Squad');
+    
+    // Retornar Squad primeiro, depois as outras colunas
+    return squadIndex >= 0 ? ['Squad', ...otherColumns] : allColumns;
   }, [rows]);
 
   // Filtrar e ordenar linhas
@@ -164,30 +172,34 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
             </tr>
           </thead>
           <tbody>
-            {filteredAndSortedRows.map((row, index) => (
-              <tr key={index} className="hover:bg-base-200">
-                {columns.map((column) => {
-                  const value = (row as Record<string, unknown>)[column];
-                  const displayValue = value !== null && value !== undefined ? String(value) : '-';
+            {filteredAndSortedRows.map((row) => {
+              // Usar Squad como chave primária (identificador único da linha)
+              const squadKey = (row as Record<string, unknown>).Squad || `row-${Math.random()}`;
+              return (
+                <tr key={squadKey} className="hover:bg-base-200">
+                  {columns.map((column) => {
+                    const value = (row as Record<string, unknown>)[column];
+                    const displayValue = value !== null && value !== undefined ? String(value) : '-';
 
-                  // Se for a coluna Squad e houver callback, tornar clicável
-                  if (column === 'Squad' && onSquadSelect) {
-                    return (
-                      <td key={column}>
-                        <button
-                          onClick={() => handleSquadClick(displayValue)}
-                          className="btn btn-link btn-sm p-0 h-auto min-h-0 text-primary hover:text-primary-focus"
-                        >
-                          {displayValue}
-                        </button>
-                      </td>
-                    );
-                  }
+                    // Se for a coluna Squad e houver callback, tornar clicável
+                    if (column === 'Squad' && onSquadSelect) {
+                      return (
+                        <td key={column}>
+                          <button
+                            onClick={() => handleSquadClick(displayValue)}
+                            className="btn btn-link btn-sm p-0 h-auto min-h-0 text-primary hover:text-primary-focus"
+                          >
+                            {displayValue}
+                          </button>
+                        </td>
+                      );
+                    }
 
-                  return <td key={column}>{displayValue}</td>;
-                })}
-              </tr>
-            ))}
+                    return <td key={column}>{displayValue}</td>;
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
