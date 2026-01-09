@@ -13,10 +13,6 @@ interface ChampionshipFormProps {
 
 const TABLE_TYPES: Array<{ type: TableType; name: string; required: boolean }> = [
   { type: 'geral', name: 'Geral', required: true },
-  { type: 'casa_fora', name: 'Casa/Fora', required: false },
-  { type: 'estatisticas_elenco', name: 'Estatísticas padrão do elenco', required: false },
-  { type: 'chutes_equipe', name: 'Chutes em equipe', required: false },
-  { type: 'criacao_gols_chutes', name: 'Criação de gols e chutes em equipe', required: false },
 ];
 
 const ChampionshipForm: React.FC<ChampionshipFormProps> = ({

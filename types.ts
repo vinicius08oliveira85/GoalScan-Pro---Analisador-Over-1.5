@@ -170,12 +170,7 @@ export interface SavedAnalysis {
 }
 
 // Tipos de tabela de campeonato
-export type TableType =
-  | 'geral'
-  | 'casa_fora'
-  | 'estatisticas_elenco'
-  | 'chutes_equipe'
-  | 'criacao_gols_chutes';
+export type TableType = 'geral';
 
 // Interface para linha da tabela "Geral" (traduzida para PT-BR)
 export interface TableRowGeral {
