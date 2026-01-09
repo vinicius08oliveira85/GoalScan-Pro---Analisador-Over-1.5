@@ -21,49 +21,74 @@ export const useChampionships = (onError?: (message: string) => void) => {
     logger.log('[useChampionships] Iniciando carregamento de campeonatos...');
     setIsLoading(true);
 
+    // Primeiro, carregar do localStorage para renderização imediata
+    let localData: Championship[] = [];
     try {
-      // Timeout reduzido para 3 segundos e carregar do localStorage primeiro
-      try {
-        const localData = JSON.parse(
-          localStorage.getItem('goalscan_championships') || '[]'
-        );
-        if (localData.length > 0) {
+      const stored = localStorage.getItem('goalscan_championships');
+      if (stored) {
+        localData = JSON.parse(stored);
+        if (Array.isArray(localData) && localData.length > 0) {
           setChampionships(localData);
           logger.log(`[useChampionships] Carregado ${localData.length} campeonato(s) do localStorage`);
-          setIsLoading(false);
+          setIsLoading(false); // Renderizar imediatamente com dados locais
         }
-      } catch (localError) {
-        // Ignorar erro do localStorage
       }
+    } catch (localError) {
+      // Ignorar erro do localStorage
+      logger.warn('[useChampionships] Erro ao ler localStorage:', localError);
+    }
 
-      // Tentar carregar do Supabase com timeout curto
+    // Se não houver dados locais, garantir que isLoading seja false
+    if (localData.length === 0) {
+      setChampionships([]);
+      setIsLoading(false);
+    }
+
+    // Tentar sincronizar com Supabase em background (timeout aumentado para 5 segundos)
+    try {
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 3000)
+        setTimeout(() => reject(new Error('Timeout ao carregar campeonatos')), 5000)
       );
 
-      try {
-        const data = await Promise.race([loadChampionships(), timeoutPromise]);
+      const data = await Promise.race([loadChampionships(), timeoutPromise]);
+      
+      if (Array.isArray(data)) {
         logger.log(`[useChampionships] ${data.length} campeonato(s) carregado(s) do Supabase`);
         setChampionships(data);
-      } catch (supabaseError) {
-        // Se falhar, manter dados do localStorage se existirem
-        logger.warn('[useChampionships] Erro ao carregar do Supabase, usando localStorage');
+        
+        // Atualizar localStorage com dados do Supabase
+        try {
+          localStorage.setItem('goalscan_championships', JSON.stringify(data));
+        } catch (storageError) {
+          logger.warn('[useChampionships] Erro ao salvar no localStorage:', storageError);
+        }
       }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      logger.error('[useChampionships] Erro ao carregar campeonatos:', errorMessage);
+    } catch (supabaseError) {
+      // Se falhar, manter dados do localStorage se existirem
+      const errorMessage = supabaseError instanceof Error ? supabaseError.message : 'Erro desconhecido';
+      
+      // Não logar timeout como erro crítico
+      if (errorMessage.includes('Timeout')) {
+        logger.warn('[useChampionships] Timeout ao carregar do Supabase, usando localStorage');
+      } else {
+        logger.warn('[useChampionships] Erro ao carregar do Supabase, usando localStorage:', errorMessage);
+      }
 
-      // Em caso de erro, garantir que temos pelo menos array vazio
-      try {
-        const localData = JSON.parse(
-          localStorage.getItem('goalscan_championships') || '[]'
-        );
-        setChampionships(localData);
-      } catch {
-        setChampionships([]);
+      // Garantir que temos dados do localStorage
+      if (localData.length === 0) {
+        try {
+          const stored = localStorage.getItem('goalscan_championships');
+          if (stored) {
+            const fallbackData = JSON.parse(stored);
+            if (Array.isArray(fallbackData)) {
+              setChampionships(fallbackData);
+            }
+          }
+        } catch {
+          // Se tudo falhar, manter array vazio
+          setChampionships([]);
+        }
       }
-    } finally {
-      setIsLoading(false);
     }
   }, [onError]);
 

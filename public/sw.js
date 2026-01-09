@@ -57,32 +57,59 @@ self.addEventListener('activate', (event) => {
 // Estratégia de cache baseada no tipo de recurso
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
+  
+  let url;
+  try {
+    url = new URL(request.url);
+  } catch (urlError) {
+    // Se houver erro ao processar URL, não interceptar a requisição
+    return;
+  }
 
-  // Ignorar requisições que não podem ser cacheadas
+  // Ignorar requisições que não podem ser cacheadas ou não devem ser interceptadas
   if (
     request.method !== 'GET' ||
     url.protocol === 'chrome-extension:' ||
     url.protocol === 'chrome:' ||
     url.protocol === 'moz-extension:' ||
+    url.protocol === 'safari-extension:' ||
+    url.protocol === 'ms-browser-extension:' ||
     url.hostname === 'localhost' ||
-    url.hostname === '127.0.0.1'
+    url.hostname === '127.0.0.1' ||
+    url.hostname.includes('vercel.app') ||
+    url.hostname.includes('vercel.com') ||
+    url.hostname.includes('github.com') ||
+    url.hostname.includes('githubusercontent.com') ||
+    url.hostname.includes('google-analytics.com') ||
+    url.hostname.includes('googletagmanager.com') ||
+    url.hostname.includes('doubleclick.net') ||
+    url.hostname.includes('facebook.com') ||
+    url.hostname.includes('twitter.com') ||
+    url.hostname.includes('linkedin.com') ||
+    url.pathname.includes('_next') ||
+    url.pathname.includes('__webpack') ||
+    url.pathname.includes('hot-update')
   ) {
-    event.respondWith(fetch(request));
+    // Não interceptar essas requisições - deixar o navegador lidar com elas
     return;
   }
 
-  // APIs externas: Network Only (não cachear)
+  // APIs externas: Network Only (não cachear) - com tratamento de erro silencioso
   if (
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('cdn.') ||
     url.hostname.includes('api.')
   ) {
     event.respondWith(
-      fetch(request).catch(() => {
-        // Silenciar erros de fetch para APIs externas
-        return new Response('', { status: 503 });
-      })
+      fetch(request)
+        .catch(() => {
+          // Silenciar erros de fetch para APIs externas - retornar resposta vazia
+          return new Response('', { 
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain' }
+          });
+        })
     );
     return;
   }
@@ -98,15 +125,27 @@ self.addEventListener('fetch', (event) => {
             caches
               .open(RUNTIME_CACHE)
               .then((cache) => cache.put(request, responseToCache))
-              .catch(() => {});
+              .catch(() => {
+                // Silenciar erros de cache
+              });
           }
           return response;
         })
         .catch(() => {
           // Fallback para cache ou index.html
-          return caches.match(request).then((cachedResponse) => {
-            return cachedResponse || caches.match('/index.html');
-          });
+          return caches
+            .match(request)
+            .then((cachedResponse) => {
+              return cachedResponse || caches.match('/index.html');
+            })
+            .catch(() => {
+              // Se tudo falhar, retornar resposta vazia silenciosamente
+              return new Response('', { 
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: { 'Content-Type': 'text/html' }
+              });
+            });
         })
     );
     return;
@@ -128,27 +167,53 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           // Se não estiver no cache, buscar da rede e cachear
-          return fetch(request).then((response) => {
-            if (response && response.status === 200) {
-              const responseToCache = response.clone();
-              const cacheToUse =
-                url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')
-                  ? STATIC_CACHE
-                  : RUNTIME_CACHE;
-              caches
-                .open(cacheToUse)
-                .then((cache) => cache.put(request, responseToCache))
-                .catch(() => {});
-            }
-            return response;
-          });
+          return fetch(request)
+            .then((response) => {
+              if (response && response.status === 200) {
+                const responseToCache = response.clone();
+                const cacheToUse =
+                  url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')
+                    ? STATIC_CACHE
+                    : RUNTIME_CACHE;
+                caches
+                  .open(cacheToUse)
+                  .then((cache) => cache.put(request, responseToCache))
+                  .catch(() => {
+                    // Silenciar erros de cache
+                  });
+              }
+              return response;
+            })
+            .catch(() => {
+              // Se fetch falhar, retornar resposta vazia silenciosamente
+              if (request.destination === 'image') {
+                return new Response('', { 
+                  status: 404,
+                  statusText: 'Not Found',
+                  headers: { 'Content-Type': 'image/png' }
+                });
+              }
+              return new Response('', { 
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: { 'Content-Type': 'text/plain' }
+              });
+            });
         })
         .catch(() => {
-          // Se tudo falhar, retornar resposta offline
+          // Se cache.match falhar, retornar resposta vazia silenciosamente
           if (request.destination === 'image') {
-            return new Response('', { status: 404 });
+            return new Response('', { 
+              status: 404,
+              statusText: 'Not Found',
+              headers: { 'Content-Type': 'image/png' }
+            });
           }
-          return new Response('Offline', { status: 503 });
+          return new Response('', { 
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain' }
+          });
         })
     );
     return;
@@ -163,18 +228,38 @@ self.addEventListener('fetch', (event) => {
           caches
             .open(RUNTIME_CACHE)
             .then((cache) => cache.put(request, responseToCache))
-            .catch(() => {});
+            .catch(() => {
+              // Silenciar erros de cache
+            });
         }
         return response;
       })
       .catch(() => {
-        return caches.match(request).then((cachedResponse) => {
-          return cachedResponse || new Response('Offline', { status: 503 });
-        });
+        return caches
+          .match(request)
+          .then((cachedResponse) => {
+            return cachedResponse || new Response('', { 
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'text/plain' }
+            });
+          })
+          .catch(() => {
+            // Silenciar erros finais para evitar poluição no console
+            return new Response('', { 
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'text/plain' }
+            });
+          });
       })
       .catch(() => {
-        // Silenciar erros finais para evitar poluição no console
-        return new Response('', { status: 503 });
+        // Último fallback - silenciar completamente
+        return new Response('', { 
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: { 'Content-Type': 'text/plain' }
+        });
       })
   );
 });
