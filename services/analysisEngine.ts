@@ -91,6 +91,49 @@ function calculateOverUnderProbabilities(lambdaTotal: number): {
 }
 
 /**
+ * Combina probabilidades Over/Under das estatísticas e da tabela usando pesos ponderados
+ * @param statsOverUnder - Probabilidades Over/Under baseadas nas estatísticas (últimos 10 jogos)
+ * @param tableOverUnder - Probabilidades Over/Under baseadas na tabela (temporada completa)
+ * @param statsWeight - Peso para as probabilidades das estatísticas (0-1)
+ * @param tableWeight - Peso para as probabilidades da tabela (0-1)
+ * @returns Probabilidades Over/Under combinadas para todas as linhas
+ */
+function combineOverUnderProbabilities(
+  statsOverUnder: { [line: string]: { over: number; under: number } } | undefined,
+  tableOverUnder: { [line: string]: { over: number; under: number } } | undefined,
+  statsWeight: number,
+  tableWeight: number
+): { [line: string]: { over: number; under: number } } {
+  const lines = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5];
+  const combined: { [line: string]: { over: number; under: number } } = {};
+
+  for (const line of lines) {
+    const lineKey = line.toString();
+    const statsProb = statsOverUnder?.[lineKey];
+    const tableProb = tableOverUnder?.[lineKey];
+
+    if (statsProb && tableProb) {
+      // Combinar usando os mesmos pesos
+      combined[lineKey] = {
+        over: Math.max(0, Math.min(100, statsProb.over * statsWeight + tableProb.over * tableWeight)),
+        under: Math.max(0, Math.min(100, statsProb.under * statsWeight + tableProb.under * tableWeight)),
+      };
+    } else if (statsProb) {
+      // Se só temos estatísticas, usar 100% delas
+      combined[lineKey] = { ...statsProb };
+    } else if (tableProb) {
+      // Se só temos tabela, usar 100% dela
+      combined[lineKey] = { ...tableProb };
+    } else {
+      // Fallback: valores padrão
+      combined[lineKey] = { over: 50, under: 50 };
+    }
+  }
+
+  return combined;
+}
+
+/**
  * Calcula probabilidade Over 1.5 baseada apenas nas estatísticas dos últimos 10 jogos.
  * Usa homeTeamStats e awayTeamStats para calcular médias de gols e ajustar baseado em
  * clean sheets, no goals, over 2.5% e forma recente.
@@ -401,13 +444,13 @@ function calculateTableProbability(data: MatchData): {
  * @param statsProb - Probabilidade calculada pelas estatísticas (0-100)
  * @param tableProb - Probabilidade calculada pela tabela (0-100) ou null
  * @param data - Dados da partida para avaliar disponibilidade de dados
- * @returns Probabilidade combinada (0-100)
+ * @returns Objeto com probabilidade combinada e os pesos usados
  */
 function combineStatisticsAndTable(
   statsProb: number,
   tableProb: number | null,
   data: MatchData
-): number {
+): { probability: number; statsWeight: number; tableWeight: number } {
   // Validação de inputs
   if (!Number.isFinite(statsProb) || statsProb < 0 || statsProb > 100) {
     throw new Error(`Probabilidade estatística inválida: ${statsProb}`);
@@ -415,12 +458,20 @@ function combineStatisticsAndTable(
 
   // Se não há probabilidade da tabela, retornar apenas estatística
   if (tableProb === null || tableProb === undefined) {
-    return statsProb;
+    return {
+      probability: statsProb,
+      statsWeight: 1.0,
+      tableWeight: 0.0,
+    };
   }
 
   // Validação da probabilidade da tabela
   if (!Number.isFinite(tableProb) || tableProb < 0 || tableProb > 100) {
-    return statsProb;
+    return {
+      probability: statsProb,
+      statsWeight: 1.0,
+      tableWeight: 0.0,
+    };
   }
 
   // Avaliar disponibilidade e qualidade dos dados
@@ -468,7 +519,13 @@ function combineStatisticsAndTable(
   const combined = statsProb * statsWeight + tableProb * tableWeight;
 
   // Suavizar limites usando sigmoid (10-98% mais realista)
-  return smoothClamp(combined, 10, 98);
+  const finalProb = smoothClamp(combined, 10, 98);
+
+  return {
+    probability: finalProb,
+    statsWeight,
+    tableWeight,
+  };
 }
 
 /**
@@ -1019,10 +1076,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     pAway.push(poissonProbability(i, lambdaAway));
   }
 
-  // Calcular probabilidades Over/Under combinadas usando lambdaTotal (baseado na combinação de estatísticas e tabela)
-  // Se temos probabilidades separadas, podemos combinar elas também, mas por enquanto usamos lambdaTotal
-  const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
-
   // Cálculo de EV: (Probabilidade * Odd) - 100
   let ev = 0;
   if (normalizedData.oddOver15 && normalizedData.oddOver15 > 1) {
@@ -1180,7 +1233,19 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const tableOverUnderProbabilities = tableResult?.overUnderProbabilities;
 
   // Combinar probabilidade estatística com probabilidade da tabela
-  const finalProb = combineStatisticsAndTable(statsProb, tableProb, normalizedData);
+  const { probability: finalProb, statsWeight, tableWeight } = combineStatisticsAndTable(
+    statsProb,
+    tableProb,
+    normalizedData
+  );
+
+  // Calcular probabilidades Over/Under combinadas usando os mesmos pesos
+  const overUnderProbabilities = combineOverUnderProbabilities(
+    statsOverUnderProbabilities,
+    tableOverUnderProbabilities,
+    statsWeight,
+    tableWeight
+  );
 
   let riskLevel: AnalysisResult['riskLevel'] = 'Moderado';
   if (finalProb > 88) riskLevel = 'Baixo';
