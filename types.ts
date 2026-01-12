@@ -205,6 +205,7 @@ export interface BetInfo {
 export interface BankSettings {
   totalBank: number; // Banca total
   currency: string; // Moeda (R$, $, €)
+  baseBank?: number; // Banca base (opcional) para reconciliação/sincronização
   updatedAt: number; // Última atualização
 }
 

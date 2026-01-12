@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS bank_settings (
   id TEXT PRIMARY KEY DEFAULT 'default',
   total_bank NUMERIC(15, 2) NOT NULL DEFAULT 0,
+  base_bank NUMERIC(15, 2),
   currency TEXT NOT NULL DEFAULT 'R$',
   updated_at BIGINT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -27,7 +28,7 @@ CREATE POLICY "Allow anonymous access" ON bank_settings
   WITH CHECK (true);
 
 -- Inserir registro padrão se não existir
-INSERT INTO bank_settings (id, total_bank, currency, updated_at)
-VALUES ('default', 0, 'R$', EXTRACT(EPOCH FROM NOW())::BIGINT * 1000)
+INSERT INTO bank_settings (id, total_bank, base_bank, currency, updated_at)
+VALUES ('default', 0, NULL, 'R$', EXTRACT(EPOCH FROM NOW())::BIGINT * 1000)
 ON CONFLICT (id) DO NOTHING;
 

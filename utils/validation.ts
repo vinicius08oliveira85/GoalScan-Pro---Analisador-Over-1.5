@@ -136,6 +136,7 @@ export const betInfoSchema = z
 export const bankSettingsSchema = z.object({
   totalBank: z.number().min(0, 'Banca não pode ser negativa').max(100000000),
   currency: z.string().length(3, 'Moeda deve ter 3 caracteres (ex: BRL, USD)'),
+  baseBank: z.number().min(0, 'Banca base não pode ser negativa').max(100000000).optional(),
   updatedAt: z.number(),
 });
 

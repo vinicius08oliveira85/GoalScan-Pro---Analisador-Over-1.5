@@ -107,6 +107,7 @@ export interface SavedAnalysisRow {
 export interface BankSettingsRow {
   id: string;
   total_bank: number;
+  base_bank?: number | null;
   currency: string;
   updated_at?: number;
   created_at?: string;
@@ -453,6 +454,7 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
     // Converter do formato do banco para BankSettings
     return {
       totalBank: data.total_bank,
+      baseBank: typeof data.base_bank === 'number' ? data.base_bank : undefined,
       currency: data.currency,
       updatedAt: data.updated_at || Date.now(),
     };
@@ -501,6 +503,7 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
         {
           id: 'default',
           total_bank: settings.totalBank,
+          base_bank: settings.baseBank ?? null,
           currency: settings.currency,
           updated_at: settings.updatedAt,
         },
@@ -512,6 +515,36 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
       .single();
 
     if (error) {
+      // Se a coluna base_bank não existe ainda, tentar novamente sem ela
+      // (evita erro 400 enquanto a migração não é aplicada)
+      const msg = (error.message || '').toLowerCase();
+      if (error.status === 400 && (msg.includes('base_bank') || msg.includes('column') || msg.includes('schema'))) {
+        const { data: data2, error: error2 } = await supabase
+          .from('bank_settings')
+          .upsert(
+            {
+              id: 'default',
+              total_bank: settings.totalBank,
+              currency: settings.currency,
+              updated_at: settings.updatedAt,
+            },
+            {
+              onConflict: 'id',
+            }
+          )
+          .select()
+          .single();
+
+        if (!error2 && data2) {
+          return {
+            totalBank: data2.total_bank,
+            baseBank: settings.baseBank,
+            currency: data2.currency,
+            updatedAt: data2.updated_at || Date.now(),
+          };
+        }
+      }
+
       // Se a tabela não existe (404 ou 42P01), não lançar erro - apenas logar em dev
       if (error.code === '42P01' || error.status === 404) {
         logger.warn(
@@ -536,6 +569,7 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
 
     return {
       totalBank: data.total_bank,
+      baseBank: typeof data.base_bank === 'number' ? data.base_bank : settings.baseBank,
       currency: data.currency,
       updatedAt: data.updated_at || Date.now(),
     };

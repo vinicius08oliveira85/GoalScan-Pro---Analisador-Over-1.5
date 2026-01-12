@@ -148,10 +148,15 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
 
     let baseToUse = suggestedBase;
     try {
-      const stored = localStorage.getItem('goalscan_bank_base');
-      const parsed = stored ? Number(stored) : Number.NaN;
-      if (Number.isFinite(parsed) && parsed >= 0) {
-        baseToUse = parsed;
+      // Prioridade: Supabase (bankSettings.baseBank) -> localStorage -> sugerida
+      if (typeof bankSettings.baseBank === 'number' && Number.isFinite(bankSettings.baseBank) && bankSettings.baseBank >= 0) {
+        baseToUse = bankSettings.baseBank;
+      } else {
+        const stored = localStorage.getItem('goalscan_bank_base');
+        const parsed = stored ? Number(stored) : Number.NaN;
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          baseToUse = parsed;
+        }
       }
     } catch {
       // ignorar
@@ -159,6 +164,13 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
 
     setBankBase(baseToUse);
     setBankBaseInput(formatNumber(baseToUse));
+
+    // Backup local (mesmo quando vem do Supabase) para suportar offline
+    try {
+      localStorage.setItem('goalscan_bank_base', String(Number(baseToUse.toFixed(2))));
+    } catch {
+      // ignorar
+    }
   }, [bankSettings, bankBase, netCashDelta, formatNumber]);
 
   const handleInputChange = useCallback(
@@ -191,6 +203,12 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
       const newSettings: BankSettings = {
         totalBank,
         currency: 'BRL', // Apenas REAL
+        baseBank:
+          typeof bankSettings?.baseBank === 'number'
+            ? bankSettings.baseBank
+            : bankBase === null
+              ? undefined
+              : Number(bankBase.toFixed(2)),
         updatedAt: Date.now(),
       };
 
@@ -206,20 +224,43 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
       }
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
-  }, [totalBank, validationState, onSave, onError]);
+  }, [totalBank, validationState, bankSettings?.baseBank, bankBase, onSave, onError]);
 
-  const handleSaveBase = useCallback(() => {
+  const handleSaveBase = useCallback(async () => {
     if (bankBase === null || !Number.isFinite(bankBase) || bankBase < 0) return;
+    if (!bankSettings) {
+      onError?.('Configure a banca primeiro para salvar a base.');
+      return;
+    }
+
     setBaseStatus('loading');
     try {
-      localStorage.setItem('goalscan_bank_base', String(Number(bankBase.toFixed(2))));
+      // Backup local
+      try {
+        localStorage.setItem('goalscan_bank_base', String(Number(bankBase.toFixed(2))));
+      } catch {
+        // ignorar
+      }
+
+      const newSettings: BankSettings = {
+        totalBank: bankSettings.totalBank,
+        currency: 'BRL',
+        baseBank: Number(bankBase.toFixed(2)),
+        updatedAt: Date.now(),
+      };
+
+      const validatedSettings = validateBankSettings(newSettings);
+      await onSave(validatedSettings);
+
       setBaseStatus('success');
       setTimeout(() => setBaseStatus('idle'), 2000);
-    } catch {
+    } catch (e) {
       setBaseStatus('error');
+      const errorMessage = e instanceof Error ? e.message : 'Erro ao salvar base';
+      onError?.(`Erro ao salvar base: ${errorMessage}`);
       setTimeout(() => setBaseStatus('idle'), 2000);
     }
-  }, [bankBase]);
+  }, [bankBase, bankSettings, onSave, onError]);
 
   const handleUseSuggestedBase = useCallback(() => {
     setBankBase(suggestedBase);
@@ -243,6 +284,7 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
       const newSettings: BankSettings = {
         totalBank: reconciledCash,
         currency: 'BRL',
+        baseBank: Number(bankBase.toFixed(2)),
         updatedAt: Date.now(),
       };
 
