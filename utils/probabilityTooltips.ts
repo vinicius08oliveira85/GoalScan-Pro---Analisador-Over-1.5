@@ -138,12 +138,16 @@ Esta é a probabilidade usada para cálculos de EV e recomendações.`;
 
 ${divergence > 20 ? `⚠️ Divergência alta entre fontes (${divergence.toFixed(1)}%). O sistema ajusta os pesos automaticamente.` : '✓ Valores consistentes entre fontes.'}
 
-Esta probabilidade é usada para cálculos de EV e recomendações.`;
+Esta probabilidade é usada para cálculos de EV e recomendações.
+
+🔢 Over/Under Combinada: é calculada a partir do λ (gols esperados) combinado das fontes e recalculada via Poisson para manter consistência entre todas as linhas (0.5–5.5).`;
   }
 
   return `Probabilidade final baseada apenas em estatísticas (dados da tabela não disponíveis).
 
 📊 Prob. Estatística: ${result.probabilityOver15.toFixed(1)}%
+
+🔢 Over/Under: é derivada do λ (gols esperados) estimado pelas estatísticas e recalculada via Poisson para manter consistência entre linhas.
 
 💡 Sincronize os dados da tabela do campeonato para obter uma probabilidade mais precisa combinando estatísticas recentes com dados da temporada completa.`;
 }

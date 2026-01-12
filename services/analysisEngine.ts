@@ -143,6 +143,9 @@ function combineOverUnderProbabilities(
  */
 function calculateStatisticsProbability(data: MatchData): {
   probability: number;
+  lambdaTotal: number;
+  lambdaHome: number;
+  lambdaAway: number;
   overUnderProbabilities: { [line: string]: { over: number; under: number } };
 } | null {
   const hasHomeTeamStats = !!data.homeTeamStats;
@@ -263,6 +266,9 @@ function calculateStatisticsProbability(data: MatchData): {
 
   return {
     probability: statsProb,
+    lambdaTotal,
+    lambdaHome,
+    lambdaAway,
     overUnderProbabilities,
   };
 }
@@ -276,6 +282,9 @@ function calculateStatisticsProbability(data: MatchData): {
  */
 function calculateTableProbability(data: MatchData): {
   probability: number;
+  lambdaTotal: number;
+  lambdaHome: number;
+  lambdaAway: number;
   overUnderProbabilities: { [line: string]: { over: number; under: number } };
 } | null {
   const hasHomeTableData = !!data.homeTableData;
@@ -433,6 +442,9 @@ function calculateTableProbability(data: MatchData): {
 
   return {
     probability: finalProb,
+    lambdaTotal,
+    lambdaHome,
+    lambdaAway,
     overUnderProbabilities,
   };
 }
@@ -1226,26 +1238,72 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const statsResult = calculateStatisticsProbability(normalizedData);
   const statsProb = statsResult?.probability ?? prob; // Usar prob calculado anteriormente como fallback
   const statsOverUnderProbabilities = statsResult?.overUnderProbabilities;
+  const statsLambdaTotal = statsResult?.lambdaTotal;
 
   // Calcular Prob. Tabela separadamente (baseada apenas em dados da tabela)
   const tableResult = calculateTableProbability(normalizedData);
   const tableProb = tableResult?.probability ?? null;
   const tableOverUnderProbabilities = tableResult?.overUnderProbabilities;
+  const tableLambdaTotal = tableResult?.lambdaTotal;
 
-  // Combinar probabilidade estatística com probabilidade da tabela
-  const { probability: finalProb, statsWeight, tableWeight } = combineStatisticsAndTable(
+  // Obter pesos para combinar lambdas (mesmos pesos usados na combinação de probabilidades)
+  const { probability: _, statsWeight, tableWeight } = combineStatisticsAndTable(
     statsProb,
     tableProb,
     normalizedData
   );
 
-  // Calcular probabilidades Over/Under combinadas usando os mesmos pesos
-  const overUnderProbabilities = combineOverUnderProbabilities(
-    statsOverUnderProbabilities,
-    tableOverUnderProbabilities,
-    statsWeight,
-    tableWeight
-  );
+  // Calcular probabilidades Over/Under combinadas via λ (gols esperados) para manter consistência entre linhas
+  const hasStatsLambda = typeof statsLambdaTotal === 'number' && Number.isFinite(statsLambdaTotal) && statsLambdaTotal > 0;
+  const hasTableLambda = typeof tableLambdaTotal === 'number' && Number.isFinite(tableLambdaTotal) && tableLambdaTotal > 0;
+
+  // Fallback: usar λ calculado no performAnalysis (já considera home/away stats e tabela quando disponíveis)
+  let lambdaCombined = lambdaTotal;
+  let shrink = 0;
+
+  if (hasStatsLambda && hasTableLambda) {
+    // Combinar lambdas com os mesmos pesos adaptativos
+    lambdaCombined = statsLambdaTotal * statsWeight + tableLambdaTotal * tableWeight;
+    shrink = 0.1;
+  } else if (hasStatsLambda) {
+    lambdaCombined = statsLambdaTotal;
+    shrink = 0.15;
+  } else if (hasTableLambda) {
+    lambdaCombined = tableLambdaTotal;
+    shrink = 0.15;
+  } else {
+    shrink = 0.2;
+  }
+
+  // Shrinkage leve para a média do campeonato (estabiliza extremos, especialmente linhas altas)
+  let lambdaFinal = lambdaCombined;
+  if (competitionAvg > 0 && Number.isFinite(competitionAvg)) {
+    lambdaFinal = (1 - shrink) * lambdaCombined + shrink * competitionAvg;
+  }
+
+  // Garantir faixa realista
+  lambdaFinal = Math.max(0.2, Math.min(7, lambdaFinal));
+
+  // Calcular probabilidades Over/Under combinadas via Poisson usando λ final
+  const overUnderProbabilities = calculateOverUnderProbabilities(lambdaFinal);
+
+  // Calcular Prob. Final (Over 1.5) diretamente do λ final para garantir 100% consistência
+  // com a linha 1.5 Over da tabela combinada
+  const over15ProbFromLambda = 1 - poissonCumulative(1, lambdaFinal);
+  const finalProb = Math.max(10, Math.min(98, over15ProbFromLambda * 100));
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] Over/Under combinada via λ:', {
+      statsWeight,
+      tableWeight,
+      statsLambdaTotal,
+      tableLambdaTotal,
+      lambdaCombined,
+      competitionAvg,
+      shrink,
+      lambdaFinal,
+    });
+  }
 
   let riskLevel: AnalysisResult['riskLevel'] = 'Moderado';
   if (finalProb > 88) riskLevel = 'Baixo';
