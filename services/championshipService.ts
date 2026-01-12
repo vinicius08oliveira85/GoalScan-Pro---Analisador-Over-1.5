@@ -91,6 +91,41 @@ function isTemporaryError(error: unknown): boolean {
 }
 
 /**
+ * Verifica se um erro é um erro de constraint violation (400)
+ * Especificamente para detectar problemas com table_type constraint
+ */
+function isConstraintError(error: unknown): boolean {
+  if (!error) return false;
+  
+  const err = error as { 
+    message?: string; 
+    code?: string | number; 
+    status?: number;
+    statusCode?: number;
+    details?: string;
+  };
+  
+  // Verificar status code 400
+  const statusCode = err.status || err.statusCode || 
+    (typeof err.code === 'number' ? err.code : null);
+  
+  if (statusCode === 400) {
+    // Verificar se é erro de constraint
+    const message = (err.message || '').toLowerCase();
+    const details = (err.details || '').toLowerCase();
+    
+    return message.includes('check') ||
+           message.includes('constraint') ||
+           message.includes('violates') ||
+           details.includes('check') ||
+           details.includes('constraint') ||
+           details.includes('violates');
+  }
+  
+  return false;
+}
+
+/**
  * Obtém o status do serviço do cache
  */
 function getServiceStatus(): ServiceStatus | null {
@@ -576,6 +611,19 @@ export const saveChampionshipTable = async (
 
       if (error) {
         if (error.code === 'PGRST116' || error.code === '42P01') {
+          return saveChampionshipTableToLocalStorage(table);
+        }
+        
+        // Se for erro de constraint (ex: table_type não permitido), fazer fallback para localStorage
+        if (isConstraintError(error)) {
+          if (import.meta.env.DEV) {
+            logger.warn(
+              '[ChampionshipService] Erro de constraint ao salvar tabela. ' +
+              'A constraint do banco pode não permitir o table_type. ' +
+              'Salvando apenas no localStorage. Execute a migração update_championship_tables_constraint.sql no Supabase.',
+              error
+            );
+          }
           return saveChampionshipTableToLocalStorage(table);
         }
         

@@ -18,7 +18,7 @@ CREATE TABLE championships (
 CREATE TABLE championship_tables (
   id TEXT PRIMARY KEY,
   championship_id TEXT NOT NULL REFERENCES championships(id) ON DELETE CASCADE,
-  table_type TEXT NOT NULL CHECK (table_type = 'geral'),
+  table_type TEXT NOT NULL CHECK (table_type IN ('geral', 'standard_for')),
   table_name TEXT NOT NULL,
   table_data JSONB NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
