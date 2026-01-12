@@ -14,6 +14,8 @@ export interface FilterState {
   riskLevels: RiskLevel[];
   betStatus: BetStatusFilter;
   dateRange: DateRange;
+  championshipId?: string; // Filtro por campeonato
+  selectedDate?: string; // Data específica selecionada (YYYY-MM-DD)
 }
 
 export type SortField = 'date' | 'ev' | 'probability' | 'risk' | 'timestamp';
@@ -33,7 +35,9 @@ export function hasActiveFilters(filterState: FilterState): boolean {
     filterState.probability !== 'all' ||
     filterState.riskLevels.length > 0 ||
     filterState.betStatus !== 'all' ||
-    filterState.dateRange !== 'all'
+    filterState.dateRange !== 'all' ||
+    (filterState.championshipId !== undefined && filterState.championshipId !== '') ||
+    (filterState.selectedDate !== undefined && filterState.selectedDate !== '')
   );
 }
 
@@ -47,6 +51,8 @@ export function countActiveFilters(filterState: FilterState): number {
   if (filterState.riskLevels.length > 0) count++;
   if (filterState.betStatus !== 'all') count++;
   if (filterState.dateRange !== 'all') count++;
+  if (filterState.championshipId && filterState.championshipId !== '') count++;
+  if (filterState.selectedDate && filterState.selectedDate !== '') count++;
   return count;
 }
 
@@ -55,7 +61,8 @@ export function countActiveFilters(filterState: FilterState): number {
  */
 function getMatchDateTime(match: SavedAnalysis): Date | null {
   try {
-    return getMatchDateInBrasilia(match.data.date);
+    if (!match.data.matchDate) return null;
+    return getMatchDateInBrasilia(match.data.matchDate, match.data.matchTime);
   } catch {
     return null;
   }
@@ -110,7 +117,7 @@ export function applyAllFilters(
       if (filterState.betStatus !== 'no-bet' && match.betInfo?.status !== filterState.betStatus) return false;
     }
 
-    // 5. Filtro de Data
+    // 5. Filtro de Data (período)
     if (filterState.dateRange !== 'all') {
       if (!matchDate) return false;
       switch (filterState.dateRange) {
@@ -124,6 +131,19 @@ export function applyAllFilters(
         case 'last-7-days': if (matchTime < sevenDaysAgo || matchTime > now.getTime()) return false; break;
         case 'last-30-days': if (matchTime < thirtyDaysAgo || matchTime > now.getTime()) return false; break;
       }
+    }
+
+    // 6. Filtro de Data Específica (date picker)
+    if (filterState.selectedDate) {
+      if (!matchDate) return false;
+      const selectedDateStr = new Date(filterState.selectedDate).toISOString().split('T')[0];
+      const matchDateStr = matchDate.toISOString().split('T')[0];
+      if (matchDateStr !== selectedDateStr) return false;
+    }
+
+    // 7. Filtro de Campeonato
+    if (filterState.championshipId && filterState.championshipId !== '') {
+      if (match.data.championshipId !== filterState.championshipId) return false;
     }
 
     return true;

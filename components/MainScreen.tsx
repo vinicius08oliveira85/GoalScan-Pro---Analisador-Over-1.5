@@ -14,6 +14,7 @@ import {
   XCircle,
   Clock,
   Ban,
+  Trophy,
 } from 'lucide-react';
 import { SkeletonMatchCard } from './Skeleton';
 import { cardHover, animations } from '../utils/animations';
@@ -26,6 +27,7 @@ import {
   formatMatchTime,
   formatTimestampInBrasilia,
 } from '../utils/dateFormatter';
+import { useChampionshipName } from '../hooks/useChampionshipName';
 
 // Componente de Empty State por categoria
 const EmptyStateByCategory: React.FC<{
@@ -167,6 +169,18 @@ const MainScreen: React.FC<MainScreenProps> = ({
   const filteredMatches = useMemo(() => {
     return filterMatchesByCategory(savedMatches, activeTab);
   }, [savedMatches, activeTab]);
+
+  // Componente para exibir nome do campeonato
+  const ChampionshipNameDisplay: React.FC<{ championshipId?: string }> = ({ championshipId }) => {
+    const name = useChampionshipName(championshipId);
+    if (!name) return null;
+    return (
+      <div className="flex items-center gap-1 text-[10px] opacity-70 mb-1">
+        <Trophy className="w-3 h-3 text-warning" />
+        <span className="truncate">{name}</span>
+      </div>
+    );
+  };
 
   // Calcular estatísticas gerais (baseadas nas partidas filtradas)
   const totalMatches = filteredMatches.length;
@@ -392,6 +406,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                         <span className="text-primary opacity-60 shrink-0">vs</span>
                         <span className="truncate">{match.data.awayTeam}</span>
                       </div>
+                      <ChampionshipNameDisplay championshipId={match.data.championshipId} />
                     </div>
                     <div className="flex items-start gap-2">
                       {/* Status da Aposta */}

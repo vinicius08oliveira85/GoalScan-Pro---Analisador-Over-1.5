@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Filter,
@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
+  Trophy,
 } from 'lucide-react';
 import {
   FilterState,
@@ -25,6 +26,10 @@ import {
   SortState,
   countActiveFilters,
 } from '../utils/matchFilters';
+import { SavedAnalysis } from '../types';
+import { Championship } from '../types';
+import { getChampionshipMap } from '../utils/championshipUtils';
+import { getMatchDateInBrasilia } from '../utils/dateFormatter';
 
 interface MatchFiltersProps {
   filterState: FilterState;
@@ -34,6 +39,7 @@ interface MatchFiltersProps {
   onClearFilters: () => void;
   filteredCount: number;
   totalCount: number;
+  allMatches: SavedAnalysis[]; // Todas as partidas para destacar dias no calendário
 }
 
 const MatchFilters: React.FC<MatchFiltersProps> = ({
@@ -44,9 +50,39 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
   onClearFilters,
   filteredCount,
   totalCount,
+  allMatches,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [championships, setChampionships] = useState<Championship[]>([]);
+  const [championshipMap, setChampionshipMap] = useState<Map<string, string>>(new Map());
   const activeFiltersCount = countActiveFilters(filterState);
+
+  // Carregar campeonatos
+  useEffect(() => {
+    getChampionshipMap().then((map) => {
+      setChampionshipMap(map);
+      const champs: Championship[] = Array.from(map.entries()).map(([id, nome]) => ({
+        id,
+        nome,
+      }));
+      setChampionships(champs);
+    });
+  }, []);
+
+  // Extrair datas únicas das partidas para destacar no calendário
+  const matchDates = useMemo(() => {
+    const dates = new Set<string>();
+    allMatches.forEach((match) => {
+      if (match.data.matchDate) {
+        const matchDate = getMatchDateInBrasilia(match.data.matchDate, match.data.matchTime);
+        if (matchDate) {
+          const dateStr = matchDate.toISOString().split('T')[0];
+          dates.add(dateStr);
+        }
+      }
+    });
+    return dates;
+  }, [allMatches]);
 
   const handleFilterChange = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     onFilterChange({
@@ -331,6 +367,59 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Filtro por Campeonato */}
+            <div>
+              <label className="text-xs font-bold uppercase opacity-60 mb-2 block flex items-center gap-2">
+                <Trophy className="w-3 h-3" />
+                Campeonato
+              </label>
+              <select
+                value={filterState.championshipId || ''}
+                onChange={(e) => handleFilterChange('championshipId', e.target.value || undefined)}
+                className="select select-bordered w-full max-w-xs bg-base-200/50 border-base-300/50 focus:border-primary"
+              >
+                <option value="">Todos os campeonatos</option>
+                {championships.map((champ) => (
+                  <option key={champ.id} value={champ.id}>
+                    {champ.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro por Data Específica (Date Picker) */}
+            <div>
+              <label className="text-xs font-bold uppercase opacity-60 mb-2 block flex items-center gap-2">
+                <Calendar className="w-3 h-3" />
+                Data da Partida
+              </label>
+              <input
+                type="date"
+                value={filterState.selectedDate || ''}
+                onChange={(e) => handleFilterChange('selectedDate', e.target.value || undefined)}
+                className="input input-bordered w-full max-w-xs bg-base-200/50 border-base-300/50 focus:border-primary"
+                style={{
+                  // Estilizar o input date para destacar dias com partidas
+                  backgroundImage: matchDates.size > 0 ? 'none' : undefined,
+                }}
+              />
+              {filterState.selectedDate && (
+                <button
+                  onClick={() => handleFilterChange('selectedDate', undefined)}
+                  className="btn btn-xs btn-ghost mt-2 text-error hover:bg-error/10"
+                >
+                  <X className="w-3 h-3" />
+                  Limpar data
+                </button>
+              )}
+              {/* Dica visual: mostrar quantos dias têm partidas */}
+              {matchDates.size > 0 && (
+                <p className="text-xs opacity-60 mt-1">
+                  {matchDates.size} dia{matchDates.size !== 1 ? 's' : ''} com partidas registradas
+                </p>
+              )}
             </div>
           </motion.div>
         )}

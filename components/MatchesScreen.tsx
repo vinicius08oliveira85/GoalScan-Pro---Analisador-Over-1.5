@@ -173,6 +173,8 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
       riskLevels: [],
       betStatus: 'all',
       dateRange: 'all',
+      championshipId: undefined,
+      selectedDate: undefined,
     };
   });
 
@@ -233,6 +235,8 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
       riskLevels: [],
       betStatus: 'all',
       dateRange: 'all',
+      championshipId: undefined,
+      selectedDate: undefined,
     });
   };
 
@@ -251,6 +255,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
           onClearFilters={handleClearFilters}
           filteredCount={filteredMatches.length}
           totalCount={filterMatchesByCategory(savedMatches, activeTab).length}
+          allMatches={savedMatches}
         />
       </div>
 

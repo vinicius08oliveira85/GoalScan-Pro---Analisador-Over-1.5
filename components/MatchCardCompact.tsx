@@ -1,11 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { SavedAnalysis } from '../types';
-import { TrendingUp, TrendingDown, Calendar, X, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, X, CheckCircle, XCircle, Clock, Trophy } from 'lucide-react';
 import { cardHover } from '../utils/animations';
 import { getDisplayProbability, getSelectedProbabilityLabel } from '../utils/probability';
 import { getRiskLevelFromProbability } from '../utils/risk';
 import { formatMatchDate, formatTimestampInBrasilia } from '../utils/dateFormatter';
+import { useChampionshipName } from '../hooks/useChampionshipName';
 
 interface MatchCardCompactProps {
   match: SavedAnalysis;
@@ -32,6 +33,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
   const probability = getDisplayProbability(match);
   const selectedLabel = getSelectedProbabilityLabel(match.selectedBets);
   const riskLevel = getRiskLevelFromProbability(probability);
+  const championshipName = useChampionshipName(match.data.championshipId);
   
   // Calcular EV com a probabilidade correta (selecionada/combinada ou padrão)
   const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
@@ -71,6 +73,12 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
             <span className="text-primary opacity-60 shrink-0">vs</span>
             <span className="truncate">{match.data.awayTeam}</span>
           </div>
+          {championshipName && (
+            <div className="flex items-center gap-1 mt-0.5 text-[9px] opacity-60">
+              <Trophy className="w-2.5 h-2.5 text-warning" />
+              <span className="truncate">{championshipName}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2 mt-1">
             <div className="flex items-center gap-1 text-[10px] opacity-60">
               <Calendar className="w-2.5 h-2.5" />

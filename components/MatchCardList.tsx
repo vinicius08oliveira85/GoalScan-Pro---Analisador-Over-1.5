@@ -10,6 +10,7 @@ import {
   XCircle,
   Clock,
   Ban,
+  Trophy,
 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
 import { getDisplayProbability, getSelectedProbabilityLabel } from '../utils/probability';
@@ -19,6 +20,7 @@ import {
   formatMatchTime,
   formatTimestampInBrasilia,
 } from '../utils/dateFormatter';
+import { useChampionshipName } from '../hooks/useChampionshipName';
 
 interface MatchCardListProps {
   match: SavedAnalysis;
@@ -66,6 +68,7 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
   const probability = getDisplayProbability(match);
   const selectedLabel = getSelectedProbabilityLabel(match.selectedBets);
   const riskLevel = getRiskLevelFromProbability(probability);
+  const championshipName = useChampionshipName(match.data.championshipId);
   
   // Calcular EV com a probabilidade correta (selecionada/combinada ou padrão)
   const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
@@ -105,6 +108,12 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
           <span className="text-primary opacity-60 shrink-0">vs</span>
           <span className="font-semibold text-sm truncate">{match.data.awayTeam}</span>
         </div>
+        {championshipName && (
+          <div className="flex items-center gap-1 mb-1 text-xs opacity-70">
+            <Trophy className="w-3 h-3 text-warning" />
+            <span className="truncate">{championshipName}</span>
+          </div>
+        )}
         <div className="flex items-center gap-3 text-xs opacity-70">
           <div className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
