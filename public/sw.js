@@ -54,6 +54,22 @@ self.addEventListener('activate', (event) => {
   return self.clients.claim();
 });
 
+// Listener de mensagens para evitar erros de extensões
+self.addEventListener('message', (event) => {
+  // Responder imediatamente para evitar "message channel closed"
+  try {
+    if (event.data && typeof event.data === 'object') {
+      // Responder com confirmação se houver port
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage({ success: true });
+      }
+    }
+  } catch (error) {
+    // Silenciar erros de mensagens de extensões
+  }
+  // Para mensagens sem port, não fazer nada (evita erro)
+});
+
 // Estratégia de cache baseada no tipo de recurso
 self.addEventListener('fetch', (event) => {
   const { request } = event;

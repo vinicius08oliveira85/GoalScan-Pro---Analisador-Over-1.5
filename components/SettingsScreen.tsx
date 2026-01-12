@@ -199,7 +199,7 @@ const SettingsScreen: React.FC = () => {
           <h4 className="font-black text-sm md:text-base">GoalScan Pro</h4>
         </div>
         <p className="text-xs opacity-70 mb-2">
-          Sistema avançado de análise de apostas esportivas com IA integrada.
+          Sistema avançado de análise de apostas esportivas com modelo estatístico (Poisson) e métricas de valor.
         </p>
         <p className="text-xs opacity-50">
           Desenvolvido com React, TypeScript e análise estatística avançada.

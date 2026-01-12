@@ -100,7 +100,11 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
   return (
     <div
       className="surface surface-hover p-6 cursor-help"
-      title={`Probabilidade de ${displayLabel}. ${selectedProbability ? 'Baseada na seleção de apostas.' : 'Calculada com estatísticas históricas e análise da IA (quando disponível).'}`}
+      title={`Probabilidade de ${displayLabel}. ${
+        selectedProbability != null
+          ? 'Baseada na seleção de apostas (linha/combinação escolhida).'
+          : 'Calculada via Poisson com Estatísticas (últimos 10 jogos) + Tabela (temporada), quando disponíveis.'
+      }`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -202,7 +206,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
             <span className="text-base font-bold text-teal-400 opacity-80">%</span>
           </div>
           <span className="text-[10px] font-bold text-base-content/50 mt-2 uppercase tracking-widest">
-            Confiança
+            Probabilidade
           </span>
         </motion.div>
       </div>

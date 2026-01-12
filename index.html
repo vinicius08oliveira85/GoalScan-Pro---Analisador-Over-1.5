@@ -39,6 +39,11 @@
               console.log('Service Worker registrado com sucesso:', registration.scope);
             })
             .catch((error) => {
+              // Suprimir erros conhecidos de extensões
+              if (error.message && error.message.includes('message channel')) {
+                return; // Não logar
+              }
+              // Logar apenas erros reais
               console.log('Falha ao registrar Service Worker:', error);
             });
         });
@@ -48,6 +53,14 @@
       if (window.matchMedia('(display-mode: standalone)').matches) {
         document.documentElement.setAttribute('data-pwa', 'true');
       }
+
+      // Suprimir erros de extensões relacionados a Service Workers
+      window.addEventListener('unhandledrejection', (event) => {
+        if (event.reason && event.reason.message && 
+            event.reason.message.includes('message channel closed')) {
+          event.preventDefault(); // Suprimir o erro
+        }
+      });
 
       // Prevenir zoom duplo toque no iOS
       let lastTouchEnd = 0;

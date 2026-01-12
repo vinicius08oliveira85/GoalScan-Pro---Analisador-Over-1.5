@@ -1,5 +1,6 @@
-import { AnalysisResult, MatchData } from '../types';
+import { AnalysisResult, MatchData, SelectedBet } from '../types';
 import { getEdgeConfidenceInterval } from './betMetrics';
+import { calculateSelectedBetsProbability } from './betRange';
 
 /**
  * Gera tooltip detalhado para Prob. Estatística
@@ -93,30 +94,28 @@ export function getTableProbabilityTooltip(
 export function getFinalProbabilityTooltip(
   result: AnalysisResult,
   displayProbability: number,
-  selectedBets: Array<{ line: string; type: 'over' | 'under'; probability: number }>,
+  selectedBets: SelectedBet[],
   hasTable: boolean
 ): string {
+  let selectionBlock = '';
   if (selectedBets.length > 0) {
+    const selectionProb =
+      calculateSelectedBetsProbability(selectedBets, result.overUnderProbabilities) ??
+      calculateSelectedBetsProbability(selectedBets);
+
     if (selectedBets.length === 1) {
       const bet = selectedBets[0];
-      return `Probabilidade da aposta selecionada: ${bet.type === 'over' ? 'Over' : 'Under'} ${bet.line}
+      selectionBlock = `Seleção ativa: ${bet.type === 'over' ? 'Over' : 'Under'} ${bet.line}
+📌 Prob. Seleção: ${selectionProb != null ? selectionProb.toFixed(1) : bet.probability.toFixed(1)}%
 
-📊 Probabilidade: ${bet.probability.toFixed(1)}%
-
-Esta é a probabilidade usada para cálculos de EV e recomendações.`;
-    } else {
+⚠️ Observação: quando há seleção, EV/Edge/Risco seguem a seleção (não o Over 1.5).\n\n`;
+    } else if (selectedBets.length === 2) {
       const bet1 = selectedBets[0];
       const bet2 = selectedBets[1];
-      const combined = (bet1.probability / 100) * (bet2.probability / 100) * 100;
-      return `Probabilidade combinada das apostas selecionadas:
+      selectionBlock = `Seleção ativa: ${bet1.type === 'over' ? 'Over' : 'Under'} ${bet1.line} + ${bet2.type === 'over' ? 'Over' : 'Under'} ${bet2.line}
+📌 Prob. Seleção (range): ${selectionProb != null ? selectionProb.toFixed(1) : '—'}%
 
-📊 Aposta 1: ${bet1.type === 'over' ? 'Over' : 'Under'} ${bet1.line} (${bet1.probability.toFixed(1)}%)
-📊 Aposta 2: ${bet2.type === 'over' ? 'Over' : 'Under'} ${bet2.line} (${bet2.probability.toFixed(1)}%)
-
-🔢 Probabilidade Combinada: ${combined.toFixed(1)}%
-   = ${(bet1.probability / 100).toFixed(3)} × ${(bet2.probability / 100).toFixed(3)} × 100
-
-Esta é a probabilidade usada para cálculos de EV e recomendações.`;
+⚠️ Observação: quando há seleção, EV/Edge/Risco seguem a seleção (não o Over 1.5).\n\n`;
     }
   }
 
@@ -125,27 +124,21 @@ Esta é a probabilidade usada para cálculos de EV e recomendações.`;
     const tableProb = result.tableProbability;
     const combined = result.combinedProbability || displayProbability;
     const divergence = Math.abs(statProb - tableProb);
-    
-    // Pesos padrão: 70% estatísticas, 30% tabela (ajustados dinamicamente)
-    const statsWeight = 0.7;
-    const tableWeight = 0.3;
 
-    return `Probabilidade final combinando Estatísticas (últimos 10 jogos) + Tabela (temporada completa).
+    return `${selectionBlock}Prob. Final (Over 1.5) combinando Estatísticas (últimos 10 jogos) + Tabela (temporada completa).
 
-📊 Prob. Estatística: ${statProb.toFixed(1)}% (peso: ${(statsWeight * 100).toFixed(0)}%)
-📋 Prob. Tabela: ${tableProb.toFixed(1)}% (peso: ${(tableWeight * 100).toFixed(0)}%)
-🎯 Prob. Final: ${combined.toFixed(1)}%
+📊 Prob. Estatística (Over 1.5): ${statProb.toFixed(1)}%
+📋 Prob. Tabela (Over 1.5): ${tableProb.toFixed(1)}%
+🎯 Prob. Final (Over 1.5): ${combined.toFixed(1)}%
 
 ${divergence > 20 ? `⚠️ Divergência alta entre fontes (${divergence.toFixed(1)}%). O sistema ajusta os pesos automaticamente.` : '✓ Valores consistentes entre fontes.'}
-
-Esta probabilidade é usada para cálculos de EV e recomendações.
 
 🔢 Over/Under Combinada: é calculada a partir do λ (gols esperados) combinado das fontes e recalculada via Poisson para manter consistência entre todas as linhas (0.5–5.5).`;
   }
 
-  return `Probabilidade final baseada apenas em estatísticas (dados da tabela não disponíveis).
+  return `${selectionBlock}Prob. Final (Over 1.5) baseada apenas em estatísticas (dados da tabela não disponíveis).
 
-📊 Prob. Estatística: ${result.probabilityOver15.toFixed(1)}%
+📊 Prob. Estatística (Over 1.5): ${result.probabilityOver15.toFixed(1)}%
 
 🔢 Over/Under: é derivada do λ (gols esperados) estimado pelas estatísticas e recalculada via Poisson para manter consistência entre linhas.
 
@@ -159,7 +152,8 @@ export function getEdgeTooltip(
   edgePp: number | null,
   displayProbability: number,
   odd: number | undefined,
-  confidenceScore?: number
+  confidenceScore?: number,
+  probabilityLabel: string = 'Probabilidade'
 ): string {
   if (edgePp == null || !odd) {
     return 'Edge não disponível. Adicione uma odd para calcular o edge (vantagem) da aposta.';
@@ -179,9 +173,9 @@ export function getEdgeTooltip(
     }
   }
 
-  return `Edge (Vantagem) = Prob. Final - Prob. Implícita Justa
+  return `Edge (Vantagem) = ${probabilityLabel} - Prob. Implícita Justa
 
-📊 Prob. Final: ${displayProbability.toFixed(1)}%
+📊 ${probabilityLabel}: ${displayProbability.toFixed(1)}%
 📊 Prob. Implícita (com margem): ${impliedProb.toFixed(1)}% (1 / ${odd.toFixed(2)})
 📊 Prob. Implícita Justa: ${fairImplied.toFixed(1)}% (ajustada para margem de ${(houseMargin * 100).toFixed(0)}%)
 📈 Edge: ${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp${confidenceIntervalText}

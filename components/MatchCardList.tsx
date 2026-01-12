@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
 import { getDisplayProbability, getSelectedProbabilityLabel } from '../utils/probability';
+import { getRiskLevelFromProbability } from '../utils/risk';
 import {
   formatMatchDate,
   formatMatchTime,
@@ -64,6 +65,7 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
   const statusConfig = getStatusConfig();
   const probability = getDisplayProbability(match);
   const selectedLabel = getSelectedProbabilityLabel(match.selectedBets);
+  const riskLevel = getRiskLevelFromProbability(probability);
   
   // Calcular EV com a probabilidade correta (selecionada/combinada ou padrão)
   const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
@@ -127,9 +129,9 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
             )}
           </div>
           <span
-            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRiskColor(match.result.riskLevel)}`}
+            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRiskColor(riskLevel)}`}
           >
-            {match.result.riskLevel}
+            {riskLevel}
           </span>
         </div>
       </div>

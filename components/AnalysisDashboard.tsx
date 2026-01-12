@@ -22,6 +22,8 @@ import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
 import { getEdgePp } from '../utils/betMetrics';
+import { calculateSelectedBetsProbability } from '../utils/betRange';
+import { getRiskLevelFromProbability } from '../utils/risk';
 import {
   getStatisticalProbabilityTooltip,
   getTableProbabilityTooltip,
@@ -57,6 +59,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
   const [selectedBets, setSelectedBets] = useState<SelectedBet[]>(initialSelectedBets || []);
+  const [overUnderTab, setOverUnderTab] = useState<'combined' | 'stats' | 'table'>('combined');
   
   // Restaurar apostas selecionadas quando initialSelectedBets mudar
   useEffect(() => {
@@ -66,33 +69,38 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   }, [initialSelectedBets]);
   const primaryProb = getPrimaryProbability(result);
 
-  // Função para calcular probabilidade combinada
-  const calculateCombinedProbability = (bets: SelectedBet[]): number => {
-    if (bets.length !== 2) return 0;
-    // Multiplicar as probabilidades (apostas independentes)
-    return (bets[0].probability / 100) * (bets[1].probability / 100) * 100;
-  };
+  const hasCombinedOU =
+    !!result.overUnderProbabilities && Object.keys(result.overUnderProbabilities).length > 0;
+  const hasStatsOU =
+    !!result.statsOverUnderProbabilities &&
+    Object.keys(result.statsOverUnderProbabilities).length > 0;
+  const hasTableOU =
+    !!result.tableOverUnderProbabilities &&
+    Object.keys(result.tableOverUnderProbabilities).length > 0;
+  const hasAnyOU = hasCombinedOU || hasStatsOU || hasTableOU;
 
-  // Calcular probabilidade combinada quando houver 2 apostas selecionadas
-  const combinedProbability = useMemo(() => {
-    if (selectedBets.length === 2) {
-      return calculateCombinedProbability(selectedBets);
+  // Garantir que a aba atual exista quando o resultado mudar
+  useEffect(() => {
+    if (!hasAnyOU) return;
+
+    if (overUnderTab === 'combined' && !hasCombinedOU) {
+      setOverUnderTab(hasStatsOU ? 'stats' : 'table');
+      return;
     }
-    return null;
-  }, [selectedBets]);
+    if (overUnderTab === 'stats' && !hasStatsOU) {
+      setOverUnderTab(hasCombinedOU ? 'combined' : 'table');
+      return;
+    }
+    if (overUnderTab === 'table' && !hasTableOU) {
+      setOverUnderTab(hasCombinedOU ? 'combined' : hasStatsOU ? 'stats' : 'combined');
+    }
+  }, [overUnderTab, hasAnyOU, hasCombinedOU, hasStatsOU, hasTableOU]);
 
-  // Calcular qual probabilidade deve ser exibida no gauge
+  // Probabilidade exibida no gauge (seleção ou padrão)
   const displayProbability = useMemo(() => {
-    if (selectedBets.length === 1) {
-      // Se há 1 aposta selecionada, usar sua probabilidade
-      return selectedBets[0].probability;
-    } else if (selectedBets.length === 2 && combinedProbability !== null) {
-      // Se há 2 apostas selecionadas, usar probabilidade combinada
-      return combinedProbability;
-    }
-    // Caso contrário, usar probabilidade Over 1.5 padrão
-    return primaryProb;
-  }, [selectedBets, combinedProbability, primaryProb]);
+    const selected = calculateSelectedBetsProbability(selectedBets, result.overUnderProbabilities);
+    return selected ?? primaryProb;
+  }, [selectedBets, result.overUnderProbabilities, primaryProb]);
 
   // Calcular label descritivo para a probabilidade exibida
   const displayLabel = useMemo(() => {
@@ -115,15 +123,27 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     return result.ev; // Fallback para EV do resultado se não houver odd
   }, [displayProbability, data.oddOver15, result.ev]);
 
-  // Calcular Edge (pp) com a probabilidade final combinada (sempre da análise, não da aposta selecionada)
+  // Quando houver seleção, Edge/Risco também devem seguir a probabilidade selecionada.
   // Usando margem padrão de 6% (típica de casas de apostas)
-  const finalCombinedProb = result.combinedProbability ?? result.probabilityOver15;
   const edgePp = useMemo(() => {
     if (data.oddOver15 && data.oddOver15 > 1) {
-      return getEdgePp(finalCombinedProb, data.oddOver15, 0.06);
+      return getEdgePp(displayProbability, data.oddOver15, 0.06);
     }
     return null;
-  }, [finalCombinedProb, data.oddOver15]);
+  }, [displayProbability, data.oddOver15]);
+
+  const displayRiskLevel = useMemo(
+    () => getRiskLevelFromProbability(displayProbability),
+    [displayProbability]
+  );
+
+  const formTrend = result.advancedMetrics.formTrend;
+  const isTrendNeutral = Math.abs(formTrend) < 0.5;
+  const trendLabel = isTrendNeutral ? 'NEUTRO' : formTrend > 0 ? 'SUBINDO' : 'CAINDO';
+  const trendColor = isTrendNeutral ? 'warning' : formTrend > 0 ? 'success' : 'error';
+  const trendDir = isTrendNeutral ? 'neutral' : formTrend > 0 ? 'up' : 'down';
+  const trendValue = isTrendNeutral ? '≈0' : `${formTrend > 0 ? '+' : ''}${formTrend.toFixed(1)}`;
+  const trendIcon = isTrendNeutral ? Target : formTrend > 0 ? TrendingUp : TrendingDown;
 
   // Função para lidar com clique em uma aposta
   const handleBetClick = (line: string, type: 'over' | 'under', probability: number) => {
@@ -236,18 +256,19 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
                 <div
                   className={`badge badge-lg p-3 sm:p-4 font-black border-2 shadow-lg flex items-center gap-2 text-sm sm:text-base ${
-                    result.riskLevel === 'Baixo'
+                    displayRiskLevel === 'Baixo'
                       ? 'bg-success/20 text-success border-success/40'
-                      : result.riskLevel === 'Moderado'
+                      : displayRiskLevel === 'Moderado'
                         ? 'bg-warning/20 text-warning border-warning/40'
-                        : result.riskLevel === 'Alto'
+                        : displayRiskLevel === 'Alto'
                           ? 'bg-error/20 text-error border-error/40'
                           : 'bg-error/30 text-error border-error/50'
                   }`}
+                  title={`Risco baseado em ${displayLabel} (${displayProbability.toFixed(1)}%)`}
                 >
                   <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">RISCO: </span>
-                  <span className="uppercase">{result.riskLevel}</span>
+                  <span className="uppercase">{displayRiskLevel}</span>
                 </div>
                 {onSave && (
                   <button
@@ -260,7 +281,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               </div>
             </div>
 
-            {/* Probabilidades (Estatística, IA, Final) */}
+            {/* Probabilidades (Estatísticas, Tabela, Final) */}
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -275,9 +296,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                   const qualityColor = dataQuality >= 80 ? 'text-success' : dataQuality >= 60 ? 'text-warning' : 'text-error';
                   const qualityLabel = dataQuality >= 80 ? 'Alta' : dataQuality >= 60 ? 'Média' : 'Baixa';
                   return (
-                    <div className={`flex items-center gap-1.5 text-xs font-semibold ${qualityColor} tooltip tooltip-left`} data-tip={`Qualidade dos Dados: ${qualityLabel} (${dataQuality.toFixed(0)}%)\n\nIndica a completude e qualidade dos dados disponíveis para análise. Dados mais completos resultam em análises mais precisas.`}>
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold ${qualityColor} tooltip tooltip-left`} data-tip={`Dados: ${qualityLabel} (${dataQuality.toFixed(0)}%)\n\nIndica a completude dos dados disponíveis para análise. Dados mais completos resultam em análises mais precisas.`}>
                       <div className={`w-2 h-2 rounded-full ${dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-error'}`} />
-                      <span className="hidden sm:inline">Qualidade: {qualityLabel}</span>
+                      <span className="hidden sm:inline">Dados: {qualityLabel}</span>
                     </div>
                   );
                 })()}
@@ -294,7 +315,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               >
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
-                    title="Prob. Estatística"
+                    title="Prob. Estatística (Over 1.5)"
                     value={`${result.probabilityOver15.toFixed(1)}%`}
                     icon={Calculator}
                     color="secondary"
@@ -303,7 +324,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
-                    title="Prob. Tabela"
+                    title="Prob. Tabela (Over 1.5)"
                     value={
                       result.tableProbability != null
                         ? `${Number(result.tableProbability).toFixed(1)}%`
@@ -316,7 +337,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
-                    title="Prob. Final"
+                    title="Prob. Final (Over 1.5)"
                     value={
                       result.combinedProbability != null
                         ? `${Number(result.combinedProbability).toFixed(1)}%`
@@ -338,7 +359,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={edgePp == null ? '—' : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`}
                     icon={TrendingUp}
                     color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
-                    tooltip={getEdgeTooltip(edgePp, finalCombinedProb, data.oddOver15, result.confidenceScore)}
+                    tooltip={getEdgeTooltip(
+                      edgePp,
+                      displayProbability,
+                      data.oddOver15,
+                      result.confidenceScore,
+                      displayLabel
+                    )}
                   />
                 </motion.div>
               </motion.div>
@@ -381,17 +408,17 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
                     title="Tendência"
-                    value={result.advancedMetrics.formTrend >= 0 ? 'SUBINDO' : 'CAINDO'}
-                    icon={result.advancedMetrics.formTrend >= 0 ? TrendingUp : TrendingDown}
-                    color={result.advancedMetrics.formTrend >= 0 ? 'success' : 'error'}
-                    trend={result.advancedMetrics.formTrend >= 0 ? 'up' : 'down'}
-                    trendValue={`${result.advancedMetrics.formTrend >= 0 ? '+' : ''}${result.advancedMetrics.formTrend.toFixed(1)}`}
+                    value={trendLabel}
+                    icon={trendIcon}
+                    color={trendColor}
+                    trend={trendDir}
+                    trendValue={trendValue}
                     tooltip="Tendência de forma: indica se a probabilidade está subindo ou caindo. Valores positivos indicam tendência favorável ao Over 1.5."
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
-                    title="Qualidade"
+                    title="Confiança"
                     value={result.confidenceScore}
                     icon={Target}
                     color="accent"
@@ -426,224 +453,142 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           initial="initial"
           animate="animate"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-black uppercase tracking-tight">Probabilidades Over/Under</h3>
-          </div>
-          
-          {/* Exibir todas as fontes disponíveis */}
-          <div className="space-y-6">
-            {/* Probabilidades Combinadas (sempre priorizadas) */}
-            {result.overUnderProbabilities && Object.keys(result.overUnderProbabilities).length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Target className="w-4 h-4 text-success" />
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-success">
-                    Probabilidades Combinadas (Estatísticas + Tabela)
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
-                    const prob = result.overUnderProbabilities?.[line];
-                    if (!prob) return null;
-                    const isOverSelected = isBetSelected(line, 'over');
-                    const isUnderSelected = isBetSelected(line, 'under');
-                    return (
-                      <div
-                        key={`combined-${line}`}
-                        className="surface-muted p-4 rounded-xl border border-base-300/60"
-                      >
-                        <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
-                          Linha {line}
-                        </div>
-                        <div className="space-y-2">
-                          <div
-                            onClick={() => handleBetClick(line, 'over', prob.over)}
-                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                              isOverSelected
-                                ? 'bg-success/20 border-2 border-success shadow-lg scale-105'
-                                : 'hover:bg-base-300/50 border-2 border-transparent'
-                            }`}
-                            title={isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
-                          >
-                            <span className="text-xs font-semibold text-success">Over</span>
-                            <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
-                          </div>
-                          <div
-                            onClick={() => handleBetClick(line, 'under', prob.under)}
-                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                              isUnderSelected
-                                ? 'bg-error/20 border-2 border-error shadow-lg scale-105'
-                                : 'hover:bg-base-300/50 border-2 border-transparent'
-                            }`}
-                            title={isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
-                          >
-                            <span className="text-xs font-semibold text-error">Under</span>
-                            <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-black uppercase tracking-tight">Probabilidades Over/Under</h3>
+            </div>
 
-            {/* Probabilidades das Estatísticas */}
-            {result.statsOverUnderProbabilities && Object.keys(result.statsOverUnderProbabilities).length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Calculator className="w-4 h-4 text-secondary" />
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-secondary">
-                    Probabilidades das Estatísticas (Últimos 10 Jogos)
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
-                    const prob = result.statsOverUnderProbabilities?.[line];
-                    if (!prob) return null;
-                    const isOverSelected = isBetSelected(line, 'over');
-                    const isUnderSelected = isBetSelected(line, 'under');
-                    return (
-                      <div
-                        key={`stats-${line}`}
-                        className="surface-muted p-4 rounded-xl border border-base-300/60"
-                      >
-                        <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
-                          Linha {line}
-                        </div>
-                        <div className="space-y-2">
-                          <div
-                            onClick={() => handleBetClick(line, 'over', prob.over)}
-                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                              isOverSelected
-                                ? 'bg-success/20 border-2 border-success shadow-lg scale-105'
-                                : 'hover:bg-base-300/50 border-2 border-transparent'
-                            }`}
-                            title={isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
-                          >
-                            <span className="text-xs font-semibold text-success">Over</span>
-                            <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
-                          </div>
-                          <div
-                            onClick={() => handleBetClick(line, 'under', prob.under)}
-                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                              isUnderSelected
-                                ? 'bg-error/20 border-2 border-error shadow-lg scale-105'
-                                : 'hover:bg-base-300/50 border-2 border-transparent'
-                            }`}
-                            title={isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
-                          >
-                            <span className="text-xs font-semibold text-error">Under</span>
-                            <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end">
+              <div role="tablist" className="tabs tabs-boxed tabs-sm">
+                {hasCombinedOU && (
+                  <button
+                    type="button"
+                    role="tab"
+                    className={`tab ${overUnderTab === 'combined' ? 'tab-active' : ''}`}
+                    onClick={() => setOverUnderTab('combined')}
+                  >
+                    Combinada
+                  </button>
+                )}
+                {hasStatsOU && (
+                  <button
+                    type="button"
+                    role="tab"
+                    className={`tab ${overUnderTab === 'stats' ? 'tab-active' : ''}`}
+                    onClick={() => setOverUnderTab('stats')}
+                  >
+                    Estatísticas
+                  </button>
+                )}
+                {hasTableOU && (
+                  <button
+                    type="button"
+                    role="tab"
+                    className={`tab ${overUnderTab === 'table' ? 'tab-active' : ''}`}
+                    onClick={() => setOverUnderTab('table')}
+                  >
+                    Tabela
+                  </button>
+                )}
               </div>
-            )}
 
-            {/* Probabilidades da Tabela */}
-            {result.tableOverUnderProbabilities && Object.keys(result.tableOverUnderProbabilities).length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Shield className="w-4 h-4 text-accent" />
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-accent">
-                    Probabilidades da Tabela (Temporada Completa)
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
-                    const prob = result.tableOverUnderProbabilities?.[line];
-                    if (!prob) return null;
-                    const isOverSelected = isBetSelected(line, 'over');
-                    const isUnderSelected = isBetSelected(line, 'under');
-                    return (
-                      <div
-                        key={`table-${line}`}
-                        className="surface-muted p-4 rounded-xl border border-base-300/60"
-                      >
-                        <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
-                          Linha {line}
-                        </div>
-                        <div className="space-y-2">
-                          <div
-                            onClick={() => handleBetClick(line, 'over', prob.over)}
-                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                              isOverSelected
-                                ? 'bg-success/20 border-2 border-success shadow-lg scale-105'
-                                : 'hover:bg-base-300/50 border-2 border-transparent'
-                            }`}
-                            title={isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
-                          >
-                            <span className="text-xs font-semibold text-success">Over</span>
-                            <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
-                          </div>
-                          <div
-                            onClick={() => handleBetClick(line, 'under', prob.under)}
-                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                              isUnderSelected
-                                ? 'bg-error/20 border-2 border-error shadow-lg scale-105'
-                                : 'hover:bg-base-300/50 border-2 border-transparent'
-                            }`}
-                            title={isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
-                          >
-                            <span className="text-xs font-semibold text-error">Under</span>
-                            <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Seção de Aposta Combinada Selecionada */}
-          {combinedProbability !== null && selectedBets.length === 2 && (
-            <motion.div
-              className="mt-6 p-4 rounded-xl border-2 border-primary bg-primary/10"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-base font-black uppercase tracking-tight text-primary">
-                  Aposta Combinada Selecionada
-                </h4>
+              {selectedBets.length > 0 && (
                 <button
+                  type="button"
                   onClick={() => setSelectedBets([])}
-                  className="btn btn-xs btn-ghost text-error"
+                  className="btn btn-ghost btn-xs text-error"
                   title="Limpar seleção"
                 >
                   Limpar
                 </button>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-semibold">
-                    {selectedBets[0].type === 'over' ? 'Over' : 'Under'} {selectedBets[0].line}
-                  </span>
-                  <span className="text-primary font-black">+</span>
-                  <span className="font-semibold">
-                    {selectedBets[1].type === 'over' ? 'Over' : 'Under'} {selectedBets[1].line}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs opacity-70">Probabilidade Combinada:</span>
-                  <span className="text-lg font-black text-primary">
-                    {combinedProbability.toFixed(2)}%
-                  </span>
-                </div>
-                <div className="text-xs opacity-60 mt-2">
-                  {selectedBets[0].probability.toFixed(1)}% × {selectedBets[1].probability.toFixed(1)}% = {combinedProbability.toFixed(2)}%
-                </div>
-              </div>
-            </motion.div>
+              )}
+            </div>
+          </div>
+
+          {overUnderTab !== 'combined' && (
+            <div className="text-xs opacity-60 mb-3">
+              Somente leitura. Use a aba <span className="font-bold">Combinada</span> para selecionar
+              apostas.
+            </div>
           )}
+
+          {overUnderTab === 'combined' && selectedBets.length > 0 && (
+            <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+              <div className="text-xs font-semibold opacity-70">
+                Seleção ativa:{' '}
+                <span className="font-black text-primary">{displayLabel}</span>
+              </div>
+              <div className="text-xs font-semibold opacity-70">
+                Prob.: <span className="font-black">{displayProbability.toFixed(1)}%</span>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3 lg:gap-4">
+            {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
+              const prob =
+                overUnderTab === 'combined'
+                  ? result.overUnderProbabilities?.[line]
+                  : overUnderTab === 'stats'
+                    ? result.statsOverUnderProbabilities?.[line]
+                    : result.tableOverUnderProbabilities?.[line];
+
+              if (!prob) return null;
+
+              const interactive = overUnderTab === 'combined';
+              const isOverSelected = interactive && isBetSelected(line, 'over');
+              const isUnderSelected = interactive && isBetSelected(line, 'under');
+              const rowBase = 'flex items-center justify-between p-2 rounded-lg border-2 transition-all';
+
+              return (
+                <div
+                  key={`${overUnderTab}-${line}`}
+                  className="surface-muted p-3 md:p-4 rounded-xl border border-base-300/60"
+                >
+                  <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
+                    Linha {line}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div
+                      onClick={interactive ? () => handleBetClick(line, 'over', prob.over) : undefined}
+                      className={`${rowBase} ${
+                        interactive
+                          ? isOverSelected
+                            ? 'bg-success/20 border-success shadow-lg scale-[1.02] cursor-pointer'
+                            : 'border-transparent hover:bg-base-300/50 cursor-pointer'
+                          : 'bg-base-300/20 border-transparent cursor-default'
+                      }`}
+                      title={
+                        interactive ? (isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar') : undefined
+                      }
+                    >
+                      <span className="text-xs font-semibold text-success">Over</span>
+                      <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
+                    </div>
+
+                    <div
+                      onClick={interactive ? () => handleBetClick(line, 'under', prob.under) : undefined}
+                      className={`${rowBase} ${
+                        interactive
+                          ? isUnderSelected
+                            ? 'bg-error/20 border-error shadow-lg scale-[1.02] cursor-pointer'
+                            : 'border-transparent hover:bg-base-300/50 cursor-pointer'
+                          : 'bg-base-300/20 border-transparent cursor-default'
+                      }`}
+                      title={
+                        interactive ? (isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar') : undefined
+                      }
+                    >
+                      <span className="text-xs font-semibold text-error">Under</span>
+                      <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </motion.div>
       )}
 
