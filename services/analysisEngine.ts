@@ -1284,6 +1284,17 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   // Garantir faixa realista
   lambdaFinal = Math.max(0.2, Math.min(7, lambdaFinal));
 
+  // Calcular BTTS (Ambas Marcam) via Poisson a partir do λ final combinado.
+  // Como o λ final é total, estimamos a divisão home/away preservando o ratio do λ base (lambdaHome/lambdaTotal).
+  const safeTotal = Number.isFinite(lambdaTotal) && lambdaTotal > 0 ? lambdaTotal : lambdaHome + lambdaAway;
+  const ratioHomeRaw = safeTotal > 0 ? lambdaHome / safeTotal : 0.5;
+  const ratioHome = Math.max(0, Math.min(1, ratioHomeRaw));
+  const lambdaHomeFinal = lambdaFinal * ratioHome;
+  const lambdaAwayFinal = Math.max(0, lambdaFinal - lambdaHomeFinal);
+  const pHomeScores = 1 - Math.exp(-lambdaHomeFinal);
+  const pAwayScores = 1 - Math.exp(-lambdaAwayFinal);
+  const bttsProbability = Math.max(0, Math.min(100, pHomeScores * pAwayScores * 100));
+
   // Calcular probabilidades Over/Under combinadas via Poisson usando λ final
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaFinal);
 
@@ -1302,6 +1313,9 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       competitionAvg,
       shrink,
       lambdaFinal,
+      lambdaHomeFinal,
+      lambdaAwayFinal,
+      bttsProbability,
     });
   }
 
@@ -1321,6 +1335,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     probabilityOver15: statsProb, // Probabilidade estatística pura (baseada em últimos 10 jogos)
     tableProbability: tableProb, // Probabilidade baseada apenas em dados da tabela
     combinedProbability: finalProb, // Probabilidade final combinada (estatísticas + tabela)
+    bttsProbability,
     confidenceScore: confidence,
     poissonHome: pHome,
     poissonAway: pAway,

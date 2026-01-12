@@ -228,3 +228,45 @@ export function calculateDataQuality(data: MatchData): number {
   return Math.min(100, (score / maxScore) * 100);
 }
 
+/**
+ * Tooltip para probabilidade de Over (por linha) usando a fonte combinada.
+ */
+export function getMarketOverTooltip(line: string): string {
+  return `Over ${line}: probabilidade de o total de gols ser maior que ${line}.
+
+🔢 Método: Poisson (λ combinado)
+• O λ (gols esperados) é estimado combinando Estatísticas (últimos 10 jogos) + Tabela (temporada), quando disponíveis.
+• A tabela Over/Under é recalculada via Poisson para manter consistência entre linhas (0.5–5.5).`;
+}
+
+/**
+ * Tooltip para probabilidade de Under (por linha) usando a fonte combinada.
+ */
+export function getMarketUnderTooltip(line: string): string {
+  return `Under ${line}: probabilidade de o total de gols ser menor ou igual a ${Math.floor(Number(line))}.
+
+🔢 Método: Poisson (λ combinado)
+• O λ (gols esperados) é estimado combinando Estatísticas (últimos 10 jogos) + Tabela (temporada), quando disponíveis.
+• A tabela Over/Under é recalculada via Poisson para manter consistência entre linhas (0.5–5.5).`;
+}
+
+/**
+ * Tooltip para o card "Ambas" (BTTS + Range).
+ */
+export function getBothGoalsTooltip(options?: { selectionLabel?: string; hasRange?: boolean }): string {
+  const hasRange = options?.hasRange === true;
+  const selectionLabel = options?.selectionLabel;
+
+  return `BTTS (Ambas marcam): probabilidade de os dois times marcarem pelo menos 1 gol.
+
+🔢 Cálculo (Poisson):
+BTTS = (1 - e^{-λ_casa}) × (1 - e^{-λ_fora})
+
+Range (Over + Under): probabilidade de o total de gols ficar dentro de um intervalo.
+
+✅ Fórmula correta (não é produto):
+P(range) = Under(linha_superior) - Under(linha_inferior)
+${hasRange && selectionLabel ? `\n📌 Seleção atual: ${selectionLabel}` : ''}
+${!hasRange ? '\n💡 Para ver o Range, selecione 1 Over + 1 Under na aba Combinada.' : ''}`;
+}
+

@@ -132,6 +132,7 @@ export interface AnalysisResult {
   tableProbability?: number | null; // Probabilidade baseada apenas em dados da tabela (temporada completa)
   aiProbability?: number | null; // @deprecated Probabilidade da IA (não mais usada)
   combinedProbability?: number; // Probabilidade final combinada (estatísticas + tabela)
+  bttsProbability?: number; // Probabilidade de Ambas Marcam (BTTS) estimada via Poisson (λ_home, λ_away) da análise combinada
   confidenceScore: number;
   poissonHome: number[];
   poissonAway: number[];

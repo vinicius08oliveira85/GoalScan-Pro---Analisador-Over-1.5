@@ -25,11 +25,11 @@ import { getEdgePp } from '../utils/betMetrics';
 import { calculateSelectedBetsProbability } from '../utils/betRange';
 import { getRiskLevelFromProbability } from '../utils/risk';
 import {
-  getStatisticalProbabilityTooltip,
-  getTableProbabilityTooltip,
-  getFinalProbabilityTooltip,
   getEdgeTooltip,
   calculateDataQuality,
+  getMarketOverTooltip,
+  getMarketUnderTooltip,
+  getBothGoalsTooltip,
 } from '../utils/probabilityTooltips';
 
 interface AnalysisDashboardProps {
@@ -136,6 +136,19 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     () => getRiskLevelFromProbability(displayProbability),
     [displayProbability]
   );
+
+  const selectedOverLine = useMemo(
+    () => selectedBets.find((b) => b.type === 'over')?.line ?? '1.5',
+    [selectedBets]
+  );
+  const selectedUnderLine = useMemo(
+    () => selectedBets.find((b) => b.type === 'under')?.line ?? '1.5',
+    [selectedBets]
+  );
+  const selectedRangeProbability = useMemo(() => {
+    if (selectedBets.length !== 2) return null;
+    return calculateSelectedBetsProbability(selectedBets, result.overUnderProbabilities);
+  }, [selectedBets, result.overUnderProbabilities]);
 
   const formTrend = result.advancedMetrics.formTrend;
   const isTrendNeutral = Math.abs(formTrend) < 0.5;
@@ -250,7 +263,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs sm:text-sm font-semibold opacity-60 uppercase tracking-wide">
-                  Análise de Probabilidade Over 1.5
+                  Análise de Probabilidade de Gols (Over/Under)
                 </p>
               </div>
               <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
@@ -281,7 +294,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               </div>
             </div>
 
-            {/* Probabilidades (Estatísticas, Tabela, Final) */}
+            {/* Probabilidades (Mercado) */}
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -303,54 +316,66 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                   );
                 })()}
               </div>
+
+              {selectedBets.length > 0 && (
+                <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                  <div className="font-semibold opacity-70">
+                    Baseado na seleção:{' '}
+                    <span className="font-black text-primary">{displayLabel}</span>
+                  </div>
+                  <div className="font-semibold opacity-70">
+                    Prob.: <span className="font-black">{displayProbability.toFixed(1)}%</span>
+                  </div>
+                </div>
+              )}
               <motion.div
-                className={`grid gap-2 md:gap-3 lg:gap-4 ${
-                  result.tableProbability != null
-                    ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'
-                    : 'grid-cols-2 md:grid-cols-2 lg:grid-cols-4'
-                }`}
+                className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4"
                 variants={animations.staggerChildren}
                 initial="initial"
                 animate="animate"
               >
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
-                    title="Prob. Estatística (Over 1.5)"
-                    value={`${result.probabilityOver15.toFixed(1)}%`}
-                    icon={Calculator}
-                    color="secondary"
-                    tooltip={getStatisticalProbabilityTooltip(result, data)}
-                  />
-                </motion.div>
-                <motion.div variants={animations.fadeInUp}>
-                  <MetricCard
-                    title="Prob. Tabela (Over 1.5)"
+                    title={`Over ${selectedOverLine}`}
                     value={
-                      result.tableProbability != null
-                        ? `${Number(result.tableProbability).toFixed(1)}%`
+                      result.overUnderProbabilities?.[selectedOverLine]?.over != null
+                        ? `${Number(result.overUnderProbabilities[selectedOverLine].over).toFixed(1)}%`
                         : '—'
                     }
-                    icon={Shield}
-                    color="accent"
-                    tooltip={getTableProbabilityTooltip(result, data)}
+                    icon={TrendingUp}
+                    color="success"
+                    tooltip={getMarketOverTooltip(selectedOverLine)}
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
-                    title="Prob. Final (Over 1.5)"
                     value={
-                      result.combinedProbability != null
-                        ? `${Number(result.combinedProbability).toFixed(1)}%`
-                        : `${result.probabilityOver15.toFixed(1)}%`
+                      result.overUnderProbabilities?.[selectedUnderLine]?.under != null
+                        ? `${Number(result.overUnderProbabilities[selectedUnderLine].under).toFixed(1)}%`
+                        : '—'
                     }
-                    icon={Target}
-                    color="success"
-                    tooltip={getFinalProbabilityTooltip(
-                      result,
-                      result.combinedProbability ?? result.probabilityOver15,
-                      selectedBets,
-                      result.tableProbability != null
-                    )}
+                    title={`Under ${selectedUnderLine}`}
+                    icon={TrendingDown}
+                    color="error"
+                    tooltip={getMarketUnderTooltip(selectedUnderLine)}
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Ambas"
+                    value={result.bttsProbability != null ? `${result.bttsProbability.toFixed(1)}%` : '—'}
+                    icon={Sparkles}
+                    color="accent"
+                    trend="neutral"
+                    trendValue={
+                      selectedBets.length === 2
+                        ? `Range: ${selectedRangeProbability != null ? `${selectedRangeProbability.toFixed(1)}%` : '—'}`
+                        : 'Range: selecione Over + Under'
+                    }
+                    tooltip={getBothGoalsTooltip({
+                      selectionLabel: selectedBets.length > 0 ? displayLabel : undefined,
+                      hasRange: selectedBets.length === 2,
+                    })}
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
