@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Filter,
   X,
   Calendar,
-  ChevronDown,
-  ChevronUp,
   Trophy,
 } from 'lucide-react';
 import {
   FilterState,
+  SortState,
   countActiveFilters,
 } from '../utils/matchFilters';
 import { SavedAnalysis } from '../types';
@@ -38,7 +35,6 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
   totalCount,
   allMatches,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [championships, setChampionships] = useState<Championship[]>([]);
   const activeFiltersCount = countActiveFilters(filterState);
 
@@ -77,22 +73,9 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
 
   return (
     <div className="mb-6 space-y-4">
-      {/* Header com contador e botões principais */}
+      {/* Header com contador e botão limpar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="btn btn-sm gap-2 bg-base-200/50 hover:bg-base-200 border border-base-300/50"
-            aria-label={isExpanded ? 'Recolher filtros' : 'Expandir filtros'}
-          >
-            <Filter className="w-4 h-4" />
-            <span>Filtros</span>
-            {activeFiltersCount > 0 && (
-              <span className="badge badge-primary badge-sm">{activeFiltersCount}</span>
-            )}
-            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-
           {activeFiltersCount > 0 && (
             <button
               onClick={onClearFilters}
@@ -100,7 +83,7 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
               aria-label="Limpar todos os filtros"
             >
               <X className="w-4 h-4" />
-              <span>Limpar</span>
+              <span>Limpar Filtros</span>
             </button>
           )}
         </div>
@@ -112,71 +95,61 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
         </div>
       </div>
 
-      {/* Painel de filtros expandido */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="custom-card p-4 md:p-6 space-y-6 border border-base-300/50 overflow-hidden"
-          >
-            {/* Filtro por Campeonato */}
-            <div>
-              <label className="text-xs font-bold uppercase opacity-60 mb-2 block flex items-center gap-2">
-                <Trophy className="w-3 h-3" />
-                Campeonato
-              </label>
-              <select
-                value={filterState.championshipId || ''}
-                onChange={(e) => handleFilterChange('championshipId', e.target.value || undefined)}
-                className="select select-bordered w-full max-w-xs bg-base-200/50 border-base-300/50 focus:border-primary"
-              >
-                <option value="">Todos os campeonatos</option>
-                {championships.map((champ) => (
-                  <option key={champ.id} value={champ.id}>
-                    {champ.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Filtros sempre visíveis, lado a lado */}
+      <div className="custom-card p-4 md:p-6 border border-base-300/50">
+        <div className="flex flex-col sm:flex-row gap-4 md:gap-6 items-start sm:items-end">
+          {/* Filtro por Campeonato */}
+          <div className="flex-1 min-w-0 w-full sm:w-auto">
+            <label className="text-xs font-bold uppercase opacity-60 mb-2 block flex items-center gap-2">
+              <Trophy className="w-3 h-3" />
+              Campeonato
+            </label>
+            <select
+              value={filterState.championshipId || ''}
+              onChange={(e) => handleFilterChange('championshipId', e.target.value || undefined)}
+              className="select select-bordered w-full bg-base-200/50 border-base-300/50 focus:border-primary"
+            >
+              <option value="">Todos os campeonatos</option>
+              {championships.map((champ) => (
+                <option key={champ.id} value={champ.id}>
+                  {champ.nome}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {/* Filtro por Data Específica (Date Picker) */}
-            <div>
-              <label className="text-xs font-bold uppercase opacity-60 mb-2 block flex items-center gap-2">
-                <Calendar className="w-3 h-3" />
-                Data da Partida
-              </label>
+          {/* Filtro por Data Específica (Date Picker) */}
+          <div className="flex-1 min-w-0 w-full sm:w-auto">
+            <label className="text-xs font-bold uppercase opacity-60 mb-2 block flex items-center gap-2">
+              <Calendar className="w-3 h-3" />
+              Data da Partida
+            </label>
+            <div className="flex items-center gap-2">
               <input
                 type="date"
                 value={filterState.selectedDate || ''}
                 onChange={(e) => handleFilterChange('selectedDate', e.target.value || undefined)}
-                className="input input-bordered w-full max-w-xs bg-base-200/50 border-base-300/50 focus:border-primary"
-                style={{
-                  // Estilizar o input date para destacar dias com partidas
-                  backgroundImage: matchDates.size > 0 ? 'none' : undefined,
-                }}
+                className="input input-bordered flex-1 bg-base-200/50 border-base-300/50 focus:border-primary"
               />
               {filterState.selectedDate && (
                 <button
                   onClick={() => handleFilterChange('selectedDate', undefined)}
-                  className="btn btn-xs btn-ghost mt-2 text-error hover:bg-error/10"
+                  className="btn btn-sm btn-circle btn-ghost text-error hover:bg-error/10"
+                  aria-label="Limpar data"
                 >
-                  <X className="w-3 h-3" />
-                  Limpar data
+                  <X className="w-4 h-4" />
                 </button>
               )}
-              {/* Dica visual: mostrar quantos dias têm partidas */}
-              {matchDates.size > 0 && (
-                <p className="text-xs opacity-60 mt-1">
-                  {matchDates.size} dia{matchDates.size !== 1 ? 's' : ''} com partidas registradas
-                </p>
-              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* Dica visual: mostrar quantos dias têm partidas */}
+            {matchDates.size > 0 && (
+              <p className="text-xs opacity-60 mt-1">
+                {matchDates.size} dia{matchDates.size !== 1 ? 's' : ''} com partidas registradas
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
