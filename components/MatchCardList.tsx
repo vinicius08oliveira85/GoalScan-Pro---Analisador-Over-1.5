@@ -12,7 +12,7 @@ import {
   Ban,
 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
-import { getDisplayProbability } from '../utils/probability';
+import { getDisplayProbability, getSelectedProbabilityLabel } from '../utils/probability';
 import {
   formatMatchDate,
   formatMatchTime,
@@ -63,6 +63,7 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
 
   const statusConfig = getStatusConfig();
   const probability = getDisplayProbability(match);
+  const selectedLabel = getSelectedProbabilityLabel(match.selectedBets);
   
   // Calcular EV com a probabilidade correta (selecionada/combinada ou padrão)
   const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
@@ -139,6 +140,11 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
         <div className="flex flex-col items-center min-w-[60px]">
           <div className="text-[10px] font-semibold opacity-70 uppercase mb-1">Prob.</div>
           <div className="text-lg font-black">{probability.toFixed(0)}%</div>
+          {selectedLabel && (
+            <div className="text-[9px] font-semibold opacity-60 mt-0.5 text-center">
+              {selectedLabel}
+            </div>
+          )}
           <div className="w-16 h-1.5 bg-base-300/50 rounded-full overflow-hidden mt-1">
             <motion.div
               initial={{ width: 0 }}

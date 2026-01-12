@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { SavedAnalysis } from '../types';
 import { TrendingUp, TrendingDown, Calendar, X, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { cardHover } from '../utils/animations';
-import { getDisplayProbability } from '../utils/probability';
+import { getDisplayProbability, getSelectedProbabilityLabel } from '../utils/probability';
 import { formatMatchDate, formatTimestampInBrasilia } from '../utils/dateFormatter';
 
 interface MatchCardCompactProps {
@@ -29,6 +29,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
   };
 
   const probability = getDisplayProbability(match);
+  const selectedLabel = getSelectedProbabilityLabel(match.selectedBets);
   
   // Calcular EV com a probabilidade correta (selecionada/combinada ou padrão)
   const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
@@ -101,6 +102,11 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           <div className="flex flex-col items-center min-w-[45px]">
             <div className="text-[9px] font-semibold opacity-70 uppercase">Prob</div>
             <div className="text-sm font-black">{probability.toFixed(0)}%</div>
+            {selectedLabel && (
+              <div className="text-[8px] font-semibold opacity-60 mt-0.5 text-center leading-tight">
+                {selectedLabel}
+              </div>
+            )}
             <div className="w-12 h-1 bg-base-300/50 rounded-full overflow-hidden mt-0.5">
               <motion.div
                 initial={{ width: 0 }}

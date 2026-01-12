@@ -86,34 +86,34 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   const cardContent = (
     <div
-      className={`surface surface-hover border-l-4 ${colors.accentBorder} p-4 ${tooltip ? 'cursor-help' : ''}`}
+      className={`surface surface-hover border-l-4 ${colors.accentBorder} p-3 md:p-4 ${tooltip ? 'cursor-help' : ''}`}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2 md:mb-3">
         <p className="kpi-label">{title}</p>
-        <div className={`p-2 rounded-lg ${colors.iconBg} border ${colors.iconBorder}`}>
-          <Icon className={`w-4 h-4 ${colors.text}`} />
+        <div className={`p-1.5 md:p-2 rounded-lg ${colors.iconBg} border ${colors.iconBorder}`}>
+          <Icon className={`w-3 h-3 md:w-4 md:h-4 ${colors.text}`} />
         </div>
       </div>
 
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2 md:gap-3">
         <div className="flex-1 min-w-0">
           {progress !== undefined ? (
             <>
               <progress
-                className={`progress ${colors.progress} w-full h-2`}
+                className={`progress ${colors.progress} w-full h-1.5 md:h-2`}
                 value={progress}
                 max="100"
               ></progress>
-              <p className="mt-2 text-sm font-black font-mono text-base-content">
+              <p className="mt-1.5 md:mt-2 text-xs md:text-sm font-black font-mono text-base-content">
                 {typeof value === 'number' ? `${value.toFixed(0)}%` : value}
               </p>
             </>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-0.5 md:space-y-1">
               <p className="kpi-value">{typeof value === 'number' ? value.toFixed(1) : value}</p>
               {(trend && trendValue) || change !== undefined ? (
                 <div
-                  className={`flex items-center gap-1 text-xs font-bold ${
+                  className={`flex items-center gap-0.5 md:gap-1 text-[10px] md:text-xs font-bold ${
                     change !== undefined
                       ? change > 0
                         ? 'text-success'
