@@ -5,7 +5,7 @@ import { TrendingUp, TrendingDown, Calendar, X, CheckCircle, XCircle, Clock, Tro
 import { cardHover } from '../utils/animations';
 import { getDisplayProbability, getSelectedProbabilityLabel } from '../utils/probability';
 import { getRiskLevelFromProbability } from '../utils/risk';
-import { formatMatchDate, formatTimestampInBrasilia } from '../utils/dateFormatter';
+import { formatMatchDate, formatMatchTime, formatTimestampInBrasilia } from '../utils/dateFormatter';
 import { useChampionshipName } from '../hooks/useChampionshipName';
 
 interface MatchCardCompactProps {
@@ -83,12 +83,21 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
             <div className="flex items-center gap-1 text-[10px] opacity-60">
               <Calendar className="w-2.5 h-2.5" />
               {match.data.matchDate ? (
-                <span>
-                  {formatMatchDate(match.data.matchDate, match.data.matchTime, {
-                    day: '2-digit',
-                    month: '2-digit',
-                  })}
-                </span>
+                <>
+                  <span>
+                    {formatMatchDate(match.data.matchDate, match.data.matchTime, {
+                      day: '2-digit',
+                      month: '2-digit',
+                    })}
+                  </span>
+                  {match.data.matchTime && (
+                    <>
+                      <span>•</span>
+                      <Clock className="w-2.5 h-2.5" />
+                      <span>{formatMatchTime(match.data.matchDate, match.data.matchTime)}</span>
+                    </>
+                  )}
+                </>
               ) : (
                 <span>
                   {formatTimestampInBrasilia(match.timestamp, {

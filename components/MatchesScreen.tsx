@@ -168,11 +168,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
       }
     }
     return {
-      ev: 'all',
-      probability: 'all',
-      riskLevels: [],
-      betStatus: 'all',
-      dateRange: 'all',
       championshipId: undefined,
       selectedDate: undefined,
     };
@@ -189,7 +184,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
     }
     return {
       field: 'date',
-      order: 'desc',
+      order: 'asc', // Menor para maior (horário mais cedo primeiro)
     };
   });
 
@@ -230,11 +225,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
 
   const handleClearFilters = () => {
     setFilterState({
-      ev: 'all',
-      probability: 'all',
-      riskLevels: [],
-      betStatus: 'all',
-      dateRange: 'all',
       championshipId: undefined,
       selectedDate: undefined,
     });
