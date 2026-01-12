@@ -10,46 +10,44 @@ export function getStatisticalProbabilityTooltip(
 ): string {
   const hasHomeStats = !!data.homeTeamStats;
   const hasAwayStats = !!data.awayTeamStats;
-  const hasHomeTable = !!data.homeTableData;
-  const hasAwayTable = !!data.awayTableData;
-  const hasCompetitionAvg = !!(data.competitionAvg && data.competitionAvg > 0);
 
-  const dataSources: string[] = [];
-  if (hasHomeStats && hasAwayStats) {
-    dataSources.push('Estatísticas Globais (últimos 10 jogos casa/fora)');
-  } else if (hasHomeTable || hasAwayTable) {
-    dataSources.push('Dados da Tabela (GF/MP, GA/MP)');
+  if (!hasHomeStats || !hasAwayStats) {
+    return 'Probabilidade estatística não disponível. Preencha as Estatísticas Globais (últimos 10 jogos) de ambos os times.';
   }
 
-  if (hasCompetitionAvg) {
-    dataSources.push('Média da Competição');
-  }
+  const homeAvgScored = data.homeTeamStats.gols.home.avgScored || 0;
+  const homeAvgConceded = data.homeTeamStats.gols.home.avgConceded || 0;
+  const awayAvgScored = data.awayTeamStats.gols.away.avgScored || 0;
+  const awayAvgConceded = data.awayTeamStats.gols.away.avgConceded || 0;
+  const homeCleanSheet = data.homeTeamStats.gols.home.cleanSheetPct || 0;
+  const awayCleanSheet = data.awayTeamStats.gols.away.cleanSheetPct || 0;
+  const homeNoGoals = data.homeTeamStats.gols.home.noGoalsPct || 0;
+  const awayNoGoals = data.awayTeamStats.gols.away.noGoalsPct || 0;
+  const homeOver25 = data.homeTeamStats.gols.home.over25Pct || 0;
+  const awayOver25 = data.awayTeamStats.gols.away.over25Pct || 0;
 
-  if (data.homeTableData?.['Last 5'] || data.awayTableData?.['Last 5']) {
-    dataSources.push('Forma Recente (Last 5)');
-  }
+  return `Probabilidade baseada apenas nas Estatísticas Globais (últimos 10 jogos).
 
-  if (data.h2hMatches && data.h2hMatches.length > 0) {
-    dataSources.push(`Confrontos Diretos (${data.h2hMatches.length} jogos)`);
-  }
+📊 Dados das Estatísticas considerados:
+• Média de Gols Marcados (Casa/Fora) ✓
+  - Time da Casa: ${homeAvgScored.toFixed(2)} gols/jogo
+  - Time Visitante: ${awayAvgScored.toFixed(2)} gols/jogo
+• Média de Gols Sofridos (Casa/Fora) ✓
+  - Time da Casa: ${homeAvgConceded.toFixed(2)} gols/jogo
+  - Time Visitante: ${awayAvgConceded.toFixed(2)} gols/jogo
+• Clean Sheets: ${((homeCleanSheet + awayCleanSheet) / 2).toFixed(1)}% (média)
+• Jogos sem Marcar: ${((homeNoGoals + awayNoGoals) / 2).toFixed(1)}% (média)
+• Over 2.5%: ${((homeOver25 + awayOver25) / 2).toFixed(1)}% (média)
+• Forma Recente (últimos 3 jogos do histórico)${data.homeHistory?.length && data.awayHistory?.length ? ' ✓' : ' ✗'}
 
-  const dataQuality = calculateDataQuality(data);
-  const qualityLabel = dataQuality >= 80 ? 'Alta' : dataQuality >= 60 ? 'Média' : 'Baixa';
+🔢 Método: Distribuição Poisson avançada com ajustes baseados em:
+• Lambda calculado usando médias específicas (casa/fora)
+• Ajuste por clean sheets (defesas boas reduzem probabilidade)
+• Ajuste por jogos sem marcar (ataques fracos reduzem probabilidade)
+• Ajuste por Over 2.5% (confirma tendência ofensiva)
+• Ajuste por forma recente (últimos 3 jogos vs média histórica)
 
-  return `Probabilidade baseada em estatísticas históricas usando distribuição Poisson.
-
-📊 Fontes de Dados:
-${dataSources.length > 0 ? dataSources.map(s => `• ${s}`).join('\n') : '• Dados limitados disponíveis'}
-
-📈 Qualidade dos Dados: ${qualityLabel} (${dataQuality.toFixed(0)}%)
-
-🔢 Método: Distribuição Poisson com ajustes baseados em:
-• Médias de gols marcados/sofridos
-• Frequências de clean sheets e jogos sem gols
-• Forma recente dos times
-• Confrontos diretos (quando disponível)
-
-${!hasHomeStats || !hasAwayStats ? '⚠️ Usando dados da tabela como fallback (menos preciso que Estatísticas Globais)' : ''}`;
+💡 Esta probabilidade reflete a forma RECENTE dos times (últimos 10 jogos), enquanto a Prob. Tabela mostra a temporada completa.`;
 }
 
 /**
@@ -64,15 +62,27 @@ export function getTableProbabilityTooltip(
   }
 
   const hasTableData = !!(data.homeTableData && data.awayTableData);
+  const homeRk = data.homeTableData?.Rk ? parseFloat(data.homeTableData.Rk) : 0;
+  const awayRk = data.awayTableData?.Rk ? parseFloat(data.awayTableData.Rk) : 0;
 
   return `Probabilidade baseada apenas nos dados da tabela do campeonato (temporada completa).
 
 📊 Dados da Tabela considerados:
 • Gols Feitos (GF) e Gols Acontecidos (GA)${hasTableData ? ' ✓' : ' ✗'}
 • Expected Goals (xG) e Expected Goals Against (xGA)${data.homeTableData?.xG && data.awayTableData?.xG ? ' ✓' : ' ✗'}
+• Posição na Tabela (Rk)${homeRk > 0 && awayRk > 0 ? ' ✓' : ' ✗'}
+• Saldo de Gols (GD)${hasTableData ? ' ✓' : ' ✗'}
+• Expected Goal Difference (xGD)${data.homeTableData?.xGD && data.awayTableData?.xGD ? ' ✓' : ' ✗'}
+• Pontos por Jogo (Pts/MP)${hasTableData ? ' ✓' : ' ✗'}
+• Força do Oponente (posição do adversário)${homeRk > 0 && awayRk > 0 ? ' ✓' : ' ✗'}
 • Forma Recente (Last 5)${data.homeTableData?.['Last 5'] || data.awayTableData?.['Last 5'] ? ' ✓' : ' ✗'}
 
-🔢 Método: Distribuição Poisson usando médias de gols da temporada completa.
+🔢 Método: Distribuição Poisson avançada com ajustes baseados em:
+• Posição na tabela (times no topo são mais ofensivos)
+• Saldo de gols (GD positivo indica ataque forte)
+• xGD (Expected Goal Difference - qualidade ofensiva/defensiva)
+• Pontos por jogo (forma na temporada)
+• Força relativa dos oponentes
 
 💡 A tabela oferece uma visão mais ampla (temporada completa) enquanto as estatísticas focam nos últimos 10 jogos.`;
 }

@@ -300,24 +300,6 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     tooltip={getStatisticalProbabilityTooltip(result, data)}
                   />
                 </motion.div>
-                {result.tableProbability != null && (
-                  <motion.div variants={animations.fadeInUp}>
-                    <MetricCard
-                      title="Prob. Tabela"
-                      value={`${Number(result.tableProbability).toFixed(1)}%`}
-                      icon={Target}
-                      color="warning"
-                      tooltip={`Probabilidade baseada apenas em dados da tabela (GF/MP, GA/MP, xG, xGA).
-
-📊 Calculada usando:
-• Gols Marcados/Sofridos por jogo (GF/MP, GA/MP)
-• Expected Goals (xG, xGA) quando disponível
-• Distribuição Poisson
-
-💡 Útil para comparar com Prob. Estatística (que usa Estatísticas Globais dos últimos 10 jogos). Se houver divergência significativa, pode indicar mudança recente de forma.`}
-                    />
-                  </motion.div>
-                )}
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
                     title="Prob. Tabela"
@@ -432,7 +414,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
       </div>
 
       {/* Probabilidades Over/Under por Linha */}
-      {result.overUnderProbabilities && Object.keys(result.overUnderProbabilities).length > 0 && (
+      {(result.overUnderProbabilities || result.tableOverUnderProbabilities || result.statsOverUnderProbabilities) && (
         <motion.div
           className="surface surface-hover p-4 md:p-6"
           variants={animations.fadeInUp}
@@ -443,49 +425,176 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             <Sparkles className="w-5 h-5 text-primary" />
             <h3 className="text-lg font-black uppercase tracking-tight">Probabilidades Over/Under</h3>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
-              const prob = result.overUnderProbabilities?.[line];
-              if (!prob) return null;
-              const isOverSelected = isBetSelected(line, 'over');
-              const isUnderSelected = isBetSelected(line, 'under');
-              return (
-                <div
-                  key={line}
-                  className="surface-muted p-4 rounded-xl border border-base-300/60"
-                >
-                  <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
-                    Linha {line}
-                  </div>
-                  <div className="space-y-2">
-                    <div
-                      onClick={() => handleBetClick(line, 'over', prob.over)}
-                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                        isOverSelected
-                          ? 'bg-success/20 border-2 border-success shadow-lg scale-105'
-                          : 'hover:bg-base-300/50 border-2 border-transparent'
-                      }`}
-                      title={isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
-                    >
-                      <span className="text-xs font-semibold text-success">Over</span>
-                      <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
-                    </div>
-                    <div
-                      onClick={() => handleBetClick(line, 'under', prob.under)}
-                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
-                        isUnderSelected
-                          ? 'bg-error/20 border-2 border-error shadow-lg scale-105'
-                          : 'hover:bg-base-300/50 border-2 border-transparent'
-                      }`}
-                      title={isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
-                    >
-                      <span className="text-xs font-semibold text-error">Under</span>
-                      <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
-                    </div>
-                  </div>
+          
+          {/* Exibir todas as fontes disponíveis */}
+          <div className="space-y-6">
+            {/* Probabilidades Combinadas (sempre priorizadas) */}
+            {result.overUnderProbabilities && Object.keys(result.overUnderProbabilities).length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="w-4 h-4 text-success" />
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-success">
+                    Probabilidades Combinadas (Estatísticas + Tabela)
+                  </h4>
                 </div>
-              );
-            })}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
+                    const prob = result.overUnderProbabilities?.[line];
+                    if (!prob) return null;
+                    const isOverSelected = isBetSelected(line, 'over');
+                    const isUnderSelected = isBetSelected(line, 'under');
+                    return (
+                      <div
+                        key={`combined-${line}`}
+                        className="surface-muted p-4 rounded-xl border border-base-300/60"
+                      >
+                        <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
+                          Linha {line}
+                        </div>
+                        <div className="space-y-2">
+                          <div
+                            onClick={() => handleBetClick(line, 'over', prob.over)}
+                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                              isOverSelected
+                                ? 'bg-success/20 border-2 border-success shadow-lg scale-105'
+                                : 'hover:bg-base-300/50 border-2 border-transparent'
+                            }`}
+                            title={isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
+                          >
+                            <span className="text-xs font-semibold text-success">Over</span>
+                            <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
+                          </div>
+                          <div
+                            onClick={() => handleBetClick(line, 'under', prob.under)}
+                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                              isUnderSelected
+                                ? 'bg-error/20 border-2 border-error shadow-lg scale-105'
+                                : 'hover:bg-base-300/50 border-2 border-transparent'
+                            }`}
+                            title={isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
+                          >
+                            <span className="text-xs font-semibold text-error">Under</span>
+                            <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Probabilidades das Estatísticas */}
+            {result.statsOverUnderProbabilities && Object.keys(result.statsOverUnderProbabilities).length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Calculator className="w-4 h-4 text-secondary" />
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-secondary">
+                    Probabilidades das Estatísticas (Últimos 10 Jogos)
+                  </h4>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
+                    const prob = result.statsOverUnderProbabilities?.[line];
+                    if (!prob) return null;
+                    const isOverSelected = isBetSelected(line, 'over');
+                    const isUnderSelected = isBetSelected(line, 'under');
+                    return (
+                      <div
+                        key={`stats-${line}`}
+                        className="surface-muted p-4 rounded-xl border border-base-300/60"
+                      >
+                        <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
+                          Linha {line}
+                        </div>
+                        <div className="space-y-2">
+                          <div
+                            onClick={() => handleBetClick(line, 'over', prob.over)}
+                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                              isOverSelected
+                                ? 'bg-success/20 border-2 border-success shadow-lg scale-105'
+                                : 'hover:bg-base-300/50 border-2 border-transparent'
+                            }`}
+                            title={isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
+                          >
+                            <span className="text-xs font-semibold text-success">Over</span>
+                            <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
+                          </div>
+                          <div
+                            onClick={() => handleBetClick(line, 'under', prob.under)}
+                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                              isUnderSelected
+                                ? 'bg-error/20 border-2 border-error shadow-lg scale-105'
+                                : 'hover:bg-base-300/50 border-2 border-transparent'
+                            }`}
+                            title={isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
+                          >
+                            <span className="text-xs font-semibold text-error">Under</span>
+                            <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Probabilidades da Tabela */}
+            {result.tableOverUnderProbabilities && Object.keys(result.tableOverUnderProbabilities).length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="w-4 h-4 text-accent" />
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-accent">
+                    Probabilidades da Tabela (Temporada Completa)
+                  </h4>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
+                    const prob = result.tableOverUnderProbabilities?.[line];
+                    if (!prob) return null;
+                    const isOverSelected = isBetSelected(line, 'over');
+                    const isUnderSelected = isBetSelected(line, 'under');
+                    return (
+                      <div
+                        key={`table-${line}`}
+                        className="surface-muted p-4 rounded-xl border border-base-300/60"
+                      >
+                        <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
+                          Linha {line}
+                        </div>
+                        <div className="space-y-2">
+                          <div
+                            onClick={() => handleBetClick(line, 'over', prob.over)}
+                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                              isOverSelected
+                                ? 'bg-success/20 border-2 border-success shadow-lg scale-105'
+                                : 'hover:bg-base-300/50 border-2 border-transparent'
+                            }`}
+                            title={isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
+                          >
+                            <span className="text-xs font-semibold text-success">Over</span>
+                            <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
+                          </div>
+                          <div
+                            onClick={() => handleBetClick(line, 'under', prob.under)}
+                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${
+                              isUnderSelected
+                                ? 'bg-error/20 border-2 border-error shadow-lg scale-105'
+                                : 'hover:bg-base-300/50 border-2 border-transparent'
+                            }`}
+                            title={isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar'}
+                          >
+                            <span className="text-xs font-semibold text-error">Under</span>
+                            <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Seção de Aposta Combinada Selecionada */}

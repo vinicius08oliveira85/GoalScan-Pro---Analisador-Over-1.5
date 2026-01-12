@@ -91,14 +91,150 @@ function calculateOverUnderProbabilities(lambdaTotal: number): {
 }
 
 /**
+ * Calcula probabilidade Over 1.5 baseada apenas nas estatísticas dos últimos 10 jogos.
+ * Usa homeTeamStats e awayTeamStats para calcular médias de gols e ajustar baseado em
+ * clean sheets, no goals, over 2.5% e forma recente.
+ *
+ * @param data - Dados da partida incluindo homeTeamStats e awayTeamStats
+ * @returns Objeto com probabilidade Over 1.5 e overUnderProbabilities, ou null se dados insuficientes
+ */
+function calculateStatisticsProbability(data: MatchData): {
+  probability: number;
+  overUnderProbabilities: { [line: string]: { over: number; under: number } };
+} | null {
+  const hasHomeTeamStats = !!data.homeTeamStats;
+  const hasAwayTeamStats = !!data.awayTeamStats;
+
+  // Se não temos estatísticas, retornar null
+  if (!hasHomeTeamStats || !hasAwayTeamStats) {
+    return null;
+  }
+
+  // 1. Extrair médias de gols específicas (home para time da casa, away para visitante)
+  const homeAvgScored = data.homeTeamStats.gols.home.avgScored || 0;
+  const homeAvgConceded = data.homeTeamStats.gols.home.avgConceded || 0;
+  const awayAvgScored = data.awayTeamStats.gols.away.avgScored || 0;
+  const awayAvgConceded = data.awayTeamStats.gols.away.avgConceded || 0;
+
+  if (homeAvgScored === 0 && homeAvgConceded === 0 && awayAvgScored === 0 && awayAvgConceded === 0) {
+    return null;
+  }
+
+  // 2. Calcular lambda para Poisson usando médias específicas
+  // Time da casa: média entre gols marcados em casa e gols sofridos pelo visitante fora
+  let lambdaHome = (homeAvgScored + awayAvgConceded) / 2;
+  // Time visitante: média entre gols marcados fora e gols sofridos pelo time da casa em casa
+  let lambdaAway = (awayAvgScored + homeAvgConceded) / 2;
+
+  // Garantir valores mínimos para evitar divisão por zero
+  lambdaHome = lambdaHome || 1.0;
+  lambdaAway = lambdaAway || 1.0;
+
+  // 3. Ajustar baseado em cleanSheetPct (defesas muito boas reduzem probabilidade)
+  const homeCleanSheet = data.homeTeamStats.gols.home.cleanSheetPct || 0;
+  const awayCleanSheet = data.awayTeamStats.gols.away.cleanSheetPct || 0;
+  const avgCleanSheet = (homeCleanSheet + awayCleanSheet) / 2;
+  
+  // Clean sheet alto (>40%) reduz lambda (até -8%)
+  if (avgCleanSheet > 40) {
+    const reduction = Math.min(0.08, (avgCleanSheet - 40) / 100);
+    lambdaHome *= (1 - reduction * 0.5);
+    lambdaAway *= (1 - reduction * 0.5);
+  }
+
+  // 4. Ajustar baseado em noGoalsPct (ataques fracos reduzem probabilidade)
+  const homeNoGoals = data.homeTeamStats.gols.home.noGoalsPct || 0;
+  const awayNoGoals = data.awayTeamStats.gols.away.noGoalsPct || 0;
+  const avgNoGoals = (homeNoGoals + awayNoGoals) / 2;
+  
+  // No goals alto (>20%) reduz lambda (até -6%)
+  if (avgNoGoals > 20) {
+    const reduction = Math.min(0.06, (avgNoGoals - 20) / 100);
+    lambdaHome *= (1 - reduction * 0.5);
+    lambdaAway *= (1 - reduction * 0.5);
+  }
+
+  // 5. Ajustar baseado em over25Pct (confirma tendência ofensiva)
+  const homeOver25 = data.homeTeamStats.gols.home.over25Pct || 0;
+  const awayOver25 = data.awayTeamStats.gols.away.over25Pct || 0;
+  const avgOver25 = (homeOver25 + awayOver25) / 2;
+  
+  // Over 2.5% alto (>50%) aumenta lambda (até +5%)
+  if (avgOver25 > 50) {
+    const increase = Math.min(0.05, (avgOver25 - 50) / 100);
+    lambdaHome *= (1 + increase * 0.5);
+    lambdaAway *= (1 + increase * 0.5);
+  }
+
+  // 6. Considerar forma recente (últimos 3 jogos do histórico)
+  let recentFormAdjustment = 0;
+  if (data.homeHistory && data.homeHistory.length > 0 && data.awayHistory && data.awayHistory.length > 0) {
+    const recentHome = data.homeHistory.slice(0, 3);
+    const recentAway = data.awayHistory.slice(0, 3);
+
+    // Calcular média de gols nos últimos 3 jogos
+    const homeRecentGoals = recentHome.reduce((sum, m) => sum + m.homeScore + m.awayScore, 0) / recentHome.length;
+    const awayRecentGoals = recentAway.reduce((sum, m) => sum + m.homeScore + m.awayScore, 0) / recentAway.length;
+    const recentAvg = (homeRecentGoals + awayRecentGoals) / 2;
+    
+    // Comparar com média histórica
+    const historicalAvg = (homeAvgScored + homeAvgConceded + awayAvgScored + awayAvgConceded) / 2;
+    
+    if (recentAvg > historicalAvg) {
+      // Forma recente melhor que média histórica
+      recentFormAdjustment = Math.min(2, (recentAvg - historicalAvg) * 0.5);
+    } else if (recentAvg < historicalAvg) {
+      // Forma recente pior que média histórica
+      recentFormAdjustment = Math.max(-2, (recentAvg - historicalAvg) * 0.5);
+    }
+  }
+
+  const lambdaTotal = lambdaHome + lambdaAway;
+
+  // 7. Calcular probabilidade Over 1.5 usando Poisson
+  const over15Prob = 1 - poissonCumulative(1, lambdaTotal);
+  let statsProb = Math.max(10, Math.min(98, over15Prob * 100));
+
+  // Aplicar ajuste de forma recente
+  statsProb = Math.max(10, Math.min(98, statsProb + recentFormAdjustment));
+
+  // Calcular probabilidades Over/Under para múltiplas linhas
+  const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] Prob. Estatísticas calculada:', {
+      lambdaHome,
+      lambdaAway,
+      lambdaTotal,
+      homeAvgScored,
+      homeAvgConceded,
+      awayAvgScored,
+      awayAvgConceded,
+      avgCleanSheet,
+      avgNoGoals,
+      avgOver25,
+      recentFormAdjustment,
+      statsProb,
+    });
+  }
+
+  return {
+    probability: statsProb,
+    overUnderProbabilities,
+  };
+}
+
+/**
  * Calcula probabilidade Over 1.5 baseada apenas nos dados da tabela do campeonato.
- * Usa GF (Gols Feitos), GA (Gols Acontecidos), xG e xGA da tabela para calcular
- * média de gols esperados e converter em probabilidade usando distribuição Poisson.
+ * Usa fatores avançados: GF/GA, xG/xGA, posição na tabela, GD, xGD, Pts/MP e força do oponente.
  *
  * @param data - Dados da partida incluindo homeTableData e awayTableData
- * @returns Probabilidade Over 1.5 baseada na tabela (0-100) ou null se dados insuficientes
+ * @returns Objeto com probabilidade Over 1.5 e overUnderProbabilities, ou null se dados insuficientes
  */
-function calculateTableProbability(data: MatchData): number | null {
+function calculateTableProbability(data: MatchData): {
+  probability: number;
+  overUnderProbabilities: { [line: string]: { over: number; under: number } };
+} | null {
   const hasHomeTableData = !!data.homeTableData;
   const hasAwayTableData = !!data.awayTableData;
 
@@ -111,42 +247,99 @@ function calculateTableProbability(data: MatchData): number | null {
   const homeGa = parseFloat(data.homeTableData.GA || '0');
   const homeXg = parseFloat(data.homeTableData.xG || '0');
   const homeXga = parseFloat(data.homeTableData.xGA || '0');
+  const homeRk = parseFloat(data.homeTableData.Rk || '0');
+  const homeGd = parseFloat(data.homeTableData.GD || '0');
+  const homeXgd = parseFloat(data.homeTableData.xGD || '0');
+  const homePtsPerGame = parseFloat(data.homeTableData['Pts/MP'] || '0');
 
   const awayMp = parseFloat(data.awayTableData.MP || '0');
   const awayGf = parseFloat(data.awayTableData.GF || '0');
   const awayGa = parseFloat(data.awayTableData.GA || '0');
   const awayXg = parseFloat(data.awayTableData.xG || '0');
   const awayXga = parseFloat(data.awayTableData.xGA || '0');
+  const awayRk = parseFloat(data.awayTableData.Rk || '0');
+  const awayGd = parseFloat(data.awayTableData.GD || '0');
+  const awayXgd = parseFloat(data.awayTableData.xGD || '0');
+  const awayPtsPerGame = parseFloat(data.awayTableData['Pts/MP'] || '0');
 
   if (homeMp === 0 || awayMp === 0) {
     return null;
   }
 
-  // Calcular médias de gols da tabela
+  // 1. Calcular médias de gols da tabela
   const homeAvgScored = homeGf / homeMp;
   const homeAvgConceded = homeGa / homeMp;
   const awayAvgScored = awayGf / awayMp;
   const awayAvgConceded = awayGa / awayMp;
 
-  // Usar xG se disponível (mais preciso), caso contrário usar GF/MP
+  // 2. Usar xG se disponível (mais preciso), caso contrário usar GF/MP
   const homeExpectedScored = homeXg > 0 ? homeXg / homeMp : homeAvgScored;
   const homeExpectedConceded = homeXga > 0 ? homeXga / homeMp : homeAvgConceded;
   const awayExpectedScored = awayXg > 0 ? awayXg / awayMp : awayAvgScored;
   const awayExpectedConceded = awayXga > 0 ? awayXga / awayMp : awayAvgConceded;
 
-  // Lambda para Poisson: média de gols esperados
-  // Time da casa: média entre gols marcados em casa e gols sofridos pelo visitante
-  const lambdaHome = (homeExpectedScored + awayExpectedConceded) / 2;
-  // Time visitante: média entre gols marcados fora e gols sofridos pelo time da casa
-  const lambdaAway = (awayExpectedScored + homeExpectedConceded) / 2;
+  // 3. Lambda base para Poisson: média de gols esperados
+  let lambdaHome = (homeExpectedScored + awayExpectedConceded) / 2;
+  let lambdaAway = (awayExpectedScored + homeExpectedConceded) / 2;
+
+  // 4. Ajustar baseado em posição na tabela (times no topo são mais ofensivos)
+  // Assumir que há 20 times (ajustar se necessário)
+  const totalTeams = 20; // Pode ser ajustado dinamicamente se necessário
+  const homePositionFactor = homeRk > 0 ? (totalTeams - homeRk + 1) / totalTeams : 0.5;
+  const awayPositionFactor = awayRk > 0 ? (totalTeams - awayRk + 1) / totalTeams : 0.5;
+  
+  // Times no topo (posição baixa = melhor) tendem a marcar mais
+  // Ajustar lambda: +5% para top 5, +2% para top 10, neutro para resto
+  if (homeRk <= 5) lambdaHome *= 1.05;
+  else if (homeRk <= 10) lambdaHome *= 1.02;
+  
+  if (awayRk <= 5) lambdaAway *= 1.05;
+  else if (awayRk <= 10) lambdaAway *= 1.02;
+
+  // 5. Ajustar baseado em Saldo de Gols (GD) - times com GD positivo são mais ofensivos
+  const homeGdPerGame = homeGd / homeMp;
+  const awayGdPerGame = awayGd / awayMp;
+  
+  // GD positivo aumenta probabilidade de gols (até +3% por GD/game > 0.5)
+  if (homeGdPerGame > 0.5) lambdaHome *= (1 + Math.min(0.03, homeGdPerGame * 0.02));
+  if (awayGdPerGame > 0.5) lambdaAway *= (1 + Math.min(0.03, awayGdPerGame * 0.02));
+
+  // 6. Ajustar baseado em xGD (Expected Goal Difference) quando disponível
+  if (homeXgd !== 0) {
+    const homeXgdPerGame = homeXgd / homeMp;
+    if (homeXgdPerGame > 0.3) lambdaHome *= (1 + Math.min(0.025, homeXgdPerGame * 0.015));
+  }
+  if (awayXgd !== 0) {
+    const awayXgdPerGame = awayXgd / awayMp;
+    if (awayXgdPerGame > 0.3) lambdaAway *= (1 + Math.min(0.025, awayXgdPerGame * 0.015));
+  }
+
+  // 7. Ajustar baseado em Pts/MP (pontos por jogo) - times em melhor forma
+  // Máximo de pontos por jogo é ~3.0 (vitórias consecutivas)
+  const homeFormFactor = homePtsPerGame > 0 ? Math.min(1.03, 1 + (homePtsPerGame - 1.5) * 0.01) : 1;
+  const awayFormFactor = awayPtsPerGame > 0 ? Math.min(1.03, 1 + (awayPtsPerGame - 1.5) * 0.01) : 1;
+  lambdaHome *= homeFormFactor;
+  lambdaAway *= awayFormFactor;
+
+  // 8. Ajustar baseado em força do oponente (posição do adversário)
+  // Jogar contra time fraco (posição alta) aumenta probabilidade de gols
+  const opponentStrengthFactor = (awayRk > 0 && homeRk > 0) 
+    ? 1 + ((awayRk - homeRk) / totalTeams) * 0.05 // Até ±5% baseado na diferença de posição
+    : 1;
+  lambdaHome *= opponentStrengthFactor;
+  // Inverso para o visitante
+  const homeOpponentStrengthFactor = (homeRk > 0 && awayRk > 0)
+    ? 1 + ((homeRk - awayRk) / totalTeams) * 0.05
+    : 1;
+  lambdaAway *= homeOpponentStrengthFactor;
+
   const lambdaTotal = lambdaHome + lambdaAway;
 
-  // Calcular probabilidade Over 1.5 usando Poisson
-  // P(Total > 1.5) = 1 - P(Total <= 1)
+  // 9. Calcular probabilidade Over 1.5 usando Poisson
   const over15Prob = 1 - poissonCumulative(1, lambdaTotal);
-  const tableProb = Math.max(10, Math.min(98, over15Prob * 100));
+  let tableProb = Math.max(10, Math.min(98, over15Prob * 100));
 
-  // Ajustar baseado em forma recente (Last 5) se disponível
+  // 10. Ajustar baseado em forma recente (Last 5) se disponível
   let formAdjustment = 0;
   if (data.homeTableData?.['Last 5'] || data.awayTableData?.['Last 5']) {
     const parseRecentForm = (last5: string | undefined): number => {
@@ -175,18 +368,30 @@ function calculateTableProbability(data: MatchData): number | null {
 
   const finalProb = Math.max(10, Math.min(98, tableProb + formAdjustment));
 
+  // Calcular probabilidades Over/Under para múltiplas linhas
+  const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
+
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] Prob. Tabela calculada:', {
+    console.log('[AnalysisEngine] Prob. Tabela calculada (avançada):', {
       lambdaHome,
       lambdaAway,
       lambdaTotal,
+      homeRk,
+      awayRk,
+      homeGdPerGame,
+      awayGdPerGame,
+      homePtsPerGame,
+      awayPtsPerGame,
       tableProb,
       formAdjustment,
       finalProb,
     });
   }
 
-  return finalProb;
+  return {
+    probability: finalProb,
+    overUnderProbabilities,
+  };
 }
 
 /**
@@ -805,7 +1010,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
 
   const lambdaHome = (homeGoalsScored + awayGoalsConceded) / 2;
   const lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;
-  const lambdaTotal = lambdaHome + lambdaAway; // Média total de gols esperados no jogo
+  const lambdaTotal = lambdaHome + lambdaAway; // Média total de gols esperados no jogo (para Poisson combinado)
 
   const pHome: number[] = [];
   const pAway: number[] = [];
@@ -814,7 +1019,8 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     pAway.push(poissonProbability(i, lambdaAway));
   }
 
-  // Calcular probabilidades Over/Under para múltiplas linhas usando Poisson
+  // Calcular probabilidades Over/Under combinadas usando lambdaTotal (baseado na combinação de estatísticas e tabela)
+  // Se temos probabilidades separadas, podemos combinar elas também, mas por enquanto usamos lambdaTotal
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
   // Cálculo de EV: (Probabilidade * Odd) - 100
@@ -963,11 +1169,18 @@ export function performAnalysis(data: MatchData): AnalysisResult {
 
   confidence = Math.min(100, Math.max(0, confidence));
 
+  // Calcular Prob. Estatísticas separadamente (baseada apenas em últimos 10 jogos)
+  const statsResult = calculateStatisticsProbability(normalizedData);
+  const statsProb = statsResult?.probability ?? prob; // Usar prob calculado anteriormente como fallback
+  const statsOverUnderProbabilities = statsResult?.overUnderProbabilities;
+
   // Calcular Prob. Tabela separadamente (baseada apenas em dados da tabela)
-  const tableProb = calculateTableProbability(normalizedData);
+  const tableResult = calculateTableProbability(normalizedData);
+  const tableProb = tableResult?.probability ?? null;
+  const tableOverUnderProbabilities = tableResult?.overUnderProbabilities;
 
   // Combinar probabilidade estatística com probabilidade da tabela
-  const finalProb = combineStatisticsAndTable(prob, tableProb, normalizedData);
+  const finalProb = combineStatisticsAndTable(statsProb, tableProb, normalizedData);
 
   let riskLevel: AnalysisResult['riskLevel'] = 'Moderado';
   if (finalProb > 88) riskLevel = 'Baixo';
@@ -982,7 +1195,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   }
 
   return {
-    probabilityOver15: prob, // Probabilidade estatística pura
+    probabilityOver15: statsProb, // Probabilidade estatística pura (baseada em últimos 10 jogos)
     tableProbability: tableProb, // Probabilidade baseada apenas em dados da tabela
     combinedProbability: finalProb, // Probabilidade final combinada (estatísticas + tabela)
     confidenceScore: confidence,
@@ -1006,7 +1219,11 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       bttsCorrelation,
       formTrend,
     },
-    // Probabilidades Over/Under calculadas estatisticamente (sempre disponíveis, mesmo sem IA)
+    // Probabilidades Over/Under combinadas (final)
     overUnderProbabilities,
+    // Probabilidades Over/Under baseadas apenas na tabela
+    tableOverUnderProbabilities,
+    // Probabilidades Over/Under baseadas apenas nas estatísticas
+    statsOverUnderProbabilities,
   };
 }

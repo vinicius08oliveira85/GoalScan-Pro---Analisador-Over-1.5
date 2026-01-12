@@ -152,6 +152,20 @@ export interface AnalysisResult {
       under: number;
     };
   };
+  // Probabilidades Over/Under baseadas apenas na tabela
+  tableOverUnderProbabilities?: {
+    [line: string]: {
+      over: number;
+      under: number;
+    };
+  };
+  // Probabilidades Over/Under baseadas apenas nas estatísticas
+  statsOverUnderProbabilities?: {
+    [line: string]: {
+      over: number;
+      under: number;
+    };
+  };
   // Combinações recomendadas de apostas (Over E Under >= 75%)
   recommendedCombinations?: Array<{
     overLine: number;
