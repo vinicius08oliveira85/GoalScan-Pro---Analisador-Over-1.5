@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Check,
   Loader2,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Line,
@@ -27,6 +28,7 @@ import {
 } from 'recharts';
 import { BankSettings, SavedAnalysis } from '../types';
 import { calculateBankStats, prepareBankEvolutionData } from '../utils/dashboardStats';
+import { computeNetCashDelta } from '../utils/bankLedger';
 import { validateBankSettings } from '../utils/validation';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
@@ -45,9 +47,22 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
   const [totalBank, setTotalBank] = useState<number>(bankSettings?.totalBank || 0);
   const [inputValue, setInputValue] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [reconcileStatus, setReconcileStatus] = useState<SaveStatus>('idle');
+  const [baseStatus, setBaseStatus] = useState<SaveStatus>('idle');
   const [validationState, setValidationState] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [validationMessage, setValidationMessage] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Base de banca (para reconciliar do zero). Persistida localmente.
+  const [bankBase, setBankBase] = useState<number | null>(null);
+  const [bankBaseInput, setBankBaseInput] = useState<string>('');
+
+  // Impacto líquido atual das apostas na banca (cash), baseado no estado atual
+  const netCashDelta = useMemo(() => computeNetCashDelta(savedMatches), [savedMatches]);
+  const suggestedBase = useMemo(() => {
+    if (!bankSettings) return 0;
+    return Math.max(0, Number((bankSettings.totalBank - netCashDelta).toFixed(2)));
+  }, [bankSettings, netCashDelta]);
 
   const bankStats = useMemo(
     () => calculateBankStats(savedMatches, bankSettings),
@@ -121,12 +136,48 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
     }
   }, [bankSettings, formatNumber]);
 
+  // Inicializar base (localStorage) ou sugerir uma base inferida a partir da banca atual e do delta das apostas
+  useEffect(() => {
+    if (!bankSettings) return;
+    if (bankBase !== null) return;
+
+    const suggestedBase = Math.max(
+      0,
+      Number((bankSettings.totalBank - netCashDelta).toFixed(2))
+    );
+
+    let baseToUse = suggestedBase;
+    try {
+      const stored = localStorage.getItem('goalscan_bank_base');
+      const parsed = stored ? Number(stored) : Number.NaN;
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        baseToUse = parsed;
+      }
+    } catch {
+      // ignorar
+    }
+
+    setBankBase(baseToUse);
+    setBankBaseInput(formatNumber(baseToUse));
+  }, [bankSettings, bankBase, netCashDelta, formatNumber]);
+
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value.replace(/[^\d,.-]/g, '');
       setInputValue(value);
       const parsed = parseFormattedValue(value);
       setTotalBank(parsed);
+    },
+    [parseFormattedValue]
+  );
+
+  const handleBaseChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value.replace(/[^\d,.-]/g, '');
+      setBankBaseInput(value);
+      const parsed = parseFormattedValue(value);
+      setBankBase(parsed);
+      setBaseStatus('idle');
     },
     [parseFormattedValue]
   );
@@ -156,6 +207,61 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
   }, [totalBank, validationState, onSave, onError]);
+
+  const handleSaveBase = useCallback(() => {
+    if (bankBase === null || !Number.isFinite(bankBase) || bankBase < 0) return;
+    setBaseStatus('loading');
+    try {
+      localStorage.setItem('goalscan_bank_base', String(Number(bankBase.toFixed(2))));
+      setBaseStatus('success');
+      setTimeout(() => setBaseStatus('idle'), 2000);
+    } catch {
+      setBaseStatus('error');
+      setTimeout(() => setBaseStatus('idle'), 2000);
+    }
+  }, [bankBase]);
+
+  const handleUseSuggestedBase = useCallback(() => {
+    setBankBase(suggestedBase);
+    setBankBaseInput(formatNumber(suggestedBase));
+    setBaseStatus('idle');
+  }, [suggestedBase, formatNumber]);
+
+  const handleReconcile = useCallback(async () => {
+    if (!bankSettings) {
+      onError?.('Configure a banca primeiro para reconciliar.');
+      return;
+    }
+    if (bankBase === null || !Number.isFinite(bankBase) || bankBase < 0) {
+      onError?.('Defina uma banca base válida para reconciliar.');
+      return;
+    }
+
+    setReconcileStatus('loading');
+    try {
+      const reconciledCash = Math.max(0, Number((bankBase + netCashDelta).toFixed(2)));
+      const newSettings: BankSettings = {
+        totalBank: reconciledCash,
+        currency: 'BRL',
+        updatedAt: Date.now(),
+      };
+
+      const validatedSettings = validateBankSettings(newSettings);
+      await onSave(validatedSettings);
+
+      // Atualizar UI imediatamente
+      setTotalBank(reconciledCash);
+      setInputValue(formatNumber(reconciledCash));
+
+      setReconcileStatus('success');
+      setTimeout(() => setReconcileStatus('idle'), 2500);
+    } catch (error) {
+      setReconcileStatus('error');
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao reconciliar';
+      onError?.(`Erro ao reconciliar banca: ${errorMessage}`);
+      setTimeout(() => setReconcileStatus('idle'), 2500);
+    }
+  }, [bankSettings, bankBase, netCashDelta, onSave, onError, formatNumber]);
 
   const statCards = [
     {
@@ -233,6 +339,21 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
               R$ {formatNumber(totalBank)}
             </span>
           </div>
+          {(bankStats.pendingExposure > 0 || bankStats.totalBets > 0) && (
+            <div className="text-xs md:text-sm opacity-70">
+              <span className="font-semibold">Equity:</span>{' '}
+              <span className="tabular-nums">
+                R$ {formatNumber(totalBank + bankStats.pendingExposure)}
+              </span>
+              {bankStats.pendingExposure > 0 && (
+                <>
+                  <span className="opacity-50"> • </span>
+                  <span className="opacity-70">Pendentes:</span>{' '}
+                  <span className="tabular-nums">R$ {formatNumber(bankStats.pendingExposure)}</span>
+                </>
+              )}
+            </div>
+          )}
           {bankSettings?.updatedAt && (
             <p className="text-xs opacity-50">
               Última atualização: {new Date(bankSettings.updatedAt).toLocaleString('pt-BR')}
@@ -340,6 +461,139 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
               </>
             )}
           </button>
+
+          {/* Reconciliação (calcular do zero a partir das apostas registradas) */}
+          <div className="pt-5 mt-2 border-t border-base-300/40 space-y-4">
+            <div>
+              <h4 className="text-base md:text-lg font-black mb-1">Reconciliar com Apostas</h4>
+              <p className="text-xs md:text-sm opacity-60">
+                Recalcula ganho/perda e sincroniza a banca com as apostas registradas.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-base-200/40 border border-base-300/40">
+                <p className="text-[10px] font-bold opacity-60 uppercase">Impacto líquido (apostas)</p>
+                <p
+                  className={`text-lg font-black tabular-nums ${
+                    netCashDelta > 0 ? 'text-success' : netCashDelta < 0 ? 'text-error' : ''
+                  }`}
+                >
+                  {netCashDelta > 0 ? '+' : ''}
+                  R$ {netCashDelta.toFixed(2)}
+                </p>
+                {bankStats.pendingExposure > 0 && (
+                  <p className="text-xs opacity-60 mt-1">
+                    Pendentes (travado): R$ {bankStats.pendingExposure.toFixed(2)}
+                  </p>
+                )}
+              </div>
+
+              <div className="p-3 rounded-xl bg-base-200/40 border border-base-300/40">
+                <p className="text-[10px] font-bold opacity-60 uppercase">Base sugerida</p>
+                <p className="text-lg font-black tabular-nums">R$ {suggestedBase.toFixed(2)}</p>
+                <p className="text-xs opacity-60 mt-1">Usada caso não exista uma base salva.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+              <div className="form-control">
+                <label className="label" htmlFor="bank-base-input">
+                  <span className="label-text font-bold flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Banca Base (R$)
+                  </span>
+                </label>
+                <input
+                  id="bank-base-input"
+                  type="text"
+                  inputMode="decimal"
+                  value={bankBaseInput}
+                  onChange={handleBaseChange}
+                  onBlur={() => {
+                    if (bankBase !== null && Number.isFinite(bankBase)) {
+                      setBankBaseInput(formatNumber(bankBase));
+                    }
+                  }}
+                  className="input input-bordered w-full"
+                  placeholder="0,00"
+                  aria-label="Banca base para reconciliação"
+                />
+                <label className="label">
+                  <span className="label-text-alt opacity-60 text-xs">
+                    Salva localmente (neste dispositivo).
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={handleUseSuggestedBase}
+                  className="btn btn-outline btn-sm flex-1"
+                  type="button"
+                >
+                  Usar sugerida
+                </button>
+                <button
+                  onClick={handleSaveBase}
+                  className="btn btn-outline btn-sm flex-1"
+                  type="button"
+                  disabled={baseStatus === 'loading' || bankBase === null}
+                >
+                  {baseStatus === 'loading' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : baseStatus === 'success' ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Salvo
+                    </>
+                  ) : baseStatus === 'error' ? (
+                    <>
+                      <AlertCircle className="w-4 h-4" />
+                      Erro
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Salvar Base
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={handleReconcile}
+              disabled={reconcileStatus === 'loading' || !bankSettings || bankBase === null}
+              className="btn btn-secondary w-full flex items-center justify-center gap-2 min-h-[52px] text-base font-semibold"
+              type="button"
+            >
+              {reconcileStatus === 'loading' ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Reconciliando...
+                </>
+              ) : reconcileStatus === 'success' ? (
+                <>
+                  <Check className="w-5 h-5" />
+                  Banca reconciliada!
+                </>
+              ) : reconcileStatus === 'error' ? (
+                <>
+                  <AlertCircle className="w-5 h-5" />
+                  Erro ao reconciliar
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-5 h-5" />
+                  Reconciliar com Apostas
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </motion.div>
 
@@ -439,15 +693,15 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
           <div className="mb-4">
             <h3 className="text-lg md:text-xl font-black mb-1">Evolução da Banca</h3>
             <p className="text-xs md:text-sm opacity-60">
-              Crescimento do capital ao longo do tempo
+              Cash (disponível) e Equity (cash + pendentes) ao longo do tempo
             </p>
           </div>
           <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
             <AreaChart data={bankEvolutionData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
               <defs>
-                <linearGradient id="bankGradientBank" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                <linearGradient id="bankEquityGradientBank" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#a855f7" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
                 </linearGradient>
                 <filter id="glowBank">
                   <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -479,43 +733,75 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
-                    const data = payload[0];
-                    const currentValue = data.value as number;
+                    const p = payload[0].payload as {
+                      date: string;
+                      timestamp: number;
+                      cash: number;
+                      equity: number;
+                    };
                     const currentIndex = bankEvolutionData.findIndex(
-                      (d) => d.value === currentValue
+                      (d) => d.timestamp === p.timestamp
                     );
-                    const previousValue =
-                      currentIndex > 0 ? bankEvolutionData[currentIndex - 1].value : null;
-                    const change = previousValue !== null ? currentValue - previousValue : null;
-                    const changePercent =
-                      previousValue && previousValue > 0
-                        ? ((change! / previousValue) * 100).toFixed(1)
+                    const previous =
+                      currentIndex > 0 ? bankEvolutionData[currentIndex - 1] : null;
+
+                    const cashChange = previous ? p.cash - previous.cash : null;
+                    const cashChangePct =
+                      previous && previous.cash > 0
+                        ? Number(((cashChange! / previous.cash) * 100).toFixed(1))
                         : null;
+
+                    const equityChange = previous ? p.equity - previous.equity : null;
 
                     return (
                       <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-4 shadow-xl">
                         <div className="mb-2">
-                          <p className="text-xs opacity-70 mb-1">{data.payload.date}</p>
+                          <p className="text-xs opacity-70 mb-1">{p.date}</p>
                           <div className="flex items-baseline gap-2">
-                            <p className="text-2xl font-black text-primary">
-                              R$ {currentValue.toFixed(2)}
-                            </p>
-                            {change !== null && (
+                            <p className="text-2xl font-black text-primary">R$ {p.cash.toFixed(2)}</p>
+                            {cashChange !== null && (
                               <span
                                 className={`text-sm font-bold flex items-center gap-1 ${
-                                  change > 0 ? 'text-success' : change < 0 ? 'text-error' : ''
+                                  cashChange > 0
+                                    ? 'text-success'
+                                    : cashChange < 0
+                                      ? 'text-error'
+                                      : ''
                                 }`}
                               >
-                                {change > 0 ? (
+                                {cashChange > 0 ? (
                                   <TrendingUp className="w-3 h-3" />
-                                ) : change < 0 ? (
+                                ) : cashChange < 0 ? (
                                   <TrendingDown className="w-3 h-3" />
                                 ) : null}
-                                {change > 0 ? '+' : ''}
-                                {change.toFixed(2)}
-                                {changePercent &&
-                                  ` (${changePercent > 0 ? '+' : ''}${changePercent}%)`}
+                                {cashChange > 0 ? '+' : ''}
+                                {cashChange.toFixed(2)}
+                                {cashChangePct !== null &&
+                                  ` (${cashChangePct > 0 ? '+' : ''}${cashChangePct}%)`}
                               </span>
+                            )}
+                          </div>
+                          <div className="mt-2 text-xs opacity-80">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="opacity-70">Equity</span>
+                              <span className="font-bold">R$ {p.equity.toFixed(2)}</span>
+                            </div>
+                            {equityChange !== null && (
+                              <div className="flex items-center justify-between gap-3 mt-1">
+                                <span className="opacity-70">Δ</span>
+                                <span
+                                  className={`font-bold ${
+                                    equityChange > 0
+                                      ? 'text-success'
+                                      : equityChange < 0
+                                        ? 'text-error'
+                                        : ''
+                                  }`}
+                                >
+                                  {equityChange > 0 ? '+' : ''}
+                                  {equityChange.toFixed(2)}
+                                </span>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -527,10 +813,10 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
               />
               <Area
                 type="monotone"
-                dataKey="value"
-                stroke="#3b82f6"
-                strokeWidth={3}
-                fill="url(#bankGradientBank)"
+                dataKey="equity"
+                stroke="#a855f7"
+                strokeWidth={2}
+                fill="url(#bankEquityGradientBank)"
                 fillOpacity={1}
                 animationBegin={0}
                 animationDuration={1000}
@@ -538,7 +824,7 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
               />
               <Line
                 type="monotone"
-                dataKey="value"
+                dataKey="cash"
                 stroke="#3b82f6"
                 strokeWidth={3}
                 dot={{

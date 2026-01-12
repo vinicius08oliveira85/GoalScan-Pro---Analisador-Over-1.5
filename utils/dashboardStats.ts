@@ -1,5 +1,6 @@
 import { SavedAnalysis, BankSettings } from '../types';
 import { getDisplayProbability } from './probability';
+import { buildBankCurve, computeNetCashDelta } from './bankLedger';
 
 export interface DashboardStats {
   totalMatches: number;
@@ -19,10 +20,13 @@ export interface BankStats {
   wonBets: number;
   lostBets: number;
   pendingBets: number;
+  cancelledBets: number;
+  pendingExposure: number;
   biggestWin: number;
   biggestLoss: number;
   initialBank: number;
-  currentBank: number;
+  currentCash: number;
+  currentEquity: number;
   totalBets: number;
 }
 
@@ -81,7 +85,8 @@ export function calculateDashboardStats(
 
   // Calcular ROI
   const totalInvested = savedMatches.reduce((sum, match) => {
-    if (match.betInfo && match.betInfo.betAmount > 0 && match.betInfo.status !== 'cancelled') {
+    // ROI apenas em apostas finalizadas (won/lost) para não distorcer com pendentes
+    if (match.betInfo && match.betInfo.betAmount > 0 && (match.betInfo.status === 'won' || match.betInfo.status === 'lost')) {
       return sum + match.betInfo.betAmount;
     }
     return sum;
@@ -130,7 +135,7 @@ export function calculateDashboardStats(
  */
 export function calculateBankStats(
   savedMatches: SavedAnalysis[],
-  _bankSettings?: BankSettings
+  bankSettings?: BankSettings
 ): BankStats {
   const matchesWithBets = savedMatches.filter(
     (match) => match.betInfo && match.betInfo.betAmount > 0
@@ -139,26 +144,24 @@ export function calculateBankStats(
   const wonBets = matchesWithBets.filter((match) => match.betInfo?.status === 'won');
   const lostBets = matchesWithBets.filter((match) => match.betInfo?.status === 'lost');
   const pendingBets = matchesWithBets.filter((match) => match.betInfo?.status === 'pending');
+  const cancelledBets = matchesWithBets.filter((match) => match.betInfo?.status === 'cancelled');
 
-  // Calcular lucro total
+  // Resumo financeiro (apenas apostas finalizadas para lucro/ROI)
   const totalProfit = matchesWithBets.reduce((sum, match) => {
     if (!match.betInfo) return sum;
-    if (match.betInfo.status === 'won') {
-      return sum + match.betInfo.potentialProfit;
-    } else if (match.betInfo.status === 'lost') {
-      return sum - match.betInfo.betAmount;
-    }
+    if (match.betInfo.status === 'won') return sum + match.betInfo.potentialProfit;
+    if (match.betInfo.status === 'lost') return sum - match.betInfo.betAmount;
     return sum;
   }, 0);
 
-  // Calcular ROI
-  const totalInvested = matchesWithBets.reduce((sum, match) => {
-    if (match.betInfo && match.betInfo.status !== 'cancelled') {
+  const totalInvestedSettled = matchesWithBets.reduce((sum, match) => {
+    if (!match.betInfo) return sum;
+    if (match.betInfo.status === 'won' || match.betInfo.status === 'lost') {
       return sum + match.betInfo.betAmount;
     }
     return sum;
   }, 0);
-  const roi = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
+  const roi = totalInvestedSettled > 0 ? (totalProfit / totalInvestedSettled) * 100 : 0;
 
   // Maior ganho
   const biggestWin = wonBets.reduce((max, match) => {
@@ -177,9 +180,11 @@ export function calculateBankStats(
     return sum + (match.betInfo?.betAmount || 0);
   }, 0);
 
-  // Banca inicial definida como 20 reais
-  const initialBank = 20;
-  const currentBank = initialBank + totalProfit - pendingAmount;
+  const currentCash = bankSettings?.totalBank || 0;
+  const currentEquity = currentCash + pendingAmount;
+  // Base inferida para manter o gráfico consistente com a banca atual (caso não exista base armazenada)
+  const netDelta = computeNetCashDelta(savedMatches);
+  const initialBank = Math.max(0, Number((currentCash - netDelta).toFixed(2)));
 
   return {
     totalProfit,
@@ -187,10 +192,13 @@ export function calculateBankStats(
     wonBets: wonBets.length,
     lostBets: lostBets.length,
     pendingBets: pendingBets.length,
+    cancelledBets: cancelledBets.length,
+    pendingExposure: pendingAmount,
     biggestWin,
     biggestLoss,
-    initialBank: Math.max(0, initialBank),
-    currentBank,
+    initialBank,
+    currentCash,
+    currentEquity,
     totalBets: matchesWithBets.length,
   };
 }
@@ -201,58 +209,15 @@ export function calculateBankStats(
 export function prepareBankEvolutionData(
   savedMatches: SavedAnalysis[],
   bankSettings?: BankSettings
-): Array<{ date: string; value: number }> {
+): Array<{ date: string; timestamp: number; cash: number; equity: number }> {
   if (!bankSettings) return [];
 
-  // Ordenar partidas por data
-  const sortedMatches = [...savedMatches].sort((a, b) => a.timestamp - b.timestamp);
+  // Base inferida: garante que o último ponto de cash bata com bankSettings.totalBank
+  const netDelta = computeNetCashDelta(savedMatches);
+  const baseCash = Math.max(0, Number((bankSettings.totalBank - netDelta).toFixed(2)));
 
-  // Banca inicial definida como 20 reais
-  const initialBank = 20;
-
-  // Simular evolução da banca ao longo do tempo
-  let currentBank = initialBank;
-  const data: Array<{ date: string; value: number }> = [
-    {
-      date: new Date(sortedMatches[0]?.timestamp || Date.now()).toLocaleDateString('pt-BR', {
-        month: 'short',
-        day: 'numeric',
-      }),
-      value: initialBank,
-    },
-  ];
-
-  sortedMatches.forEach((match) => {
-    if (match.betInfo && match.betInfo.betAmount > 0) {
-      if (match.betInfo.status === 'pending') {
-        currentBank -= match.betInfo.betAmount;
-      } else if (match.betInfo.status === 'won') {
-        currentBank += match.betInfo.potentialReturn;
-      } else if (match.betInfo.status === 'lost') {
-        // Já foi descontado quando pending
-      } else if (match.betInfo.status === 'cancelled') {
-        currentBank += match.betInfo.betAmount;
-      }
-
-      data.push({
-        date: new Date(match.timestamp).toLocaleDateString('pt-BR', {
-          month: 'short',
-          day: 'numeric',
-        }),
-        value: Math.max(0, currentBank),
-      });
-    }
-  });
-
-  // Adicionar ponto final (banca atual)
-  if (data.length > 0) {
-    data.push({
-      date: 'Atual',
-      value: currentBank,
-    });
-  }
-
-  return data;
+  const { series } = buildBankCurve(savedMatches, baseCash);
+  return series;
 }
 
 /**

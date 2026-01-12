@@ -205,7 +205,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <div className="mb-4">
               <h3 className="text-lg md:text-xl font-black mb-1">Evolução da Banca</h3>
               <p className="text-xs md:text-sm opacity-60">
-                Crescimento do capital ao longo do tempo
+                Cash (disponível) e Equity (cash + pendentes) ao longo do tempo
               </p>
             </div>
             <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
@@ -214,9 +214,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
               >
                 <defs>
-                  <linearGradient id="bankGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  <linearGradient id="bankEquityGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
                   </linearGradient>
                   <filter id="glow">
                     <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -248,43 +248,70 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
-                      const data = payload[0];
-                      const currentValue = data.value as number;
+                      const p = payload[0].payload as {
+                        date: string;
+                        timestamp: number;
+                        cash: number;
+                        equity: number;
+                      };
                       const currentIndex = bankEvolutionData.findIndex(
-                        (d) => d.value === currentValue
+                        (d) => d.timestamp === p.timestamp
                       );
                       const previousValue =
-                        currentIndex > 0 ? bankEvolutionData[currentIndex - 1].value : null;
-                      const change = previousValue !== null ? currentValue - previousValue : null;
-                      const changePercent =
-                        previousValue && previousValue > 0
-                          ? ((change! / previousValue) * 100).toFixed(1)
-                          : null;
+                        currentIndex > 0 ? bankEvolutionData[currentIndex - 1] : null;
+
+                      const cashChange =
+                        previousValue !== null ? p.cash - previousValue.cash : null;
+                      const equityChange =
+                        previousValue !== null ? p.equity - previousValue.equity : null;
 
                       return (
                         <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-4 shadow-xl">
                           <div className="mb-2">
-                            <p className="text-xs opacity-70 mb-1">{data.payload.date}</p>
+                            <p className="text-xs opacity-70 mb-1">{p.date}</p>
                             <div className="flex items-baseline gap-2">
-                              <p className="text-2xl font-black text-primary">
-                                R$ {currentValue.toFixed(2)}
-                              </p>
-                              {change !== null && (
+                              <p className="text-2xl font-black text-primary">R$ {p.cash.toFixed(2)}</p>
+                              {cashChange !== null && (
                                 <span
                                   className={`text-sm font-bold flex items-center gap-1 ${
-                                    change > 0 ? 'text-success' : change < 0 ? 'text-error' : ''
+                                    cashChange > 0
+                                      ? 'text-success'
+                                      : cashChange < 0
+                                        ? 'text-error'
+                                        : ''
                                   }`}
                                 >
-                                  {change > 0 ? (
+                                  {cashChange > 0 ? (
                                     <TrendingUp className="w-3 h-3" />
-                                  ) : change < 0 ? (
+                                  ) : cashChange < 0 ? (
                                     <ArrowDownRight className="w-3 h-3" />
                                   ) : null}
-                                  {change > 0 ? '+' : ''}
-                                  {change.toFixed(2)}
-                                  {changePercent &&
-                                    ` (${changePercent > 0 ? '+' : ''}${changePercent}%)`}
+                                  {cashChange > 0 ? '+' : ''}
+                                  {cashChange.toFixed(2)}
                                 </span>
+                              )}
+                            </div>
+                            <div className="mt-2 text-xs opacity-80">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="opacity-70">Equity</span>
+                                <span className="font-bold">R$ {p.equity.toFixed(2)}</span>
+                              </div>
+                              {equityChange !== null && (
+                                <div className="flex items-center justify-between gap-3 mt-1">
+                                  <span className="opacity-70">Δ</span>
+                                  <span
+                                    className={`font-bold ${
+                                      equityChange > 0
+                                        ? 'text-success'
+                                        : equityChange < 0
+                                          ? 'text-error'
+                                          : ''
+                                    }`}
+                                  >
+                                    {equityChange > 0 ? '+' : ''}
+                                    {equityChange.toFixed(2)}
+                                  </span>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -296,10 +323,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 />
                 <Area
                   type="monotone"
-                  dataKey="value"
-                  stroke="#3b82f6"
-                  strokeWidth={3}
-                  fill="url(#bankGradient)"
+                  dataKey="equity"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  fill="url(#bankEquityGradient)"
                   fillOpacity={1}
                   animationBegin={0}
                   animationDuration={1000}
@@ -307,7 +334,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 />
                 <Line
                   type="monotone"
-                  dataKey="value"
+                  dataKey="cash"
                   stroke="#3b82f6"
                   strokeWidth={3}
                   dot={{
