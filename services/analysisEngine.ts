@@ -318,21 +318,72 @@ function calculateTableProbability(data: MatchData): {
     return null;
   }
 
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+  const safeDiv = (num: number, den: number, fallback: number) => (den > 0 ? num / den : fallback);
+
   // 1. Calcular médias de gols da tabela
   const homeAvgScored = homeGf / homeMp;
   const homeAvgConceded = homeGa / homeMp;
   const awayAvgScored = awayGf / awayMp;
   const awayAvgConceded = awayGa / awayMp;
 
-  // 2. Usar xG se disponível (mais preciso), caso contrário usar GF/MP
-  const homeExpectedScored = homeXg > 0 ? homeXg / homeMp : homeAvgScored;
-  const homeExpectedConceded = homeXga > 0 ? homeXga / homeMp : homeAvgConceded;
-  const awayExpectedScored = awayXg > 0 ? awayXg / awayMp : awayAvgScored;
-  const awayExpectedConceded = awayXga > 0 ? awayXga / awayMp : awayAvgConceded;
+  // 2. Misturar xG/xGA com GF/GA para reduzir ruído (xG costuma ser mais estável quando disponível)
+  const blendAttack = (xgTotal: number, gfTotal: number, mp: number): number => {
+    const gfPer = safeDiv(gfTotal, mp, 0);
+    const xgPer = safeDiv(xgTotal, mp, 0);
+    if (xgTotal > 0 && xgPer > 0) return 0.7 * xgPer + 0.3 * gfPer;
+    return gfPer;
+  };
+  const blendDefense = (xgaTotal: number, gaTotal: number, mp: number): number => {
+    const gaPer = safeDiv(gaTotal, mp, 0);
+    const xgaPer = safeDiv(xgaTotal, mp, 0);
+    if (xgaTotal > 0 && xgaPer > 0) return 0.7 * xgaPer + 0.3 * gaPer;
+    return gaPer;
+  };
 
-  // 3. Lambda base para Poisson: média de gols esperados
-  let lambdaHome = (homeExpectedScored + awayExpectedConceded) / 2;
-  let lambdaAway = (awayExpectedScored + homeExpectedConceded) / 2;
+  const homeAttackPerMatch = blendAttack(homeXg, homeGf, homeMp);
+  const homeDefensePerMatch = blendDefense(homeXga, homeGa, homeMp);
+  const awayAttackPerMatch = blendAttack(awayXg, awayGf, awayMp);
+  const awayDefensePerMatch = blendDefense(awayXga, awayGa, awayMp);
+
+  // 3. Lambda base calibrável: forças relativas vs média do campeonato (gols/jogo)
+  const rawCompetitionAvg = typeof data.competitionAvg === 'number' ? data.competitionAvg : 0;
+  const competitionAvgGoals = Number.isFinite(rawCompetitionAvg) && rawCompetitionAvg > 0 && rawCompetitionAvg <= 10
+    ? rawCompetitionAvg
+    : 0;
+
+  // Fallback (se competitionAvg não estiver disponível): média entre os próprios times (clampada)
+  const fallbackAvgGoals = clamp(
+    (homeAvgScored + homeAvgConceded + awayAvgScored + awayAvgConceded) / 2,
+    1.6,
+    4.2
+  );
+
+  const leagueAvgTotalGoals = competitionAvgGoals > 0 ? competitionAvgGoals : fallbackAvgGoals;
+  const leagueAvgTeamGoals = leagueAvgTotalGoals / 2;
+
+  const minMp = Math.min(homeMp, awayMp);
+  // Confiabilidade da tabela: quanto mais jogos, menos “extremos” (shrink para a média)
+  const tableReliability = clamp(minMp / 12, 0, 1);
+
+  const homeAttackStrength = safeDiv(homeAttackPerMatch, leagueAvgTeamGoals, 1);
+  const awayAttackStrength = safeDiv(awayAttackPerMatch, leagueAvgTeamGoals, 1);
+  const homeDefenseStrength = safeDiv(homeDefensePerMatch, leagueAvgTeamGoals, 1);
+  const awayDefenseStrength = safeDiv(awayDefensePerMatch, leagueAvgTeamGoals, 1);
+
+  const shrinkToAvg = (strength: number) => 1 + (strength - 1) * tableReliability;
+  const homeAttack = shrinkToAvg(homeAttackStrength);
+  const awayAttack = shrinkToAvg(awayAttackStrength);
+  const homeDefense = shrinkToAvg(homeDefenseStrength);
+  const awayDefense = shrinkToAvg(awayDefenseStrength);
+
+  // Lambda por time (casa vs fora) usando ataque × defesa relativa
+  let lambdaHome = leagueAvgTeamGoals * homeAttack * awayDefense;
+  let lambdaAway = leagueAvgTeamGoals * awayAttack * homeDefense;
+
+  // Limites suaves por time para evitar explosões no início de temporada / dados ruidosos
+  lambdaHome = clamp(lambdaHome, 0.15, 4.25);
+  lambdaAway = clamp(lambdaAway, 0.15, 4.25);
 
   // 3b. Complemento (standard_for): ajustar ataque + ritmo (impacto médio, clampado)
   const hasStandardFor =
@@ -341,7 +392,6 @@ function calculateTableProbability(data: MatchData): {
     !!data.competitionStandardForAvg;
 
   if (hasStandardFor) {
-    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
     const parseNum = (value: unknown): number => {
       if (value == null) return 0;
       const raw = String(value).trim();
@@ -384,17 +434,18 @@ function calculateTableProbability(data: MatchData): {
     const homeAttackRatio = avg.npxGxAG90 > 0 && homeQ > 0 ? homeQ / avg.npxGxAG90 : 1;
     const awayAttackRatio = avg.npxGxAG90 > 0 && awayQ > 0 ? awayQ / avg.npxGxAG90 : 1;
 
-    // Impacto médio: até ±10% no λ por ataque
-    const homeAttackDelta = clamp((homeAttackRatio - 1) * 0.2, -0.1, 0.1);
-    const awayAttackDelta = clamp((awayAttackRatio - 1) * 0.2, -0.1, 0.1);
+    // Impacto moderado e calibrado: até ±8% no λ por ataque
+    const homeAttackDelta = clamp((homeAttackRatio - 1) * 0.15, -0.08, 0.08);
+    const awayAttackDelta = clamp((awayAttackRatio - 1) * 0.15, -0.08, 0.08);
     const homeAttackFactor = 1 + homeAttackDelta;
     const awayAttackFactor = 1 + awayAttackDelta;
 
-    // Ritmo (pace): médio e compartilhado pelo jogo, clampado em ±10%
+    // Ritmo (pace): moderado e compartilhado pelo jogo, clampado em ±8%
     const homePaceRaw = getPaceRaw(homeRow);
     const awayPaceRaw = getPaceRaw(awayRow);
     const matchPaceRaw = (homePaceRaw + awayPaceRaw) / 2;
-    const paceDelta = clamp((matchPaceRaw - 1) * 0.2, -0.1, 0.1);
+    const matchPaceClamped = clamp(matchPaceRaw, 0.85, 1.15);
+    const paceDelta = clamp((matchPaceClamped - 1) * 0.15, -0.08, 0.08);
     const paceFactor = 1 + paceDelta;
 
     lambdaHome *= homeAttackFactor * paceFactor;
@@ -542,6 +593,8 @@ function combineStatisticsAndTable(
   tableProb: number | null,
   data: MatchData
 ): { probability: number; statsWeight: number; tableWeight: number } {
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
   // Validação de inputs
   if (!Number.isFinite(statsProb) || statsProb < 0 || statsProb > 100) {
     throw new Error(`Probabilidade estatística inválida: ${statsProb}`);
@@ -568,41 +621,55 @@ function combineStatisticsAndTable(
   // Avaliar disponibilidade e qualidade dos dados
   const hasTeamStats = !!(data.homeTeamStats && data.awayTeamStats);
   const hasTableData = !!(data.homeTableData && data.awayTableData);
+  const hasStandardFor = !!(
+    data.homeStandardForData &&
+    data.awayStandardForData &&
+    data.competitionStandardForAvg
+  );
 
-  // Calcular pesos baseados na disponibilidade dos dados
-  // Estatísticas (últimos 10 jogos) têm mais peso por serem mais recentes
-  let statsWeight = 0.65; // 65% padrão para estatísticas
-  let tableWeight = 0.35; // 35% padrão para tabela
+  // 1) Peso base por confiabilidade da tabela (MP)
+  const homeMp = hasTableData ? parseFloat(data.homeTableData!.MP || '0') : 0;
+  const awayMp = hasTableData ? parseFloat(data.awayTableData!.MP || '0') : 0;
+  const minMp = Math.min(homeMp || 0, awayMp || 0);
 
-  // Ajustar pesos se temos ambos os tipos de dados
-  if (hasTeamStats && hasTableData) {
-    // Se temos ambos, dar mais peso às estatísticas (mais recentes)
-    statsWeight = 0.7;
-    tableWeight = 0.3;
-  } else if (hasTeamStats && !hasTableData) {
-    // Se só temos estatísticas, usar 100%
+  // MP ~ 12+ costuma dar estabilidade razoável (clamp 0..1)
+  const tableReliability = hasTableData ? clamp(minMp / 12, 0, 1) : 0;
+
+  // Estatísticas são mais recentes, mas a tabela ganha peso conforme MP aumenta
+  let tableWeight = 0.25 + 0.15 * tableReliability; // 0.25..0.40
+  let statsWeight = 1 - tableWeight; // 0.60..0.75
+
+  // Pequeno bônus quando há complemento (standard_for) presente (mais contexto)
+  if (hasStandardFor && hasTableData) {
+    tableWeight = clamp(tableWeight + 0.03, 0, 0.45);
+    statsWeight = 1 - tableWeight;
+  }
+
+  // 2) Disponibilidade
+  if (hasTeamStats && !hasTableData) {
     statsWeight = 1.0;
     tableWeight = 0.0;
   } else if (!hasTeamStats && hasTableData) {
-    // Se só temos tabela, usar 100%
     statsWeight = 0.0;
     tableWeight = 1.0;
+  } else if (!hasTeamStats && !hasTableData) {
+    statsWeight = 1.0;
+    tableWeight = 0.0;
   }
 
-  // Detectar divergência extrema (valores muito diferentes podem indicar problema)
+  // 3) Divergência: puxar levemente para a fonte mais conservadora (mais próxima de 50)
   const divergence = Math.abs(statsProb - tableProb);
-  const maxDivergence = 25; // Se diferença > 25%, ajustar pesos
+  if (hasTeamStats && hasTableData && divergence > 20) {
+    const statsDist = Math.abs(statsProb - 50);
+    const tableDist = Math.abs(tableProb - 50);
+    const shift = divergence > 30 ? 0.08 : 0.05;
 
-  // Se divergência muito alta, dar mais peso à fonte mais confiável
-  if (divergence > maxDivergence) {
-    // Se temos estatísticas detalhadas, confiar mais nelas
-    if (hasTeamStats) {
-      statsWeight = 0.75;
-      tableWeight = 0.25;
+    if (statsDist <= tableDist) {
+      statsWeight = clamp(statsWeight + shift, 0.55, 0.85);
+      tableWeight = 1 - statsWeight;
     } else {
-      // Se não temos estatísticas, confiar mais na tabela
-      statsWeight = 0.25;
-      tableWeight = 0.75;
+      tableWeight = clamp(tableWeight + shift, 0.15, 0.45);
+      statsWeight = 1 - tableWeight;
     }
   }
 
@@ -747,6 +814,16 @@ function calculateAdaptiveWeights(
  * Previne erros com dados antigos ou incompletos
  */
 function normalizeMatchData(data: MatchData): MatchData {
+  // competitionAvg deve representar média de gols por jogo (ex.: 2.6, 3.1).
+  // Valores muito altos (>10) geralmente indicam dado antigo/corrompido (ex.: percentual) e devem ser ignorados.
+  const normalizedCompetitionAvg =
+    typeof data.competitionAvg === 'number' &&
+    Number.isFinite(data.competitionAvg) &&
+    data.competitionAvg > 0 &&
+    data.competitionAvg <= 10
+      ? data.competitionAvg
+      : 0;
+
   return {
     ...data,
     // Campos deprecated: usar valores padrão se não existirem
@@ -756,7 +833,7 @@ function normalizeMatchData(data: MatchData): MatchData {
     homeHistory: data.homeHistory ?? [],
     awayHistory: data.awayHistory ?? [],
     // Garantir valores numéricos padrão
-    competitionAvg: data.competitionAvg ?? 0,
+    competitionAvg: normalizedCompetitionAvg,
     h2hOver15Freq: data.h2hOver15Freq ?? 0,
     matchImportance: data.matchImportance ?? 0,
     keyAbsences: data.keyAbsences ?? 'none',
@@ -1318,12 +1395,16 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const statsProb = statsResult?.probability ?? prob; // Usar prob calculado anteriormente como fallback
   const statsOverUnderProbabilities = statsResult?.overUnderProbabilities;
   const statsLambdaTotal = statsResult?.lambdaTotal;
+  const statsLambdaHome = statsResult?.lambdaHome;
+  const statsLambdaAway = statsResult?.lambdaAway;
 
   // Calcular Prob. Tabela separadamente (baseada apenas em dados da tabela)
   const tableResult = calculateTableProbability(normalizedData);
   const tableProb = tableResult?.probability ?? null;
   const tableOverUnderProbabilities = tableResult?.overUnderProbabilities;
   const tableLambdaTotal = tableResult?.lambdaTotal;
+  const tableLambdaHome = tableResult?.lambdaHome;
+  const tableLambdaAway = tableResult?.lambdaAway;
 
   // Obter pesos para combinar lambdas (mesmos pesos usados na combinação de probabilidades)
   const { probability: _, statsWeight, tableWeight } = combineStatisticsAndTable(
@@ -1333,63 +1414,119 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   );
 
   // Calcular probabilidades Over/Under combinadas via λ (gols esperados) para manter consistência entre linhas
-  const hasStatsLambda = typeof statsLambdaTotal === 'number' && Number.isFinite(statsLambdaTotal) && statsLambdaTotal > 0;
-  const hasTableLambda = typeof tableLambdaTotal === 'number' && Number.isFinite(tableLambdaTotal) && tableLambdaTotal > 0;
+  const isPosFinite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
+  const hasStatsSide = isPosFinite(statsLambdaHome) && isPosFinite(statsLambdaAway);
+  const hasTableSide = isPosFinite(tableLambdaHome) && isPosFinite(tableLambdaAway);
 
-  // Fallback: usar λ calculado no performAnalysis (já considera home/away stats e tabela quando disponíveis)
-  let lambdaCombined = lambdaTotal;
-  let shrink = 0;
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
-  if (hasStatsLambda && hasTableLambda) {
-    // Combinar lambdas com os mesmos pesos adaptativos
-    lambdaCombined = statsLambdaTotal * statsWeight + tableLambdaTotal * tableWeight;
-    shrink = 0.1;
-  } else if (hasStatsLambda) {
-    lambdaCombined = statsLambdaTotal;
-    shrink = 0.15;
-  } else if (hasTableLambda) {
-    lambdaCombined = tableLambdaTotal;
-    shrink = 0.15;
+  // Fallback: usar λ calculado no performAnalysis (mantém compatibilidade com dados mínimos)
+  let lambdaHomeCombined = lambdaHome;
+  let lambdaAwayCombined = lambdaAway;
+  let baseShrink = 0.18;
+
+  if (hasStatsSide && hasTableSide) {
+    lambdaHomeCombined = statsLambdaHome * statsWeight + tableLambdaHome * tableWeight;
+    lambdaAwayCombined = statsLambdaAway * statsWeight + tableLambdaAway * tableWeight;
+    baseShrink = 0.08;
+  } else if (hasStatsSide) {
+    lambdaHomeCombined = statsLambdaHome;
+    lambdaAwayCombined = statsLambdaAway;
+    baseShrink = 0.12;
+  } else if (hasTableSide) {
+    lambdaHomeCombined = tableLambdaHome;
+    lambdaAwayCombined = tableLambdaAway;
+    baseShrink = 0.12;
   } else {
-    shrink = 0.2;
+    baseShrink = 0.18;
   }
 
-  // Shrinkage leve para a média do campeonato (estabiliza extremos, especialmente linhas altas)
+  let lambdaCombined = lambdaHomeCombined + lambdaAwayCombined;
+
+  // Shrinkage calibrado para a média do campeonato (estabiliza extremos)
+  const hasStandardFor = !!(
+    normalizedData.homeStandardForData &&
+    normalizedData.awayStandardForData &&
+    normalizedData.competitionStandardForAvg
+  );
+  const minMp =
+    hasHomeTableData && hasAwayTableData
+      ? Math.min(
+          parseFloat(normalizedData.homeTableData?.MP || '0') || 0,
+          parseFloat(normalizedData.awayTableData?.MP || '0') || 0
+        )
+      : 0;
+  const divergenceProb = tableProb != null ? Math.abs(statsProb - tableProb) : 0;
+
+  const confidencePenalty = clamp((80 - confidence) / 250, 0, 0.18);
+  const mpPenalty = minMp > 0 ? clamp((10 - minMp) / 40, 0, 0.1) : 0;
+  const divergencePenalty =
+    hasStatsSide && hasTableSide ? clamp((divergenceProb - 15) / 250, 0, 0.1) : 0;
+  const standardBonus = hasStandardFor ? 0.01 : 0;
+
+  const shrink = clamp(
+    baseShrink + confidencePenalty + mpPenalty + divergencePenalty - standardBonus,
+    0.05,
+    0.28
+  );
+
   let lambdaFinal = lambdaCombined;
   if (competitionAvg > 0 && Number.isFinite(competitionAvg)) {
     lambdaFinal = (1 - shrink) * lambdaCombined + shrink * competitionAvg;
   }
 
-  // Garantir faixa realista
-  lambdaFinal = Math.max(0.2, Math.min(7, lambdaFinal));
+  // Garantir faixa realista (cap dinâmico por competição quando disponível)
+  const maxLambdaFinal =
+    competitionAvg > 0 && Number.isFinite(competitionAvg)
+      ? clamp(competitionAvg * 2.2, 4.5, 6.5)
+      : 6.5;
+  lambdaFinal = clamp(lambdaFinal, 0.2, maxLambdaFinal);
 
-  // Calcular BTTS (Ambas Marcam) via Poisson a partir do λ final combinado.
-  // Como o λ final é total, estimamos a divisão home/away preservando o ratio do λ base (lambdaHome/lambdaTotal).
-  const safeTotal = Number.isFinite(lambdaTotal) && lambdaTotal > 0 ? lambdaTotal : lambdaHome + lambdaAway;
-  const ratioHomeRaw = safeTotal > 0 ? lambdaHome / safeTotal : 0.5;
+  // Distribuição home/away preservando o ratio da combinação (mais consistente que usar o λ base)
+  const ratioHomeRaw = lambdaCombined > 0 ? lambdaHomeCombined / lambdaCombined : 0.5;
   const ratioHome = Math.max(0, Math.min(1, ratioHomeRaw));
   const lambdaHomeFinal = lambdaFinal * ratioHome;
   const lambdaAwayFinal = Math.max(0, lambdaFinal - lambdaHomeFinal);
+
+  // Calcular BTTS (Ambas Marcam) via Poisson a partir do λ final combinado (home/away)
   const pHomeScores = 1 - Math.exp(-lambdaHomeFinal);
   const pAwayScores = 1 - Math.exp(-lambdaAwayFinal);
   const bttsProbability = Math.max(0, Math.min(100, pHomeScores * pAwayScores * 100));
+
+  // Garantir que a distribuição exibida (Poisson por time) reflita a combinação final
+  pHome.length = 0;
+  pAway.length = 0;
+  for (let i = 0; i <= 5; i++) {
+    pHome.push(poissonProbability(i, lambdaHomeFinal));
+    pAway.push(poissonProbability(i, lambdaAwayFinal));
+  }
 
   // Calcular probabilidades Over/Under combinadas via Poisson usando λ final
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaFinal);
 
   // Calcular Prob. Final (Over 1.5) diretamente do λ final para garantir 100% consistência
   // com a linha 1.5 Over da tabela combinada
-  const over15ProbFromLambda = 1 - poissonCumulative(1, lambdaFinal);
-  const finalProb = Math.max(10, Math.min(98, over15ProbFromLambda * 100));
+  const finalProb = overUnderProbabilities['1.5']?.over ?? (1 - poissonCumulative(1, lambdaFinal)) * 100;
 
   if (import.meta.env.DEV) {
     console.log('[AnalysisEngine] Over/Under combinada via λ:', {
       statsWeight,
       tableWeight,
       statsLambdaTotal,
+      statsLambdaHome,
+      statsLambdaAway,
       tableLambdaTotal,
+      tableLambdaHome,
+      tableLambdaAway,
+      lambdaHomeCombined,
+      lambdaAwayCombined,
       lambdaCombined,
       competitionAvg,
+      baseShrink,
+      confidencePenalty,
+      mpPenalty,
+      divergencePenalty,
+      standardBonus,
       shrink,
       lambdaFinal,
       lambdaHomeFinal,

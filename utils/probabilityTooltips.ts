@@ -212,6 +212,12 @@ export function calculateDataQuality(data: MatchData): number {
   if (data.homeTableData) score += 10;
   if (data.awayTableData) score += 10;
 
+  // Tabela Complementar (standard_for) (peso baixo/médio)
+  maxScore += 10;
+  if (data.homeStandardForData) score += 4;
+  if (data.awayStandardForData) score += 4;
+  if (data.competitionStandardForAvg) score += 2;
+
   // Média da Competição (peso médio)
   maxScore += 15;
   if (data.competitionAvg && data.competitionAvg > 0) score += 15;
@@ -243,6 +249,7 @@ export function getMarketOverTooltip(line: string): string {
 
 🔢 Método: Poisson (λ combinado)
 • O λ (gols esperados) é estimado combinando Estatísticas (últimos 10 jogos) + Tabela (temporada), quando disponíveis.
+• Calibração: aplica shrinkage para a média do campeonato (e ajustes por confiabilidade/divergência) para reduzir probabilidades extremas sem base.
 • A tabela Over/Under é recalculada via Poisson para manter consistência entre linhas (0.5–5.5).`;
 }
 
@@ -254,6 +261,7 @@ export function getMarketUnderTooltip(line: string): string {
 
 🔢 Método: Poisson (λ combinado)
 • O λ (gols esperados) é estimado combinando Estatísticas (últimos 10 jogos) + Tabela (temporada), quando disponíveis.
+• Calibração: aplica shrinkage para a média do campeonato (e ajustes por confiabilidade/divergência) para reduzir probabilidades extremas sem base.
 • A tabela Over/Under é recalculada via Poisson para manter consistência entre linhas (0.5–5.5).`;
 }
 
@@ -268,6 +276,9 @@ export function getBothGoalsTooltip(options?: { selectionLabel?: string; hasRang
 
 🔢 Cálculo (Poisson):
 BTTS = (1 - e^{-λ_casa}) × (1 - e^{-λ_fora})
+
+📌 Calibração:
+O λ final é calibrado com shrinkage para a média do campeonato e ajustes por confiabilidade/divergência entre fontes, reduzindo “overconfidence”.
 
 Range (Over + Under): probabilidade de o total de gols ficar dentro de um intervalo.
 

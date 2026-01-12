@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, X } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Eye, X, Upload } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
+import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
 import { animations } from '../utils/animations';
 
 const ChampionshipsScreen: React.FC = () => {
@@ -18,6 +19,10 @@ const ChampionshipsScreen: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<Championship | null>(null);
   const [viewingTables, setViewingTables] = useState<{
+    championship: Championship;
+    tables: ChampionshipTable[];
+  } | null>(null);
+  const [updatingTables, setUpdatingTables] = useState<{
     championship: Championship;
     tables: ChampionshipTable[];
   } | null>(null);
@@ -45,6 +50,11 @@ const ChampionshipsScreen: React.FC = () => {
   const handleViewTables = async (championship: Championship) => {
     const tables = await loadTables(championship.id);
     setViewingTables({ championship, tables });
+  };
+
+  const handleUpdateTables = async (championship: Championship) => {
+    const tables = await loadTables(championship.id);
+    setUpdatingTables({ championship, tables });
   };
 
   const handleSaveChampionship = async (
@@ -152,6 +162,13 @@ const ChampionshipsScreen: React.FC = () => {
                 >
                   <Eye className="w-4 h-4" />
                   Tabelas
+                </button>
+                <button
+                  onClick={() => handleUpdateTables(championship)}
+                  className="btn btn-sm btn-ghost gap-1"
+                  title="Atualizar Tabelas (JSON)"
+                >
+                  <Upload className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleEditChampionship(championship)}
@@ -264,6 +281,27 @@ const ChampionshipsScreen: React.FC = () => {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Atualização de Tabelas */}
+      <AnimatePresence>
+        {updatingTables && (
+          <ChampionshipTableUpdateModal
+            championship={updatingTables.championship}
+            existingTables={updatingTables.tables}
+            onClose={() => setUpdatingTables(null)}
+            onSaveTable={saveTable}
+            onReloadTables={async () => {
+              const tables = await loadTables(updatingTables.championship.id);
+              // Atualizar estado do modal
+              setUpdatingTables({ championship: updatingTables.championship, tables });
+              // Se o modal de visualização estiver aberto para o mesmo campeonato, atualizar também
+              if (viewingTables?.championship.id === updatingTables.championship.id) {
+                setViewingTables({ championship: viewingTables.championship, tables });
+              }
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

@@ -458,6 +458,32 @@ export const loadChampionshipTables = async (
   championshipId: string
 ): Promise<ChampionshipTable[]> => {
   try {
+    const parseTimeMs = (value?: string): number => {
+      if (!value) return 0;
+      const ms = Date.parse(value);
+      return Number.isFinite(ms) ? ms : 0;
+    };
+
+    const getRecencyMs = (t: ChampionshipTable): number => {
+      return Math.max(parseTimeMs(t.updated_at), parseTimeMs(t.created_at));
+    };
+
+    const dedupeLatestByType = (tables: ChampionshipTable[]): ChampionshipTable[] => {
+      const byType = new Map<string, ChampionshipTable>();
+      for (const t of tables) {
+        const key = String(t.table_type);
+        const existing = byType.get(key);
+        if (!existing) {
+          byType.set(key, t);
+          continue;
+        }
+        if (getRecencyMs(t) >= getRecencyMs(existing)) {
+          byType.set(key, t);
+        }
+      }
+      return Array.from(byType.values());
+    };
+
     const result = await withRetry(async () => {
       const supabase = await getSupabaseClient();
       const { data, error } = await supabase
@@ -486,7 +512,7 @@ export const loadChampionshipTables = async (
       return data;
     }, `Carregamento de tabelas do campeonato ${championshipId}`);
 
-    const tables = (result as ChampionshipTableRow[]).map((row: ChampionshipTableRow) => ({
+    const tablesRaw = (result as ChampionshipTableRow[]).map((row: ChampionshipTableRow) => ({
       id: row.id,
       championship_id: row.championship_id,
       table_type: row.table_type,
@@ -495,6 +521,9 @@ export const loadChampionshipTables = async (
       created_at: row.created_at,
       updated_at: row.updated_at,
     }));
+
+    // Deduplicar por table_type (pegar a mais recente por updated_at/created_at)
+    const tables = dedupeLatestByType(tablesRaw);
 
     // Sincronizar com localStorage
     saveChampionshipTablesToLocalStorage(tables);
@@ -925,7 +954,27 @@ function loadChampionshipTablesFromLocalStorage(championshipId: string): Champio
     const stored = localStorage.getItem(STORAGE_KEY_CHAMPIONSHIP_TABLES);
     if (!stored) return [];
     const allTables = JSON.parse(stored) as ChampionshipTable[];
-    return allTables.filter((t) => t.championship_id === championshipId);
+    const filtered = allTables.filter((t) => t.championship_id === championshipId);
+
+    // Deduplicar por table_type (pegar a mais recente por updated_at/created_at)
+    const parseTimeMs = (value?: string): number => {
+      if (!value) return 0;
+      const ms = Date.parse(value);
+      return Number.isFinite(ms) ? ms : 0;
+    };
+    const getRecencyMs = (t: ChampionshipTable): number =>
+      Math.max(parseTimeMs(t.updated_at), parseTimeMs(t.created_at));
+
+    const byType = new Map<string, ChampionshipTable>();
+    for (const t of filtered) {
+      const key = String(t.table_type);
+      const existing = byType.get(key);
+      if (!existing || getRecencyMs(t) >= getRecencyMs(existing)) {
+        byType.set(key, t);
+      }
+    }
+
+    return Array.from(byType.values());
   } catch {
     return [];
   }
