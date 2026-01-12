@@ -278,6 +278,9 @@ const App: React.FC = () => {
             // Estava won: reverter retorno antigo e aplicar novo retorno
             const oldReturn = oldBetInfo.potentialReturn || 0;
             valueChangeAdjustment = betInfo.potentialReturn - oldReturn;
+          } else if (oldStatus === 'lost') {
+            // Estava lost: a perda é o stake; ajustar diferença do valor descontado
+            valueChangeAdjustment = oldBetAmount - newBetAmount;
           }
           // Se estava lost, não precisa ajustar (já estava descontado)
         }
