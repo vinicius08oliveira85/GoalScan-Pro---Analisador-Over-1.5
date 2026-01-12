@@ -163,7 +163,7 @@ export function getEdgeTooltip(
 
   const impliedProb = (1 / odd) * 100;
   const houseMargin = 0.06; // 6% margem típica
-  const fairImplied = impliedProb / (1 - houseMargin);
+  const fairImplied = impliedProb * (1 - houseMargin); // Probabilidade justa (sem margem)
   const edgeLabel = edgePp >= 5 ? 'Excelente' : edgePp >= 2 ? 'Boa' : edgePp >= 0 ? 'Positiva' : 'Negativa';
 
   let confidenceIntervalText = '';

@@ -11,9 +11,17 @@ export function getImpliedProbabilityFromOdd(odd: number): number | null {
 
 /**
  * Calcula a Vantagem (Edge) em pontos percentuais (pp).
- * Edge = Probabilidade Estimada (%) - Probabilidade Implícita pela Odd (%)
+ * Edge = Probabilidade Estimada (%) - Probabilidade Implícita Justa (%)
  * 
- * MELHORIA: Considera margem da casa de apostas (assumida como 5-7% típica)
+ * Considera margem da casa de apostas (assumida como 5-7% típica).
+ * A margem reduz a odd oferecida, então a probabilidade implícita "justa" (sem margem)
+ * é calculada como: fairImplied = implied * (1 - houseMargin)
+ * 
+ * Exemplo:
+ * - Odd oferecida: 2.0 (prob implícita = 50%)
+ * - Margem: 6%
+ * - Prob implícita justa: 50% * 0.94 = 47%
+ * - Se prob estimada = 55%, Edge = 55% - 47% = 8pp
  */
 export function getEdgePp(probability: number, odd: number, houseMargin: number = 0.06): number | null {
   // Valida se a probabilidade estimada é um número válido e está entre 0 e 100
@@ -25,10 +33,11 @@ export function getEdgePp(probability: number, odd: number, houseMargin: number 
   
   if (implied === null) return null;
 
-  // MELHORIA: Ajustar probabilidade implícita considerando margem da casa
-  // A margem da casa reduz a probabilidade implícita "justa"
-  // Ex: Se odd = 2.0, prob implícita = 50%, mas com margem de 6%, prob justa seria ~53%
-  const fairImplied = implied / (1 - houseMargin);
+  // Ajustar probabilidade implícita considerando margem da casa
+  // A margem da casa reduz a odd oferecida, então a probabilidade implícita "justa" (sem margem) é menor
+  // Ex: Se odd = 2.0, prob implícita = 50%, mas com margem de 6%, prob justa seria ~47%
+  // Fórmula: fairImplied = implied * (1 - houseMargin)
+  const fairImplied = implied * (1 - houseMargin);
   
   // Calcular edge usando probabilidade justa (sem margem)
   const edge = probability - fairImplied;
@@ -58,7 +67,8 @@ export function getEdgeConfidenceInterval(
   const implied = getImpliedProbabilityFromOdd(odd);
   if (implied === null) return null;
 
-  const fairImplied = implied / (1 - houseMargin);
+  // Ajustar probabilidade implícita considerando margem da casa (mesma lógica de getEdgePp)
+  const fairImplied = implied * (1 - houseMargin);
   const edgeCenter = probability - fairImplied;
 
   // Calcular incerteza baseada em confiança dos dados
