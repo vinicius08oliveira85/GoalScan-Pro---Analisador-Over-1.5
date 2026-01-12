@@ -516,9 +516,17 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
 
     if (error) {
       // Se a coluna base_bank não existe ainda, tentar novamente sem ela
-      // (evita erro 400 enquanto a migração não é aplicada)
+      // (evita erro 400/PGRST204 enquanto a migração não é aplicada)
       const msg = (error.message || '').toLowerCase();
-      if (error.status === 400 && (msg.includes('base_bank') || msg.includes('column') || msg.includes('schema'))) {
+      const isBaseBankColumnMissing =
+        error.code === 'PGRST204' ||
+        (error.status === 400 && (msg.includes('base_bank') || msg.includes('column') || msg.includes('schema cache')));
+
+      if (isBaseBankColumnMissing) {
+        logger.warn(
+          'Coluna base_bank não encontrada no Supabase. Salvando apenas total_bank e currency. Execute a migração add_base_bank_to_bank_settings.sql para habilitar sincronização da base.'
+        );
+
         const { data: data2, error: error2 } = await supabase
           .from('bank_settings')
           .upsert(
@@ -536,6 +544,7 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
           .single();
 
         if (!error2 && data2) {
+          // Retornar com baseBank preservado (será salvo no localStorage)
           return {
             totalBank: data2.total_bank,
             baseBank: settings.baseBank,
