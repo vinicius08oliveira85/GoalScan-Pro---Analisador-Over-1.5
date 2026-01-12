@@ -334,6 +334,84 @@ function calculateTableProbability(data: MatchData): {
   let lambdaHome = (homeExpectedScored + awayExpectedConceded) / 2;
   let lambdaAway = (awayExpectedScored + homeExpectedConceded) / 2;
 
+  // 3b. Complemento (standard_for): ajustar ataque + ritmo (impacto médio, clampado)
+  const hasStandardFor =
+    !!data.homeStandardForData &&
+    !!data.awayStandardForData &&
+    !!data.competitionStandardForAvg;
+
+  if (hasStandardFor) {
+    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+    const parseNum = (value: unknown): number => {
+      if (value == null) return 0;
+      const raw = String(value).trim();
+      if (!raw) return 0;
+      const normalized = raw.replace(/,/g, '');
+      const n = Number.parseFloat(normalized);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const avg = data.competitionStandardForAvg!;
+
+    const getQuality90 = (row: Record<string, unknown>): number => {
+      const npx = parseNum(row['Per 90 Minutes npxG+xAG']);
+      const xg = parseNum(row['Per 90 Minutes xG+xAG']);
+      return npx > 0 ? npx : xg;
+    };
+
+    const getPaceRaw = (row: Record<string, unknown>): number => {
+      const poss = parseNum(row.Poss);
+      const mp = parseNum(row['Playing Time MP']);
+      const prgP = parseNum(row['Progression PrgP']);
+      const prgC = parseNum(row['Progression PrgC']);
+
+      const possRatio = avg.poss > 0 && poss > 0 ? poss / avg.poss : 1;
+      const prgPPerMatch = mp > 0 ? prgP / mp : 0;
+      const prgCPerMatch = mp > 0 ? prgC / mp : 0;
+      const prgPRatio = avg.prgPPerMatch > 0 && prgPPerMatch > 0 ? prgPPerMatch / avg.prgPPerMatch : 1;
+      const prgCRatio = avg.prgCPerMatch > 0 && prgCPerMatch > 0 ? prgCPerMatch / avg.prgCPerMatch : 1;
+
+      // Ritmo: mistura de posse e progressões (normalizado vs média do campeonato)
+      return 0.4 * possRatio + 0.3 * prgPRatio + 0.3 * prgCRatio;
+    };
+
+    const homeRow = data.homeStandardForData as unknown as Record<string, unknown>;
+    const awayRow = data.awayStandardForData as unknown as Record<string, unknown>;
+
+    // Ataque (qualidade ofensiva por 90)
+    const homeQ = getQuality90(homeRow);
+    const awayQ = getQuality90(awayRow);
+    const homeAttackRatio = avg.npxGxAG90 > 0 && homeQ > 0 ? homeQ / avg.npxGxAG90 : 1;
+    const awayAttackRatio = avg.npxGxAG90 > 0 && awayQ > 0 ? awayQ / avg.npxGxAG90 : 1;
+
+    // Impacto médio: até ±10% no λ por ataque
+    const homeAttackDelta = clamp((homeAttackRatio - 1) * 0.2, -0.1, 0.1);
+    const awayAttackDelta = clamp((awayAttackRatio - 1) * 0.2, -0.1, 0.1);
+    const homeAttackFactor = 1 + homeAttackDelta;
+    const awayAttackFactor = 1 + awayAttackDelta;
+
+    // Ritmo (pace): médio e compartilhado pelo jogo, clampado em ±10%
+    const homePaceRaw = getPaceRaw(homeRow);
+    const awayPaceRaw = getPaceRaw(awayRow);
+    const matchPaceRaw = (homePaceRaw + awayPaceRaw) / 2;
+    const paceDelta = clamp((matchPaceRaw - 1) * 0.2, -0.1, 0.1);
+    const paceFactor = 1 + paceDelta;
+
+    lambdaHome *= homeAttackFactor * paceFactor;
+    lambdaAway *= awayAttackFactor * paceFactor;
+
+    if (import.meta.env.DEV) {
+      console.log('[AnalysisEngine] Ajuste standard_for aplicado:', {
+        homeAttackFactor,
+        awayAttackFactor,
+        paceFactor,
+        homeAttackRatio,
+        awayAttackRatio,
+        matchPaceRaw,
+      });
+    }
+  }
+
   // 4. Ajustar baseado em posição na tabela (times no topo são mais ofensivos)
   // Assumir que há 20 times (ajustar se necessário)
   const totalTeams = 20; // Pode ser ajustado dinamicamente se necessário
@@ -434,6 +512,7 @@ function calculateTableProbability(data: MatchData): {
       awayGdPerGame,
       homePtsPerGame,
       awayPtsPerGame,
+      hasStandardFor,
       tableProb,
       formAdjustment,
       finalProb,

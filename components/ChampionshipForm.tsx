@@ -13,6 +13,7 @@ interface ChampionshipFormProps {
 
 const TABLE_TYPES: Array<{ type: TableType; name: string; required: boolean }> = [
   { type: 'geral', name: 'Geral', required: true },
+  { type: 'standard_for', name: 'Standard (For) - Complemento', required: false },
 ];
 
 const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
@@ -49,8 +50,8 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
           return;
         }
 
-        // Validar estrutura básica para tabela geral
-        if (tableType === 'geral' && jsonData.length > 0) {
+        // Validar estrutura básica (chave de união por Squad)
+        if (jsonData.length > 0) {
           const firstRow = jsonData[0] as Partial<TableRowGeral>;
           if (!firstRow.Squad) {
             setErrors((prev) => ({
@@ -104,8 +105,8 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
         return;
       }
 
-      // Validar estrutura básica para tabela geral
-      if (tableType === 'geral' && jsonData.length > 0) {
+      // Validar estrutura básica (chave de união por Squad)
+      if (jsonData.length > 0) {
         const firstRow = jsonData[0] as Partial<TableRowGeral>;
         if (!firstRow.Squad) {
           setErrors((prev) => ({

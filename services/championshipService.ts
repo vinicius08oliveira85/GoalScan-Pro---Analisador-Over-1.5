@@ -1,4 +1,11 @@
-import { Championship, ChampionshipTable, TableType, TableRowGeral } from '../types';
+import {
+  Championship,
+  ChampionshipTable,
+  CompetitionStandardForAverages,
+  TableType,
+  TableRowGeral,
+  TableRowStandardFor,
+} from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
@@ -706,6 +713,101 @@ export const calculateCompetitionAverageGoals = async (
   }
 };
 
+function parseNumberFromUnknown(value: unknown): number {
+  if (value == null) return 0;
+  const raw = String(value).trim();
+  if (!raw) return 0;
+  const normalized = raw.replace(/,/g, '');
+  const n = Number.parseFloat(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function calculateCompetitionAverageGoalsFromRows(rows: TableRowGeral[]): number | null {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  let totalGoals = 0;
+  let totalMatches = 0;
+
+  for (const row of rows) {
+    const gf = parseNumberFromUnknown(row.GF);
+    const mp = parseNumberFromUnknown(row.MP);
+    if (gf > 0 && mp > 0) {
+      totalGoals += gf;
+      totalMatches += mp;
+    } else if (mp > 0) {
+      // mesmo com GF=0, conta a partida para média do campeonato
+      totalMatches += mp;
+    }
+  }
+
+  if (totalMatches === 0) return null;
+  const averageGoals = (2 * totalGoals) / totalMatches;
+  return Math.round(averageGoals * 100) / 100;
+}
+
+function calculateCompetitionStandardForAveragesFromRows(
+  rows: TableRowStandardFor[]
+): CompetitionStandardForAverages | null {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  let possSum = 0;
+  let possCount = 0;
+
+  let npxGxAG90Sum = 0;
+  let npxGxAG90Count = 0;
+
+  let prgPSum = 0;
+  let prgPCount = 0;
+
+  let prgCSum = 0;
+  let prgCCount = 0;
+
+  for (const row of rows) {
+    const poss = parseNumberFromUnknown(row.Poss);
+    if (poss > 0) {
+      possSum += poss;
+      possCount += 1;
+    }
+
+    const npx = parseNumberFromUnknown(row['Per 90 Minutes npxG+xAG']);
+    const xg = parseNumberFromUnknown(row['Per 90 Minutes xG+xAG']);
+    const quality = npx > 0 ? npx : xg;
+    if (quality > 0) {
+      npxGxAG90Sum += quality;
+      npxGxAG90Count += 1;
+    }
+
+    const mp = parseNumberFromUnknown(row['Playing Time MP']);
+    const prgP = parseNumberFromUnknown(row['Progression PrgP']);
+    const prgC = parseNumberFromUnknown(row['Progression PrgC']);
+
+    if (mp > 0 && prgP > 0) {
+      prgPSum += prgP / mp;
+      prgPCount += 1;
+    }
+    if (mp > 0 && prgC > 0) {
+      prgCSum += prgC / mp;
+      prgCCount += 1;
+    }
+  }
+
+  const possAvg = possCount > 0 ? possSum / possCount : 0;
+  const npxGxAG90Avg = npxGxAG90Count > 0 ? npxGxAG90Sum / npxGxAG90Count : 0;
+  const prgPPerMatchAvg = prgPCount > 0 ? prgPSum / prgPCount : 0;
+  const prgCPerMatchAvg = prgCCount > 0 ? prgCSum / prgCCount : 0;
+
+  if (possAvg <= 0 && npxGxAG90Avg <= 0 && prgPPerMatchAvg <= 0 && prgCPerMatchAvg <= 0) {
+    return null;
+  }
+
+  return {
+    poss: Math.round(possAvg * 100) / 100,
+    npxGxAG90: Math.round(npxGxAG90Avg * 100) / 100,
+    prgPPerMatch: Math.round(prgPPerMatchAvg * 100) / 100,
+    prgCPerMatch: Math.round(prgCPerMatchAvg * 100) / 100,
+  };
+}
+
 /**
  * Sincroniza dados completos da tabela do campeonato para ambas equipes
  * Retorna TODOS os campos da tabela para análise pela IA
@@ -718,22 +820,55 @@ export const syncTeamStatsFromTable = async (
   homeTableData: TableRowGeral | null;
   awayTableData: TableRowGeral | null;
   competitionAvg?: number; // Média de gols do campeonato calculada automaticamente
+  homeStandardForData?: TableRowStandardFor | null;
+  awayStandardForData?: TableRowStandardFor | null;
+  competitionStandardForAvg?: CompetitionStandardForAverages | null;
 }> => {
   try {
-    const homeData = await getTeamDataFromTable(championshipId, homeSquad);
-    const awayData = await getTeamDataFromTable(championshipId, awaySquad);
-    
-    // Calcular média de gols do campeonato automaticamente
-    const competitionAvg = await calculateCompetitionAverageGoals(championshipId, 'geral');
+    // Carregar tabelas uma única vez (evita múltiplas chamadas ao Supabase/localStorage)
+    const tables = await loadChampionshipTables(championshipId);
+
+    const geralTable = tables.find((t) => t.table_type === 'geral');
+    const geralRows = Array.isArray(geralTable?.table_data)
+      ? (geralTable?.table_data as TableRowGeral[])
+      : [];
+
+    const homeData = geralRows.find((row) => row.Squad === homeSquad) || null;
+    const awayData = geralRows.find((row) => row.Squad === awaySquad) || null;
+
+    // Média de gols do campeonato (derivada da tabela geral)
+    const competitionAvg = calculateCompetitionAverageGoalsFromRows(geralRows);
+
+    // Complemento (standard_for) - opcional
+    const standardForTable = tables.find((t) => t.table_type === 'standard_for');
+    const standardForRows = Array.isArray(standardForTable?.table_data)
+      ? (standardForTable?.table_data as TableRowStandardFor[])
+      : [];
+
+    const homeStandardForData =
+      standardForRows.find((row) => row.Squad === homeSquad) || null;
+    const awayStandardForData =
+      standardForRows.find((row) => row.Squad === awaySquad) || null;
+
+    const competitionStandardForAvg = calculateCompetitionStandardForAveragesFromRows(standardForRows);
 
     return {
       homeTableData: homeData,
       awayTableData: awayData,
       competitionAvg: competitionAvg || undefined,
+      homeStandardForData,
+      awayStandardForData,
+      competitionStandardForAvg,
     };
   } catch (error: unknown) {
     logger.error('[ChampionshipService] Erro ao sincronizar dados da tabela:', error);
-    return { homeTableData: null, awayTableData: null };
+    return {
+      homeTableData: null,
+      awayTableData: null,
+      homeStandardForData: null,
+      awayStandardForData: null,
+      competitionStandardForAvg: null,
+    };
   }
 };
 

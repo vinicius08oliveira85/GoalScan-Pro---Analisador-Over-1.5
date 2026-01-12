@@ -63,6 +63,11 @@ export function getTableProbabilityTooltip(
   }
 
   const hasTableData = !!(data.homeTableData && data.awayTableData);
+  const hasStandardFor = !!(
+    data.homeStandardForData &&
+    data.awayStandardForData &&
+    data.competitionStandardForAvg
+  );
   const homeRk = data.homeTableData?.Rk ? parseFloat(data.homeTableData.Rk) : 0;
   const awayRk = data.awayTableData?.Rk ? parseFloat(data.awayTableData.Rk) : 0;
 
@@ -77,6 +82,7 @@ export function getTableProbabilityTooltip(
 • Pontos por Jogo (Pts/MP)${hasTableData ? ' ✓' : ' ✗'}
 • Força do Oponente (posição do adversário)${homeRk > 0 && awayRk > 0 ? ' ✓' : ' ✗'}
 • Forma Recente (Last 5)${data.homeTableData?.['Last 5'] || data.awayTableData?.['Last 5'] ? ' ✓' : ' ✗'}
+${hasStandardFor ? `\n📎 Complemento (Standard - For):\n• Qualidade ofensiva (npxG+xAG/90 ou xG+xAG/90) ✓\n• Ritmo/volume (Poss, PrgP, PrgC) ✓` : ''}
 
 🔢 Método: Distribuição Poisson avançada com ajustes baseados em:
 • Posição na tabela (times no topo são mais ofensivos)
@@ -84,6 +90,7 @@ export function getTableProbabilityTooltip(
 • xGD (Expected Goal Difference - qualidade ofensiva/defensiva)
 • Pontos por jogo (forma na temporada)
 • Força relativa dos oponentes
+${hasStandardFor ? '\n• Ajustes adicionais por qualidade ofensiva e ritmo (standard_for), com impacto moderado e limites (clamp) para evitar extremos' : ''}
 
 💡 A tabela oferece uma visão mais ampla (temporada completa) enquanto as estatísticas focam nos últimos 10 jogos.`;
 }

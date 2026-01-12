@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChampionshipTable, TableRowGeral } from '../types';
+import { ChampionshipTable } from '../types';
 import { Search, ArrowUpDown } from 'lucide-react';
 
 interface ChampionshipTableViewProps {
@@ -7,8 +7,9 @@ interface ChampionshipTableViewProps {
   onSquadSelect?: (squad: string) => void;
 }
 
-// Mapeamento de campos para PT-BR
+// Mapeamento parcial de campos para PT-BR (fallback: exibir o nome original da coluna)
 const fieldTranslations: Record<string, string> = {
+  // Geral
   Rk: 'Classificação',
   Squad: 'Equipe',
   MP: 'Partidas Jogadas',
@@ -20,19 +21,42 @@ const fieldTranslations: Record<string, string> = {
   GD: 'Saldo de Gols',
   Pts: 'Pontos',
   'Pts/MP': 'Pontos por Partida',
-  xG: 'Gols Esperados',
-  xGA: 'Gols Esperados Permitidos',
-  xGD: 'Diferença de Gols Esperados',
-  'xGD/90': 'Diferença de xG por 90 Minutos',
-  'Last 5': 'Últimos 5 Jogos',
-  Attendance: 'Público por Jogo',
-  'Top Team Scorer': 'Artilheiro da Equipe',
+  xG: 'xG',
+  xGA: 'xGA',
+  xGD: 'xGD',
+  'xGD/90': 'xGD/90',
+  'Last 5': 'Últimos 5',
+  Attendance: 'Público',
+  'Top Team Scorer': 'Artilheiro',
   Goalkeeper: 'Goleiro',
-  Notes: 'Observações',
+  Notes: 'Obs.',
+
+  // Standard (For) - Complemento
+  '# Pl': '# Jogadores',
+  Age: 'Idade Média',
+  Poss: 'Posse (%)',
+  'Playing Time MP': 'Partidas (MP)',
+  'Playing Time Starts': 'Titularidades',
+  'Playing Time Min': 'Minutos',
+  'Playing Time 90s': '90s',
+  'Progression PrgC': 'Carregadas Progressivas',
+  'Progression PrgP': 'Passes Progressivos',
+  'Per 90 Minutes xG+xAG': 'xG+xAG/90',
+  'Per 90 Minutes npxG+xAG': 'npxG+xAG/90',
+  'Per 90 Minutes xAG': 'xAG/90',
 };
 
 // Campos que devem ser ocultos (links internos)
 const hiddenFields = ['Top Team Scorer_link', 'Goalkeeper_link'];
+
+function parseNumberMaybe(value: unknown): number | null {
+  if (value == null) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const normalized = raw.replace(/,/g, '');
+  const n = Number.parseFloat(normalized);
+  return Number.isFinite(n) ? n : null;
+}
 
 const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
   table,
@@ -47,7 +71,7 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
     if (!table.table_data || !Array.isArray(table.table_data)) {
       return [];
     }
-    return table.table_data as TableRowGeral[];
+    return table.table_data as Array<Record<string, unknown>>;
   }, [table.table_data]);
 
   // Obter colunas disponíveis (campos do primeiro registro)
@@ -85,11 +109,11 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
         const aValue = (a as Record<string, unknown>)[sortField];
         const bValue = (b as Record<string, unknown>)[sortField];
 
-        // Tentar converter para número se possível
-        const aNum = parseFloat(String(aValue));
-        const bNum = parseFloat(String(bValue));
+        // Tentar converter para número (suporta separador de milhar)
+        const aNum = parseNumberMaybe(aValue);
+        const bNum = parseNumberMaybe(bValue);
 
-        if (!isNaN(aNum) && !isNaN(bNum)) {
+        if (aNum != null && bNum != null) {
           return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
         }
 

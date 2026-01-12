@@ -101,6 +101,9 @@ export const matchDataSchema = z.object({
   championshipId: z.string().optional(),
   homeTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
   awayTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
+  homeStandardForData: z.any().optional(), // Tabela complementar (TableRowStandardFor)
+  awayStandardForData: z.any().optional(), // Tabela complementar (TableRowStandardFor)
+  competitionStandardForAvg: z.any().optional(), // Médias do campeonato para normalização (CompetitionStandardForAverages)
 });
 
 // Schema para validação de BetInfo

@@ -122,9 +122,14 @@ export interface MatchData {
   homeTeamStats?: TeamStatistics;
   awayTeamStats?: TeamStatistics;
 
-  // Dados completos da tabela do campeonato (para análise da IA)
+  // Dados completos da tabela do campeonato (temporada completa)
   homeTableData?: TableRowGeral;
   awayTableData?: TableRowGeral;
+
+  // Tabela complementar (Standard - For), unificada por Squad
+  homeStandardForData?: TableRowStandardFor;
+  awayStandardForData?: TableRowStandardFor;
+  competitionStandardForAvg?: CompetitionStandardForAverages;
 }
 
 export interface AnalysisResult {
@@ -214,7 +219,7 @@ export interface SavedAnalysis {
 }
 
 // Tipos de tabela de campeonato
-export type TableType = 'geral';
+export type TableType = 'geral' | 'standard_for';
 
 // Interface para linha da tabela "Geral" (traduzida para PT-BR)
 export interface TableRowGeral {
@@ -240,6 +245,26 @@ export interface TableRowGeral {
   'Goalkeeper_link'?: string;
   Goalkeeper: string; // Goleiro
   Notes: string; // Observações
+}
+
+// Interface mínima para linha da tabela complementar (Standard - For)
+// Obs.: Mantemos um shape enxuto; o viewer usa colunas dinâmicas e a análise só precisa de alguns campos-chave.
+export interface TableRowStandardFor {
+  Squad: string; // Equipe
+  Poss?: string; // Posse (%)
+  'Playing Time MP'?: string; // Partidas (para normalizar métricas de volume)
+  'Progression PrgP'?: string; // Progressive Passes (volume)
+  'Progression PrgC'?: string; // Progressive Carries (volume)
+  'Per 90 Minutes npxG+xAG'?: string; // Qualidade ofensiva (non-penalty xG + xAG) por 90
+  'Per 90 Minutes xG+xAG'?: string; // Qualidade ofensiva (xG + xAG) por 90 (fallback)
+  [key: string]: unknown;
+}
+
+export interface CompetitionStandardForAverages {
+  poss: number; // média de posse (%)
+  npxGxAG90: number; // média de npxG+xAG/90 (ou xG+xAG/90)
+  prgPPerMatch: number; // média de PrgP por partida
+  prgCPerMatch: number; // média de PrgC por partida
 }
 
 // Dados do campeonato
