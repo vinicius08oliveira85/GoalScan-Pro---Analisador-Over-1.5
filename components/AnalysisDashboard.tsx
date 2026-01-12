@@ -115,14 +115,15 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     return result.ev; // Fallback para EV do resultado se não houver odd
   }, [displayProbability, data.oddOver15, result.ev]);
 
-  // Calcular Edge (pp) com a probabilidade que está sendo exibida
+  // Calcular Edge (pp) com a probabilidade final combinada (sempre da análise, não da aposta selecionada)
   // Usando margem padrão de 6% (típica de casas de apostas)
+  const finalCombinedProb = result.combinedProbability ?? result.probabilityOver15;
   const edgePp = useMemo(() => {
     if (data.oddOver15 && data.oddOver15 > 1) {
-      return getEdgePp(displayProbability, data.oddOver15, 0.06);
+      return getEdgePp(finalCombinedProb, data.oddOver15, 0.06);
     }
     return null;
-  }, [displayProbability, data.oddOver15]);
+  }, [finalCombinedProb, data.oddOver15]);
 
   // Função para lidar com clique em uma aposta
   const handleBetClick = (line: string, type: 'over' | 'under', probability: number) => {
@@ -316,12 +317,16 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
                     title="Prob. Final"
-                    value={`${displayProbability.toFixed(1)}%`}
+                    value={
+                      result.combinedProbability != null
+                        ? `${Number(result.combinedProbability).toFixed(1)}%`
+                        : `${result.probabilityOver15.toFixed(1)}%`
+                    }
                     icon={Target}
                     color="success"
                     tooltip={getFinalProbabilityTooltip(
                       result,
-                      displayProbability,
+                      result.combinedProbability ?? result.probabilityOver15,
                       selectedBets,
                       result.tableProbability != null
                     )}
@@ -333,7 +338,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     value={edgePp == null ? '—' : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`}
                     icon={TrendingUp}
                     color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
-                    tooltip={getEdgeTooltip(edgePp, displayProbability, data.oddOver15, result.confidenceScore)}
+                    tooltip={getEdgeTooltip(edgePp, finalCombinedProb, data.oddOver15, result.confidenceScore)}
                   />
                 </motion.div>
               </motion.div>
