@@ -4,7 +4,6 @@ import { MatchData, TeamStatistics, GolsStats, Championship, TableRowGeral } fro
 import { validateMatchData } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
-import AiOver15Insights from './AiOver15Insights';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable } from '../services/championshipService';
 
@@ -12,13 +11,6 @@ interface MatchFormProps {
   onAnalyze: (data: MatchData) => void | Promise<void>;
   initialData?: MatchData | null;
   onError?: (message: string) => void;
-  onAiAnalysisGenerated?: (
-    data: MatchData,
-    markdown: string,
-    aiProbability: number | null,
-    aiConfidence: number | null
-  ) => void;
-  savedAiAnalysis?: string | null;
 }
 
 // Função para criar MatchData vazio
@@ -58,8 +50,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
   onAnalyze,
   initialData,
   onError,
-  onAiAnalysisGenerated,
-  savedAiAnalysis,
 }) => {
   const [formData, setFormData] = useState<MatchData>(initialData || createEmptyMatchData());
   const { championships, getSquads } = useChampionships();
@@ -789,16 +779,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
       >
         Processar
       </button>
-
-      {/* Botão de Análise IA - Movido para abaixo do botão Processar */}
-      <div className="mt-4">
-        <AiOver15Insights
-          data={formData}
-          onError={onError}
-          onAiAnalysisGenerated={onAiAnalysisGenerated}
-          savedReportMarkdown={savedAiAnalysis ?? null}
-        />
-      </div>
     </motion.form>
   );
 };

@@ -21,11 +21,6 @@ const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 
 import { performAnalysis } from './services/analysisEngine';
 import {
-  generateAiOver15Report,
-  extractProbabilityFromMarkdown,
-  extractConfidenceFromMarkdown,
-} from './services/aiOver15Service';
-import {
   MatchData,
   AnalysisResult,
   SavedAnalysis,
@@ -36,13 +31,6 @@ import {
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
 import { logger } from './utils/logger';
-import {
-  generateAiOver15Report,
-  extractProbabilityFromMarkdown,
-  extractConfidenceFromMarkdown,
-  parseOverUnderProbabilities,
-  parseRecommendedCombinations,
-} from './services/aiOver15Service';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
@@ -100,7 +88,7 @@ const App: React.FC = () => {
   };
 
   const handleAnalyze = async (data: MatchData) => {
-    // 1. Executar análise estatística primeiro (síncrona)
+    // Executar análise estatística (combina estatísticas + tabela)
     const result = performAnalysis(data);
     setAnalysisResult(result);
     setCurrentMatchData(data);
@@ -109,87 +97,8 @@ const App: React.FC = () => {
     if (window.innerWidth < 768) {
       window.scrollTo({ top: 600, behavior: 'smooth' });
     }
-
-    // 2. Executar análise de IA automaticamente após análise estatística (assíncrona)
-    try {
-      const aiResult = await generateAiOver15Report(data);
-      const aiProbability = extractProbabilityFromMarkdown(aiResult.reportMarkdown);
-      const aiConfidence = extractConfidenceFromMarkdown(aiResult.reportMarkdown);
-
-      // 3. Integrar resultados usando handleAiAnalysisGenerated
-      handleAiAnalysisGenerated(data, aiResult.reportMarkdown, aiProbability, aiConfidence);
-    } catch (error) {
-      logger.error('Erro na análise automática da IA:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido na análise de IA';
-      showError(`Análise estatística concluída, mas houve erro na análise da IA: ${errorMessage}`);
-    }
   };
 
-  const handleAiAnalysisGenerated = (
-    data: MatchData,
-    aiMarkdown: string,
-    aiProbability: number | null,
-    aiConfidence: number | null
-  ) => {
-    // Garantir que a partida atual esteja no estado do App (mesmo se o usuário não clicou em "Analisar")
-    setCurrentMatchData(data);
-
-    // Extrair probabilidades Over/Under e combinações recomendadas do markdown
-    const overUnderProbabilities = parseOverUnderProbabilities(aiMarkdown);
-    const recommendedCombinations = parseRecommendedCombinations(aiMarkdown);
-
-    // Recalcular análise com probabilidade da IA
-    const updatedResult = performAnalysis(data, aiProbability, aiConfidence);
-
-    // Adicionar probabilidades Over/Under e combinações ao resultado
-    updatedResult.overUnderProbabilities = Object.keys(overUnderProbabilities).length > 0
-      ? overUnderProbabilities
-      : undefined;
-    updatedResult.recommendedCombinations = recommendedCombinations.length > 0
-      ? recommendedCombinations
-      : undefined;
-
-    // Atualizar resultado com análise da IA incluída
-    setAnalysisResult(updatedResult);
-
-    // Salvar automaticamente (criar nova ou atualizar existente)
-    const matchToSave: SavedAnalysis = selectedMatch
-      ? {
-          ...selectedMatch,
-          data,
-          result: updatedResult,
-          aiAnalysis: aiMarkdown,
-          timestamp: Date.now(),
-        }
-      : {
-          id: Math.random().toString(36).slice(2, 11),
-          timestamp: Date.now(),
-          data,
-          result: updatedResult,
-          aiAnalysis: aiMarkdown,
-        };
-
-    // Salvar automaticamente em background com validação parcial
-    saveMatchPartial(matchToSave)
-      .then((savedMatch) => {
-        // Sempre manter o selectedMatch atualizado com o retorno do save
-        setSelectedMatch(savedMatch);
-        // Mostrar feedback de sucesso
-        showSuccess('Análise da IA salva automaticamente!');
-      })
-      .catch((error) => {
-        logger.error('Erro ao salvar análise da IA automaticamente:', error);
-        // Mostrar erro ao usuário
-        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-        if (errorMessage.includes('validação') || errorMessage.includes('Dados inválidos')) {
-          showError(
-            'Erro ao salvar análise da IA: dados inválidos. Verifique os campos obrigatórios.'
-          );
-        } else {
-          showError('Erro ao salvar análise da IA. Tente salvar manualmente.');
-        }
-      });
-  };
 
   const handleOddChange = (newOdd: number) => {
     if (currentMatchData) {
@@ -199,9 +108,7 @@ const App: React.FC = () => {
 
       // Recalcular análise com nova odd (EV será recalculado automaticamente)
       if (analysisResult) {
-        const aiProb = analysisResult.aiProbability ?? null;
-        const aiConf = analysisResult.confidenceScore ?? null;
-        const updatedResult = performAnalysis(updatedData, aiProb, aiConf);
+        const updatedResult = performAnalysis(updatedData);
         
         // Manter as probabilidades Over/Under e combinações existentes
         updatedResult.overUnderProbabilities = analysisResult.overUnderProbabilities;
@@ -223,7 +130,6 @@ const App: React.FC = () => {
             ...selectedMatch,
             data: currentMatchData,
             result: analysisResult,
-            aiAnalysis: selectedMatch.aiAnalysis, // Manter análise da IA se existir
             betInfo: selectedMatch.betInfo, // Manter betInfo se existir
             selectedBets: selectedBets, // Incluir apostas selecionadas
             timestamp: Date.now(), // Atualizar timestamp
@@ -235,7 +141,6 @@ const App: React.FC = () => {
             timestamp: Date.now(),
             data: currentMatchData,
             result: analysisResult,
-            aiAnalysis: undefined, // Será preenchido quando análise da IA for gerada
             betInfo: selectedMatch?.betInfo, // Incluir betInfo se existir
             selectedBets: selectedBets, // Incluir apostas selecionadas
           };
@@ -726,8 +631,6 @@ const App: React.FC = () => {
                     <MatchForm
                       onAnalyze={handleAnalyze}
                       initialData={currentMatchData}
-                      onAiAnalysisGenerated={handleAiAnalysisGenerated}
-                      savedAiAnalysis={selectedMatch?.aiAnalysis ?? null}
                     />
                   </aside>
 

@@ -24,7 +24,7 @@ import { getPrimaryProbability } from '../utils/probability';
 import { getEdgePp } from '../utils/betMetrics';
 import {
   getStatisticalProbabilityTooltip,
-  getAiProbabilityTooltip,
+  getTableProbabilityTooltip,
   getFinalProbabilityTooltip,
   getEdgeTooltip,
   calculateDataQuality,
@@ -320,15 +320,15 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 )}
                 <motion.div variants={animations.fadeInUp}>
                   <MetricCard
-                    title="Prob. IA"
+                    title="Prob. Tabela"
                     value={
-                      result.aiProbability != null
-                        ? `${Number(result.aiProbability).toFixed(1)}%`
+                      result.tableProbability != null
+                        ? `${Number(result.tableProbability).toFixed(1)}%`
                         : '—'
                     }
-                    icon={Sparkles}
+                    icon={Shield}
                     color="accent"
-                    tooltip={getAiProbabilityTooltip(result, data)}
+                    tooltip={getTableProbabilityTooltip(result, data)}
                   />
                 </motion.div>
                 <motion.div variants={animations.fadeInUp}>
@@ -341,7 +341,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                       result,
                       displayProbability,
                       selectedBets,
-                      result.aiProbability != null
+                      result.tableProbability != null
                     )}
                   />
                 </motion.div>

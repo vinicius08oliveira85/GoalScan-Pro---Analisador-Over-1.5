@@ -53,34 +53,28 @@ ${!hasHomeStats || !hasAwayStats ? '⚠️ Usando dados da tabela como fallback 
 }
 
 /**
- * Gera tooltip detalhado para Prob. IA
+ * Gera tooltip detalhado para Prob. Tabela
  */
-export function getAiProbabilityTooltip(
+export function getTableProbabilityTooltip(
   result: AnalysisResult,
   data: MatchData
 ): string {
-  if (result.aiProbability == null) {
-    return 'Probabilidade da IA não disponível. Gere uma análise com IA usando o botão "Análise IA".';
+  if (result.tableProbability == null) {
+    return 'Probabilidade da tabela não disponível. Sincronize os dados da tabela do campeonato.';
   }
 
-  const aiConfidence = result.confidenceScore || 0;
-  const confidenceLabel = aiConfidence >= 80 ? 'Alta' : aiConfidence >= 60 ? 'Média' : 'Baixa';
-
   const hasTableData = !!(data.homeTableData && data.awayTableData);
-  const hasStats = !!(data.homeTeamStats && data.awayTeamStats);
 
-  return `Probabilidade estimada pela IA (Gemini) após análise cruzada de todas as estatísticas.
+  return `Probabilidade baseada apenas nos dados da tabela do campeonato (temporada completa).
 
-🤖 Análise da IA considera:
-• Estatísticas Globais (últimos 10 jogos)${hasStats ? ' ✓' : ' ✗'}
-• Dados da Tabela (GF, GA, xG, xGA, Last 5)${hasTableData ? ' ✓' : ' ✗'}
-• Média da Competição${data.competitionAvg ? ' ✓' : ' ✗'}
-• Confrontos Diretos${data.h2hMatches?.length ? ` ✓ (${data.h2hMatches.length} jogos)` : ' ✗'}
-• Contexto e padrões não óbvios
+📊 Dados da Tabela considerados:
+• Gols Feitos (GF) e Gols Acontecidos (GA)${hasTableData ? ' ✓' : ' ✗'}
+• Expected Goals (xG) e Expected Goals Against (xGA)${data.homeTableData?.xG && data.awayTableData?.xG ? ' ✓' : ' ✗'}
+• Forma Recente (Last 5)${data.homeTableData?.['Last 5'] || data.awayTableData?.['Last 5'] ? ' ✓' : ' ✗'}
 
-📊 Confiança da IA: ${confidenceLabel} (${aiConfidence.toFixed(0)}%)
+🔢 Método: Distribuição Poisson usando médias de gols da temporada completa.
 
-💡 A IA pode identificar padrões e fatores contextuais que cálculos estatísticos puros não capturam.`;
+💡 A tabela oferece uma visão mais ampla (temporada completa) enquanto as estatísticas focam nos últimos 10 jogos.`;
 }
 
 /**
@@ -90,7 +84,7 @@ export function getFinalProbabilityTooltip(
   result: AnalysisResult,
   displayProbability: number,
   selectedBets: Array<{ line: string; type: 'over' | 'under'; probability: number }>,
-  hasAi: boolean
+  hasTable: boolean
 ): string {
   if (selectedBets.length > 0) {
     if (selectedBets.length === 1) {
@@ -116,21 +110,20 @@ Esta é a probabilidade usada para cálculos de EV e recomendações.`;
     }
   }
 
-  if (hasAi && result.aiProbability != null) {
+  if (hasTable && result.tableProbability != null) {
     const statProb = result.probabilityOver15;
-    const aiProb = result.aiProbability;
+    const tableProb = result.tableProbability;
     const combined = result.combinedProbability || displayProbability;
-    const divergence = Math.abs(statProb - aiProb);
+    const divergence = Math.abs(statProb - tableProb);
     
-    // Estimar pesos (aproximado)
-    const avgWeight = 0.5;
-    const aiWeight = result.confidenceScore ? result.confidenceScore / 100 : avgWeight;
-    const statWeight = 1 - aiWeight;
+    // Pesos padrão: 70% estatísticas, 30% tabela (ajustados dinamicamente)
+    const statsWeight = 0.7;
+    const tableWeight = 0.3;
 
-    return `Probabilidade final combinando Estatística + IA usando média ponderada adaptativa.
+    return `Probabilidade final combinando Estatísticas (últimos 10 jogos) + Tabela (temporada completa).
 
-📊 Prob. Estatística: ${statProb.toFixed(1)}% (peso: ${(statWeight * 100).toFixed(0)}%)
-🤖 Prob. IA: ${aiProb.toFixed(1)}% (peso: ${(aiWeight * 100).toFixed(0)}%)
+📊 Prob. Estatística: ${statProb.toFixed(1)}% (peso: ${(statsWeight * 100).toFixed(0)}%)
+📋 Prob. Tabela: ${tableProb.toFixed(1)}% (peso: ${(tableWeight * 100).toFixed(0)}%)
 🎯 Prob. Final: ${combined.toFixed(1)}%
 
 ${divergence > 20 ? `⚠️ Divergência alta entre fontes (${divergence.toFixed(1)}%). O sistema ajusta os pesos automaticamente.` : '✓ Valores consistentes entre fontes.'}
@@ -138,11 +131,11 @@ ${divergence > 20 ? `⚠️ Divergência alta entre fontes (${divergence.toFixed
 Esta probabilidade é usada para cálculos de EV e recomendações.`;
   }
 
-  return `Probabilidade final baseada apenas em estatísticas (IA não disponível).
+  return `Probabilidade final baseada apenas em estatísticas (dados da tabela não disponíveis).
 
 📊 Prob. Estatística: ${result.probabilityOver15.toFixed(1)}%
 
-💡 Gere uma análise com IA para obter uma probabilidade mais precisa combinando estatísticas e análise contextual.`;
+💡 Sincronize os dados da tabela do campeonato para obter uma probabilidade mais precisa combinando estatísticas recentes com dados da temporada completa.`;
 }
 
 /**

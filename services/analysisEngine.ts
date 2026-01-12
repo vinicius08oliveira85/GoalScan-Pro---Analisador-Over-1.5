@@ -91,12 +91,189 @@ function calculateOverUnderProbabilities(lambdaTotal: number): {
 }
 
 /**
+ * Calcula probabilidade Over 1.5 baseada apenas nos dados da tabela do campeonato.
+ * Usa GF (Gols Feitos), GA (Gols Acontecidos), xG e xGA da tabela para calcular
+ * média de gols esperados e converter em probabilidade usando distribuição Poisson.
+ *
+ * @param data - Dados da partida incluindo homeTableData e awayTableData
+ * @returns Probabilidade Over 1.5 baseada na tabela (0-100) ou null se dados insuficientes
+ */
+function calculateTableProbability(data: MatchData): number | null {
+  const hasHomeTableData = !!data.homeTableData;
+  const hasAwayTableData = !!data.awayTableData;
+
+  if (!hasHomeTableData || !hasAwayTableData) {
+    return null;
+  }
+
+  const homeMp = parseFloat(data.homeTableData.MP || '0');
+  const homeGf = parseFloat(data.homeTableData.GF || '0');
+  const homeGa = parseFloat(data.homeTableData.GA || '0');
+  const homeXg = parseFloat(data.homeTableData.xG || '0');
+  const homeXga = parseFloat(data.homeTableData.xGA || '0');
+
+  const awayMp = parseFloat(data.awayTableData.MP || '0');
+  const awayGf = parseFloat(data.awayTableData.GF || '0');
+  const awayGa = parseFloat(data.awayTableData.GA || '0');
+  const awayXg = parseFloat(data.awayTableData.xG || '0');
+  const awayXga = parseFloat(data.awayTableData.xGA || '0');
+
+  if (homeMp === 0 || awayMp === 0) {
+    return null;
+  }
+
+  // Calcular médias de gols da tabela
+  const homeAvgScored = homeGf / homeMp;
+  const homeAvgConceded = homeGa / homeMp;
+  const awayAvgScored = awayGf / awayMp;
+  const awayAvgConceded = awayGa / awayMp;
+
+  // Usar xG se disponível (mais preciso), caso contrário usar GF/MP
+  const homeExpectedScored = homeXg > 0 ? homeXg / homeMp : homeAvgScored;
+  const homeExpectedConceded = homeXga > 0 ? homeXga / homeMp : homeAvgConceded;
+  const awayExpectedScored = awayXg > 0 ? awayXg / awayMp : awayAvgScored;
+  const awayExpectedConceded = awayXga > 0 ? awayXga / awayMp : awayAvgConceded;
+
+  // Lambda para Poisson: média de gols esperados
+  // Time da casa: média entre gols marcados em casa e gols sofridos pelo visitante
+  const lambdaHome = (homeExpectedScored + awayExpectedConceded) / 2;
+  // Time visitante: média entre gols marcados fora e gols sofridos pelo time da casa
+  const lambdaAway = (awayExpectedScored + homeExpectedConceded) / 2;
+  const lambdaTotal = lambdaHome + lambdaAway;
+
+  // Calcular probabilidade Over 1.5 usando Poisson
+  // P(Total > 1.5) = 1 - P(Total <= 1)
+  const over15Prob = 1 - poissonCumulative(1, lambdaTotal);
+  const tableProb = Math.max(10, Math.min(98, over15Prob * 100));
+
+  // Ajustar baseado em forma recente (Last 5) se disponível
+  let formAdjustment = 0;
+  if (data.homeTableData?.['Last 5'] || data.awayTableData?.['Last 5']) {
+    const parseRecentForm = (last5: string | undefined): number => {
+      if (!last5 || last5.trim() === '') return 0;
+
+      // Converter "WWDLW" em tendência ofensiva
+      let offensiveTrend = 0;
+      const matches = last5.trim().toUpperCase().split('');
+
+      for (const match of matches) {
+        if (match === 'W') offensiveTrend += 1;
+        else if (match === 'D') offensiveTrend += 0;
+        else if (match === 'L') offensiveTrend -= 0.5;
+      }
+
+      return offensiveTrend / 5;
+    };
+
+    const homeForm = parseRecentForm(data.homeTableData?.['Last 5']);
+    const awayForm = parseRecentForm(data.awayTableData?.['Last 5']);
+    const avgForm = (homeForm + awayForm) / 2;
+
+    // Ajustar probabilidade baseado em forma recente (até ±3%)
+    formAdjustment = avgForm * 3;
+  }
+
+  const finalProb = Math.max(10, Math.min(98, tableProb + formAdjustment));
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] Prob. Tabela calculada:', {
+      lambdaHome,
+      lambdaAway,
+      lambdaTotal,
+      tableProb,
+      formAdjustment,
+      finalProb,
+    });
+  }
+
+  return finalProb;
+}
+
+/**
+ * Combina probabilidade estatística (últimos 10 jogos) com probabilidade da tabela (temporada completa).
+ * Usa pesos adaptativos: 60-70% para estatísticas (dados mais recentes) e 30-40% para tabela.
+ *
+ * @param statsProb - Probabilidade calculada pelas estatísticas (0-100)
+ * @param tableProb - Probabilidade calculada pela tabela (0-100) ou null
+ * @param data - Dados da partida para avaliar disponibilidade de dados
+ * @returns Probabilidade combinada (0-100)
+ */
+function combineStatisticsAndTable(
+  statsProb: number,
+  tableProb: number | null,
+  data: MatchData
+): number {
+  // Validação de inputs
+  if (!Number.isFinite(statsProb) || statsProb < 0 || statsProb > 100) {
+    throw new Error(`Probabilidade estatística inválida: ${statsProb}`);
+  }
+
+  // Se não há probabilidade da tabela, retornar apenas estatística
+  if (tableProb === null || tableProb === undefined) {
+    return statsProb;
+  }
+
+  // Validação da probabilidade da tabela
+  if (!Number.isFinite(tableProb) || tableProb < 0 || tableProb > 100) {
+    return statsProb;
+  }
+
+  // Avaliar disponibilidade e qualidade dos dados
+  const hasTeamStats = !!(data.homeTeamStats && data.awayTeamStats);
+  const hasTableData = !!(data.homeTableData && data.awayTableData);
+
+  // Calcular pesos baseados na disponibilidade dos dados
+  // Estatísticas (últimos 10 jogos) têm mais peso por serem mais recentes
+  let statsWeight = 0.65; // 65% padrão para estatísticas
+  let tableWeight = 0.35; // 35% padrão para tabela
+
+  // Ajustar pesos se temos ambos os tipos de dados
+  if (hasTeamStats && hasTableData) {
+    // Se temos ambos, dar mais peso às estatísticas (mais recentes)
+    statsWeight = 0.7;
+    tableWeight = 0.3;
+  } else if (hasTeamStats && !hasTableData) {
+    // Se só temos estatísticas, usar 100%
+    statsWeight = 1.0;
+    tableWeight = 0.0;
+  } else if (!hasTeamStats && hasTableData) {
+    // Se só temos tabela, usar 100%
+    statsWeight = 0.0;
+    tableWeight = 1.0;
+  }
+
+  // Detectar divergência extrema (valores muito diferentes podem indicar problema)
+  const divergence = Math.abs(statsProb - tableProb);
+  const maxDivergence = 25; // Se diferença > 25%, ajustar pesos
+
+  // Se divergência muito alta, dar mais peso à fonte mais confiável
+  if (divergence > maxDivergence) {
+    // Se temos estatísticas detalhadas, confiar mais nelas
+    if (hasTeamStats) {
+      statsWeight = 0.75;
+      tableWeight = 0.25;
+    } else {
+      // Se não temos estatísticas, confiar mais na tabela
+      statsWeight = 0.25;
+      tableWeight = 0.75;
+    }
+  }
+
+  // Calcular média ponderada
+  const combined = statsProb * statsWeight + tableProb * tableWeight;
+
+  // Suavizar limites usando sigmoid (10-98% mais realista)
+  return smoothClamp(combined, 10, 98);
+}
+
+/**
  * Combina probabilidade estatística com probabilidade da IA usando Bayesian averaging melhorado.
  * O peso da IA é baseado na confiança da IA, consistência entre valores e histórico de precisão.
  *
  * MELHORIA: Usa abordagem Bayesian para combinar fontes com diferentes níveis de confiança.
  * Considera variância implícita de cada fonte e ajusta pesos dinamicamente.
  *
+ * @deprecated Esta função será removida. Use combineStatisticsAndTable em vez disso.
  * @param statisticalProb - Probabilidade calculada pelas estatísticas (0-100)
  * @param aiProb - Probabilidade calculada pela IA (0-100) ou null
  * @param aiConfidence - Confiança da IA (0-100) ou null
@@ -235,20 +412,14 @@ function normalizeMatchData(data: MatchData): MatchData {
 
 /**
  * Executa análise completa de uma partida para Over 1.5 goals usando algoritmo Poisson v3.8.
- * Combina estatísticas históricas, métricas avançadas e opcionalmente IA para calcular probabilidade,
- * EV, risco e recomendações de aposta.
+ * Combina estatísticas históricas (últimos 10 jogos) com dados da tabela (temporada completa)
+ * para calcular probabilidade, EV, risco e recomendações de aposta.
  *
  * @param data - Dados da partida incluindo estatísticas dos times e competição
- * @param aiProbability - Probabilidade calculada pela IA (0-100), opcional
- * @param aiConfidence - Confiança da IA (0-100), opcional
  * @returns Resultado da análise com probabilidades, métricas e recomendações
  * @throws Error se dados de entrada forem inválidos
  */
-export function performAnalysis(
-  data: MatchData,
-  aiProbability?: number | null,
-  aiConfidence?: number | null
-): AnalysisResult {
+export function performAnalysis(data: MatchData): AnalysisResult {
   // Validar entrada
   if (!data || typeof data !== 'object') {
     throw new Error('Dados de entrada inválidos: data deve ser um objeto');
@@ -301,9 +472,9 @@ export function performAnalysis(
       console.warn('[AnalysisEngine] A análise pode ser menos confiável sem esses dados.');
     }
 
-    // Informar sobre dados da tabela (usados apenas pela IA, não pela análise estatística)
+    // Informar sobre dados da tabela (usados na combinação com estatísticas)
     if (hasHomeTableData || hasAwayTableData) {
-      console.log('[AnalysisEngine] Dados da tabela disponíveis (usados pela IA, não pela análise estatística):', {
+      console.log('[AnalysisEngine] Dados da tabela disponíveis (serão combinados com estatísticas):', {
         hasHomeTableData,
         hasAwayTableData,
       });
@@ -793,59 +964,10 @@ export function performAnalysis(
   confidence = Math.min(100, Math.max(0, confidence));
 
   // Calcular Prob. Tabela separadamente (baseada apenas em dados da tabela)
-  let tableProb: number | null = null;
-  if (hasHomeTableData && hasAwayTableData) {
-    // Calcular usando apenas dados da tabela (GF/MP, GA/MP, xG, xGA)
-    const homeMp = parseFloat(normalizedData.homeTableData.MP || '0');
-    const homeGf = parseFloat(normalizedData.homeTableData.GF || '0');
-    const homeGa = parseFloat(normalizedData.homeTableData.GA || '0');
-    const homeXg = parseFloat(normalizedData.homeTableData.xG || '0');
-    const homeXga = parseFloat(normalizedData.homeTableData.xGA || '0');
-    
-    const awayMp = parseFloat(normalizedData.awayTableData.MP || '0');
-    const awayGf = parseFloat(normalizedData.awayTableData.GF || '0');
-    const awayGa = parseFloat(normalizedData.awayTableData.GA || '0');
-    const awayXg = parseFloat(normalizedData.awayTableData.xG || '0');
-    const awayXga = parseFloat(normalizedData.awayTableData.xGA || '0');
-    
-    if (homeMp > 0 && awayMp > 0) {
-      // Calcular médias de gols da tabela
-      const homeAvgScored = homeGf / homeMp;
-      const homeAvgConceded = homeGa / homeMp;
-      const awayAvgScored = awayGf / awayMp;
-      const awayAvgConceded = awayGa / awayMp;
-      
-      // Usar xG se disponível, caso contrário usar GF/MP
-      const homeExpectedScored = homeXg > 0 ? homeXg / homeMp : homeAvgScored;
-      const homeExpectedConceded = homeXga > 0 ? homeXga / homeMp : homeAvgConceded;
-      const awayExpectedScored = awayXg > 0 ? awayXg / awayMp : awayAvgScored;
-      const awayExpectedConceded = awayXga > 0 ? awayXga / awayMp : awayAvgConceded;
-      
-      // Lambda para Poisson: média de gols esperados
-      const lambdaHome = homeExpectedScored + awayExpectedConceded;
-      const lambdaAway = awayExpectedScored + homeExpectedConceded;
-      const lambdaTotal = lambdaHome + lambdaAway;
-      
-      // Calcular probabilidade Over 1.5 usando Poisson
-      const over15Prob = 1 - poissonCumulative(1, lambdaTotal);
-      tableProb = Math.max(10, Math.min(98, over15Prob * 100));
-      
-      if (import.meta.env.DEV) {
-        console.log('[AnalysisEngine] Prob. Tabela calculada:', {
-          lambdaHome,
-          lambdaAway,
-          lambdaTotal,
-          tableProb,
-        });
-      }
-    }
-  }
+  const tableProb = calculateTableProbability(normalizedData);
 
-  // Calcular probabilidade combinada se IA disponível
-  const combinedProb = combineProbabilities(prob, aiProbability ?? null, aiConfidence ?? null);
-
-  // Usar probabilidade combinada para cálculos de risco e recomendações
-  const finalProb = combinedProb;
+  // Combinar probabilidade estatística com probabilidade da tabela
+  const finalProb = combineStatisticsAndTable(prob, tableProb, normalizedData);
 
   let riskLevel: AnalysisResult['riskLevel'] = 'Moderado';
   if (finalProb > 88) riskLevel = 'Baixo';
@@ -862,8 +984,7 @@ export function performAnalysis(
   return {
     probabilityOver15: prob, // Probabilidade estatística pura
     tableProbability: tableProb, // Probabilidade baseada apenas em dados da tabela
-    aiProbability: aiProbability ?? null, // Probabilidade da IA
-    combinedProbability: combinedProb, // Probabilidade final combinada
+    combinedProbability: finalProb, // Probabilidade final combinada (estatísticas + tabela)
     confidenceScore: confidence,
     poissonHome: pHome,
     poissonAway: pAway,

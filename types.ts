@@ -128,10 +128,10 @@ export interface MatchData {
 }
 
 export interface AnalysisResult {
-  probabilityOver15: number; // Probabilidade estatística pura
-  tableProbability?: number | null; // Probabilidade baseada apenas em dados da tabela (se disponível)
-  aiProbability?: number | null; // Probabilidade da IA (se disponível)
-  combinedProbability?: number; // Probabilidade final combinada (IA + estatística)
+  probabilityOver15: number; // Probabilidade estatística pura (baseada em últimos 10 jogos)
+  tableProbability?: number | null; // Probabilidade baseada apenas em dados da tabela (temporada completa)
+  aiProbability?: number | null; // @deprecated Probabilidade da IA (não mais usada)
+  combinedProbability?: number; // Probabilidade final combinada (estatísticas + tabela)
   confidenceScore: number;
   poissonHome: number[];
   poissonAway: number[];
@@ -145,7 +145,7 @@ export interface AnalysisResult {
     bttsCorrelation: number;
     formTrend: number;
   };
-  // Probabilidades Over/Under para diferentes linhas (calculadas pela IA)
+  // Probabilidades Over/Under para diferentes linhas (calculadas estatisticamente usando Poisson)
   overUnderProbabilities?: {
     [line: string]: {
       over: number;
@@ -193,7 +193,7 @@ export interface SavedAnalysis {
   timestamp: number;
   data: MatchData;
   result: AnalysisResult;
-  aiAnalysis?: string; // Markdown completo da análise da IA (opcional)
+  aiAnalysis?: string; // @deprecated Markdown completo da análise da IA (não mais usado)
   betInfo?: BetInfo; // Informações da aposta (opcional)
   selectedBets?: SelectedBet[]; // Apostas selecionadas quando a partida foi salva (opcional)
 }
