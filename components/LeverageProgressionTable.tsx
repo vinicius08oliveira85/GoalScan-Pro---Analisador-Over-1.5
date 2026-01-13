@@ -1,9 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Calculator, AlertCircle, Copy, Check } from 'lucide-react';
-import { calculateLeverageProgression, formatCurrency, validateLeverageParams } from '../utils/leverageProgression';
+import { TrendingUp, Calculator, AlertCircle, Copy, Check, Edit } from 'lucide-react';
+import {
+  calculateLeverageProgression,
+  calculateLeverageProgressionWithVariableOdds,
+  formatCurrency,
+  validateLeverageParams,
+} from '../utils/leverageProgression';
 import { LeverageProgressionRow } from '../types';
 import { animations } from '../utils/animations';
+import LeverageOddsEditor from './LeverageOddsEditor';
 
 interface LeverageProgressionTableProps {
   defaultOdd?: number;
@@ -20,6 +26,13 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
   const [initialInvestment, setInitialInvestment] = useState<number>(defaultInitialInvestment);
   const [days, setDays] = useState<number>(defaultDays);
   const [copied, setCopied] = useState<boolean>(false);
+  const [customOdds, setCustomOdds] = useState<number[] | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
+
+  // Resetar odds customizadas quando odd padrão, investimento ou dias mudarem
+  useEffect(() => {
+    setCustomOdds(null);
+  }, [odd, initialInvestment, days]);
 
   const validation = useMemo(
     () => validateLeverageParams(initialInvestment, odd, days),
@@ -28,18 +41,31 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
 
   const progression = useMemo(() => {
     if (!validation.valid) return [];
+    
+    // Se há odds customizadas, usar função com odds variáveis
+    if (customOdds && customOdds.length === days) {
+      return calculateLeverageProgressionWithVariableOdds(initialInvestment, customOdds, days);
+    }
+    
+    // Caso contrário, usar função padrão com odd fixa
     return calculateLeverageProgression(initialInvestment, odd, days);
-  }, [initialInvestment, odd, days, validation.valid]);
+  }, [initialInvestment, odd, days, validation.valid, customOdds]);
+
+  const hasCustomOdds = customOdds !== null && customOdds.length === days;
 
   const handleCopyTable = async () => {
     if (progression.length === 0) return;
 
+    const oddInfo = hasCustomOdds ? 'Odds variáveis' : `Odd: ${odd.toFixed(2)}`;
     const tableText = [
       'Tabela de Alavancagem Progressiva',
-      `Odd: ${odd.toFixed(2)} | Investimento Inicial: ${formatCurrency(initialInvestment)} | Dias: ${days}`,
+      `${oddInfo} | Investimento Inicial: ${formatCurrency(initialInvestment)} | Dias: ${days}`,
       '',
-      'DIA\tINVESTIMENTO\tRETORNO',
-      ...progression.map((row) => `DIA ${row.day}\t${formatCurrency(row.investment)}\t${formatCurrency(row.return)}`),
+      'DIA\tODD\tINVESTIMENTO\tRETORNO',
+      ...progression.map(
+        (row) =>
+          `DIA ${row.day}\t${row.odd.toFixed(2)}\t${formatCurrency(row.investment)}\t${formatCurrency(row.return)}`
+      ),
     ].join('\n');
 
     try {
@@ -49,6 +75,15 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
     } catch (error) {
       console.error('Erro ao copiar tabela:', error);
     }
+  };
+
+  const handleSaveOdds = (odds: number[]) => {
+    setCustomOdds(odds);
+    setIsEditorOpen(false);
+  };
+
+  const handleResetOdds = () => {
+    setCustomOdds(null);
   };
 
   return (
@@ -71,25 +106,47 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
               </p>
             </div>
           </div>
-          {progression.length > 0 && (
-            <button
-              onClick={handleCopyTable}
-              className="btn btn-sm btn-ghost gap-2"
-              title="Copiar tabela"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  Copiado!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  Copiar
-                </>
-              )}
-            </button>
-          )}
+          <div className="flex gap-2">
+            {progression.length > 0 && (
+              <>
+                <button
+                  onClick={() => setIsEditorOpen(true)}
+                  className="btn btn-sm btn-primary gap-2"
+                  title="Editar odds por dia"
+                >
+                  <Edit className="w-4 h-4" />
+                  Editar Odds
+                </button>
+                {hasCustomOdds && (
+                  <button
+                    onClick={handleResetOdds}
+                    className="btn btn-sm btn-outline gap-2"
+                    title="Resetar para odd padrão"
+                  >
+                    <Calculator className="w-4 h-4" />
+                    Resetar Odds
+                  </button>
+                )}
+                <button
+                  onClick={handleCopyTable}
+                  className="btn btn-sm btn-ghost gap-2"
+                  title="Copiar tabela"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copiar
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -197,22 +254,48 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
             <thead>
               <tr className="bg-base-200">
                 <th className="text-center font-black">DIA</th>
+                <th className="text-right font-black">ODD</th>
                 <th className="text-right font-black">INVESTIMENTO</th>
                 <th className="text-right font-black">RETORNO</th>
               </tr>
             </thead>
             <tbody>
-              {progression.map((row) => (
-                <tr key={row.day} className="hover">
-                  <td className="text-center font-bold tabular-nums">{row.day}</td>
-                  <td className="text-right font-semibold tabular-nums">{formatCurrency(row.investment)}</td>
-                  <td className="text-right font-bold text-primary tabular-nums">{formatCurrency(row.return)}</td>
-                </tr>
-              ))}
+              {progression.map((row) => {
+                const isCustomOdd = hasCustomOdds && customOdds && row.odd !== odd;
+                return (
+                  <tr key={row.day} className="hover">
+                    <td className="text-center font-bold tabular-nums">{row.day}</td>
+                    <td
+                      className={`text-right font-semibold tabular-nums ${
+                        isCustomOdd ? 'text-primary' : ''
+                      }`}
+                    >
+                      {row.odd.toFixed(2)}
+                      {isCustomOdd && (
+                        <span className="ml-1 text-xs opacity-60" title="Odd editada">
+                          *
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-right font-semibold tabular-nums">{formatCurrency(row.investment)}</td>
+                    <td className="text-right font-bold text-primary tabular-nums">{formatCurrency(row.return)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* Modal de Edição de Odds */}
+      <LeverageOddsEditor
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        onSave={handleSaveOdds}
+        defaultOdd={odd}
+        days={days}
+        currentOdds={customOdds || undefined}
+      />
 
       {/* Resumo */}
       {progression.length > 0 && (

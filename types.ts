@@ -208,6 +208,7 @@ export interface LeverageProgressionRow {
   day: number; // Dia (1, 2, 3, ...)
   investment: number; // Investimento do dia
   return: number; // Retorno do dia (investment * odd)
+  odd: number; // Odd do dia (pode variar por dia)
 }
 
 // Configurações de Banca

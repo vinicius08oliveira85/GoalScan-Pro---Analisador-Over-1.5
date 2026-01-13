@@ -25,6 +25,58 @@ export function calculateLeverageProgression(
       day,
       investment: Number(currentInvestment.toFixed(2)),
       return: returnAmount,
+      odd,
+    });
+    // Próximo investimento = retorno atual
+    currentInvestment = returnAmount;
+  }
+
+  return progression;
+}
+
+/**
+ * Calcula a progressão de alavancagem com odds variáveis por dia
+ * @param initialInvestment Investimento inicial (dia 1)
+ * @param odds Array de odds, uma para cada dia
+ * @param days Número de dias para calcular
+ * @returns Array com a progressão dia a dia
+ */
+export function calculateLeverageProgressionWithVariableOdds(
+  initialInvestment: number,
+  odds: number[],
+  days: number
+): LeverageProgressionRow[] {
+  if (initialInvestment <= 0 || days < 1 || odds.length === 0) {
+    return [];
+  }
+
+  const progression: LeverageProgressionRow[] = [];
+  let currentInvestment = initialInvestment;
+
+  for (let day = 1; day <= days; day++) {
+    // Usar odd do dia ou fallback para primeira odd se não houver
+    const dayOdd = odds[day - 1] || odds[0] || 1.0;
+    
+    // Validar odd
+    if (dayOdd <= 1.0 || dayOdd > 50) {
+      // Se odd inválida, usar 1.0 como fallback
+      const returnAmount = Number((currentInvestment * 1.0).toFixed(2));
+      progression.push({
+        day,
+        investment: Number(currentInvestment.toFixed(2)),
+        return: returnAmount,
+        odd: dayOdd,
+      });
+      currentInvestment = returnAmount;
+      continue;
+    }
+
+    const returnAmount = Number((currentInvestment * dayOdd).toFixed(2));
+    progression.push({
+      day,
+      investment: Number(currentInvestment.toFixed(2)),
+      return: returnAmount,
+      odd: dayOdd,
     });
     // Próximo investimento = retorno atual
     currentInvestment = returnAmount;
