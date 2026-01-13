@@ -200,6 +200,14 @@ export interface BetInfo {
   placedAt?: number; // Timestamp quando apostou
   resultAt?: number; // Timestamp quando resultado saiu
   leverage?: number; // Alavancagem da aposta (opcional, sobrescreve alavancagem global)
+  useLeverageProgression?: boolean; // Usar alavancagem progressiva (reinvestimento)
+}
+
+// Linha da tabela de alavancagem progressiva
+export interface LeverageProgressionRow {
+  day: number; // Dia (1, 2, 3, ...)
+  investment: number; // Investimento do dia
+  return: number; // Retorno do dia (investment * odd)
 }
 
 // Configurações de Banca

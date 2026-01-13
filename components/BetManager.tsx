@@ -39,6 +39,9 @@ const BetManager: React.FC<BetManagerProps> = ({
   const [betAmount, setBetAmount] = useState<number>(betInfo?.betAmount || 0);
   const [status, setStatus] = useState<BetInfo['status']>(betInfo?.status || 'pending');
   const [leverage, setLeverage] = useState<number | undefined>(betInfo?.leverage);
+  const [useLeverageProgression, setUseLeverageProgression] = useState<boolean>(
+    betInfo?.useLeverageProgression || false
+  );
 
   // Calcular alavancagem a ser usada (prioridade: BetInfo.leverage > BankSettings.leverage > 1.0)
   const effectiveLeverage = leverage ?? bankSettings?.leverage ?? 1.0;
@@ -69,6 +72,7 @@ const BetManager: React.FC<BetManagerProps> = ({
       setBetAmount(betInfo.betAmount);
       setStatus(betInfo.status);
       setLeverage(betInfo.leverage);
+      setUseLeverageProgression(betInfo.useLeverageProgression || false);
     }
   }, [betInfo]);
 
@@ -89,6 +93,7 @@ const BetManager: React.FC<BetManagerProps> = ({
         bankPercentage,
         status,
         leverage: leverage !== undefined && leverage !== bankSettings?.leverage ? leverage : undefined,
+        useLeverageProgression: useLeverageProgression || undefined,
         placedAt: betInfo?.placedAt || Date.now(),
         resultAt: betInfo?.resultAt,
       };
@@ -325,6 +330,27 @@ const BetManager: React.FC<BetManagerProps> = ({
                 <span className="text-warning ml-2">⚠️ Alto risco</span>
               )}
             </span>
+          </label>
+        </div>
+
+        {/* Checkbox de Alavancagem Progressiva */}
+        <div className="form-control">
+          <label className="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              checked={useLeverageProgression}
+              onChange={(e) => setUseLeverageProgression(e.target.checked)}
+              className="checkbox checkbox-primary"
+            />
+            <div className="flex-1">
+              <span className="label-text font-bold flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Usar Alavancagem Progressiva
+              </span>
+              <p className="text-xs opacity-60 mt-1">
+                Reinvestir o retorno de cada dia como investimento do próximo dia (ver tabela na aba Banca)
+              </p>
+            </div>
           </label>
         </div>
 

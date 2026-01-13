@@ -32,6 +32,7 @@ import { computeNetCashDelta } from '../utils/bankLedger';
 import { validateBankSettings } from '../utils/validation';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
+import LeverageProgressionTable from './LeverageProgressionTable';
 
 interface BankScreenProps {
   bankSettings?: BankSettings;
@@ -714,6 +715,9 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
           </div>
         </div>
       </motion.div>
+
+      {/* Tabela de Alavancagem Progressiva */}
+      <LeverageProgressionTable />
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
