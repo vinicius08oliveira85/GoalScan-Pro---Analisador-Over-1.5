@@ -57,6 +57,10 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
   const [bankBase, setBankBase] = useState<number | null>(null);
   const [bankBaseInput, setBankBaseInput] = useState<string>('');
 
+  // Alavancagem global
+  const [leverage, setLeverage] = useState<number>(bankSettings?.leverage ?? 1.0);
+  const [leverageInput, setLeverageInput] = useState<string>('1.0');
+
   // Impacto líquido atual das apostas na banca (cash), baseado no estado atual
   const netCashDelta = useMemo(() => computeNetCashDelta(savedMatches), [savedMatches]);
   const suggestedBase = useMemo(() => {
@@ -131,8 +135,13 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
     if (bankSettings) {
       setTotalBank(bankSettings.totalBank);
       setInputValue(formatNumber(bankSettings.totalBank));
+      const leverageValue = bankSettings.leverage ?? 1.0;
+      setLeverage(leverageValue);
+      setLeverageInput(leverageValue.toFixed(2));
     } else {
       setInputValue('');
+      setLeverage(1.0);
+      setLeverageInput('1.0');
     }
   }, [bankSettings, formatNumber]);
 
@@ -194,6 +203,22 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
     [parseFormattedValue]
   );
 
+  const handleLeverageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^\d,.-]/g, '');
+    setLeverageInput(value);
+    const parsed = parseFormattedValue(value);
+    // Validar range 0.1 a 10.0
+    if (parsed >= 0.1 && parsed <= 10.0) {
+      setLeverage(parsed);
+    } else if (parsed < 0.1) {
+      setLeverage(0.1);
+      setLeverageInput('0.1');
+    } else if (parsed > 10.0) {
+      setLeverage(10.0);
+      setLeverageInput('10.0');
+    }
+  }, [parseFormattedValue]);
+
   const handleSave = useCallback(async () => {
     if (validationState !== 'valid' || totalBank <= 0) return;
 
@@ -209,6 +234,7 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
             : bankBase === null
               ? undefined
               : Number(bankBase.toFixed(2)),
+        leverage: leverage !== 1.0 ? Number(leverage.toFixed(2)) : undefined,
         updatedAt: Date.now(),
       };
 
@@ -246,6 +272,7 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
         totalBank: bankSettings.totalBank,
         currency: 'BRL',
         baseBank: Number(bankBase.toFixed(2)),
+        leverage: leverage !== 1.0 ? Number(leverage.toFixed(2)) : undefined,
         updatedAt: Date.now(),
       };
 
@@ -285,6 +312,7 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
         totalBank: reconciledCash,
         currency: 'BRL',
         baseBank: Number(bankBase.toFixed(2)),
+        leverage: leverage !== 1.0 ? Number(leverage.toFixed(2)) : undefined,
         updatedAt: Date.now(),
       };
 
@@ -468,6 +496,54 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
                 {validationMessage || 'Digite o valor total disponível na sua banca'}
               </span>
             </label>
+          </div>
+
+          {/* Campo de Alavancagem Global */}
+          <div className="form-control">
+            <label className="label" htmlFor="leverage-input">
+              <span className="label-text font-bold flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Alavancagem Global
+              </span>
+            </label>
+            <div className="relative">
+              <input
+                id="leverage-input"
+                type="text"
+                inputMode="decimal"
+                value={leverageInput}
+                onChange={handleLeverageChange}
+                onBlur={() => {
+                  if (leverage >= 0.1 && leverage <= 10.0) {
+                    setLeverageInput(leverage.toFixed(2));
+                  }
+                }}
+                className="input input-bordered w-full"
+                placeholder="1.0"
+                aria-label="Alavancagem global"
+                min="0.1"
+                max="10.0"
+                step="0.1"
+              />
+            </div>
+            <label className="label">
+              <span className="label-text-alt opacity-60 text-xs">
+                Multiplica o retorno potencial das apostas (0.1 a 10.0)
+                {leverage > 2.0 && (
+                  <span className="text-warning ml-2">
+                    ⚠️ Alavancagem alta - maior risco
+                  </span>
+                )}
+              </span>
+            </label>
+            {leverage !== 1.0 && (
+              <div className="mt-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <p className="text-xs font-semibold text-primary">
+                  Com alavancagem {leverage.toFixed(2)}x, uma aposta de R$ 100 com odd 2.0 terá retorno de R${' '}
+                  {(100 * 2.0 * leverage).toFixed(2)} (em vez de R$ 200)
+                </p>
+              </div>
+            )}
           </div>
 
           <button

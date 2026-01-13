@@ -120,6 +120,7 @@ export const betInfoSchema = z
     status: z.enum(['pending', 'won', 'lost', 'cancelled']),
     placedAt: z.number().optional(),
     resultAt: z.number().optional(),
+    leverage: z.number().min(0.1, 'Alavancagem deve ser no mínimo 0.1').max(10.0, 'Alavancagem deve ser no máximo 10.0').optional(),
   })
   .superRefine((val, ctx) => {
     // Permitir remover aposta: cancelled pode ter betAmount = 0
@@ -137,6 +138,7 @@ export const bankSettingsSchema = z.object({
   totalBank: z.number().min(0, 'Banca não pode ser negativa').max(100000000),
   currency: z.string().length(3, 'Moeda deve ter 3 caracteres (ex: BRL, USD)'),
   baseBank: z.number().min(0, 'Banca base não pode ser negativa').max(100000000).optional(),
+  leverage: z.number().min(0.1, 'Alavancagem deve ser no mínimo 0.1').max(10.0, 'Alavancagem deve ser no máximo 10.0').optional(),
   updatedAt: z.number(),
 });
 

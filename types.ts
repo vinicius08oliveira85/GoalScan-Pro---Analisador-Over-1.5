@@ -199,6 +199,7 @@ export interface BetInfo {
   status: 'pending' | 'won' | 'lost' | 'cancelled';
   placedAt?: number; // Timestamp quando apostou
   resultAt?: number; // Timestamp quando resultado saiu
+  leverage?: number; // Alavancagem da aposta (opcional, sobrescreve alavancagem global)
 }
 
 // Configurações de Banca
@@ -206,6 +207,7 @@ export interface BankSettings {
   totalBank: number; // Banca total
   currency: string; // Moeda (R$, $, €)
   baseBank?: number; // Banca base (opcional) para reconciliação/sincronização
+  leverage?: number; // Alavancagem global (padrão: 1.0)
   updatedAt: number; // Última atualização
 }
 

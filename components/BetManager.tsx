@@ -38,9 +38,13 @@ const BetManager: React.FC<BetManagerProps> = ({
 }) => {
   const [betAmount, setBetAmount] = useState<number>(betInfo?.betAmount || 0);
   const [status, setStatus] = useState<BetInfo['status']>(betInfo?.status || 'pending');
+  const [leverage, setLeverage] = useState<number | undefined>(betInfo?.leverage);
 
-  // Calcular valores automaticamente
-  const potentialReturn = betAmount > 0 && odd > 0 ? betAmount * odd : 0;
+  // Calcular alavancagem a ser usada (prioridade: BetInfo.leverage > BankSettings.leverage > 1.0)
+  const effectiveLeverage = leverage ?? bankSettings?.leverage ?? 1.0;
+
+  // Calcular valores automaticamente com alavancagem
+  const potentialReturn = betAmount > 0 && odd > 0 ? betAmount * odd * effectiveLeverage : 0;
   const potentialProfit = potentialReturn - betAmount;
   const totalBank = bankSettings?.totalBank ?? 0;
   const hasBank = totalBank > 0;
@@ -64,6 +68,7 @@ const BetManager: React.FC<BetManagerProps> = ({
     if (betInfo) {
       setBetAmount(betInfo.betAmount);
       setStatus(betInfo.status);
+      setLeverage(betInfo.leverage);
     }
   }, [betInfo]);
 
@@ -83,6 +88,7 @@ const BetManager: React.FC<BetManagerProps> = ({
         potentialProfit,
         bankPercentage,
         status,
+        leverage: leverage !== undefined && leverage !== bankSettings?.leverage ? leverage : undefined,
         placedAt: betInfo?.placedAt || Date.now(),
         resultAt: betInfo?.resultAt,
       };
@@ -279,6 +285,49 @@ const BetManager: React.FC<BetManagerProps> = ({
           </select>
         </div>
 
+        {/* Alavancagem por Aposta (Opcional) */}
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text font-bold flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Alavancagem (Opcional)
+            </span>
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              max="10.0"
+              value={leverage !== undefined ? leverage : ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setLeverage(undefined);
+                } else {
+                  const num = Number(value);
+                  if (num >= 0.1 && num <= 10.0) {
+                    setLeverage(num);
+                  }
+                }
+              }}
+              className="input input-bordered w-full min-h-[44px] text-base"
+              placeholder={`Padrão: ${(bankSettings?.leverage ?? 1.0).toFixed(2)}x`}
+              aria-label="Alavancagem da aposta"
+            />
+          </div>
+          <label className="label">
+            <span className="label-text-alt opacity-60 text-xs">
+              {leverage !== undefined
+                ? `Sobrescreve alavancagem global (${(bankSettings?.leverage ?? 1.0).toFixed(2)}x)`
+                : `Usa alavancagem global: ${(bankSettings?.leverage ?? 1.0).toFixed(2)}x`}
+              {effectiveLeverage > 2.0 && (
+                <span className="text-warning ml-2">⚠️ Alto risco</span>
+              )}
+            </span>
+          </label>
+        </div>
+
         {/* Informações da Odd */}
         <div className="bg-base-100/50 p-4 rounded-xl border border-white/5">
           <div className="grid grid-cols-2 gap-4 text-sm">
@@ -314,9 +363,16 @@ const BetManager: React.FC<BetManagerProps> = ({
 
             <div className="flex items-center justify-between">
               <span className="text-sm opacity-80">Retorno Potencial:</span>
-              <span className="font-bold text-lg text-primary">
-                {getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialReturn.toFixed(2)}
-              </span>
+              <div className="text-right">
+                <span className="font-bold text-lg text-primary">
+                  {getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialReturn.toFixed(2)}
+                </span>
+                {effectiveLeverage !== 1.0 && (
+                  <p className="text-xs opacity-60 mt-1">
+                    (Alavancagem: {effectiveLeverage.toFixed(2)}x)
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-between">

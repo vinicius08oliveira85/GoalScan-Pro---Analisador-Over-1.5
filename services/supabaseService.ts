@@ -108,6 +108,7 @@ export interface BankSettingsRow {
   id: string;
   total_bank: number;
   base_bank?: number | null;
+  leverage?: number | null;
   currency: string;
   updated_at?: number;
   created_at?: string;
@@ -455,6 +456,7 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
     return {
       totalBank: data.total_bank,
       baseBank: typeof data.base_bank === 'number' ? data.base_bank : undefined,
+      leverage: typeof data.leverage === 'number' ? data.leverage : undefined,
       currency: data.currency,
       updatedAt: data.updated_at || Date.now(),
     };
@@ -504,6 +506,7 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
           id: 'default',
           total_bank: settings.totalBank,
           base_bank: settings.baseBank ?? null,
+          leverage: settings.leverage ?? null,
           currency: settings.currency,
           updated_at: settings.updatedAt,
         },
@@ -544,10 +547,11 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
           .single();
 
         if (!error2 && data2) {
-          // Retornar com baseBank preservado (será salvo no localStorage)
+          // Retornar com baseBank e leverage preservados (serão salvos no localStorage)
           return {
             totalBank: data2.total_bank,
             baseBank: settings.baseBank,
+            leverage: settings.leverage,
             currency: data2.currency,
             updatedAt: data2.updated_at || Date.now(),
           };
@@ -579,6 +583,7 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
     return {
       totalBank: data.total_bank,
       baseBank: typeof data.base_bank === 'number' ? data.base_bank : settings.baseBank,
+      leverage: typeof data.leverage === 'number' ? data.leverage : settings.leverage,
       currency: data.currency,
       updatedAt: data.updated_at || Date.now(),
     };
