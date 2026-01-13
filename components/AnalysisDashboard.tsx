@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { AnalysisResult, MatchData, BetInfo, BankSettings, SelectedBet } from '../types';
+import { AnalysisResult, MatchData, BetInfo, BankSettings, SelectedBet, SavedAnalysis } from '../types';
 import {
   TrendingUp,
   TrendingDown,
@@ -38,6 +38,7 @@ interface AnalysisDashboardProps {
   onSave?: (selectedBets?: SelectedBet[]) => void;
   betInfo?: BetInfo;
   bankSettings?: BankSettings;
+  savedMatches?: SavedAnalysis[];
   onBetSave?: (betInfo: BetInfo) => void;
   onError?: (message: string) => void;
   isUpdatingBetStatus?: boolean;
@@ -51,6 +52,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   onSave,
   betInfo,
   bankSettings,
+  savedMatches,
   onBetSave,
   onError,
   isUpdatingBetStatus = false,
@@ -848,6 +850,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               probability={displayProbability}
               betInfo={betInfo}
               bankSettings={bankSettings}
+              savedMatches={savedMatches}
               onSave={(newBetInfo) => {
                 onBetSave(newBetInfo);
                 setShowBetManager(false);

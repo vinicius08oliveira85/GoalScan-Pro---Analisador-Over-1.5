@@ -659,6 +659,7 @@ const App: React.FC = () => {
                           onSave={handleSaveMatch}
                           betInfo={selectedMatch?.betInfo}
                           bankSettings={bankSettings}
+                          savedMatches={savedMatches}
                           onBetSave={handleSaveBetInfo}
                           onError={showError}
                           isUpdatingBetStatus={isUpdatingBetStatus}

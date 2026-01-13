@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { BetInfo, BankSettings } from '../types';
+import { BetInfo, BankSettings, SavedAnalysis } from '../types';
 import {
   Calculator,
   TrendingUp,
@@ -16,12 +16,15 @@ import { errorService } from '../services/errorService';
 import { getCurrencySymbol } from '../utils/currency';
 import { suggestBetAmount, calculateEV, MIN_BET_AMOUNT } from '../utils/betSuggestion';
 import { animations } from '../utils/animations';
+import { useLeveragePlan } from '../hooks/useLeveragePlan';
+import { computeNextProgressionDay } from '../utils/leverageProgressionSync';
 
 interface BetManagerProps {
   odd: number;
   probability: number;
   betInfo?: BetInfo;
   bankSettings?: BankSettings;
+  savedMatches?: SavedAnalysis[];
   onSave: (betInfo: BetInfo) => void;
   onCancel?: () => void;
   onError?: (message: string) => void;
@@ -32,6 +35,7 @@ const BetManager: React.FC<BetManagerProps> = ({
   probability,
   betInfo,
   bankSettings,
+  savedMatches,
   onSave,
   onCancel,
   onError,
@@ -42,6 +46,19 @@ const BetManager: React.FC<BetManagerProps> = ({
   const [useLeverageProgression, setUseLeverageProgression] = useState<boolean>(
     betInfo?.useLeverageProgression || false
   );
+
+  const { plan, getInvestmentForDay, setOddForDay } = useLeveragePlan();
+  const nextDayInfo = useMemo(
+    () => computeNextProgressionDay(savedMatches, plan.days),
+    [savedMatches, plan.days]
+  );
+  const [progressionDay, setProgressionDay] = useState<number | null>(
+    typeof betInfo?.leverageProgressionDay === 'number' && Number.isFinite(betInfo.leverageProgressionDay)
+      ? Math.trunc(betInfo.leverageProgressionDay)
+      : null
+  );
+
+  const isNewBet = !betInfo || betInfo.betAmount === 0;
 
   // Calcular alavancagem a ser usada (prioridade: BetInfo.leverage > BankSettings.leverage > 1.0)
   const effectiveLeverage = leverage ?? bankSettings?.leverage ?? 1.0;
@@ -73,8 +90,42 @@ const BetManager: React.FC<BetManagerProps> = ({
       setStatus(betInfo.status);
       setLeverage(betInfo.leverage);
       setUseLeverageProgression(betInfo.useLeverageProgression || false);
+      setProgressionDay(
+        typeof betInfo.leverageProgressionDay === 'number' && Number.isFinite(betInfo.leverageProgressionDay)
+          ? Math.trunc(betInfo.leverageProgressionDay)
+          : null
+      );
+    } else {
+      setProgressionDay(null);
     }
   }, [betInfo]);
+
+  useEffect(() => {
+    if (!useLeverageProgression) {
+      setProgressionDay(null);
+      return;
+    }
+
+    // Se já existe um dia salvo na aposta, respeitar.
+    if (typeof betInfo?.leverageProgressionDay === 'number' && Number.isFinite(betInfo.leverageProgressionDay)) {
+      setProgressionDay(Math.trunc(betInfo.leverageProgressionDay));
+      return;
+    }
+
+    // Para nova aposta progressiva, usar o próximo dia do ciclo.
+    setProgressionDay(nextDayInfo.nextDay);
+  }, [useLeverageProgression, betInfo?.leverageProgressionDay, nextDayInfo.nextDay]);
+
+  useEffect(() => {
+    if (!useLeverageProgression) return;
+    if (!isNewBet) return;
+    if (!progressionDay) return;
+
+    const investment = getInvestmentForDay(progressionDay);
+    if (typeof investment === 'number' && Number.isFinite(investment) && investment > 0) {
+      setBetAmount(investment);
+    }
+  }, [useLeverageProgression, isNewBet, progressionDay, getInvestmentForDay]);
 
   const handleSave = () => {
     try {
@@ -94,12 +145,19 @@ const BetManager: React.FC<BetManagerProps> = ({
         status,
         leverage: leverage !== undefined && leverage !== bankSettings?.leverage ? leverage : undefined,
         useLeverageProgression: useLeverageProgression || undefined,
+        leverageProgressionDay: useLeverageProgression ? progressionDay ?? undefined : undefined,
         placedAt: betInfo?.placedAt || Date.now(),
         resultAt: betInfo?.resultAt,
       };
 
       // Validar dados antes de salvar
       const validatedBetInfo = validateBetInfo(newBetInfo);
+
+      // Sincronizar odd do dia com a odd real da aposta (apenas após validação)
+      if (useLeverageProgression && progressionDay && odd >= 1.01 && odd <= 50) {
+        setOddForDay(progressionDay, odd);
+      }
+
       onSave(validatedBetInfo);
     } catch (error) {
       // Mostrar erro de validação de forma amigável

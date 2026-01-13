@@ -121,6 +121,13 @@ export const betInfoSchema = z
     placedAt: z.number().optional(),
     resultAt: z.number().optional(),
     leverage: z.number().min(0.1, 'Alavancagem deve ser no mínimo 0.1').max(10.0, 'Alavancagem deve ser no máximo 10.0').optional(),
+    useLeverageProgression: z.boolean().optional(),
+    leverageProgressionDay: z
+      .number()
+      .int('Dia da progressão deve ser um inteiro')
+      .min(1, 'Dia da progressão deve ser no mínimo 1')
+      .max(30, 'Dia da progressão deve ser no máximo 30')
+      .optional(),
   })
   .superRefine((val, ctx) => {
     // Permitir remover aposta: cancelled pode ter betAmount = 0

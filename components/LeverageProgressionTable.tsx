@@ -1,65 +1,52 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Calculator, AlertCircle, Copy, Check, Edit } from 'lucide-react';
-import {
-  calculateLeverageProgression,
-  calculateLeverageProgressionWithVariableOdds,
-  formatCurrency,
-  validateLeverageParams,
-} from '../utils/leverageProgression';
-import { LeverageProgressionRow } from '../types';
+import { TrendingUp, Calculator, AlertCircle, Copy, Check, Edit, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { formatCurrency, validateLeverageParams } from '../utils/leverageProgression';
+import type { SavedAnalysis } from '../types';
 import { animations } from '../utils/animations';
 import LeverageOddsEditor from './LeverageOddsEditor';
+import { useLeveragePlan } from '../hooks/useLeveragePlan';
+import { computeCurrentCycleDayStatuses, computeNextProgressionDay } from '../utils/leverageProgressionSync';
 
 interface LeverageProgressionTableProps {
-  defaultOdd?: number;
-  defaultInitialInvestment?: number;
-  defaultDays?: number;
+  savedMatches?: SavedAnalysis[];
 }
 
 const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
-  defaultOdd = 1.3,
-  defaultInitialInvestment = 5,
-  defaultDays = 15,
+  savedMatches,
 }) => {
-  const [odd, setOdd] = useState<number>(defaultOdd);
-  const [initialInvestment, setInitialInvestment] = useState<number>(defaultInitialInvestment);
-  const [days, setDays] = useState<number>(defaultDays);
   const [copied, setCopied] = useState<boolean>(false);
-  const [customOdds, setCustomOdds] = useState<number[] | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
 
-  // Resetar odds customizadas quando odd padrão, investimento ou dias mudarem
-  useEffect(() => {
-    setCustomOdds(null);
-  }, [odd, initialInvestment, days]);
+  const { plan, progression, setDays, setDefaultOdd, setInitialInvestment, setOddsByDay, resetOddsToDefault } =
+    useLeveragePlan();
 
   const validation = useMemo(
-    () => validateLeverageParams(initialInvestment, odd, days),
-    [initialInvestment, odd, days]
+    () => validateLeverageParams(plan.initialInvestment, plan.defaultOdd, plan.days),
+    [plan.initialInvestment, plan.defaultOdd, plan.days]
   );
 
-  const progression = useMemo(() => {
-    if (!validation.valid) return [];
-    
-    // Se há odds customizadas, usar função com odds variáveis
-    if (customOdds && customOdds.length === days) {
-      return calculateLeverageProgressionWithVariableOdds(initialInvestment, customOdds, days);
-    }
-    
-    // Caso contrário, usar função padrão com odd fixa
-    return calculateLeverageProgression(initialInvestment, odd, days);
-  }, [initialInvestment, odd, days, validation.valid, customOdds]);
+  const hasCustomOdds = useMemo(
+    () => plan.oddsByDay.some((o) => o !== plan.defaultOdd),
+    [plan.oddsByDay, plan.defaultOdd]
+  );
 
-  const hasCustomOdds = customOdds !== null && customOdds.length === days;
+  const dayStatuses = useMemo(
+    () => computeCurrentCycleDayStatuses(savedMatches, plan.days),
+    [savedMatches, plan.days]
+  );
+  const nextDayInfo = useMemo(
+    () => computeNextProgressionDay(savedMatches, plan.days),
+    [savedMatches, plan.days]
+  );
 
   const handleCopyTable = async () => {
     if (progression.length === 0) return;
 
-    const oddInfo = hasCustomOdds ? 'Odds variáveis' : `Odd: ${odd.toFixed(2)}`;
+    const oddInfo = hasCustomOdds ? 'Odds variáveis' : `Odd: ${plan.defaultOdd.toFixed(2)}`;
     const tableText = [
       'Tabela de Alavancagem Progressiva',
-      `${oddInfo} | Investimento Inicial: ${formatCurrency(initialInvestment)} | Dias: ${days}`,
+      `${oddInfo} | Investimento Inicial: ${formatCurrency(plan.initialInvestment)} | Dias: ${plan.days}`,
       '',
       'DIA\tODD\tINVESTIMENTO\tRETORNO',
       ...progression.map(
@@ -78,12 +65,12 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
   };
 
   const handleSaveOdds = (odds: number[]) => {
-    setCustomOdds(odds);
+    setOddsByDay(odds);
     setIsEditorOpen(false);
   };
 
   const handleResetOdds = () => {
-    setCustomOdds(null);
+    resetOddsToDefault();
   };
 
   return (
@@ -165,11 +152,11 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
             step="0.01"
             min="1.01"
             max="50"
-            value={odd}
+            value={plan.defaultOdd}
             onChange={(e) => {
               const value = Number(e.target.value);
               if (value >= 1.01 && value <= 50) {
-                setOdd(value);
+                setDefaultOdd(value);
               }
             }}
             className="input input-bordered w-full"
@@ -197,7 +184,7 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
               step="0.01"
               min="0.01"
               max="1000000"
-              value={initialInvestment}
+              value={plan.initialInvestment}
               onChange={(e) => {
                 const value = Number(e.target.value);
                 if (value >= 0.01 && value <= 1000000) {
@@ -223,7 +210,7 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
             step="1"
             min="1"
             max="30"
-            value={days}
+            value={plan.days}
             onChange={(e) => {
               const value = Number(e.target.value);
               if (value >= 1 && value <= 30) {
@@ -261,10 +248,23 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
             </thead>
             <tbody>
               {progression.map((row) => {
-                const isCustomOdd = hasCustomOdds && customOdds && row.odd !== odd;
+                const dayStatus = dayStatuses[row.day];
+                const isNextDay = row.day === nextDayInfo.nextDay;
+                const isCustomOdd = row.odd !== plan.defaultOdd;
                 return (
-                  <tr key={row.day} className="hover">
-                    <td className="text-center font-bold tabular-nums">{row.day}</td>
+                  <tr
+                    key={row.day}
+                    className={`hover ${isNextDay ? 'bg-primary/10' : ''}`}
+                    title={isNextDay ? 'Próximo dia do ciclo' : undefined}
+                  >
+                    <td className="text-center font-bold tabular-nums">
+                      <div className="flex items-center justify-center gap-2">
+                        <span>{row.day}</span>
+                        {dayStatus?.status === 'pending' && <Clock className="w-4 h-4 text-warning" />}
+                        {dayStatus?.status === 'won' && <CheckCircle className="w-4 h-4 text-success" />}
+                        {dayStatus?.status === 'lost' && <XCircle className="w-4 h-4 text-error" />}
+                      </div>
+                    </td>
                     <td
                       className={`text-right font-semibold tabular-nums ${
                         isCustomOdd ? 'text-primary' : ''
@@ -292,9 +292,9 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
         isOpen={isEditorOpen}
         onClose={() => setIsEditorOpen(false)}
         onSave={handleSaveOdds}
-        defaultOdd={odd}
-        days={days}
-        currentOdds={customOdds || undefined}
+        defaultOdd={plan.defaultOdd}
+        days={plan.days}
+        currentOdds={plan.oddsByDay}
       />
 
       {/* Resumo */}
@@ -303,10 +303,10 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-xs opacity-60 uppercase font-bold mb-1">Investimento Inicial</p>
-              <p className="text-lg font-black">{formatCurrency(initialInvestment)}</p>
+              <p className="text-lg font-black">{formatCurrency(plan.initialInvestment)}</p>
             </div>
             <div>
-              <p className="text-xs opacity-60 uppercase font-bold mb-1">Retorno Final (Dia {days})</p>
+              <p className="text-xs opacity-60 uppercase font-bold mb-1">Retorno Final (Dia {plan.days})</p>
               <p className="text-lg font-black text-primary">
                 {formatCurrency(progression[progression.length - 1]?.return || 0)}
               </p>
@@ -314,7 +314,7 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
             <div>
               <p className="text-xs opacity-60 uppercase font-bold mb-1">Lucro Total</p>
               <p className="text-lg font-black text-success">
-                {formatCurrency((progression[progression.length - 1]?.return || 0) - initialInvestment)}
+                {formatCurrency((progression[progression.length - 1]?.return || 0) - plan.initialInvestment)}
               </p>
             </div>
           </div>
