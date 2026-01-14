@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileJson, X, Save } from 'lucide-react';
+import { Upload, FileJson, X, Save, ExternalLink } from 'lucide-react';
 import type { Championship, ChampionshipTable, TableType } from '../types';
 import { animations } from '../utils/animations';
+import FbrefExtractionModal from './FbrefExtractionModal';
 
 type TableMeta = { type: TableType; name: string };
 
@@ -53,6 +54,7 @@ export default function ChampionshipTableUpdateModal({
     standard_for: null,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [showFbrefModal, setShowFbrefModal] = useState(false);
 
   const existingByType = useMemo(() => {
     const map = new Map<TableType, ChampionshipTable>();
@@ -215,6 +217,26 @@ export default function ChampionshipTableUpdateModal({
             </div>
           </div>
 
+          {/* Extração automática do FBref */}
+          <div className="custom-card p-4 space-y-3 border-2 border-primary/20">
+            <div className="flex items-center justify-between">
+              <div className="font-bold flex items-center gap-2">
+                <ExternalLink className="w-5 h-5 text-primary" />
+                Extração Automática do FBref.com
+              </div>
+            </div>
+            <p className="text-sm opacity-70">
+              Extraia automaticamente dados de tabelas do fbref.com sem precisar copiar/colar JSON manualmente.
+            </p>
+            <button
+              onClick={() => setShowFbrefModal(true)}
+              className="btn btn-primary btn-outline w-full gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Extrair do FBref.com
+            </button>
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-2">
             <button className="btn btn-ghost" onClick={onClose} disabled={isSaving}>
               Cancelar
@@ -235,6 +257,24 @@ export default function ChampionshipTableUpdateModal({
           </div>
         </div>
       </motion.div>
+
+      {/* Modal de extração do FBref */}
+      {showFbrefModal && (
+        <FbrefExtractionModal
+          championship={championship}
+          onClose={() => {
+            setShowFbrefModal(false);
+            onReloadTables();
+          }}
+          onTableSaved={() => {
+            setShowFbrefModal(false);
+            onReloadTables();
+          }}
+          onError={(message) => {
+            setErrorByType((prev) => ({ ...prev, [activeType]: message }));
+          }}
+        />
+      )}
     </motion.div>
   );
 }
