@@ -203,6 +203,36 @@ const MatchForm: React.FC<MatchFormProps> = ({
         .filter(([, loaded]) => !loaded)
         .map(([name]) => name);
 
+      // Log detalhado para diagnóstico
+      if (import.meta.env.DEV) {
+        console.log('[MatchForm] Resultado da sincronização:', {
+          loadedTables,
+          loadedCount,
+          missingTables,
+          detalhes: {
+            geral: {
+              home: !!homeTableData,
+              away: !!awayTableData,
+            },
+            standard_for: {
+              home: !!homeStandardForData,
+              away: !!awayStandardForData,
+              competitionAvg: !!competitionStandardForAvg,
+            },
+            passing_for: {
+              home: !!homePassingForData,
+              away: !!awayPassingForData,
+              competitionAvg: !!competitionPassingForAvg,
+            },
+            gca_for: {
+              home: !!homeGcaForData,
+              away: !!awayGcaForData,
+              competitionAvg: !!competitionGcaForAvg,
+            },
+          },
+        });
+      }
+
       // Mostrar feedback sobre tabelas carregadas
       if (loadedCount === 4) {
         // Todas as tabelas carregadas - sucesso silencioso
@@ -211,9 +241,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
         }
       } else if (loadedCount > 0) {
         // Algumas tabelas carregadas - avisar sobre as faltantes
-        const message = `Tabelas carregadas: ${loadedCount}/4. Faltando: ${missingTables.join(', ')}. Para análise completa, extraia todas as tabelas do fbref.com.`;
-        if (onError) {
-          onError(message);
+        // NÃO mostrar erro, apenas aviso informativo (não é um erro crítico)
+        if (import.meta.env.DEV) {
+          console.warn('[MatchForm] ⚠️ Apenas', loadedCount, 'de 4 tabelas foram carregadas. Faltando:', missingTables.join(', '));
         }
       } else {
         // Nenhuma tabela carregada

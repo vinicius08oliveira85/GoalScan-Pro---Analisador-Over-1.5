@@ -1051,6 +1051,16 @@ export const syncTeamStatsFromTable = async (
     // Carregar tabelas uma única vez (evita múltiplas chamadas ao Supabase/localStorage)
     const tables = await loadChampionshipTables(championshipId);
 
+    // Log: verificar quais tabelas foram carregadas
+    if (import.meta.env.DEV) {
+      console.log('[ChampionshipService] syncTeamStatsFromTable - Tabelas carregadas:', {
+        total: tables.length,
+        tipos: tables.map(t => t.table_type),
+        homeSquad,
+        awaySquad,
+      });
+    }
+
     const geralTable = tables.find((t) => t.table_type === 'geral');
     const geralRows = Array.isArray(geralTable?.table_data)
       ? (geralTable?.table_data as TableRowGeral[])
@@ -1081,6 +1091,26 @@ export const syncTeamStatsFromTable = async (
       ? (passingForTable?.table_data as TableRowPassingFor[])
       : [];
 
+    if (import.meta.env.DEV) {
+      if (!passingForTable) {
+        console.warn('[ChampionshipService] ⚠️ Tabela passing_for não encontrada para campeonato:', championshipId);
+      } else if (passingForRows.length === 0) {
+        console.warn('[ChampionshipService] ⚠️ Tabela passing_for está vazia');
+      } else {
+        console.log('[ChampionshipService] ✅ Tabela passing_for encontrada com', passingForRows.length, 'times');
+        // Verificar se os Squads estão na tabela
+        const homeFound = passingForRows.some(row => row.Squad === homeSquad);
+        const awayFound = passingForRows.some(row => row.Squad === awaySquad);
+        if (!homeFound) {
+          console.warn('[ChampionshipService] ⚠️ Time da casa não encontrado na tabela passing_for:', homeSquad);
+          console.log('[ChampionshipService] Squads disponíveis (primeiros 5):', passingForRows.slice(0, 5).map(r => r.Squad));
+        }
+        if (!awayFound) {
+          console.warn('[ChampionshipService] ⚠️ Time visitante não encontrado na tabela passing_for:', awaySquad);
+        }
+      }
+    }
+
     const homePassingForData = passingForRows.find((row) => row.Squad === homeSquad) || null;
     const awayPassingForData = passingForRows.find((row) => row.Squad === awaySquad) || null;
     const competitionPassingForAvg = calculateCompetitionPassingForAveragesFromRows(passingForRows);
@@ -1089,6 +1119,26 @@ export const syncTeamStatsFromTable = async (
     const gcaForRows = Array.isArray(gcaForTable?.table_data)
       ? (gcaForTable?.table_data as TableRowGcaFor[])
       : [];
+
+    if (import.meta.env.DEV) {
+      if (!gcaForTable) {
+        console.warn('[ChampionshipService] ⚠️ Tabela gca_for não encontrada para campeonato:', championshipId);
+      } else if (gcaForRows.length === 0) {
+        console.warn('[ChampionshipService] ⚠️ Tabela gca_for está vazia');
+      } else {
+        console.log('[ChampionshipService] ✅ Tabela gca_for encontrada com', gcaForRows.length, 'times');
+        // Verificar se os Squads estão na tabela
+        const homeFound = gcaForRows.some(row => row.Squad === homeSquad);
+        const awayFound = gcaForRows.some(row => row.Squad === awaySquad);
+        if (!homeFound) {
+          console.warn('[ChampionshipService] ⚠️ Time da casa não encontrado na tabela gca_for:', homeSquad);
+          console.log('[ChampionshipService] Squads disponíveis (primeiros 5):', gcaForRows.slice(0, 5).map(r => r.Squad));
+        }
+        if (!awayFound) {
+          console.warn('[ChampionshipService] ⚠️ Time visitante não encontrado na tabela gca_for:', awaySquad);
+        }
+      }
+    }
 
     const homeGcaForData = gcaForRows.find((row) => row.Squad === homeSquad) || null;
     const awayGcaForData = gcaForRows.find((row) => row.Squad === awaySquad) || null;
