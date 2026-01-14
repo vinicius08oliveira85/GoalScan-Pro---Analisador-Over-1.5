@@ -452,7 +452,7 @@ function calculateTableProbability(data: MatchData): {
     lambdaAway *= awayAttackFactor * paceFactor;
 
     if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] Ajuste standard_for aplicado:', {
+      console.log('[AnalysisEngine] ✅ Ajuste standard_for aplicado:', {
         homeAttackFactor,
         awayAttackFactor,
         paceFactor,
@@ -460,6 +460,10 @@ function calculateTableProbability(data: MatchData): {
         awayAttackRatio,
         matchPaceRaw,
       });
+    }
+  } else {
+    if (import.meta.env.DEV) {
+      console.warn('[AnalysisEngine] ⚠️ Tabela standard_for não disponível - ajuste de ataque/ritmo não aplicado');
     }
   }
 
@@ -529,7 +533,7 @@ function calculateTableProbability(data: MatchData): {
     lambdaAway *= 1 + awayDelta;
 
     if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] Ajuste passing_for aplicado:', {
+      console.log('[AnalysisEngine] ✅ Ajuste passing_for aplicado:', {
         homeCreationRatio,
         awayCreationRatio,
         homeDelta,
@@ -541,6 +545,10 @@ function calculateTableProbability(data: MatchData): {
         homePpa,
         awayPpa,
       });
+    }
+  } else {
+    if (import.meta.env.DEV) {
+      console.warn('[AnalysisEngine] ⚠️ Tabela passing_for não disponível - ajuste de criação via passe não aplicado');
     }
   }
 
@@ -603,7 +611,7 @@ function calculateTableProbability(data: MatchData): {
     lambdaAway *= 1 + awayDelta;
 
     if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] Ajuste gca_for aplicado:', {
+      console.log('[AnalysisEngine] ✅ Ajuste gca_for aplicado:', {
         homeCreationRatio,
         awayCreationRatio,
         homeDelta,
@@ -613,6 +621,10 @@ function calculateTableProbability(data: MatchData): {
         homeGca,
         awayGca,
       });
+    }
+  } else {
+    if (import.meta.env.DEV) {
+      console.warn('[AnalysisEngine] ⚠️ Tabela gca_for não disponível - ajuste de ações de criação (SCA/GCA) não aplicado');
     }
   }
 
@@ -1027,6 +1039,20 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const competitionAvg = normalizedData.competitionAvg || 0;
   const hasCompetitionAvg = competitionAvg > 0;
 
+  // Validação das 4 tabelas do campeonato
+  const hasStandardFor =
+    !!normalizedData.homeStandardForData &&
+    !!normalizedData.awayStandardForData &&
+    !!normalizedData.competitionStandardForAvg;
+  const hasPassingFor =
+    !!normalizedData.homePassingForData &&
+    !!normalizedData.awayPassingForData &&
+    !!normalizedData.competitionPassingForAvg;
+  const hasGcaFor =
+    !!normalizedData.homeGcaForData &&
+    !!normalizedData.awayGcaForData &&
+    !!normalizedData.competitionGcaForAvg;
+
   // Validar completude dos dados essenciais
   const dataCompleteness = {
     hasHomeTeamStats,
@@ -1034,6 +1060,9 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     hasHomeTableData,
     hasAwayTableData,
     hasCompetitionAvg,
+    hasStandardFor,
+    hasPassingFor,
+    hasGcaFor,
   };
 
   const missingData: string[] = [];
@@ -1041,12 +1070,27 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   if (!hasAwayTeamStats) missingData.push('Estatísticas Globais do time visitante');
   if (!hasCompetitionAvg) missingData.push('Média da competição');
 
+  const missingTables: string[] = [];
+  if (!hasHomeTableData || !hasAwayTableData) {
+    missingTables.push('geral');
+  }
+  if (!hasStandardFor) {
+    missingTables.push('standard_for');
+  }
+  if (!hasPassingFor) {
+    missingTables.push('passing_for');
+  }
+  if (!hasGcaFor) {
+    missingTables.push('gca_for');
+  }
+
   if (import.meta.env.DEV) {
     console.log('[AnalysisEngine] Dados normalizados:', {
       homeOver15Freq,
       awayOver15Freq,
       dataCompleteness,
       missingData: missingData.length > 0 ? missingData : 'Nenhum',
+      missingTables: missingTables.length > 0 ? missingTables : 'Nenhuma',
     });
 
     // Avisar se dados essenciais estão faltando
@@ -1055,12 +1099,33 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       console.warn('[AnalysisEngine] A análise pode ser menos confiável sem esses dados.');
     }
 
-    // Informar sobre dados da tabela (usados na combinação com estatísticas)
-    if (hasHomeTableData || hasAwayTableData) {
-      console.log('[AnalysisEngine] Dados da tabela disponíveis (serão combinados com estatísticas):', {
-        hasHomeTableData,
-        hasAwayTableData,
-      });
+    // Informar sobre uso das tabelas
+    const availableTables: string[] = [];
+    if (hasHomeTableData && hasAwayTableData) availableTables.push('geral');
+    if (hasStandardFor) availableTables.push('standard_for');
+    if (hasPassingFor) availableTables.push('passing_for');
+    if (hasGcaFor) availableTables.push('gca_for');
+
+    console.log('[AnalysisEngine] Tabelas disponíveis para análise:', availableTables);
+    console.log('[AnalysisEngine] Tabelas que serão usadas na análise:', {
+      geral: hasHomeTableData && hasAwayTableData,
+      standard_for: hasStandardFor,
+      passing_for: hasPassingFor,
+      gca_for: hasGcaFor,
+    });
+
+    if (missingTables.length > 0) {
+      console.warn(
+        `[AnalysisEngine] ⚠️ ATENÇÃO: ${missingTables.length} tabela(s) não disponível(is): ${missingTables.join(', ')}`
+      );
+      console.warn(
+        '[AnalysisEngine] A análise será feita apenas com as tabelas disponíveis, o que pode reduzir a precisão.'
+      );
+      console.warn(
+        '[AnalysisEngine] Recomendação: Extraia todas as 4 tabelas (geral, standard_for, passing_for, gca_for) do fbref.com para análise completa.'
+      );
+    } else {
+      console.log('[AnalysisEngine] ✅ Todas as 4 tabelas disponíveis! A análise usará todos os dados.');
     }
   }
 

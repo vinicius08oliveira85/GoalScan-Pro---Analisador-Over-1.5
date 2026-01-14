@@ -190,12 +190,35 @@ const MatchForm: React.FC<MatchFormProps> = ({
         return updated;
       });
 
-      // Mostrar mensagem de sucesso se dados foram encontrados
-      if (homeTableData && awayTableData) {
-        // Silencioso - dados sincronizados com sucesso
-      } else {
+      // Verificar quais tabelas foram carregadas
+      const loadedTables = {
+        geral: !!(homeTableData && awayTableData),
+        standard_for: !!(homeStandardForData && awayStandardForData && competitionStandardForAvg),
+        passing_for: !!(homePassingForData && awayPassingForData && competitionPassingForAvg),
+        gca_for: !!(homeGcaForData && awayGcaForData && competitionGcaForAvg),
+      };
+
+      const loadedCount = Object.values(loadedTables).filter(Boolean).length;
+      const missingTables = Object.entries(loadedTables)
+        .filter(([, loaded]) => !loaded)
+        .map(([name]) => name);
+
+      // Mostrar feedback sobre tabelas carregadas
+      if (loadedCount === 4) {
+        // Todas as tabelas carregadas - sucesso silencioso
+        if (import.meta.env.DEV) {
+          console.log('[MatchForm] ✅ Todas as 4 tabelas carregadas com sucesso!');
+        }
+      } else if (loadedCount > 0) {
+        // Algumas tabelas carregadas - avisar sobre as faltantes
+        const message = `Tabelas carregadas: ${loadedCount}/4. Faltando: ${missingTables.join(', ')}. Para análise completa, extraia todas as tabelas do fbref.com.`;
         if (onError) {
-          onError('Alguns dados da tabela não foram encontrados. Verifique se as equipes existem no campeonato.');
+          onError(message);
+        }
+      } else {
+        // Nenhuma tabela carregada
+        if (onError) {
+          onError('Nenhuma tabela foi encontrada. Verifique se as equipes existem no campeonato e se as tabelas foram extraídas do fbref.com.');
         }
       }
     } catch (error) {
@@ -393,7 +416,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             </select>
           </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <button
             type="button"
             onClick={handleSyncWithTable}
@@ -402,6 +425,29 @@ const MatchForm: React.FC<MatchFormProps> = ({
           >
             Sincronizar com Tabela
           </button>
+          {formData.homeTableData && formData.awayTableData && (
+            <div className="text-xs opacity-70 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="badge badge-sm badge-success">geral</span>
+                {formData.homeStandardForData && formData.awayStandardForData && (
+                  <span className="badge badge-sm badge-success">standard_for</span>
+                )}
+                {formData.homePassingForData && formData.awayPassingForData && (
+                  <span className="badge badge-sm badge-success">passing_for</span>
+                )}
+                {formData.homeGcaForData && formData.awayGcaForData && (
+                  <span className="badge badge-sm badge-success">gca_for</span>
+                )}
+              </div>
+              {(!formData.homeStandardForData || !formData.awayStandardForData ||
+                !formData.homePassingForData || !formData.awayPassingForData ||
+                !formData.homeGcaForData || !formData.awayGcaForData) && (
+                <p className="text-warning text-xs">
+                  ⚠️ Algumas tabelas estão faltando. Extraia todas as 4 tabelas do fbref.com para análise completa.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
