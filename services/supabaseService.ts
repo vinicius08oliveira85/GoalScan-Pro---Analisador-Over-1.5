@@ -518,18 +518,19 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
       .single();
 
     if (error) {
-      // Se a coluna base_bank não existe ainda, tentar novamente sem ela
-      // (evita erro 400/PGRST204 enquanto a migração não é aplicada)
+      // Se alguma coluna não existe ainda, tentar novamente sem ela
+      // (evita erro 400/PGRST204 enquanto as migrações não são aplicadas)
       const msg = (error.message || '').toLowerCase();
-      const isBaseBankColumnMissing =
+      const isColumnMissing =
         error.code === 'PGRST204' ||
-        (error.status === 400 && (msg.includes('base_bank') || msg.includes('column') || msg.includes('schema cache')));
+        (error.status === 400 && (msg.includes('base_bank') || msg.includes('leverage') || msg.includes('column') || msg.includes('schema cache')));
 
-      if (isBaseBankColumnMissing) {
+      if (isColumnMissing) {
         logger.warn(
-          'Coluna base_bank não encontrada no Supabase. Salvando apenas total_bank e currency. Execute a migração add_base_bank_to_bank_settings.sql para habilitar sincronização da base.'
+          'Coluna(s) não encontrada(s) no Supabase. Tentando salvar apenas campos básicos. Execute as migrações add_base_bank_to_bank_settings.sql e add_leverage_to_bank_settings.sql se necessário.'
         );
 
+        // Tentar primeiro sem leverage e base_bank
         const { data: data2, error: error2 } = await supabase
           .from('bank_settings')
           .upsert(
@@ -555,6 +556,12 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
             currency: data2.currency,
             updatedAt: data2.updated_at || Date.now(),
           };
+        }
+
+        // Se ainda falhar, pode ser que a tabela não exista
+        if (error2) {
+          logger.warn('Erro ao salvar mesmo sem colunas opcionais. Dados salvos apenas no localStorage.');
+          return settings;
         }
       }
 
