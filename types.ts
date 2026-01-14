@@ -130,6 +130,15 @@ export interface MatchData {
   homeStandardForData?: TableRowStandardFor;
   awayStandardForData?: TableRowStandardFor;
   competitionStandardForAvg?: CompetitionStandardForAverages;
+
+  // Tabelas complementares adicionais (FBref) - unificadas por Squad
+  homePassingForData?: TableRowPassingFor;
+  awayPassingForData?: TableRowPassingFor;
+  competitionPassingForAvg?: CompetitionPassingForAverages;
+
+  homeGcaForData?: TableRowGcaFor;
+  awayGcaForData?: TableRowGcaFor;
+  competitionGcaForAvg?: CompetitionGcaForAverages;
 }
 
 export interface AnalysisResult {
@@ -292,7 +301,7 @@ export interface SavedAnalysis {
 }
 
 // Tipos de tabela de campeonato
-export type TableType = 'geral' | 'standard_for';
+export type TableType = 'geral' | 'standard_for' | 'passing_for' | 'gca_for';
 
 // Interface para linha da tabela "Geral" (traduzida para PT-BR)
 export interface TableRowGeral {
@@ -340,10 +349,36 @@ export interface CompetitionStandardForAverages {
   prgCPerMatch: number; // média de PrgC por partida
 }
 
+// Interface mínima para linha da tabela complementar (Passing - For)
+// Obs.: Mantemos flexível (viewer usa colunas dinâmicas e o motor/IA lê poucos campos)
+export interface TableRowPassingFor {
+  Squad: string;
+  [key: string]: unknown;
+}
+
+export interface CompetitionPassingForAverages {
+  // Valores por 90 ou por partida (depende do que estiver disponível na tabela), usados para normalização no motor
+  progPer90: number;
+  kpPer90: number;
+  ppaPer90: number;
+}
+
+// Interface mínima para linha da tabela complementar (GCA - For)
+export interface TableRowGcaFor {
+  Squad: string;
+  [key: string]: unknown;
+}
+
+export interface CompetitionGcaForAverages {
+  scaPer90: number;
+  gcaPer90: number;
+}
+
 // Dados do campeonato
 export interface Championship {
   id: string;
   nome: string;
+  fbrefUrl?: string | null;
   created_at?: string;
   updated_at?: string;
 }

@@ -10,6 +10,8 @@ type TableMeta = { type: TableType; name: string };
 const TABLES: TableMeta[] = [
   { type: 'geral', name: 'Geral' },
   { type: 'standard_for', name: 'Standard (For) - Complemento' },
+  { type: 'passing_for', name: 'Passing (For) - Complemento' },
+  { type: 'gca_for', name: 'GCA (For) - Complemento' },
 ];
 
 interface Props {
@@ -48,10 +50,14 @@ export default function ChampionshipTableUpdateModal({
   const [jsonTextByType, setJsonTextByType] = useState<Record<TableType, string>>({
     geral: '',
     standard_for: '',
+    passing_for: '',
+    gca_for: '',
   });
   const [errorByType, setErrorByType] = useState<Record<TableType, string | null>>({
     geral: null,
     standard_for: null,
+    passing_for: null,
+    gca_for: null,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [showFbrefModal, setShowFbrefModal] = useState(false);

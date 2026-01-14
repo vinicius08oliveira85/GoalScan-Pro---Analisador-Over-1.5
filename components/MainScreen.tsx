@@ -175,8 +175,8 @@ const MainScreen: React.FC<MainScreenProps> = ({
     const name = useChampionshipName(championshipId);
     if (!name) return null;
     return (
-      <div className="flex items-center gap-1 text-[10px] opacity-70 mb-1">
-        <Trophy className="w-3 h-3 text-warning" />
+      <div className="flex items-center gap-1 text-xs opacity-70 mb-1 leading-relaxed">
+        <Trophy className="w-3.5 h-3.5 text-warning" />
         <span className="truncate">{name}</span>
       </div>
     );
@@ -198,35 +198,35 @@ const MainScreen: React.FC<MainScreenProps> = ({
 
       {/* Estatísticas Gerais */}
       {totalMatches > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3 mb-4 md:mb-5">
-          <div className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5">
-            <div className="p-1.5 md:p-2 rounded-lg bg-primary/10 border border-primary/20 flex-shrink-0">
-              <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-5 md:mb-6">
+          <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
+            <div className="p-2 md:p-3 rounded-lg bg-primary/10 border border-primary/20 flex-shrink-0">
+              <Activity className="w-5 h-5 md:w-6 md:h-6 text-primary" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
+              <p className="text-xs md:text-sm font-bold opacity-70 uppercase mb-1 leading-tight">
                 Total de Partidas
               </p>
               <p className="text-lg md:text-xl font-black">{totalMatches}</p>
             </div>
           </div>
-          <div className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5">
-            <div className="p-1.5 md:p-2 rounded-lg bg-success/10 border border-success/20 flex-shrink-0">
-              <Target className="w-4 h-4 md:w-5 md:h-5 text-success" />
+          <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
+            <div className="p-2 md:p-3 rounded-lg bg-success/10 border border-success/20 flex-shrink-0">
+              <Target className="w-5 h-5 md:w-6 md:h-6 text-success" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
+              <p className="text-xs md:text-sm font-bold opacity-70 uppercase mb-1 leading-tight">
                 EV Positivo
               </p>
               <p className="text-lg md:text-xl font-black text-success">{positiveEV}</p>
             </div>
           </div>
-          <div className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5">
-            <div className="p-1.5 md:p-2 rounded-lg bg-teal-500/10 border border-teal-500/20 flex-shrink-0">
-              <TrendingUpIcon className="w-4 h-4 md:w-5 md:h-5 text-teal-400" />
+          <div className="custom-card p-3 md:p-4 flex items-center gap-3 md:gap-4">
+            <div className="p-2 md:p-3 rounded-lg bg-teal-500/10 border border-teal-500/20 flex-shrink-0">
+              <TrendingUpIcon className="w-5 h-5 md:w-6 md:h-6 text-teal-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
+              <p className="text-xs md:text-sm font-bold opacity-70 uppercase mb-1 leading-tight">
                 Prob. Média
               </p>
               <p className="text-lg md:text-xl font-black text-teal-400">
@@ -238,19 +238,19 @@ const MainScreen: React.FC<MainScreenProps> = ({
       )}
 
       {/* Título e Botão Adicionar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-5 md:mb-6">
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg sm:text-xl font-black tracking-tighter mb-0.5">Partidas Salvas</h2>
-          <p className="text-[10px] sm:text-xs opacity-60">Gerencie suas análises e resultados</p>
+          <h2 className="text-lg sm:text-xl font-black tracking-tighter mb-1">Partidas Salvas</h2>
+          <p className="text-xs sm:text-sm opacity-70 leading-relaxed">Gerencie suas análises e resultados</p>
         </div>
         <button
           onClick={onNewMatch}
-          className="btn btn-primary btn-sm gap-1.5 shadow-lg hover:scale-105 transition-transform w-full sm:w-auto min-h-[36px] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary"
+          className="btn btn-primary btn-sm gap-2 shadow-lg hover:scale-105 transition-all duration-200 w-full sm:w-auto min-h-[44px] px-4 py-2.5 focus-ring"
           aria-label="Adicionar nova partida para análise"
         >
-          <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" aria-hidden="true" />
-          <span className="hidden sm:inline text-sm">Adicionar Partida</span>
-          <span className="sm:hidden text-xs">Nova Partida</span>
+          <Plus className="w-4 h-4 md:w-5 md:h-5" aria-hidden="true" />
+          <span className="hidden sm:inline text-sm font-semibold">Adicionar Partida</span>
+          <span className="sm:hidden text-sm font-semibold">Nova Partida</span>
         </button>
       </div>
 
@@ -449,23 +449,23 @@ const MainScreen: React.FC<MainScreenProps> = ({
 
                   {/* Data/Hora e Risco na mesma linha */}
                   <div className="flex items-center justify-between text-xs px-1">
-                    <div className="flex items-center gap-1.5 opacity-60">
-                      <Calendar className="w-3 h-3 shrink-0" />
+                    <div className="flex items-center gap-1.5 opacity-70">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
                       {match.data.matchDate ? (
                         <>
-                          <span>{formatMatchDate(match.data.matchDate, match.data.matchTime)}</span>
+                          <span className="leading-relaxed">{formatMatchDate(match.data.matchDate, match.data.matchTime)}</span>
                           {match.data.matchTime && (
                             <>
                               <span>•</span>
-                              <Clock className="w-3 h-3" />
-                              <span>
+                              <Clock className="w-3.5 h-3.5" />
+                              <span className="leading-relaxed">
                                 {formatMatchTime(match.data.matchDate, match.data.matchTime)}
                               </span>
                             </>
                           )}
                         </>
                       ) : (
-                        <span>
+                        <span className="leading-relaxed">
                           {formatTimestampInBrasilia(match.timestamp, {
                             day: '2-digit',
                             month: 'short',
@@ -474,7 +474,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                       )}
                     </div>
                     <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shadow-sm ${
+                      className={`text-xs font-bold px-2 py-1 rounded border shadow-sm ${
                         riskLevel === 'Baixo'
                           ? 'bg-gradient-to-r from-success/20 to-success/10 text-success border-success/40 shadow-success/20'
                           : riskLevel === 'Moderado'
@@ -489,10 +489,10 @@ const MainScreen: React.FC<MainScreenProps> = ({
                   </div>
 
                   {/* Barra de Probabilidade com Cores Dinâmicas */}
-                  <div className="space-y-1.5 glass-effect rounded-lg px-3 py-2 border border-base-300/20">
+                  <div className="space-y-2 glass-effect rounded-lg px-3 py-2.5 border border-base-300/40">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold opacity-80">Probabilidade</span>
-                      <span className="font-black text-base">
+                      <span className="font-semibold opacity-70 leading-relaxed">Probabilidade</span>
+                      <span className="font-black text-base leading-none">
                         {displayProb.toFixed(0)}%
                       </span>
                     </div>
@@ -521,29 +521,29 @@ const MainScreen: React.FC<MainScreenProps> = ({
                   </div>
 
                   {/* Grid de Métricas Compacto */}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <div className="glass-effect rounded-md px-2 py-1.5 border border-primary/20 shadow-sm hover:shadow-md hover:border-primary/50 transition-all">
-                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="glass-effect rounded-md px-2.5 py-2 border border-primary/30 shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-200">
+                      <div className="text-xs font-semibold opacity-70 uppercase tracking-wide leading-tight">
                         Odd
                       </div>
-                      <div className="text-sm font-black mt-0.5 text-primary">
+                      <div className="text-sm font-black mt-1 text-primary leading-none">
                         {match.data.oddOver15?.toFixed(2) || '-'}
                       </div>
                     </div>
                     <div
-                      className={`glass-effect rounded-md px-2 py-1.5 border shadow-sm hover:shadow-md transition-all ${
+                      className={`glass-effect rounded-md px-2.5 py-2 border shadow-sm hover:shadow-md transition-all duration-200 ${
                         match.result.ev > 0
-                          ? 'border-success/30 hover:border-success/50'
+                          ? 'border-success/40 hover:border-success/50'
                           : match.result.ev < 0
-                            ? 'border-error/30 hover:border-error/50'
-                            : 'border-base-300/20 hover:border-base-300/40'
+                            ? 'border-error/40 hover:border-error/50'
+                            : 'border-base-300/30 hover:border-base-300/50'
                       }`}
                     >
-                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">
+                      <div className="text-xs font-semibold opacity-70 uppercase tracking-wide leading-tight">
                         EV
                       </div>
                       <div
-                        className={`text-sm font-black mt-0.5 flex items-center gap-1 ${
+                        className={`text-sm font-black mt-1 flex items-center gap-1 leading-none ${
                           match.result.ev > 0
                             ? 'text-success'
                             : match.result.ev < 0
@@ -551,19 +551,19 @@ const MainScreen: React.FC<MainScreenProps> = ({
                               : 'opacity-50'
                         }`}
                       >
-                        {match.result.ev > 0 && <TrendingUp className="w-3 h-3" />}
-                        {match.result.ev < 0 && <TrendingDown className="w-3 h-3" />}
+                        {match.result.ev > 0 && <TrendingUp className="w-3.5 h-3.5" />}
+                        {match.result.ev < 0 && <TrendingDown className="w-3.5 h-3.5" />}
                         <span>
                           {match.result.ev > 0 ? '+' : ''}
                           {match.result.ev.toFixed(1)}%
                         </span>
                       </div>
                     </div>
-                    <div className="glass-effect rounded-md px-2 py-1.5 border border-base-300/20 shadow-sm hover:shadow-md hover:border-base-300/40 transition-all">
-                      <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide">
+                    <div className="glass-effect rounded-md px-2.5 py-2 border border-base-300/30 shadow-sm hover:shadow-md hover:border-base-300/50 transition-all duration-200">
+                      <div className="text-xs font-semibold opacity-70 uppercase tracking-wide leading-tight">
                         Stake
                       </div>
-                      <div className="text-sm font-black mt-0.5">
+                      <div className="text-sm font-black mt-1 leading-none">
                         {match.betInfo && match.betInfo.betAmount > 0
                           ? match.betInfo.betAmount.toFixed(2)
                           : '-'}
@@ -575,7 +575,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                   {match.betInfo && match.betInfo.betAmount > 0 && (
                     <div className="space-y-2">
                       <div
-                        className={`flex items-center justify-between rounded-lg border px-3 py-2.5 backdrop-blur-sm shadow-md ${
+                        className={`flex items-center justify-between rounded-lg border px-3 py-3 backdrop-blur-sm shadow-md ${
                           match.betInfo.status === 'won'
                             ? 'bg-gradient-to-r from-success/20 to-success/10 border-success/40'
                             : match.betInfo.status === 'lost'
@@ -584,15 +584,15 @@ const MainScreen: React.FC<MainScreenProps> = ({
                         }`}
                       >
                         <div>
-                          <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide mb-0.5">
+                          <div className="text-xs font-semibold opacity-70 uppercase tracking-wide mb-1 leading-tight">
                             Aposta
                           </div>
-                          <div className="text-sm font-black">
+                          <div className="text-sm font-black leading-none">
                             {match.betInfo.betAmount.toFixed(2)}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-[10px] font-semibold opacity-70 uppercase tracking-wide mb-0.5">
+                          <div className="text-xs font-semibold opacity-70 uppercase tracking-wide mb-1 leading-tight">
                             {match.betInfo.status === 'won'
                               ? 'Ganho'
                               : match.betInfo.status === 'lost'
@@ -600,7 +600,7 @@ const MainScreen: React.FC<MainScreenProps> = ({
                                 : 'Retorno'}
                           </div>
                           <div
-                            className={`text-base font-black ${
+                            className={`text-base font-black leading-none ${
                               match.betInfo.status === 'won'
                                 ? 'text-success'
                                 : match.betInfo.status === 'lost'
@@ -629,10 +629,10 @@ const MainScreen: React.FC<MainScreenProps> = ({
                             disabled={isUpdatingBetStatus}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="btn btn-xs flex-1 gap-1 min-h-[32px] text-[10px] font-black border-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-success to-emerald-500 text-white border-success/50 hover:shadow-success/50 transition-all"
+                            className="btn btn-xs flex-1 gap-1.5 min-h-[44px] text-xs font-black border-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-success to-emerald-500 text-white border-success/50 hover:shadow-success/50 transition-all duration-200"
                             title="Marcar como ganha"
                           >
-                            <CheckCircle className="w-3 h-3" />
+                            <CheckCircle className="w-4 h-4" />
                             {isUpdatingBetStatus ? 'Processando...' : 'Ganhou'}
                           </motion.button>
                           <motion.button
@@ -643,10 +643,10 @@ const MainScreen: React.FC<MainScreenProps> = ({
                             disabled={isUpdatingBetStatus}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="btn btn-xs flex-1 gap-1 min-h-[32px] text-[10px] font-black border-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-error to-rose-500 text-white border-error/50 hover:shadow-error/50 transition-all"
+                            className="btn btn-xs flex-1 gap-1.5 min-h-[44px] text-xs font-black border-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-error to-rose-500 text-white border-error/50 hover:shadow-error/50 transition-all duration-200"
                             title="Marcar como perdida"
                           >
-                            <XCircle className="w-3 h-3" />
+                            <XCircle className="w-4 h-4" />
                             {isUpdatingBetStatus ? 'Processando...' : 'Perdeu'}
                           </motion.button>
                         </div>

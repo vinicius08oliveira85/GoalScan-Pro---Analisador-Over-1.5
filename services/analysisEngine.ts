@@ -463,6 +463,159 @@ function calculateTableProbability(data: MatchData): {
     }
   }
 
+  // 3c. Complementos adicionais (passing_for / gca_for): ajustes conservadores (baixo impacto, clampado)
+  const hasPassingFor =
+    !!data.homePassingForData &&
+    !!data.awayPassingForData &&
+    !!data.competitionPassingForAvg;
+
+  if (hasPassingFor) {
+    const parseNum = (value: unknown): number => {
+      if (value == null) return 0;
+      const raw = String(value).trim();
+      if (!raw) return 0;
+      const normalized = raw.replace(/,/g, '').replace(/%/g, '');
+      const n = Number.parseFloat(normalized);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const getPer90 = (row: Record<string, unknown>, per90Keys: string[], totalKeys: string[]): number => {
+      for (const k of per90Keys) {
+        const v = parseNum(row[k]);
+        if (v > 0) return v;
+      }
+      const n90 =
+        parseNum(row['90s']) ||
+        parseNum(row['Playing Time 90s']) ||
+        parseNum(row['Playing Time 90S']);
+
+      for (const k of totalKeys) {
+        const total = parseNum(row[k]);
+        if (total > 0 && n90 > 0) return total / n90;
+      }
+      return 0;
+    };
+
+    const avg = data.competitionPassingForAvg!;
+    const homeRow = data.homePassingForData as unknown as Record<string, unknown>;
+    const awayRow = data.awayPassingForData as unknown as Record<string, unknown>;
+
+    const homeProg = getPer90(homeRow, ['Per 90 Minutes Prog', 'Prog/90', 'Prog 90'], ['Prog']);
+    const awayProg = getPer90(awayRow, ['Per 90 Minutes Prog', 'Prog/90', 'Prog 90'], ['Prog']);
+
+    const homeKp = getPer90(homeRow, ['Per 90 Minutes KP', 'KP/90', 'KP 90'], ['KP']);
+    const awayKp = getPer90(awayRow, ['Per 90 Minutes KP', 'KP/90', 'KP 90'], ['KP']);
+
+    const homePpa = getPer90(homeRow, ['Per 90 Minutes PPA', 'PPA/90', 'PPA 90'], ['PPA']);
+    const awayPpa = getPer90(awayRow, ['Per 90 Minutes PPA', 'PPA/90', 'PPA 90'], ['PPA']);
+
+    const progRatioHome = avg.progPer90 > 0 && homeProg > 0 ? homeProg / avg.progPer90 : 1;
+    const progRatioAway = avg.progPer90 > 0 && awayProg > 0 ? awayProg / avg.progPer90 : 1;
+
+    const kpRatioHome = avg.kpPer90 > 0 && homeKp > 0 ? homeKp / avg.kpPer90 : 1;
+    const kpRatioAway = avg.kpPer90 > 0 && awayKp > 0 ? awayKp / avg.kpPer90 : 1;
+
+    const ppaRatioHome = avg.ppaPer90 > 0 && homePpa > 0 ? homePpa / avg.ppaPer90 : 1;
+    const ppaRatioAway = avg.ppaPer90 > 0 && awayPpa > 0 ? awayPpa / avg.ppaPer90 : 1;
+
+    const homeCreationRatio = 0.4 * progRatioHome + 0.3 * kpRatioHome + 0.3 * ppaRatioHome;
+    const awayCreationRatio = 0.4 * progRatioAway + 0.3 * kpRatioAway + 0.3 * ppaRatioAway;
+
+    // Impacto baixo: até ±4% no λ por time
+    const homeDelta = clamp((homeCreationRatio - 1) * 0.10, -0.04, 0.04);
+    const awayDelta = clamp((awayCreationRatio - 1) * 0.10, -0.04, 0.04);
+
+    lambdaHome *= 1 + homeDelta;
+    lambdaAway *= 1 + awayDelta;
+
+    if (import.meta.env.DEV) {
+      console.log('[AnalysisEngine] Ajuste passing_for aplicado:', {
+        homeCreationRatio,
+        awayCreationRatio,
+        homeDelta,
+        awayDelta,
+        homeProg,
+        awayProg,
+        homeKp,
+        awayKp,
+        homePpa,
+        awayPpa,
+      });
+    }
+  }
+
+  const hasGcaFor =
+    !!data.homeGcaForData &&
+    !!data.awayGcaForData &&
+    !!data.competitionGcaForAvg;
+
+  if (hasGcaFor) {
+    const parseNum = (value: unknown): number => {
+      if (value == null) return 0;
+      const raw = String(value).trim();
+      if (!raw) return 0;
+      const normalized = raw.replace(/,/g, '').replace(/%/g, '');
+      const n = Number.parseFloat(normalized);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const getPer90 = (row: Record<string, unknown>, per90Keys: string[], totalKeys: string[]): number => {
+      for (const k of per90Keys) {
+        const v = parseNum(row[k]);
+        if (v > 0) return v;
+      }
+      const n90 =
+        parseNum(row['90s']) ||
+        parseNum(row['Playing Time 90s']) ||
+        parseNum(row['Playing Time 90S']);
+
+      for (const k of totalKeys) {
+        const total = parseNum(row[k]);
+        if (total > 0 && n90 > 0) return total / n90;
+      }
+      return 0;
+    };
+
+    const avg = data.competitionGcaForAvg!;
+    const homeRow = data.homeGcaForData as unknown as Record<string, unknown>;
+    const awayRow = data.awayGcaForData as unknown as Record<string, unknown>;
+
+    const homeSca = getPer90(homeRow, ['SCA90', 'SCA 90', 'Per 90 Minutes SCA'], ['SCA']);
+    const awaySca = getPer90(awayRow, ['SCA90', 'SCA 90', 'Per 90 Minutes SCA'], ['SCA']);
+
+    const homeGca = getPer90(homeRow, ['GCA90', 'GCA 90', 'Per 90 Minutes GCA'], ['GCA']);
+    const awayGca = getPer90(awayRow, ['GCA90', 'GCA 90', 'Per 90 Minutes GCA'], ['GCA']);
+
+    const scaRatioHome = avg.scaPer90 > 0 && homeSca > 0 ? homeSca / avg.scaPer90 : 1;
+    const scaRatioAway = avg.scaPer90 > 0 && awaySca > 0 ? awaySca / avg.scaPer90 : 1;
+
+    const gcaRatioHome = avg.gcaPer90 > 0 && homeGca > 0 ? homeGca / avg.gcaPer90 : 1;
+    const gcaRatioAway = avg.gcaPer90 > 0 && awayGca > 0 ? awayGca / avg.gcaPer90 : 1;
+
+    const homeCreationRatio = 0.6 * scaRatioHome + 0.4 * gcaRatioHome;
+    const awayCreationRatio = 0.6 * scaRatioAway + 0.4 * gcaRatioAway;
+
+    // Impacto moderado: até ±5% no λ por time
+    const homeDelta = clamp((homeCreationRatio - 1) * 0.12, -0.05, 0.05);
+    const awayDelta = clamp((awayCreationRatio - 1) * 0.12, -0.05, 0.05);
+
+    lambdaHome *= 1 + homeDelta;
+    lambdaAway *= 1 + awayDelta;
+
+    if (import.meta.env.DEV) {
+      console.log('[AnalysisEngine] Ajuste gca_for aplicado:', {
+        homeCreationRatio,
+        awayCreationRatio,
+        homeDelta,
+        awayDelta,
+        homeSca,
+        awaySca,
+        homeGca,
+        awayGca,
+      });
+    }
+  }
+
   // 4. Ajustar baseado em posição na tabela (times no topo são mais ofensivos)
   // Assumir que há 20 times (ajustar se necessário)
   const totalTeams = 20; // Pode ser ajustado dinamicamente se necessário

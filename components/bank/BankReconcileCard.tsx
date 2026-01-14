@@ -49,14 +49,14 @@ const BankReconcileCard: React.FC<BankReconcileCardProps> = ({
       <div className="pt-1 space-y-4">
         <div>
           <h4 className="text-base md:text-lg font-black mb-1">Reconciliar com Apostas</h4>
-          <p className="text-xs md:text-sm opacity-60">
+          <p className="text-xs md:text-sm opacity-70 leading-relaxed">
             Recalcula ganho/perda e sincroniza a banca com as apostas registradas.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="p-3 rounded-xl bg-base-200/40 border border-base-300/40">
-            <p className="text-[10px] font-bold opacity-60 uppercase">Impacto líquido (apostas)</p>
+            <p className="text-xs font-bold opacity-70 uppercase leading-tight">Impacto líquido (apostas)</p>
             <p
               className={`text-lg font-black tabular-nums ${
                 netCashDelta > 0 ? 'text-success' : netCashDelta < 0 ? 'text-error' : ''

@@ -74,14 +74,14 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
             <span className="truncate">{match.data.awayTeam}</span>
           </div>
           {championshipName && (
-            <div className="flex items-center gap-1 mt-0.5 text-[9px] opacity-60">
-              <Trophy className="w-2.5 h-2.5 text-warning" />
-              <span className="truncate">{championshipName}</span>
+            <div className="flex items-center gap-1 mt-0.5 text-xs opacity-70">
+              <Trophy className="w-3 h-3 text-warning" />
+              <span className="truncate leading-relaxed">{championshipName}</span>
             </div>
           )}
           <div className="flex items-center gap-2 mt-1">
-            <div className="flex items-center gap-1 text-[10px] opacity-60">
-              <Calendar className="w-2.5 h-2.5" />
+            <div className="flex items-center gap-1 text-xs opacity-70">
+              <Calendar className="w-3 h-3" />
               {match.data.matchDate ? (
                 <>
                   <span>
@@ -108,7 +108,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
               )}
             </div>
             <span
-              className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getRiskBadge(riskLevel)}`}
+              className={`px-2 py-1 rounded text-xs font-bold border ${getRiskBadge(riskLevel)}`}
             >
               {riskLevel}
             </span>
@@ -118,11 +118,11 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
         {/* Métricas Compactas */}
         <div className="flex items-center gap-3">
           {/* Probabilidade */}
-          <div className="flex flex-col items-center min-w-[45px]">
-            <div className="text-[9px] font-semibold opacity-70 uppercase">Prob</div>
-            <div className="text-sm font-black">{probability.toFixed(0)}%</div>
+          <div className="flex flex-col items-center min-w-[50px]">
+            <div className="text-xs font-semibold opacity-70 uppercase leading-tight">Prob</div>
+            <div className="text-sm font-black leading-none">{probability.toFixed(0)}%</div>
             {selectedLabel && (
-              <div className="text-[8px] font-semibold opacity-60 mt-0.5 text-center leading-tight">
+              <div className="text-[10px] font-semibold opacity-70 mt-0.5 text-center leading-tight">
                 {selectedLabel}
               </div>
             )}
@@ -139,10 +139,10 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           </div>
 
           {/* EV */}
-          <div className="flex flex-col items-center min-w-[40px]">
-            <div className="text-[9px] font-semibold opacity-70 uppercase">EV</div>
+          <div className="flex flex-col items-center min-w-[45px]">
+            <div className="text-xs font-semibold opacity-70 uppercase leading-tight">EV</div>
             <div
-              className={`text-sm font-black flex items-center gap-0.5 ${
+              className={`text-sm font-black flex items-center gap-0.5 leading-none ${
                 displayEv > 0
                   ? 'text-success'
                   : displayEv < 0
@@ -150,8 +150,8 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
                     : 'opacity-50'
               }`}
             >
-              {displayEv > 0 && <TrendingUp className="w-3 h-3" />}
-              {displayEv < 0 && <TrendingDown className="w-3 h-3" />}
+              {displayEv > 0 && <TrendingUp className="w-3.5 h-3.5" />}
+              {displayEv < 0 && <TrendingDown className="w-3.5 h-3.5" />}
               <span className="text-xs">
                 {displayEv > 0 ? '+' : ''}
                 {displayEv.toFixed(1)}%
@@ -160,9 +160,9 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           </div>
 
           {/* Odd */}
-          <div className="flex flex-col items-center min-w-[35px]">
-            <div className="text-[9px] font-semibold opacity-70 uppercase">Odd</div>
-            <div className="text-sm font-black text-primary">
+          <div className="flex flex-col items-center min-w-[40px]">
+            <div className="text-xs font-semibold opacity-70 uppercase leading-tight">Odd</div>
+            <div className="text-sm font-black text-primary leading-none">
               {match.data.oddOver15?.toFixed(2) || '-'}
             </div>
           </div>
@@ -170,7 +170,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           {/* Status Badge */}
           {match.betInfo && match.betInfo.betAmount > 0 && (
             <div
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold ${
                 match.betInfo.status === 'won'
                   ? 'bg-success/20 text-success'
                   : match.betInfo.status === 'lost'
@@ -180,9 +180,9 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
                       : 'bg-base-300/20 text-base-content/60'
               }`}
             >
-              {match.betInfo.status === 'won' && <CheckCircle className="w-2.5 h-2.5" />}
-              {match.betInfo.status === 'lost' && <XCircle className="w-2.5 h-2.5" />}
-              {match.betInfo.status === 'pending' && <Clock className="w-2.5 h-2.5" />}
+              {match.betInfo.status === 'won' && <CheckCircle className="w-3 h-3" />}
+              {match.betInfo.status === 'lost' && <XCircle className="w-3 h-3" />}
+              {match.betInfo.status === 'pending' && <Clock className="w-3 h-3" />}
               <span>
                 {match.betInfo.status === 'won'
                   ? '✓'

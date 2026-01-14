@@ -1,9 +1,13 @@
 import {
   Championship,
   ChampionshipTable,
+  CompetitionGcaForAverages,
+  CompetitionPassingForAverages,
   CompetitionStandardForAverages,
   TableType,
+  TableRowGcaFor,
   TableRowGeral,
+  TableRowPassingFor,
   TableRowStandardFor,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
@@ -13,6 +17,7 @@ import { logger } from '../utils/logger';
 export interface ChampionshipRow {
   id: string;
   nome: string;
+  fbref_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -286,6 +291,7 @@ export const loadChampionships = async (): Promise<Championship[]> => {
     const championships = (result as ChampionshipRow[]).map((row: ChampionshipRow) => ({
       id: row.id,
       nome: row.nome,
+      fbrefUrl: row.fbref_url ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at,
     }));
@@ -350,6 +356,7 @@ export const loadChampionship = async (id: string): Promise<Championship | null>
       return {
         id: data.id,
         nome: data.nome,
+        fbrefUrl: (data as unknown as { fbref_url?: string | null }).fbref_url ?? null,
         created_at: data.created_at,
         updated_at: data.updated_at,
       };
@@ -387,6 +394,7 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
           {
             id: championship.id,
             nome: championship.nome,
+            fbref_url: championship.fbrefUrl ?? null,
             updated_at: new Date().toISOString(),
           },
           {
@@ -397,7 +405,7 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116' || error.code === '42P01') {
+        if (error.code === 'PGRST116' || error.code === '42P01' || error.code === '42703') {
           // Salvar apenas no localStorage
           return saveChampionshipToLocalStorage(championship);
         }
@@ -419,6 +427,7 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
     const saved: Championship = {
       id: result.id,
       nome: result.nome,
+      fbrefUrl: (result as unknown as { fbref_url?: string | null }).fbref_url ?? championship.fbrefUrl ?? null,
       created_at: result.created_at,
       updated_at: result.updated_at,
     };
@@ -885,6 +894,137 @@ function calculateCompetitionStandardForAveragesFromRows(
   };
 }
 
+function calculateCompetitionPassingForAveragesFromRows(
+  rows: TableRowPassingFor[]
+): CompetitionPassingForAverages | null {
+  const parseNum = (value: unknown): number => {
+    if (value == null) return 0;
+    const raw = String(value).trim();
+    if (!raw) return 0;
+    const normalized = raw.replace(/,/g, '').replace(/%/g, '');
+    const n = Number.parseFloat(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const getPer90 = (row: Record<string, unknown>, per90Keys: string[], totalKeys: string[]): number => {
+    for (const k of per90Keys) {
+      const v = parseNum(row[k]);
+      if (v > 0) return v;
+    }
+    const n90 =
+      parseNum(row['90s']) ||
+      parseNum(row['Playing Time 90s']) ||
+      parseNum(row['Playing Time 90S']) ||
+      parseNum(row['Playing Time 90s ']);
+
+    for (const k of totalKeys) {
+      const total = parseNum(row[k]);
+      if (total > 0 && n90 > 0) return total / n90;
+    }
+    return 0;
+  };
+
+  let progSum = 0;
+  let kpSum = 0;
+  let ppaSum = 0;
+  let countProg = 0;
+  let countKp = 0;
+  let countPpa = 0;
+
+  for (const r of rows) {
+    const row = r as unknown as Record<string, unknown>;
+
+    const prog = getPer90(row, ['Per 90 Minutes Prog', 'Prog/90', 'Prog 90'], ['Prog']);
+    if (prog > 0) {
+      progSum += prog;
+      countProg++;
+    }
+
+    const kp = getPer90(row, ['Per 90 Minutes KP', 'KP/90', 'KP 90'], ['KP']);
+    if (kp > 0) {
+      kpSum += kp;
+      countKp++;
+    }
+
+    const ppa = getPer90(row, ['Per 90 Minutes PPA', 'PPA/90', 'PPA 90'], ['PPA']);
+    if (ppa > 0) {
+      ppaSum += ppa;
+      countPpa++;
+    }
+  }
+
+  const progAvg = countProg > 0 ? progSum / countProg : 0;
+  const kpAvg = countKp > 0 ? kpSum / countKp : 0;
+  const ppaAvg = countPpa > 0 ? ppaSum / countPpa : 0;
+
+  if (progAvg <= 0 && kpAvg <= 0 && ppaAvg <= 0) return null;
+
+  return {
+    progPer90: Math.round(progAvg * 100) / 100,
+    kpPer90: Math.round(kpAvg * 100) / 100,
+    ppaPer90: Math.round(ppaAvg * 100) / 100,
+  };
+}
+
+function calculateCompetitionGcaForAveragesFromRows(rows: TableRowGcaFor[]): CompetitionGcaForAverages | null {
+  const parseNum = (value: unknown): number => {
+    if (value == null) return 0;
+    const raw = String(value).trim();
+    if (!raw) return 0;
+    const normalized = raw.replace(/,/g, '').replace(/%/g, '');
+    const n = Number.parseFloat(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const getPer90 = (row: Record<string, unknown>, per90Keys: string[], totalKeys: string[]): number => {
+    for (const k of per90Keys) {
+      const v = parseNum(row[k]);
+      if (v > 0) return v;
+    }
+    const n90 =
+      parseNum(row['90s']) ||
+      parseNum(row['Playing Time 90s']) ||
+      parseNum(row['Playing Time 90S']) ||
+      parseNum(row['Playing Time 90s ']);
+
+    for (const k of totalKeys) {
+      const total = parseNum(row[k]);
+      if (total > 0 && n90 > 0) return total / n90;
+    }
+    return 0;
+  };
+
+  let scaSum = 0;
+  let gcaSum = 0;
+  let countSca = 0;
+  let countGca = 0;
+
+  for (const r of rows) {
+    const row = r as unknown as Record<string, unknown>;
+    const sca = getPer90(row, ['SCA90', 'SCA 90', 'Per 90 Minutes SCA'], ['SCA']);
+    if (sca > 0) {
+      scaSum += sca;
+      countSca++;
+    }
+
+    const gca = getPer90(row, ['GCA90', 'GCA 90', 'Per 90 Minutes GCA'], ['GCA']);
+    if (gca > 0) {
+      gcaSum += gca;
+      countGca++;
+    }
+  }
+
+  const scaAvg = countSca > 0 ? scaSum / countSca : 0;
+  const gcaAvg = countGca > 0 ? gcaSum / countGca : 0;
+
+  if (scaAvg <= 0 && gcaAvg <= 0) return null;
+
+  return {
+    scaPer90: Math.round(scaAvg * 100) / 100,
+    gcaPer90: Math.round(gcaAvg * 100) / 100,
+  };
+}
+
 /**
  * Sincroniza dados completos da tabela do campeonato para ambas equipes
  * Retorna TODOS os campos da tabela para análise pela IA
@@ -900,6 +1040,12 @@ export const syncTeamStatsFromTable = async (
   homeStandardForData?: TableRowStandardFor | null;
   awayStandardForData?: TableRowStandardFor | null;
   competitionStandardForAvg?: CompetitionStandardForAverages | null;
+  homePassingForData?: TableRowPassingFor | null;
+  awayPassingForData?: TableRowPassingFor | null;
+  competitionPassingForAvg?: CompetitionPassingForAverages | null;
+  homeGcaForData?: TableRowGcaFor | null;
+  awayGcaForData?: TableRowGcaFor | null;
+  competitionGcaForAvg?: CompetitionGcaForAverages | null;
 }> => {
   try {
     // Carregar tabelas uma única vez (evita múltiplas chamadas ao Supabase/localStorage)
@@ -929,6 +1075,25 @@ export const syncTeamStatsFromTable = async (
 
     const competitionStandardForAvg = calculateCompetitionStandardForAveragesFromRows(standardForRows);
 
+    // Complementos adicionais (passing_for / gca_for) - opcionais
+    const passingForTable = tables.find((t) => t.table_type === 'passing_for');
+    const passingForRows = Array.isArray(passingForTable?.table_data)
+      ? (passingForTable?.table_data as TableRowPassingFor[])
+      : [];
+
+    const homePassingForData = passingForRows.find((row) => row.Squad === homeSquad) || null;
+    const awayPassingForData = passingForRows.find((row) => row.Squad === awaySquad) || null;
+    const competitionPassingForAvg = calculateCompetitionPassingForAveragesFromRows(passingForRows);
+
+    const gcaForTable = tables.find((t) => t.table_type === 'gca_for');
+    const gcaForRows = Array.isArray(gcaForTable?.table_data)
+      ? (gcaForTable?.table_data as TableRowGcaFor[])
+      : [];
+
+    const homeGcaForData = gcaForRows.find((row) => row.Squad === homeSquad) || null;
+    const awayGcaForData = gcaForRows.find((row) => row.Squad === awaySquad) || null;
+    const competitionGcaForAvg = calculateCompetitionGcaForAveragesFromRows(gcaForRows);
+
     return {
       homeTableData: homeData,
       awayTableData: awayData,
@@ -936,6 +1101,12 @@ export const syncTeamStatsFromTable = async (
       homeStandardForData,
       awayStandardForData,
       competitionStandardForAvg,
+      homePassingForData,
+      awayPassingForData,
+      competitionPassingForAvg,
+      homeGcaForData,
+      awayGcaForData,
+      competitionGcaForAvg,
     };
   } catch (error: unknown) {
     logger.error('[ChampionshipService] Erro ao sincronizar dados da tabela:', error);
@@ -945,6 +1116,12 @@ export const syncTeamStatsFromTable = async (
       homeStandardForData: null,
       awayStandardForData: null,
       competitionStandardForAvg: null,
+      homePassingForData: null,
+      awayPassingForData: null,
+      competitionPassingForAvg: null,
+      homeGcaForData: null,
+      awayGcaForData: null,
+      competitionGcaForAvg: null,
     };
   }
 };

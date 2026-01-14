@@ -49,7 +49,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
     >
       <div className="mb-4">
         <h3 className="text-lg md:text-xl font-black mb-1">Configurações</h3>
-        <p className="text-xs md:text-sm opacity-60">Edite banca e multiplicador de retorno</p>
+        <p className="text-xs md:text-sm opacity-70 leading-relaxed">Edite banca e multiplicador de retorno</p>
       </div>
 
       <div className="space-y-4">
@@ -95,7 +95,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
             )}
           </div>
           <label className="label">
-            <span className="label-text-alt opacity-60 text-xs">
+            <span className="label-text-alt opacity-70 text-xs leading-relaxed">
               {validationMessage || 'Digite o valor total disponível na sua banca'}
             </span>
           </label>
@@ -123,7 +123,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
             />
           </div>
           <label className="label">
-            <span className="label-text-alt opacity-60 text-xs">
+            <span className="label-text-alt opacity-70 text-xs leading-relaxed">
               Multiplica o retorno potencial das apostas (0,10 a 10,00)
               {leverage > 2.0 && <span className="text-warning ml-2">⚠️ Alto risco</span>}
             </span>

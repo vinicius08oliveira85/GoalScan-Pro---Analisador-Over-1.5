@@ -8,13 +8,13 @@ export interface FbrefExtractionRequest {
   championshipUrl: string;
   championshipId: string;
   extractTypes: ExtractType[];
-  tableType?: 'geral' | 'standard_for';
 }
 
 export interface FbrefExtractionResult {
   success: boolean;
   data?: {
-    table?: unknown[];
+    tables?: Record<'geral' | 'standard_for' | 'passing_for' | 'gca_for', unknown[]>;
+    missingTables?: Array<'geral' | 'standard_for' | 'passing_for' | 'gca_for'>;
     matches?: unknown[];
     teamStats?: unknown[];
   };
@@ -94,7 +94,6 @@ export const extractFbrefData = async (
         championshipUrl: request.championshipUrl,
         championshipId: request.championshipId,
         extractTypes: request.extractTypes,
-        tableType: request.tableType || 'geral',
       },
     });
 
@@ -121,6 +120,13 @@ export const extractFbrefData = async (
       error: error instanceof Error ? error.message : 'Erro desconhecido ao extrair dados',
     };
   }
+};
+
+const TABLE_NAME_BY_TYPE: Record<TableType, string> = {
+  geral: 'Geral',
+  standard_for: 'Standard (For) - Complemento',
+  passing_for: 'Passing (For) - Complemento',
+  gca_for: 'GCA (For) - Complemento',
 };
 
 /**
@@ -156,10 +162,11 @@ export const saveExtractedTable = async (
     const { saveChampionshipTable } = await import('./championshipService');
 
     const table: ChampionshipTable = {
-      id: `${championshipId}_${tableType}_${Date.now()}`,
+      // ID estável por campeonato + tipo (evita “acúmulo” de versões no banco; mantém sempre a mais recente)
+      id: `${championshipId}_${tableType}`,
       championship_id: championshipId,
       table_type: tableType,
-      table_name: tableType === 'geral' ? 'Geral' : 'Standard (For) - Complemento',
+      table_name: TABLE_NAME_BY_TYPE[tableType] ?? tableType,
       table_data: normalizedData,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -171,6 +178,27 @@ export const saveExtractedTable = async (
     logger.error('[FBrefService] Erro ao salvar tabela:', error);
     throw error;
   }
+};
+
+/**
+ * Salva um pacote de tabelas extraídas (geral + standard_for + passing_for + gca_for).
+ * Retorna as tabelas efetivamente salvas (pode pular as vazias).
+ */
+export const saveExtractedTables = async (
+  championshipId: string,
+  tablesByType: Record<'geral' | 'standard_for' | 'passing_for' | 'gca_for', unknown[]>
+): Promise<ChampionshipTable[]> => {
+  const saved: ChampionshipTable[] = [];
+
+  for (const tableType of Object.keys(tablesByType) as Array<keyof typeof tablesByType>) {
+    const rows = tablesByType[tableType];
+    if (!Array.isArray(rows) || rows.length === 0) continue;
+
+    const res = await saveExtractedTable(championshipId, tableType as TableType, rows);
+    if (res) saved.push(res);
+  }
+
+  return saved;
 };
 
 /**

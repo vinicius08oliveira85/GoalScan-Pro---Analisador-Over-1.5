@@ -1,4 +1,4 @@
-import { TableRowGeral, TableRowStandardFor } from '../types';
+import { TableRowGcaFor, TableRowGeral, TableRowPassingFor, TableRowStandardFor } from '../types';
 
 /**
  * Normaliza nome de cabeçalho do fbref.com para formato esperado
@@ -95,6 +95,8 @@ export function mapToTableRowGeral(rawRow: Record<string, unknown>): TableRowGer
     'Last 5': String(rawRow['Last 5'] || rawRow['last 5'] || rawRow['Last5'] || ''),
     Attendance: String(rawRow.Attendance || rawRow.attendance || ''),
     'Top Team Scorer': String(rawRow['Top Team Scorer'] || rawRow['top team scorer'] || ''),
+    Goalkeeper: String(rawRow.Goalkeeper || rawRow.goalkeeper || ''),
+    Notes: String(rawRow.Notes || rawRow.notes || ''),
   };
 
   // Adicionar campos opcionais se existirem
@@ -104,9 +106,7 @@ export function mapToTableRowGeral(rawRow: Record<string, unknown>): TableRowGer
   if (rawRow['Goalkeeper_link'] || rawRow['goalkeeper_link']) {
     row['Goalkeeper_link'] = String(rawRow['Goalkeeper_link'] || rawRow['goalkeeper_link']);
   }
-  if (rawRow.Goalkeeper || rawRow.goalkeeper) {
-    row.Goalkeeper = String(rawRow.Goalkeeper || rawRow.goalkeeper);
-  }
+  // Goalkeeper e Notes já são preenchidos com fallback acima (mantemos aqui apenas por compatibilidade)
 
   return row;
 }
@@ -158,6 +158,38 @@ export function mapToTableRowStandardFor(rawRow: Record<string, unknown>): Table
 }
 
 /**
+ * Converte dados brutos extraídos do fbref.com para formato TableRowPassingFor
+ * (apenas garante Squad e preserva colunas dinâmicas)
+ */
+export function mapToTableRowPassingFor(rawRow: Record<string, unknown>): TableRowPassingFor | null {
+  const squad = String(rawRow.Squad || rawRow.squad || rawRow.Team || rawRow.team || '').trim();
+  if (!squad) return null;
+
+  const row: TableRowPassingFor = { Squad: squad };
+  Object.keys(rawRow).forEach((key) => {
+    if (key === 'squad' && !('Squad' in rawRow)) return;
+    row[key] = rawRow[key];
+  });
+  return row;
+}
+
+/**
+ * Converte dados brutos extraídos do fbref.com para formato TableRowGcaFor
+ * (apenas garante Squad e preserva colunas dinâmicas)
+ */
+export function mapToTableRowGcaFor(rawRow: Record<string, unknown>): TableRowGcaFor | null {
+  const squad = String(rawRow.Squad || rawRow.squad || rawRow.Team || rawRow.team || '').trim();
+  if (!squad) return null;
+
+  const row: TableRowGcaFor = { Squad: squad };
+  Object.keys(rawRow).forEach((key) => {
+    if (key === 'squad' && !('Squad' in rawRow)) return;
+    row[key] = rawRow[key];
+  });
+  return row;
+}
+
+/**
  * Converte array de dados brutos para formato TableRowGeral[]
  */
 export function mapToTableRowsGeral(rawData: unknown[]): TableRowGeral[] {
@@ -183,5 +215,23 @@ export function mapToTableRowsStandardFor(rawData: unknown[]): TableRowStandardF
       return mapToTableRowStandardFor(row as Record<string, unknown>);
     })
     .filter((row): row is TableRowStandardFor => row !== null);
+}
+
+export function mapToTableRowsPassingFor(rawData: unknown[]): TableRowPassingFor[] {
+  return rawData
+    .map((row) => {
+      if (typeof row !== 'object' || row === null) return null;
+      return mapToTableRowPassingFor(row as Record<string, unknown>);
+    })
+    .filter((row): row is TableRowPassingFor => row !== null);
+}
+
+export function mapToTableRowsGcaFor(rawData: unknown[]): TableRowGcaFor[] {
+  return rawData
+    .map((row) => {
+      if (typeof row !== 'object' || row === null) return null;
+      return mapToTableRowGcaFor(row as Record<string, unknown>);
+    })
+    .filter((row): row is TableRowGcaFor => row !== null);
 }
 

@@ -12,7 +12,7 @@ interface ChampionshipFormProps {
 }
 
 const TABLE_TYPES: Array<{ type: TableType; name: string; required: boolean }> = [
-  { type: 'geral', name: 'Geral', required: true },
+  { type: 'geral', name: 'Geral', required: false },
   { type: 'standard_for', name: 'Standard (For) - Complemento', required: false },
 ];
 
@@ -22,6 +22,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   onCancel,
 }) => {
   const [nome, setNome] = useState('');
+  const [fbrefUrl, setFbrefUrl] = useState('');
   const [tables, setTables] = useState<Map<TableType, ChampionshipTable>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -29,8 +30,10 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   useEffect(() => {
     if (championship) {
       setNome(championship.nome);
+      setFbrefUrl(championship.fbrefUrl ?? '');
     } else {
       setNome('');
+      setFbrefUrl('');
       setTables(new Map());
     }
   }, [championship]);
@@ -168,9 +171,9 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
       newErrors.nome = 'O nome do campeonato é obrigatório.';
     }
 
-    // Verificar se tabela geral está presente
-    if (!tables.has('geral')) {
-      newErrors.geral = 'A tabela "Geral" é obrigatória.';
+    const fbrefUrlTrimmed = fbrefUrl.trim();
+    if (fbrefUrlTrimmed && !fbrefUrlTrimmed.includes('fbref.com')) {
+      newErrors.fbrefUrl = 'A URL deve ser do fbref.com (ex: https://fbref.com/en/comps/11/Serie-A-Stats).';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -183,6 +186,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
       const championshipToSave: Championship = {
         id: championship?.id || Math.random().toString(36).slice(2, 11),
         nome: nome.trim(),
+        fbrefUrl: fbrefUrlTrimmed ? fbrefUrlTrimmed : null,
         updated_at: new Date().toISOString(),
       };
 
@@ -227,7 +231,28 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
         {errors.nome && <span className="text-error text-sm mt-1">{errors.nome}</span>}
       </div>
 
-      {/* Upload de Tabelas */}
+      {/* URL do FBref */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-bold">URL do FBref (opcional)</span>
+        </label>
+        <input
+          type="url"
+          value={fbrefUrl}
+          onChange={(e) => setFbrefUrl(e.target.value)}
+          className="input input-bordered w-full"
+          placeholder="Ex: https://fbref.com/en/comps/11/Serie-A-Stats"
+        />
+        {errors.fbrefUrl && <span className="text-error text-sm mt-1">{errors.fbrefUrl}</span>}
+        {!errors.fbrefUrl && (
+          <span className="text-xs opacity-70 mt-1">
+            Dica: com essa URL salva, você poderá clicar em <span className="font-semibold">Atualizar</span> e extrair
+            todas as tabelas automaticamente.
+          </span>
+        )}
+      </div>
+
+      {/* Upload de Tabelas (opcional) */}
       <div className="space-y-6">
         <h3 className="text-xl font-bold">Tabelas</h3>
 
@@ -306,9 +331,6 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
           );
         })}
 
-        {errors.geral && (
-          <span className="text-error text-sm block mt-2">{errors.geral}</span>
-        )}
       </div>
 
       {/* Botões */}

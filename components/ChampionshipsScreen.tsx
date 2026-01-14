@@ -150,6 +150,14 @@ const ChampionshipsScreen: React.FC = () => {
                         ? new Date(championship.created_at).toLocaleDateString('pt-BR')
                         : 'Data não disponível'}
                     </p>
+                    {championship.fbrefUrl && (
+                      <p
+                        className="text-[11px] text-base-content/50 mt-1 truncate max-w-[240px]"
+                        title={championship.fbrefUrl}
+                      >
+                        URL: {championship.fbrefUrl}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -165,10 +173,15 @@ const ChampionshipsScreen: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleUpdateTables(championship)}
-                  className="btn btn-sm btn-ghost gap-1"
-                  title="Atualizar Tabelas (JSON)"
+                  className="btn btn-sm btn-ghost flex-1 gap-1"
+                  title={
+                    championship.fbrefUrl
+                      ? 'Atualizar (extrair do FBref via URL salva)'
+                      : 'Atualizar (você pode colar a URL do FBref no modal)'
+                  }
                 >
                   <Upload className="w-4 h-4" />
+                  Atualizar
                 </button>
                 <button
                   onClick={() => handleEditChampionship(championship)}

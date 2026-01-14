@@ -191,6 +191,9 @@ async function buildContext(
   const hasHomeTableData = !!data.homeTableData;
   const hasAwayTableData = !!data.awayTableData;
   const hasCompetitionAvg = !!(data.competitionAvg && data.competitionAvg > 0);
+  const hasStandardFor = !!data.homeStandardForData && !!data.awayStandardForData;
+  const hasPassingFor = !!data.homePassingForData && !!data.awayPassingForData;
+  const hasGcaFor = !!data.homeGcaForData && !!data.awayGcaForData;
 
   if (import.meta.env.DEV) {
     console.log('[AIOver15Service] Construindo contexto para IA:', {
@@ -210,6 +213,9 @@ async function buildContext(
     if (!hasHomeTableData) missingForAI.push('Dados da tabela do time da casa');
     if (!hasAwayTableData) missingForAI.push('Dados da tabela do time visitante');
     if (!hasCompetitionAvg) missingForAI.push('Média da competição');
+    if (!hasStandardFor) missingForAI.push('Tabela complementar standard_for (casa/fora)');
+    if (!hasPassingFor) missingForAI.push('Tabela complementar passing_for (casa/fora)');
+    if (!hasGcaFor) missingForAI.push('Tabela complementar gca_for (casa/fora)');
 
     if (missingForAI.length > 0) {
       console.warn('[AIOver15Service] Dados faltando para análise da IA:', missingForAI);
@@ -257,9 +263,26 @@ async function buildContext(
       },
     },
     // Dados completos da tabela do campeonato (TODOS os campos: Rk, Squad, MP, W, D, L, GF, GA, GD, Pts, xG, xGA, etc.)
-    championshipTable: {
-      home: data.homeTableData || null,
-      away: data.awayTableData || null,
+    championshipTables: {
+      geral: {
+        home: data.homeTableData || null,
+        away: data.awayTableData || null,
+      },
+      standard_for: {
+        home: data.homeStandardForData || null,
+        away: data.awayStandardForData || null,
+        competitionAvg: data.competitionStandardForAvg || null,
+      },
+      passing_for: {
+        home: data.homePassingForData || null,
+        away: data.awayPassingForData || null,
+        competitionAvg: data.competitionPassingForAvg || null,
+      },
+      gca_for: {
+        home: data.homeGcaForData || null,
+        away: data.awayGcaForData || null,
+        competitionAvg: data.competitionGcaForAvg || null,
+      },
     },
     baseline: {
       prob: safeNumber(result.probabilityOver15),
@@ -330,22 +353,25 @@ async function buildPrompt(
     '### SOBRE OS DADOS:',
     '- "stats" contém as Estatísticas Globais inseridas manualmente pelo usuário (baseadas nos últimos 10 jogos Casa/Fora)',
     '  - Use estas como fonte PRINCIPAL para análise de tendências recentes',
-    '- "championshipTable" contém TODOS os campos da tabela do campeonato para cada equipe',
+    '- "championshipTables.geral" contém TODOS os campos da tabela do campeonato (classificação) para cada equipe',
     '  - Rk: Classificação na tabela (times no topo tendem a ser mais ofensivos)',
     '  - MP: Partidas Jogadas (verificar se é amostra suficiente)',
-    '  - GF/MP: Média de gols marcados por jogo (comparar com stats.avgScored)',
-    '  - GA/MP: Média de gols sofridos por jogo (comparar com stats.avgConceded)',
+    '  - GF/MP e GA/MP: médias de gols marcados/sofridos (comparar com stats)',
     '  - xG/xGA: Expected Goals (mais preciso que gols reais, use para ajustes finos)',
-    '  - "Last 5": Forma recente (W=Win, D=Draw, L=Loss) - times em boa forma tendem a marcar mais',
-    '  - GD: Saldo de gols (times com saldo positivo são mais ofensivos)',
+    '  - "Last 5": Forma recente (W/D/L)',
+    '  - GD: Saldo de gols',
+    '- "championshipTables.standard_for" traz métricas de qualidade/ritmo (ex: npxG+xAG/90, Poss, PrgP, PrgC) + competitionAvg',
+    '- "championshipTables.passing_for" traz criação via passe (ex: Prog/KP/PPA por 90 quando existir) + competitionAvg',
+    '- "championshipTables.gca_for" traz ações de criação de chute/gol (SCA/GCA por 90 quando existir) + competitionAvg',
     '',
     '### COMO COMBINAR OS DADOS:',
     '1. Use Estatísticas Globais (stats) como base principal - são dos últimos 10 jogos específicos (Casa/Fora)',
-    '2. Use dados da tabela (championshipTable) para contexto e validação:',
+    '2. Use dados das tabelas (championshipTables.*) para contexto e validação:',
     '   - Verificar consistência: GF/MP deve ser similar a stats.avgScored',
     '   - Usar xG/xGA para ajustes finos (mais preciso que gols reais)',
     '   - Considerar classificação (Rk) e forma recente (Last 5)',
     '   - Analisar saldo de gols (GD) para entender força ofensiva/defensiva',
+    '   - Usar standard_for/passing_for/gca_for como reforço (ajustes pequenos + confiança)',
     '3. Se houver divergência entre stats e tabela, priorize stats (são mais específicos)',
     '4. Use competitionAvg como baseline da competição',
     '',

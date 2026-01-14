@@ -2,8 +2,13 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
-import { extractFbrefData, saveExtractedTable, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
-import { mapToTableRowsGeral, mapToTableRowsStandardFor } from '../utils/fbrefMapper';
+import { extractFbrefData, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
+import {
+  mapToTableRowsGcaFor,
+  mapToTableRowsGeral,
+  mapToTableRowsPassingFor,
+  mapToTableRowsStandardFor,
+} from '../utils/fbrefMapper';
 import { Championship, TableType } from '../types';
 import { animations } from '../utils/animations';
 
@@ -20,12 +25,14 @@ export default function FbrefExtractionModal({
   onTableSaved,
   onError,
 }: Props) {
-  const [url, setUrl] = useState('');
-  const [extractTypes, setExtractTypes] = useState<ExtractType[]>(['table']);
-  const [tableType, setTableType] = useState<'geral' | 'standard_for'>('geral');
+  const [url, setUrl] = useState(championship.fbrefUrl ?? '');
+  const extractTypes: ExtractType[] = ['table'];
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FbrefExtractionResult | null>(null);
-  const [previewData, setPreviewData] = useState<unknown[] | null>(null);
+  const [previewTables, setPreviewTables] = useState<
+    Record<'geral' | 'standard_for' | 'passing_for' | 'gca_for', unknown[]> | null
+  >(null);
+  const [activePreviewTable, setActivePreviewTable] = useState<TableType>('geral');
   const [saving, setSaving] = useState(false);
 
   const handleExtract = async () => {
@@ -41,20 +48,25 @@ export default function FbrefExtractionModal({
 
     setLoading(true);
     setResult(null);
-    setPreviewData(null);
+    setPreviewTables(null);
 
     try {
       const extractionResult = await extractFbrefData({
         championshipUrl: url.trim(),
         championshipId: championship.id,
         extractTypes,
-        tableType,
       });
 
       setResult(extractionResult);
 
-      if (extractionResult.success && extractionResult.data?.table) {
-        setPreviewData(extractionResult.data.table as unknown[]);
+      if (extractionResult.success && extractionResult.data?.tables) {
+        setPreviewTables(extractionResult.data.tables);
+
+        // Selecionar a primeira tabela com dados para preview
+        const order: Array<TableType> = ['geral', 'standard_for', 'passing_for', 'gca_for'];
+        const firstWithData =
+          order.find((t) => (extractionResult.data?.tables?.[t]?.length ?? 0) > 0) || 'geral';
+        setActivePreviewTable(firstWithData);
       } else {
         onError?.(extractionResult.error || 'Erro ao extrair dados');
       }
@@ -71,7 +83,7 @@ export default function FbrefExtractionModal({
   };
 
   const handleSave = async () => {
-    if (!previewData || previewData.length === 0) {
+    if (!previewTables) {
       onError?.('Nenhum dado para salvar');
       return;
     }
@@ -79,18 +91,24 @@ export default function FbrefExtractionModal({
     setSaving(true);
 
     try {
-      // Mapear dados para formato correto
-      const mappedData =
-        tableType === 'geral'
-          ? mapToTableRowsGeral(previewData)
-          : mapToTableRowsStandardFor(previewData);
+      const mapped = {
+        geral: mapToTableRowsGeral(previewTables.geral || []),
+        standard_for: mapToTableRowsStandardFor(previewTables.standard_for || []),
+        passing_for: mapToTableRowsPassingFor(previewTables.passing_for || []),
+        gca_for: mapToTableRowsGcaFor(previewTables.gca_for || []),
+      };
 
-      if (mappedData.length === 0) {
+      const totalRows =
+        mapped.geral.length +
+        mapped.standard_for.length +
+        mapped.passing_for.length +
+        mapped.gca_for.length;
+
+      if (totalRows === 0) {
         throw new Error('Nenhum dado válido encontrado após mapeamento');
       }
 
-      // Salvar tabela
-      await saveExtractedTable(championship.id, tableType, mappedData);
+      await saveExtractedTables(championship.id, mapped);
 
       onTableSaved?.();
       onClose();
@@ -99,14 +117,6 @@ export default function FbrefExtractionModal({
       onError?.(message);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const toggleExtractType = (type: ExtractType) => {
-    if (extractTypes.includes(type)) {
-      setExtractTypes(extractTypes.filter((t) => t !== type));
-    } else {
-      setExtractTypes([...extractTypes, type]);
     }
   };
 
@@ -159,59 +169,12 @@ export default function FbrefExtractionModal({
             </label>
           </div>
 
-          {/* Table Type */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-bold">Tipo de Tabela</span>
-            </label>
-            <select
-              value={tableType}
-              onChange={(e) => setTableType(e.target.value as 'geral' | 'standard_for')}
-              className="select select-bordered"
-              disabled={loading || saving}
-            >
-              <option value="geral">Geral</option>
-              <option value="standard_for">Standard (For) - Complemento</option>
-            </select>
-          </div>
-
-          {/* Extract Types (desabilitado por enquanto, apenas tabela) */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-bold">Tipos de Dados</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <label className="label cursor-pointer gap-2">
-                <input
-                  type="checkbox"
-                  checked={extractTypes.includes('table')}
-                  onChange={() => toggleExtractType('table')}
-                  className="checkbox checkbox-primary checkbox-sm"
-                  disabled={loading || saving}
-                />
-                <span className="label-text">Tabela</span>
-              </label>
-              <label className="label cursor-pointer gap-2 opacity-50">
-                <input
-                  type="checkbox"
-                  checked={extractTypes.includes('matches')}
-                  onChange={() => toggleExtractType('matches')}
-                  className="checkbox checkbox-primary checkbox-sm"
-                  disabled={true}
-                />
-                <span className="label-text">Jogos (em breve)</span>
-              </label>
-              <label className="label cursor-pointer gap-2 opacity-50">
-                <input
-                  type="checkbox"
-                  checked={extractTypes.includes('team-stats')}
-                  onChange={() => toggleExtractType('team-stats')}
-                  className="checkbox checkbox-primary checkbox-sm"
-                  disabled={true}
-                />
-                <span className="label-text">Estatísticas (em breve)</span>
-              </label>
-            </div>
+          <div className="text-sm opacity-70">
+            Este modo extrai automaticamente as tabelas:{' '}
+            <span className="font-semibold">geral</span>,{' '}
+            <span className="font-semibold">standard_for</span>,{' '}
+            <span className="font-semibold">passing_for</span> e{' '}
+            <span className="font-semibold">gca_for</span>.
           </div>
 
           {/* Extract Button */}
@@ -251,12 +214,17 @@ export default function FbrefExtractionModal({
                   {result.success ? 'Extração bem-sucedida!' : 'Erro na extração'}
                 </p>
                 {result.error && <p className="text-sm opacity-90">{result.error}</p>}
+                {result.success && result.data?.missingTables && result.data.missingTables.length > 0 && (
+                  <p className="text-sm opacity-90 mt-1">
+                    Tabelas não encontradas: <span className="font-semibold">{result.data.missingTables.join(', ')}</span>
+                  </p>
+                )}
               </div>
             </motion.div>
           )}
 
           {/* Preview */}
-          {previewData && previewData.length > 0 && (
+          {previewTables && (
             <motion.div
               initial="initial"
               animate="animate"
@@ -266,41 +234,66 @@ export default function FbrefExtractionModal({
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-info" />
-                  <span className="font-bold">Preview dos Dados</span>
+                  <span className="font-bold">Preview das Tabelas</span>
                 </div>
-                <span className="badge badge-info">{previewData.length} times encontrados</span>
+                <span className="badge badge-info">
+                  {(previewTables.geral?.length ?? 0)} times (geral)
+                </span>
               </div>
 
-              <div className="max-h-64 overflow-y-auto">
-                <table className="table table-xs table-zebra">
-                  <thead>
-                    <tr>
-                      {Object.keys(previewData[0] as Record<string, unknown>)
-                        .slice(0, 5)
-                        .map((key) => (
-                          <th key={key} className="text-xs">
-                            {key}
-                          </th>
-                        ))}
-                      <th className="text-xs">...</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewData.slice(0, 5).map((row, idx) => (
-                      <tr key={idx}>
-                        {Object.values(row as Record<string, unknown>)
-                          .slice(0, 5)
-                          .map((value, valIdx) => (
-                            <td key={valIdx} className="text-xs">
-                              {String(value).substring(0, 20)}
-                            </td>
-                          ))}
-                        <td className="text-xs opacity-50">...</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div role="tablist" className="tabs tabs-boxed tabs-sm mb-3">
+                {(['geral', 'standard_for', 'passing_for', 'gca_for'] as TableType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    className={`tab ${activePreviewTable === t ? 'tab-active' : ''}`}
+                    onClick={() => setActivePreviewTable(t)}
+                  >
+                    {t} ({(previewTables as any)[t]?.length ?? 0})
+                  </button>
+                ))}
               </div>
+
+              {(() => {
+                const current = (previewTables as any)[activePreviewTable] as unknown[] | undefined;
+                const currentRows = Array.isArray(current) ? current : [];
+                if (currentRows.length === 0) {
+                  return <div className="text-sm opacity-70">Sem dados para esta tabela.</div>;
+                }
+
+                const first = (currentRows[0] as Record<string, unknown>) || {};
+                const keys = Object.keys(first).slice(0, 6);
+
+                return (
+                  <div className="max-h-64 overflow-y-auto">
+                    <table className="table table-xs table-zebra">
+                      <thead>
+                        <tr>
+                          {keys.map((key) => (
+                            <th key={key} className="text-xs">
+                              {key}
+                            </th>
+                          ))}
+                          <th className="text-xs">...</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentRows.slice(0, 6).map((row, idx) => (
+                          <tr key={idx}>
+                            {keys.map((k) => (
+                              <td key={k} className="text-xs">
+                                {String((row as Record<string, unknown>)[k] ?? '').substring(0, 24)}
+                              </td>
+                            ))}
+                            <td className="text-xs opacity-50">...</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
 
               <button
                 onClick={handleSave}
@@ -315,7 +308,7 @@ export default function FbrefExtractionModal({
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    Salvar Tabela
+                    Salvar Tabelas
                   </>
                 )}
               </button>

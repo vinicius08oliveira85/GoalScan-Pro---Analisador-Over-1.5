@@ -5,13 +5,15 @@ interface ExtractRequest {
   championshipUrl: string;
   championshipId: string;
   extractTypes: ('table' | 'matches' | 'team-stats' | 'all')[];
-  tableType?: 'geral' | 'standard_for';
 }
+
+type FbrefTableType = 'geral' | 'standard_for' | 'passing_for' | 'gca_for';
 
 interface ExtractionResult {
   success: boolean;
   data?: {
-    table?: unknown[];
+    tables?: Record<FbrefTableType, unknown[]>;
+    missingTables?: FbrefTableType[];
     matches?: unknown[];
     teamStats?: unknown[];
   };
@@ -50,184 +52,248 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Extrair tabela HTML e converter para JSON
-async function extractTableFromUrl(url: string, tableType: 'geral' | 'standard_for' = 'geral'): Promise<unknown[]> {
-  // Validar URL
-  if (!isValidFbrefUrl(url)) {
-    throw new Error('URL inválida. Apenas URLs do fbref.com são permitidas.');
+const TABLE_ID_CANDIDATES: Record<FbrefTableType, Array<string | RegExp>> = {
+  // “Geral” (classificação): o id muda por competição/temporada, mas termina em _overall.
+  // Exemplos comuns: stats_results_2025-2026_111_overall, results2025-2026111_overall, results_..._overall
+  geral: [/^stats_results_.*_overall$/i, /^results.*_overall$/i, /_overall$/i],
+  standard_for: ['stats_squads_standard_for', /standard_for$/i],
+  passing_for: ['stats_squads_passing_for', /passing_for$/i],
+  gca_for: ['stats_squads_gca_for', /gca_for$/i],
+};
+
+function decodeHtmlEntities(input: string): string {
+  // Decoder simples (suficiente para chaves/valores comuns do FBref)
+  return input
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ');
+}
+
+function stripTags(input: string): string {
+  return decodeHtmlEntities(input.replace(/<[^>]*>/g, '').trim());
+}
+
+function normalizeHeaderKey(header: string): string {
+  const h = header.replace(/\s+/g, ' ').trim();
+  // Normalizações pontuais mantendo compatibilidade com export do FBref
+  if (/^pts\s*\/\s*mp$/i.test(h)) return 'Pts/MP';
+  if (/^xgd\s*\/\s*90$/i.test(h)) return 'xGD/90';
+  return h;
+}
+
+function collectTablesById(html: string): Map<string, string> {
+  const map = new Map<string, string>();
+  const tableRegex = /<table[^>]*id="([^"]+)"[^>]*>[\s\S]*?<\/table>/gi;
+  for (const match of html.matchAll(tableRegex)) {
+    const id = match[1];
+    const tableHtml = match[0];
+    if (id && tableHtml) map.set(id, tableHtml);
   }
+  return map;
+}
 
-  // Fazer requisição com delay
-  await delay(DELAY_MS);
-
-  const response = await fetch(url, {
-    headers: DEFAULT_HEADERS,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
-  }
-
-  const html = await response.text();
-
-  // Parse HTML usando regex (melhorado para lidar com tabelas complexas)
-  // Buscar por tabelas com classe stats_table
-  const tableRegex = /<table[^>]*class="[^"]*stats_table[^"]*"[^>]*>([\s\S]*?)<\/table>/gi;
-  const tableMatches = Array.from(html.matchAll(tableRegex));
-
-  if (!tableMatches || tableMatches.length === 0) {
-    throw new Error('Tabela não encontrada na página. Certifique-se de que a URL aponta para uma página com tabela de classificação.');
-  }
-
-  // Usar a primeira tabela encontrada (geralmente é a tabela principal)
-  const tableHtml = tableMatches[0][0];
-  
-  // Extrair cabeçalhos do thead
-  const headerRegex = /<thead[^>]*>([\s\S]*?)<\/thead>/gi;
-  const headerMatch = tableHtml.match(headerRegex);
-  const headers: string[] = [];
-
-  if (headerMatch) {
-    const theadContent = headerMatch[0];
-    // Buscar todas as linhas de cabeçalho
-    const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-    const trMatches = Array.from(theadContent.matchAll(trRegex));
-    
-    // Pegar a última linha de cabeçalho (geralmente a mais completa)
-    if (trMatches.length > 0) {
-      const lastHeaderRow = trMatches[trMatches.length - 1][1];
-      const thRegex = /<th[^>]*>([\s\S]*?)<\/th>/gi;
-      const thMatches = Array.from(lastHeaderRow.matchAll(thRegex));
-      
-      thMatches.forEach((match) => {
-        let text = match[1];
-        // Remover tags HTML aninhadas
-        text = text.replace(/<[^>]*>/g, '');
-        // Remover espaços extras
-        text = text.trim();
-        // Remover quebras de linha
-        text = text.replace(/\s+/g, ' ');
-        if (text) {
-          headers.push(text);
-        }
-      });
+function findTableHtml(
+  allTables: Map<string, string>,
+  type: FbrefTableType
+): { id: string; html: string } | null {
+  const candidates = TABLE_ID_CANDIDATES[type] || [];
+  for (const cand of candidates) {
+    if (typeof cand === 'string') {
+      const html = allTables.get(cand);
+      if (html) return { id: cand, html };
+      continue;
     }
-  }
 
-  // Se não encontrou cabeçalhos no thead, tentar na primeira linha do tbody
-  if (headers.length === 0) {
-    const tbodyRegex = /<tbody[^>]*>([\s\S]*?)<\/tbody>/gi;
-    const tbodyMatch = tableHtml.match(tbodyRegex);
-    if (tbodyMatch) {
-      const firstTrRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/i;
-      const firstTrMatch = tbodyMatch[0].match(firstTrRegex);
-      if (firstTrMatch) {
-        const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-        const tdMatches = Array.from(firstTrMatch[1].matchAll(tdRegex));
-        tdMatches.forEach((match) => {
-          let text = match[1].replace(/<[^>]*>/g, '').trim().replace(/\s+/g, ' ');
-          if (text) {
-            headers.push(text || `col_${headers.length}`);
-          }
-        });
+    // RegExp: procurar o primeiro id compatível
+    for (const [id, html] of allTables.entries()) {
+      if (cand.test(id)) {
+        // Evitar pegar tabela home_away por engano no “geral”
+        if (type === 'geral' && /home_away/i.test(id)) continue;
+        return { id, html };
       }
     }
   }
+  return null;
+}
 
-  // Extrair linhas de dados do tbody
-  const tbodyRegex = /<tbody[^>]*>([\s\S]*?)<\/tbody>/gi;
-  const tbodyMatch = tableHtml.match(tbodyRegex);
-  const rows: unknown[] = [];
+function extractSection(tableHtml: string, tag: 'thead' | 'tbody'): string | null {
+  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
+  const m = tableHtml.match(re);
+  return m && m[1] ? m[1] : null;
+}
 
-  if (tbodyMatch) {
-    const tbodyContent = tbodyMatch[0];
-    const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-    const trMatches = Array.from(tbodyContent.matchAll(trRegex));
+function extractTrBlocks(sectionHtml: string): string[] {
+  const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  return Array.from(sectionHtml.matchAll(trRegex)).map((m) => m[1] ?? '').filter(Boolean);
+}
 
-    trMatches.forEach((trMatch) => {
-      const rowHtml = trMatch[1];
-      const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-      const tdMatches = Array.from(rowHtml.matchAll(tdRegex));
-      const cells: string[] = [];
+type CellDesc = { text: string; colspan: number; rowspan: number };
 
-      tdMatches.forEach((tdMatch) => {
-        let text = tdMatch[1];
-        // Remover tags HTML (incluindo links)
-        text = text.replace(/<a[^>]*>([\s\S]*?)<\/a>/gi, '$1');
-        text = text.replace(/<[^>]*>/g, '');
-        // Remover espaços extras e quebras de linha
-        text = text.trim().replace(/\s+/g, ' ');
-        cells.push(text);
-      });
+function extractHeaderCells(trHtml: string): CellDesc[] {
+  const cellRegex = /<(th|td)([^>]*)>([\s\S]*?)<\/\1>/gi;
+  const cells: CellDesc[] = [];
+  for (const m of trHtml.matchAll(cellRegex)) {
+    const attrs = m[2] ?? '';
+    const inner = m[3] ?? '';
 
-      if (cells.length > 0) {
-        const row: Record<string, unknown> = {};
-        headers.forEach((header, index) => {
-          if (cells[index] !== undefined) {
-            const normalizedHeader = normalizeHeader(header);
-            row[normalizedHeader] = cells[index];
-          }
-        });
-        
-        // Garantir que há campo Squad (obrigatório)
-        // Tentar diferentes variações do nome
-        const squadValue = row.Squad || row.squad || row.Team || row.team;
-        if (squadValue) {
-          row.Squad = String(squadValue);
-          rows.push(row);
-        }
-      }
+    const colspan = Number.parseInt((attrs.match(/colspan="(\d+)"/i)?.[1] ?? '1'), 10);
+    const rowspan = Number.parseInt((attrs.match(/rowspan="(\d+)"/i)?.[1] ?? '1'), 10);
+
+    const text = stripTags(inner).replace(/\s+/g, ' ').trim();
+    if (!text) continue;
+
+    cells.push({
+      text,
+      colspan: Number.isFinite(colspan) && colspan > 0 ? colspan : 1,
+      rowspan: Number.isFinite(rowspan) && rowspan > 0 ? rowspan : 1,
     });
   }
+  return cells;
+}
 
-  if (rows.length === 0) {
-    throw new Error('Nenhuma linha de dados encontrada na tabela. Verifique se a URL está correta.');
+function buildHeadersFromThead(theadHtml: string): string[] {
+  const rows = extractTrBlocks(theadHtml);
+  if (rows.length === 0) return [];
+
+  const headerRows = rows.map(extractHeaderCells);
+  const maxCols = Math.max(
+    0,
+    ...headerRows.map((r) => r.reduce((sum, c) => sum + (c.colspan || 1), 0))
+  );
+  if (maxCols <= 0) return [];
+
+  const matrix: string[][] = Array.from({ length: rows.length }, () =>
+    Array.from({ length: maxCols }, () => '')
+  );
+
+  for (let r = 0; r < headerRows.length; r++) {
+    let cIdx = 0;
+    for (const cell of headerRows[r]) {
+      while (cIdx < maxCols && matrix[r][cIdx]) cIdx++;
+      if (cIdx >= maxCols) break;
+
+      for (let rr = r; rr < Math.min(rows.length, r + cell.rowspan); rr++) {
+        for (let cc = cIdx; cc < Math.min(maxCols, cIdx + cell.colspan); cc++) {
+          if (!matrix[rr][cc]) matrix[rr][cc] = cell.text;
+        }
+      }
+
+      cIdx += cell.colspan;
+    }
+  }
+
+  const headers: string[] = [];
+  for (let col = 0; col < maxCols; col++) {
+    const parts: string[] = [];
+    for (let row = 0; row < matrix.length; row++) {
+      const t = (matrix[row][col] || '').trim();
+      if (!t) continue;
+      if (!parts.includes(t)) parts.push(t);
+    }
+
+    const combined = normalizeHeaderKey(parts.join(' ').replace(/\s+/g, ' ').trim());
+    headers.push(combined || `col_${col}`);
+  }
+
+  return headers;
+}
+
+function extractRowCells(trHtml: string): string[] {
+  // No tbody, o Squad e/ou Rk costuma vir em <th scope="row">, então lemos th+td em ordem
+  const cellRegex = /<(th|td)([^>]*)>([\s\S]*?)<\/\1>/gi;
+  const cells: string[] = [];
+  for (const m of trHtml.matchAll(cellRegex)) {
+    const inner = m[3] ?? '';
+    const text = stripTags(inner).replace(/\s+/g, ' ').trim();
+    cells.push(text);
+  }
+  return cells;
+}
+
+function parseTableHtml(tableHtml: string): unknown[] {
+  const thead = extractSection(tableHtml, 'thead');
+  const tbody = extractSection(tableHtml, 'tbody');
+
+  const headers = thead ? buildHeadersFromThead(thead) : [];
+  if (!tbody) return [];
+
+  const rows: unknown[] = [];
+  const trBlocks = extractTrBlocks(tbody);
+  for (const trHtml of trBlocks) {
+    const cells = extractRowCells(trHtml);
+    if (cells.length === 0) continue;
+
+    const row: Record<string, unknown> = {};
+    const max = Math.min(headers.length, cells.length);
+
+    for (let i = 0; i < max; i++) {
+      const key = headers[i] || `col_${i}`;
+      row[key] = cells[i];
+    }
+
+    // Campo mínimo para união (Squad) — ignorar linhas que não representem times
+    const squad = row.Squad;
+    if (typeof squad !== 'string' || !squad.trim()) continue;
+
+    rows.push(row);
   }
 
   return rows;
 }
 
-// Normalizar nomes de cabeçalhos
-function normalizeHeader(header: string): string {
-  const headerLower = header.toLowerCase().trim();
-  
-  const mapping: Record<string, string> = {
-    'rk': 'Rk',
-    'rank': 'Rk',
-    'squad': 'Squad',
-    'team': 'Squad',
-    'mp': 'MP',
-    'matches played': 'MP',
-    'w': 'W',
-    'wins': 'W',
-    'd': 'D',
-    'draws': 'D',
-    'l': 'L',
-    'losses': 'L',
-    'gf': 'GF',
-    'goals for': 'GF',
-    'ga': 'GA',
-    'goals against': 'GA',
-    'gd': 'GD',
-    'goal difference': 'GD',
-    'pts': 'Pts',
-    'points': 'Pts',
-    'pts/mp': 'Pts/MP',
-    'pts / mp': 'Pts/MP',
-    'xg': 'xG',
-    'expected goals': 'xG',
-    'xga': 'xGA',
-    'expected goals against': 'xGA',
-  };
-
-  if (mapping[headerLower]) {
-    return mapping[headerLower];
+async function fetchHtml(url: string): Promise<string> {
+  // Validar URL
+  if (!isValidFbrefUrl(url)) {
+    throw new Error('URL inválida. Apenas URLs do fbref.com são permitidas.');
   }
 
-  // Capitalizar primeira letra de cada palavra
-  return header.split(' ').map(word => 
-    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-  ).join(' ');
+  // Fazer requisição com delay (rate limit)
+  await delay(DELAY_MS);
+
+  const response = await fetch(url, { headers: DEFAULT_HEADERS });
+  if (!response.ok) {
+    throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return await response.text();
+}
+
+async function extractTablesFromUrl(url: string): Promise<{
+  tables: Record<FbrefTableType, unknown[]>;
+  missingTables: FbrefTableType[];
+}> {
+  const html = await fetchHtml(url);
+  const allTables = collectTablesById(html);
+
+  const tables: Record<FbrefTableType, unknown[]> = {
+    geral: [],
+    standard_for: [],
+    passing_for: [],
+    gca_for: [],
+  };
+  const missing: FbrefTableType[] = [];
+
+  (Object.keys(tables) as FbrefTableType[]).forEach((type) => {
+    const found = findTableHtml(allTables, type);
+    if (!found) {
+      missing.push(type);
+      return;
+    }
+
+    const parsed = parseTableHtml(found.html);
+    if (!parsed || parsed.length === 0) {
+      missing.push(type);
+      return;
+    }
+
+    tables[type] = parsed;
+  });
+
+  return { tables, missingTables: missing };
 }
 
 serve(async (req: Request) => {
@@ -281,16 +347,14 @@ serve(async (req: Request) => {
     // Extrair tabela se solicitado
     if (body.extractTypes.includes('table') || body.extractTypes.includes('all')) {
       try {
-        const tableData = await extractTableFromUrl(
-          body.championshipUrl,
-          body.tableType || 'geral'
-        );
-        result.data!.table = tableData;
+        const extracted = await extractTablesFromUrl(body.championshipUrl);
+        result.data!.tables = extracted.tables;
+        result.data!.missingTables = extracted.missingTables;
       } catch (error) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Erro ao extrair tabela: ${error instanceof Error ? error.message : String(error)}`,
+            error: `Erro ao extrair tabelas: ${error instanceof Error ? error.message : String(error)}`,
           } as ExtractionResult),
           {
             status: 500,

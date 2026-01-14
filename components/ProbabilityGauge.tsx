@@ -195,7 +195,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
         >
           <div className="flex items-baseline gap-1">
             <motion.span
-              className="text-3xl sm:text-4xl md:text-5xl font-black font-mono text-teal-400 leading-none tracking-tight"
+              className="text-4xl sm:text-5xl md:text-6xl font-black font-mono text-teal-400 leading-none tracking-tight"
               key={displayProbability}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -203,9 +203,9 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
             >
               {displayProbability.toFixed(1)}
             </motion.span>
-            <span className="text-base font-bold text-teal-400 opacity-80">%</span>
+            <span className="text-lg md:text-xl font-bold text-teal-400 opacity-80">%</span>
           </div>
-          <span className="text-[10px] font-bold text-base-content/50 mt-2 uppercase tracking-widest">
+          <span className="text-xs md:text-sm font-bold text-base-content/70 mt-2 uppercase tracking-widest leading-tight">
             Probabilidade
           </span>
         </motion.div>

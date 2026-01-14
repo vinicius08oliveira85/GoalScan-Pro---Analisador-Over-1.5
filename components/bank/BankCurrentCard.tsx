@@ -35,7 +35,7 @@ const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
           </div>
           <div>
             <h2 className="text-xl md:text-2xl font-black">Banca Atual</h2>
-            <p className="text-xs md:text-sm opacity-60">Capital disponível para apostas</p>
+            <p className="text-xs md:text-sm opacity-70 leading-relaxed">Capital disponível para apostas</p>
           </div>
         </div>
 
@@ -60,7 +60,7 @@ const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
         )}
 
         {updatedAt && (
-          <p className="text-xs opacity-50">
+          <p className="text-xs opacity-70 leading-relaxed">
             Última atualização: {new Date(updatedAt).toLocaleString('pt-BR')}
           </p>
         )}

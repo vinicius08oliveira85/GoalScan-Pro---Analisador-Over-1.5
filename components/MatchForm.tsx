@@ -119,6 +119,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
         homeStandardForData,
         awayStandardForData,
         competitionStandardForAvg,
+        homePassingForData,
+        awayPassingForData,
+        competitionPassingForAvg,
+        homeGcaForData,
+        awayGcaForData,
+        competitionGcaForAvg,
       } = await syncTeamStatsFromTable(
         selectedChampionshipId,
         selectedHomeSquad,
@@ -137,6 +143,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
           homeStandardForData: !!homeStandardForData,
           awayStandardForData: !!awayStandardForData,
           competitionStandardForAvg: !!competitionStandardForAvg,
+          homePassingForData: !!homePassingForData,
+          awayPassingForData: !!awayPassingForData,
+          competitionPassingForAvg: !!competitionPassingForAvg,
+          homeGcaForData: !!homeGcaForData,
+          awayGcaForData: !!awayGcaForData,
+          competitionGcaForAvg: !!competitionGcaForAvg,
           hasPreviousHomeStats: !!previousHomeStats,
           hasPreviousAwayStats: !!previousAwayStats,
           // Nota: homeTeamStats/awayTeamStats não são afetados pela sincronização
@@ -154,6 +166,12 @@ const MatchForm: React.FC<MatchFormProps> = ({
           homeStandardForData: homeStandardForData || undefined,
           awayStandardForData: awayStandardForData || undefined,
           competitionStandardForAvg: competitionStandardForAvg || undefined,
+          homePassingForData: homePassingForData || undefined,
+          awayPassingForData: awayPassingForData || undefined,
+          competitionPassingForAvg: competitionPassingForAvg || undefined,
+          homeGcaForData: homeGcaForData || undefined,
+          awayGcaForData: awayGcaForData || undefined,
+          competitionGcaForAvg: competitionGcaForAvg || undefined,
           // Preencher automaticamente a média da competição calculada da tabela
           competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
           // homeTeamStats e awayTeamStats permanecem inalterados (inseridos manualmente)

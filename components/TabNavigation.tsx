@@ -31,17 +31,17 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange })
   ];
 
   return (
-    <div className="w-full border-b border-base-300 bg-base-200/80 backdrop-blur-md sticky top-0 z-40">
+    <div className="w-full border-b border-base-300/50 bg-base-200/80 backdrop-blur-md sticky top-0 z-40">
       <div className="container mx-auto px-3 md:px-4">
         {/* Desktop: Tabs horizontais */}
-        <div className="hidden md:flex tabs tabs-boxed bg-base-300/50 p-1 gap-1">
+        <div className="hidden md:flex tabs tabs-boxed bg-base-300/50 p-1 gap-1.5">
           {tabs.map((tab) => (
             <motion.button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`tab flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+              className={`tab flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-all duration-200 min-h-[44px] ${
                 activeTab === tab.id
-                  ? 'bg-primary text-primary-content shadow-lg'
+                  ? 'bg-primary text-primary-content shadow-lg shadow-primary/20'
                   : 'text-base-content/70 hover:text-base-content hover:bg-base-200'
               }`}
               whileHover={{ scale: 1.02 }}
@@ -54,15 +54,15 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange })
         </div>
 
         {/* Mobile: Tabs em scroll horizontal */}
-        <div className="md:hidden overflow-x-auto scrollbar-hide pb-2">
+        <div className="md:hidden overflow-x-auto custom-scrollbar pb-2">
           <div className="flex gap-2 min-w-max px-1">
             {tabs.map((tab) => (
               <motion.button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition-all ${
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg font-semibold text-sm whitespace-nowrap transition-all duration-200 min-h-[44px] ${
                   activeTab === tab.id
-                    ? 'bg-primary text-primary-content shadow-lg'
+                    ? 'bg-primary text-primary-content shadow-lg shadow-primary/20'
                     : 'bg-base-300/50 text-base-content/70 active:bg-base-300'
                 }`}
                 whileTap={{ scale: 0.95 }}
