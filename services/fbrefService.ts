@@ -4,6 +4,10 @@ import { logger } from '../utils/logger';
 
 export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
 
+// NOTE: O deploy do slug original `fbref-scraper` falhou ao atualizar versão (erro interno no Supabase).
+// Usamos `fbref-scraper-v2` como versão ativa até normalizar o deploy do slug original.
+const FBREF_SCRAPER_FUNCTION_NAME = 'fbref-scraper-v2';
+
 export interface FbrefExtractionRequest {
   championshipUrl: string;
   championshipId: string;
@@ -89,7 +93,7 @@ export const extractFbrefData = async (
     const supabase = await getSupabaseClient();
 
     // Chamar Edge Function
-    const { data, error } = await supabase.functions.invoke('fbref-scraper', {
+    const { data, error } = await supabase.functions.invoke(FBREF_SCRAPER_FUNCTION_NAME, {
       body: {
         championshipUrl: request.championshipUrl,
         championshipId: request.championshipId,
@@ -99,9 +103,30 @@ export const extractFbrefData = async (
 
     if (error) {
       logger.error('[FBrefService] Erro ao chamar Edge Function:', error);
+
+      // Tentar extrair detalhes do response (quando disponível) para melhorar o feedback no UI
+      const tryReadResponseMessage = async (): Promise<string | null> => {
+        const resp = (error as unknown as { context?: { response?: Response } })?.context?.response;
+        if (!resp) return null;
+        try {
+          const text = await resp.text();
+          if (!text) return null;
+          try {
+            const json = JSON.parse(text) as { error?: string };
+            if (json?.error) return json.error;
+          } catch {
+            // não era JSON
+          }
+          return text;
+        } catch {
+          return null;
+        }
+      };
+
+      const details = await tryReadResponseMessage();
       return {
         success: false,
-        error: error.message || 'Erro ao extrair dados do fbref.com',
+        error: details || error.message || 'Erro ao extrair dados do fbref.com',
       };
     }
 

@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Usar o runtime nativo do Deno (evita dependência externa do std em deploys)
 
 // Tipos
 interface ExtractRequest {
@@ -20,18 +20,19 @@ interface ExtractionResult {
   error?: string;
 }
 
-// Headers para evitar bloqueio
-const DEFAULT_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+// Headers mínimos e “seguros” para o runtime do Edge (Fetch spec bloqueia vários headers).
+// Evitar: Accept-Encoding, Connection, Referer, Sec-Fetch-*, Upgrade-Insecure-Requests, etc.
+const SAFE_HEADERS = {
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8',
-  'Accept-Encoding': 'gzip, deflate, br',
-  'Connection': 'keep-alive',
-  'Upgrade-Insecure-Requests': '1',
-  'Sec-Fetch-Dest': 'document',
-  'Sec-Fetch-Mode': 'navigate',
-  'Sec-Fetch-Site': 'none',
-  'Referer': 'https://www.google.com/',
+};
+
+// Alguns sites bloqueiam o UA padrão do Deno; tentamos aplicar um UA “browser-like”.
+// Caso o runtime bloqueie `User-Agent`, fazemos fallback automático para SAFE_HEADERS.
+const UA_HEADERS = {
+  ...SAFE_HEADERS,
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 };
 
 // Delay entre requisições (respeitar rate limit)
@@ -254,7 +255,14 @@ async function fetchHtml(url: string): Promise<string> {
   // Fazer requisição com delay (rate limit)
   await delay(DELAY_MS);
 
-  const response = await fetch(url, { headers: DEFAULT_HEADERS });
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: UA_HEADERS });
+  } catch (e) {
+    // Possível erro: forbidden header name (User-Agent). Fallback para headers mínimos.
+    response = await fetch(url, { headers: SAFE_HEADERS });
+    if (e) console.warn('[fbref-scraper] fetch with UA failed, retrying with SAFE_HEADERS:', e);
+  }
   if (!response.ok) {
     throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
   }
@@ -296,7 +304,7 @@ async function extractTablesFromUrl(url: string): Promise<{
   return { tables, missingTables: missing };
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   // CORS headers
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -319,7 +327,7 @@ serve(async (req: Request) => {
           error: 'championshipUrl e championshipId são obrigatórios',
         } as ExtractionResult),
         {
-          status: 400,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
@@ -333,7 +341,7 @@ serve(async (req: Request) => {
           error: 'URL inválida. Apenas URLs do fbref.com são permitidas.',
         } as ExtractionResult),
         {
-          status: 400,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
@@ -351,13 +359,15 @@ serve(async (req: Request) => {
         result.data!.tables = extracted.tables;
         result.data!.missingTables = extracted.missingTables;
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[fbref-scraper] Erro ao extrair tabelas:', error);
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Erro ao extrair tabelas: ${error instanceof Error ? error.message : String(error)}`,
+            error: `Erro ao extrair tabelas: ${message}`,
           } as ExtractionResult),
           {
-            status: 500,
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }
         );
@@ -374,13 +384,14 @@ serve(async (req: Request) => {
       }
     );
   } catch (error) {
+    console.error('[fbref-scraper] Erro inesperado:', error);
     return new Response(
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Erro desconhecido',
       } as ExtractionResult),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
