@@ -426,25 +426,59 @@ const MatchForm: React.FC<MatchFormProps> = ({
             Sincronizar com Tabela
           </button>
           {formData.homeTableData && formData.awayTableData && (
-            <div className="text-xs opacity-70 space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="badge badge-sm badge-success">geral</span>
-                {formData.homeStandardForData && formData.awayStandardForData && (
-                  <span className="badge badge-sm badge-success">standard_for</span>
-                )}
-                {formData.homePassingForData && formData.awayPassingForData && (
-                  <span className="badge badge-sm badge-success">passing_for</span>
-                )}
-                {formData.homeGcaForData && formData.awayGcaForData && (
-                  <span className="badge badge-sm badge-success">gca_for</span>
-                )}
+            <div className="mt-4 p-4 bg-base-300/50 rounded-lg border border-base-content/10 space-y-3">
+              <div className="font-semibold text-sm mb-2">Status das Tabelas Sincronizadas:</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className={`badge badge-sm ${formData.homeTableData && formData.awayTableData ? 'badge-success' : 'badge-error'}`}>
+                    {formData.homeTableData && formData.awayTableData ? '✓' : '✗'}
+                  </span>
+                  <span className="font-medium">Geral</span>
+                  <span className="opacity-60">(Alto impacto - base para cálculo)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`badge badge-sm ${formData.homeStandardForData && formData.awayStandardForData ? 'badge-success' : 'badge-warning'}`}>
+                    {formData.homeStandardForData && formData.awayStandardForData ? '✓' : '✗'}
+                  </span>
+                  <span className="font-medium">Standard For</span>
+                  <span className="opacity-60">(Médio-Alto - ajuste ataque/ritmo ±8%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`badge badge-sm ${formData.homePassingForData && formData.awayPassingForData ? 'badge-success' : 'badge-warning'}`}>
+                    {formData.homePassingForData && formData.awayPassingForData ? '✓' : '✗'}
+                  </span>
+                  <span className="font-medium">Passing For</span>
+                  <span className="opacity-60">(Médio - criação via passe ±8%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`badge badge-sm ${formData.homeGcaForData && formData.awayGcaForData ? 'badge-success' : 'badge-warning'}`}>
+                    {formData.homeGcaForData && formData.awayGcaForData ? '✓' : '✗'}
+                  </span>
+                  <span className="font-medium">GCA For</span>
+                  <span className="opacity-60">(Médio-Alto - ações de criação ±10%)</span>
+                </div>
               </div>
-              {(!formData.homeStandardForData || !formData.awayStandardForData ||
-                !formData.homePassingForData || !formData.awayPassingForData ||
-                !formData.homeGcaForData || !formData.awayGcaForData) && (
-                <p className="text-warning text-xs">
-                  ⚠️ Algumas tabelas estão faltando. Extraia todas as 4 tabelas do fbref.com para análise completa.
-                </p>
+              {formData.homeTableData && formData.awayTableData &&
+               formData.homeStandardForData && formData.awayStandardForData &&
+               formData.homePassingForData && formData.awayPassingForData &&
+               formData.homeGcaForData && formData.awayGcaForData ? (
+                <div className="mt-2 p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
+                  ✅ Todas as 4 tabelas carregadas! Análise com máxima precisão.
+                </div>
+              ) : (
+                <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs">
+                  ⚠️ Algumas tabelas estão faltando. Para análise completa com todas as 4 tabelas, extraia todas do fbref.com.
+                  <br />
+                  <span className="opacity-80">
+                    Tabelas faltando: {
+                      [
+                        (!formData.homeStandardForData || !formData.awayStandardForData) && 'standard_for',
+                        (!formData.homePassingForData || !formData.awayPassingForData) && 'passing_for',
+                        (!formData.homeGcaForData || !formData.awayGcaForData) && 'gca_for',
+                      ].filter(Boolean).join(', ') || 'Nenhuma'
+                    }
+                  </span>
+                </div>
               )}
             </div>
           )}
