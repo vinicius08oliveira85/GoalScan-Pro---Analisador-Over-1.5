@@ -16,6 +16,7 @@ import MatchFilters from './MatchFilters';
 import MatchCardList from './MatchCardList';
 import MatchCardCompact from './MatchCardCompact';
 import { useWindowSize } from '../hooks/useWindowSize';
+import EmptyState from './ui/EmptyState';
 import {
   filterMatchesByCategory,
   getCategoryCounts,
@@ -41,6 +42,7 @@ const EmptyStateByCategory: React.FC<{
           ? 'Todas as suas partidas já foram finalizadas ou não possuem apostas pendentes.'
           : 'Adicione partidas e registre apostas para acompanhar seus resultados.',
       showButton: totalMatches === 0,
+      buttonLabel: 'Adicionar Partida',
     },
     finalizadas: {
       icon: CheckCircle,
@@ -55,6 +57,7 @@ const EmptyStateByCategory: React.FC<{
       description:
         'Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova partida e começar a usar o GoalScan Pro.',
       showButton: true,
+      buttonLabel: 'Adicionar Primeira Partida',
     },
   };
 
@@ -68,65 +71,25 @@ const EmptyStateByCategory: React.FC<{
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ type: 'spring', bounce: 0.4, duration: 0.6 }}
-      className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2 relative overflow-hidden"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-50" />
-
-      <motion.div
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', bounce: 0.6, delay: 0.2 }}
-        className="relative mb-6"
-      >
-        <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center shadow-lg">
-          <Icon className="w-16 h-16 md:w-20 md:h-20 text-primary opacity-60" />
-        </div>
-        <motion.div
-          className="absolute inset-0 rounded-full border-4 border-primary/20"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.5, 0, 0.5],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      </motion.div>
-
-      <motion.h3
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="text-2xl md:text-3xl font-black mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
-      >
-        {state.title}
-      </motion.h3>
-
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="text-sm md:text-base opacity-70 mb-8 max-w-md leading-relaxed"
-      >
-        {state.description}
-      </motion.p>
-
-      {state.showButton && (
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onNewMatch}
-          className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl focus-ring"
-        >
-          <Plus className="w-5 h-5" />
-          Adicionar Partida
-        </motion.button>
-      )}
+      <EmptyState
+        icon={<Icon className="w-12 h-12 md:w-14 md:h-14" aria-hidden="true" />}
+        title={state.title}
+        description={state.description}
+        actions={
+          state.showButton ? (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onNewMatch}
+              className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl focus-ring"
+            >
+              <Plus className="w-5 h-5" aria-hidden="true" />
+              {state.buttonLabel ?? 'Adicionar Partida'}
+            </motion.button>
+          ) : null
+        }
+      />
     </motion.div>
   );
 };
@@ -333,69 +296,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
           ))}
         </div>
       ) : savedMatches.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', bounce: 0.4, duration: 0.6 }}
-          className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2 relative overflow-hidden"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-50" />
-
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', bounce: 0.6, delay: 0.2 }}
-            className="relative mb-6"
-          >
-            <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center shadow-lg">
-              <Target className="w-16 h-16 md:w-20 md:h-20 text-primary opacity-60" />
-            </div>
-            <motion.div
-              className="absolute inset-0 rounded-full border-4 border-primary/20"
-              animate={{
-                scale: [1, 1.2, 1],
-                opacity: [0.5, 0, 0.5],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-            />
-          </motion.div>
-
-          <motion.h3
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="text-2xl md:text-3xl font-black mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
-          >
-            Nenhuma Partida Salva
-          </motion.h3>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="text-sm md:text-base opacity-70 mb-8 max-w-md leading-relaxed"
-          >
-            Comece criando sua primeira análise. Clique no botão abaixo para adicionar uma nova
-            partida e começar a usar o GoalScan Pro.
-          </motion.p>
-
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onNewMatch}
-            className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl focus-ring"
-          >
-            <Plus className="w-5 h-5" />
-            Adicionar Primeira Partida
-          </motion.button>
-        </motion.div>
+        <EmptyStateByCategory category="todas" onNewMatch={onNewMatch} totalMatches={0} />
       ) : filteredMatches.length === 0 ? (
         <EmptyStateByCategory
           category={activeTab}

@@ -13,6 +13,14 @@ import {
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { animations } from '../../utils/animations';
 import { useWindowSize } from '../../hooks/useWindowSize';
+import {
+  chartAxisTickLine,
+  chartColors,
+  chartGridProps,
+  chartTooltipClassName,
+  getChartAxisTick,
+} from '../../utils/chartTheme';
+import SectionHeader from '../ui/SectionHeader';
 
 type BankEvolutionPoint = {
   date: string;
@@ -37,19 +45,18 @@ const BankEvolutionChart: React.FC<BankEvolutionChartProps> = ({ data }) => {
       custom={11}
       className="custom-card p-4 md:p-6"
     >
-      <div className="mb-4">
-        <h3 className="text-lg md:text-xl font-black mb-1">Evolução da Banca</h3>
-        <p className="text-xs md:text-sm opacity-60">
-          Cash (disponível) e Equity (cash + pendentes) ao longo do tempo
-        </p>
-      </div>
+      <SectionHeader
+        className="mb-4"
+        title="Evolução da Banca"
+        subtitle="Cash (disponível) e Equity (cash + pendentes) ao longo do tempo"
+      />
 
       <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
         <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
           <defs>
             <linearGradient id="bankEquityGradientBank" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#a855f7" stopOpacity={0.18} />
-              <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+              <stop offset="5%" stopColor={chartColors.equity} stopOpacity={0.18} />
+              <stop offset="95%" stopColor={chartColors.equity} stopOpacity={0} />
             </linearGradient>
             <filter id="glowBank">
               <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -59,23 +66,15 @@ const BankEvolutionChart: React.FC<BankEvolutionChartProps> = ({ data }) => {
               </feMerge>
             </filter>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.2} />
+          <CartesianGrid {...chartGridProps} />
           <XAxis
             dataKey="date"
-            tick={{
-              fill: 'currentColor',
-              opacity: 0.7,
-              fontSize: windowSize.isMobile ? 10 : 12,
-            }}
-            tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
+            tick={getChartAxisTick(windowSize.isMobile)}
+            tickLine={chartAxisTickLine}
           />
           <YAxis
-            tick={{
-              fill: 'currentColor',
-              opacity: 0.7,
-              fontSize: windowSize.isMobile ? 10 : 12,
-            }}
-            tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
+            tick={getChartAxisTick(windowSize.isMobile)}
+            tickLine={chartAxisTickLine}
             tickFormatter={(value) => `R$ ${Number(value).toFixed(0)}`}
           />
           <Tooltip
@@ -94,7 +93,7 @@ const BankEvolutionChart: React.FC<BankEvolutionChartProps> = ({ data }) => {
                 const equityChange = previous ? p.equity - previous.equity : null;
 
                 return (
-                  <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-4 shadow-xl">
+                  <div className={chartTooltipClassName}>
                     <div className="mb-2">
                       <p className="text-xs opacity-70 mb-1">{p.date}</p>
                       <div className="flex items-baseline gap-2">
@@ -146,7 +145,7 @@ const BankEvolutionChart: React.FC<BankEvolutionChartProps> = ({ data }) => {
           <Area
             type="monotone"
             dataKey="equity"
-            stroke="#a855f7"
+            stroke={chartColors.equity}
             strokeWidth={2}
             fill="url(#bankEquityGradientBank)"
             fillOpacity={1}
@@ -157,18 +156,18 @@ const BankEvolutionChart: React.FC<BankEvolutionChartProps> = ({ data }) => {
           <Line
             type="monotone"
             dataKey="cash"
-            stroke="#3b82f6"
+            stroke={chartColors.cash}
             strokeWidth={3}
             dot={{
-              fill: '#3b82f6',
+              fill: chartColors.cash,
               strokeWidth: 2,
-              stroke: '#ffffff',
+              stroke: chartColors.text,
               r: windowSize.isMobile ? 4 : 5,
               filter: 'url(#glowBank)',
             }}
             activeDot={{
               r: windowSize.isMobile ? 7 : 8,
-              stroke: '#ffffff',
+              stroke: chartColors.text,
               strokeWidth: 2,
               filter: 'url(#glowBank)',
             }}

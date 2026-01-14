@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --color-base-100: oklch(30% 0.056 229.695);
-  --color-base-200: oklch(39% 0.07 227.392);
-  --color-base-300: oklch(45% 0.085 224.283);
+  /* Base surfaces (alinhado ao tema goalscan_glass do DaisyUI) */
+  --color-base-100: oklch(18% 0.03 229.695);
+  --color-base-200: oklch(22% 0.035 227.392);
+  --color-base-300: oklch(28% 0.04 224.283);
   --color-base-content: oklch(95% 0.045 203.388);
   --color-primary: oklch(44% 0.043 257.281);
   --color-primary-content: oklch(98% 0.003 247.858);
@@ -13,7 +14,7 @@
   --color-secondary-content: oklch(97% 0.014 308.299);
   --color-accent: oklch(55% 0.288 302.321);
   --color-accent-content: oklch(97% 0.014 308.299);
-  --color-neutral: oklch(39% 0.07 227.392);
+  --color-neutral: oklch(24% 0.03 229.695);
   --color-neutral-content: oklch(98% 0.019 200.873);
   --color-info: oklch(68% 0.169 237.323);
   --color-info-content: oklch(97% 0.013 236.62);
@@ -30,22 +31,46 @@
   --size-selector: 0.1875rem;
   --size-field: 0.1875rem;
   --border: 1px;
+
+  /* Glass tokens (sistema único para efeitos de vidro) */
+  --glass-bg: oklch(22% 0.03 229.695 / 0.55);
+  --glass-bg-hover: oklch(24% 0.03 229.695 / 0.66);
+  --glass-border: oklch(96% 0.02 229.695 / 0.12);
+  --shadow-elev-1: 0 10px 25px -10px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  --shadow-elev-2: 0 22px 60px -18px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  --noise-opacity: 0.12;
 }
 
 body {
   background-color: var(--color-base-100);
   color: var(--color-base-content);
   font-family: 'Inter', sans-serif;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  background-blend-mode: overlay;
+  /* Background com gradientes sutis + noise (Glass Modern controlado) */
+  background-image:
+    radial-gradient(1200px circle at 10% 10%, oklch(44% 0.043 257.281 / 0.18) 0%, transparent 55%),
+    radial-gradient(900px circle at 90% 20%, oklch(55% 0.288 302.321 / 0.12) 0%, transparent 50%);
+  background-attachment: fixed;
   min-height: 100vh;
+  line-height: 1.6;
 }
 
-.custom-card {
-  background-color: var(--color-base-200);
-  border-radius: var(--radius-box);
-  border: var(--border) solid var(--color-base-300);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+/* Noise overlay (controlado por token) */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.45'/%3E%3C/svg%3E");
+  opacity: var(--noise-opacity);
+  mix-blend-mode: overlay;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 .btn {
@@ -68,8 +93,8 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
 }
 
 /* Classe utilitária para focus ring acessível */
@@ -97,20 +122,37 @@ a:focus-visible {
 
 /* Superfícies sólidas (estilo dashboard esportivo moderno) */
 @layer components {
+  /* Card padrão (compatível com o uso atual de custom-card) */
+  .custom-card {
+    border-radius: var(--radius-box);
+    box-shadow: var(--shadow-elev-1);
+    @apply bg-base-200/90 border border-base-300/50 transition-all duration-200;
+  }
+
+  .custom-card:hover {
+    box-shadow: var(--shadow-elev-2);
+    @apply border-base-300/80;
+  }
+
   .surface {
-    @apply bg-base-200/95 border border-base-300/70 rounded-2xl shadow-lg shadow-black/25;
+    box-shadow: var(--shadow-elev-1);
+    @apply bg-base-200/95 border border-base-300/50 rounded-2xl;
   }
 
   .surface-muted {
-    @apply bg-base-300/40 border border-base-300/60 rounded-2xl;
+    @apply bg-base-300/40 border border-base-300/50 rounded-2xl;
   }
 
   .surface-hover {
-    @apply transition-all duration-200 hover:border-base-300/90 hover:shadow-black/35;
+    @apply transition-all duration-200 hover:border-base-300/90;
+  }
+
+  .surface-hover:hover {
+    box-shadow: var(--shadow-elev-2);
   }
 
   .kpi-label {
-    @apply text-[10px] md:text-xs font-bold uppercase tracking-widest text-base-content/60;
+    @apply text-xs md:text-sm font-bold uppercase tracking-widest text-base-content/70 leading-tight;
   }
 
   .kpi-value {
@@ -140,8 +182,15 @@ a:focus-visible {
 
   /* Efeito de vidro (glass morphism) */
   .glass-effect {
-    @apply bg-base-200/40 backdrop-blur-md border border-base-300/30;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+    background-color: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-elev-1);
+    @apply backdrop-blur-xl border rounded-2xl transition-all duration-200;
+  }
+
+  .glass-effect:hover {
+    background-color: var(--glass-bg-hover);
+    box-shadow: var(--shadow-elev-2);
   }
 
   /* Sombras coloridas dinâmicas */

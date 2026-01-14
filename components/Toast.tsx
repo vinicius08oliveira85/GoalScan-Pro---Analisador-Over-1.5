@@ -46,24 +46,28 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
       text: 'text-success',
       border: 'border-success/30',
       iconBg: 'bg-success/20',
+      hoverBg: 'hover:bg-success/20',
     },
     error: {
       bg: 'bg-error/10',
       text: 'text-error',
       border: 'border-error/30',
       iconBg: 'bg-error/20',
+      hoverBg: 'hover:bg-error/20',
     },
     warning: {
       bg: 'bg-warning/10',
       text: 'text-warning',
       border: 'border-warning/30',
       iconBg: 'bg-warning/20',
+      hoverBg: 'hover:bg-warning/20',
     },
     info: {
       bg: 'bg-info/10',
       text: 'text-info',
       border: 'border-info/30',
       iconBg: 'bg-info/20',
+      hoverBg: 'hover:bg-info/20',
     },
   };
 
@@ -108,7 +112,7 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={toast.action.onClick}
-              className={`btn btn-xs ${colorScheme.text} border ${colorScheme.border} hover:${colorScheme.bg.replace('/10', '/20')} transition-colors`}
+              className={`btn btn-xs ${colorScheme.text} border ${colorScheme.border} ${colorScheme.hoverBg} transition-colors`}
             >
               {toast.action.label}
             </motion.button>

@@ -10,6 +10,7 @@ import MatchesScreen from './components/MatchesScreen';
 import ChampionshipsScreen from './components/ChampionshipsScreen';
 import BankScreen from './components/BankScreen';
 import SettingsScreen from './components/SettingsScreen';
+import ModalShell from './components/ui/ModalShell';
 import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
@@ -421,7 +422,7 @@ const App: React.FC = () => {
 
   // Renderizar tela principal com abas
   return (
-    <div className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-20">
+    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
       {/* Command Palette */}
       <CommandPalette
         isOpen={showCommandPalette}
@@ -446,7 +447,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Header */}
-      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300 sticky top-0 z-50 shadow-sm">
+      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-3 md:px-4 py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3 mb-4">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
@@ -456,7 +457,7 @@ const App: React.FC = () => {
               <h1 className="text-lg md:text-xl font-black tracking-tighter leading-none truncate">
                 GOALSCAN PRO
               </h1>
-              <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline">
+              <span className="text-xs md:text-sm uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline leading-tight">
                 AI Goal Analysis Engine
               </span>
             </div>
@@ -571,134 +572,120 @@ const App: React.FC = () => {
       </main>
 
       {/* Modal de Análise */}
-      <AnimatePresence>
-        {showAnalysisModal && (
-          <>
-            {/* Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
-              onClick={handleCloseAnalysis}
-            />
+      <ModalShell
+        isOpen={showAnalysisModal}
+        onClose={handleCloseAnalysis}
+        closeOnOverlayClick
+        closeOnEscape
+        showCloseButton={false}
+        containerClassName="px-0 pt-0 items-stretch justify-stretch z-[200]"
+        overlayClassName="bg-black/50 backdrop-blur-sm"
+        panelClassName="fixed inset-4 md:inset-8 lg:inset-16 max-w-none w-auto bg-base-200 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        bodyClassName="p-0 max-h-none overflow-hidden"
+      >
+        {/* Header do Modal */}
+        <div className="bg-base-200/80 backdrop-blur-md border-b border-base-300 p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Voltar</span>
+            </button>
+            <h2 className="text-lg md:text-xl font-black">
+              {currentMatchData
+                ? `${currentMatchData.homeTeam} vs ${currentMatchData.awayTeam}`
+                : 'Nova Análise'}
+            </h2>
+          </div>
+          <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-            {/* Modal */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed inset-4 md:inset-8 lg:inset-16 bg-base-200 rounded-xl shadow-2xl z-[201] overflow-hidden flex flex-col"
-            >
-              {/* Header do Modal */}
-              <div className="bg-base-200/80 backdrop-blur-md border-b border-base-300 p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2">
-                    <ArrowLeft className="w-4 h-4" />
-                    <span className="hidden sm:inline">Voltar</span>
+        {/* Conteúdo do Modal */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            {/* Sidebar: Entry Form */}
+            <aside className="xl:col-span-4 flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <span className="w-2 h-6 bg-secondary rounded-full"></span>
+                  Análise Manual
+                </h3>
+                {analysisResult && (
+                  <button
+                    onClick={() => {
+                      setAnalysisResult(null);
+                      setCurrentMatchData(null);
+                      setSelectedMatch(null);
+                    }}
+                    className="btn btn-xs btn-ghost text-error"
+                  >
+                    Limpar
                   </button>
-                  <h2 className="text-lg md:text-xl font-black">
-                    {currentMatchData
-                      ? `${currentMatchData.homeTeam} vs ${currentMatchData.awayTeam}`
-                      : 'Nova Análise'}
-                  </h2>
-                </div>
-                <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost">
-                  <X className="w-5 h-5" />
-                </button>
+                )}
+              </div>
+              <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
+            </aside>
+
+            {/* Main Content: Results */}
+            <section className="xl:col-span-8 flex flex-col gap-6">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-6 bg-primary rounded-full"></span>
+                <h3 className="text-lg font-bold">Painel de Resultados e EV</h3>
               </div>
 
-              {/* Conteúdo do Modal */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-6">
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                  {/* Sidebar: Entry Form */}
-                  <aside className="xl:col-span-4 flex flex-col gap-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold flex items-center gap-2">
-                        <span className="w-2 h-6 bg-secondary rounded-full"></span>
-                        Análise Manual
-                      </h3>
-                      {analysisResult && (
-                        <button
-                          onClick={() => {
-                            setAnalysisResult(null);
-                            setCurrentMatchData(null);
-                            setSelectedMatch(null);
-                          }}
-                          className="btn btn-xs btn-ghost text-error"
-                        >
-                          Limpar
-                        </button>
-                      )}
+              {analysisResult && currentMatchData ? (
+                <Suspense
+                  fallback={
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
+                      <p className="text-sm opacity-60">Carregando análise...</p>
                     </div>
-                    <MatchForm
-                      onAnalyze={handleAnalyze}
-                      initialData={currentMatchData}
-                    />
-                  </aside>
-
-                  {/* Main Content: Results */}
-                  <section className="xl:col-span-8 flex flex-col gap-6">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-6 bg-primary rounded-full"></span>
-                      <h3 className="text-lg font-bold">Painel de Resultados e EV</h3>
-                    </div>
-
-                    {analysisResult && currentMatchData ? (
-                      <Suspense
-                        fallback={
-                          <div className="flex flex-col items-center justify-center py-20">
-                            <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
-                            <p className="text-sm opacity-60">Carregando análise...</p>
-                          </div>
-                        }
-                      >
-                        <AnalysisDashboard
-                          result={analysisResult}
-                          data={currentMatchData}
-                          onSave={handleSaveMatch}
-                          betInfo={selectedMatch?.betInfo}
-                          bankSettings={bankSettings}
-                          savedMatches={savedMatches}
-                          onBetSave={handleSaveBetInfo}
-                          onError={showError}
-                          isUpdatingBetStatus={isUpdatingBetStatus}
-                          onOddChange={handleOddChange}
-                          initialSelectedBets={selectedMatch?.selectedBets}
-                        />
-                      </Suspense>
-                    ) : (
-                      <div className="custom-card p-12 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2">
-                        <div className="w-24 h-24 mb-6 rounded-full border-4 border-current flex items-center justify-center">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-12 w-12"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                          </svg>
-                        </div>
-                        <h3 className="text-2xl font-bold">Aguardando Análise</h3>
-                        <p className="max-w-xs mx-auto mt-2 italic">
-                          Insira os dados e as odds para descobrir o valor esperado (EV) e a
-                          confiança matemática da partida.
-                        </p>
-                      </div>
-                    )}
-                  </section>
+                  }
+                >
+                  <AnalysisDashboard
+                    result={analysisResult}
+                    data={currentMatchData}
+                    onSave={handleSaveMatch}
+                    betInfo={selectedMatch?.betInfo}
+                    bankSettings={bankSettings}
+                    savedMatches={savedMatches}
+                    onBetSave={handleSaveBetInfo}
+                    onError={showError}
+                    isUpdatingBetStatus={isUpdatingBetStatus}
+                    onOddChange={handleOddChange}
+                    initialSelectedBets={selectedMatch?.selectedBets}
+                  />
+                </Suspense>
+              ) : (
+                <div className="custom-card p-12 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2">
+                  <div className="w-24 h-24 mb-6 rounded-full border-4 border-current flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-12 w-12"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl font-bold">Aguardando Análise</h3>
+                  <p className="max-w-xs mx-auto mt-2 italic">
+                    Insira os dados e as odds para descobrir o valor esperado (EV) e a confiança
+                    matemática da partida.
+                  </p>
                 </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              )}
+            </section>
+          </div>
+        </div>
+      </ModalShell>
     </div>
   );
 };

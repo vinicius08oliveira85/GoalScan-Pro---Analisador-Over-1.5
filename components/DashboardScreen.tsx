@@ -38,6 +38,16 @@ import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
 import { getDisplayProbability } from '../utils/probability';
+import { cn } from '../utils/cn';
+import {
+  chartAxisTickLine,
+  chartColors,
+  chartGridProps,
+  chartTooltipClassName,
+  chartTooltipCompactClassName,
+  getChartAxisTick,
+} from '../utils/chartTheme';
+import SectionHeader from './ui/SectionHeader';
 
 interface DashboardScreenProps {
   savedMatches: SavedAnalysis[];
@@ -69,11 +79,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return [...savedMatches].sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
   }, [savedMatches]);
 
-  // Cores vibrantes para o gráfico de distribuição
+  // Cores consistentes (alinhadas ao design system)
   const CHART_COLORS = {
-    won: '#22c55e', // Verde vibrante
-    lost: '#ef4444', // Vermelho vibrante
-    pending: '#f59e0b', // Amarelo/Laranja vibrante
+    won: chartColors.won,
+    lost: chartColors.lost,
+    pending: chartColors.pending,
   };
 
   // Mapear dados para cores
@@ -139,12 +149,28 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     },
   ];
 
+  type StatCardTone = 'primary' | 'success' | 'error' | 'warning' | 'info';
+
+  const toneClasses: Record<StatCardTone, { bg: string; border: string; text: string }> = {
+    primary: { bg: 'bg-primary/10', border: 'border-primary/20', text: 'text-primary' },
+    success: { bg: 'bg-success/10', border: 'border-success/20', text: 'text-success' },
+    error: { bg: 'bg-error/10', border: 'border-error/20', text: 'text-error' },
+    warning: { bg: 'bg-warning/10', border: 'border-warning/20', text: 'text-warning' },
+    info: { bg: 'bg-info/10', border: 'border-info/20', text: 'text-info' },
+  };
+
+  const getTone = (tone: string): StatCardTone => {
+    return (tone in toneClasses ? tone : 'primary') as StatCardTone;
+  };
+
   return (
-    <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
+    <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
       {/* Grid de Estatísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
         {statCards.map((card, index) => {
           const Icon = card.icon;
+          const tone = getTone(card.color);
+          const toneClass = toneClasses[tone];
           return (
             <motion.div
               key={card.title}
@@ -156,9 +182,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             >
               <div className="flex items-start justify-between mb-3">
                 <div
-                  className={`p-2 md:p-3 rounded-xl bg-${card.color}/10 border border-${card.color}/20`}
+                  className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}
                 >
-                  <Icon className={`w-5 h-5 md:w-6 md:h-6 text-${card.color}`} />
+                  <Icon className={cn('w-5 h-5 md:w-6 md:h-6', toneClass.text)} />
                 </div>
                 {card.title === 'Lucro Total' && (
                   <div>
@@ -171,11 +197,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 )}
               </div>
               <div>
-                <p className="text-xs md:text-sm font-semibold opacity-60 uppercase tracking-wide mb-1">
+                <p className="text-xs md:text-sm font-semibold opacity-70 uppercase tracking-wide mb-1.5 leading-tight">
                   {card.title}
                 </p>
                 <p
-                  className={`text-2xl md:text-3xl font-black ${
+                  className={`text-2xl md:text-3xl font-black leading-none ${
                     card.color === 'success'
                       ? 'text-success'
                       : card.color === 'error'
@@ -185,7 +211,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 >
                   {card.value}
                 </p>
-                <p className="text-xs opacity-50 mt-1">{card.subtitle}</p>
+                <p className="text-xs opacity-60 mt-1.5 leading-relaxed">{card.subtitle}</p>
               </div>
             </motion.div>
           );
@@ -202,12 +228,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             animate="animate"
             className="custom-card p-4 md:p-6"
           >
-            <div className="mb-4">
-              <h3 className="text-lg md:text-xl font-black mb-1">Evolução da Banca</h3>
-              <p className="text-xs md:text-sm opacity-60">
-                Cash (disponível) e Equity (cash + pendentes) ao longo do tempo
-              </p>
-            </div>
+            <SectionHeader
+              className="mb-4"
+              title="Evolução da Banca"
+              subtitle="Cash (disponível) e Equity (cash + pendentes) ao longo do tempo"
+            />
             <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
               <AreaChart
                 data={bankEvolutionData}
@@ -215,8 +240,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               >
                 <defs>
                   <linearGradient id="bankEquityGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                    <stop offset="5%" stopColor={chartColors.equity} stopOpacity={0.18} />
+                    <stop offset="95%" stopColor={chartColors.equity} stopOpacity={0} />
                   </linearGradient>
                   <filter id="glow">
                     <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -226,23 +251,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     </feMerge>
                   </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.2} />
+                <CartesianGrid {...chartGridProps} />
                 <XAxis
                   dataKey="date"
-                  tick={{
-                    fill: 'currentColor',
-                    opacity: 0.7,
-                    fontSize: windowSize.isMobile ? 10 : 12,
-                  }}
-                  tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
+                  tick={getChartAxisTick(windowSize.isMobile)}
+                  tickLine={chartAxisTickLine}
                 />
                 <YAxis
-                  tick={{
-                    fill: 'currentColor',
-                    opacity: 0.7,
-                    fontSize: windowSize.isMobile ? 10 : 12,
-                  }}
-                  tickLine={{ stroke: 'currentColor', opacity: 0.3 }}
+                  tick={getChartAxisTick(windowSize.isMobile)}
+                  tickLine={chartAxisTickLine}
                   tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
                 />
                 <Tooltip
@@ -266,7 +283,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         previousValue !== null ? p.equity - previousValue.equity : null;
 
                       return (
-                        <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-4 shadow-xl">
+                        <div className={chartTooltipClassName}>
                           <div className="mb-2">
                             <p className="text-xs opacity-70 mb-1">{p.date}</p>
                             <div className="flex items-baseline gap-2">
@@ -324,7 +341,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Area
                   type="monotone"
                   dataKey="equity"
-                  stroke="#a855f7"
+                  stroke={chartColors.equity}
                   strokeWidth={2}
                   fill="url(#bankEquityGradient)"
                   fillOpacity={1}
@@ -335,18 +352,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Line
                   type="monotone"
                   dataKey="cash"
-                  stroke="#3b82f6"
+                  stroke={chartColors.cash}
                   strokeWidth={3}
                   dot={{
-                    fill: '#3b82f6',
+                    fill: chartColors.cash,
                     strokeWidth: 2,
-                    stroke: '#ffffff',
+                    stroke: chartColors.text,
                     r: windowSize.isMobile ? 4 : 5,
                     filter: 'url(#glow)',
                   }}
                   activeDot={{
                     r: windowSize.isMobile ? 7 : 8,
-                    stroke: '#ffffff',
+                    stroke: chartColors.text,
                     strokeWidth: 2,
                     filter: 'url(#glow)',
                   }}
@@ -367,10 +384,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             animate="animate"
             className="custom-card p-4 md:p-6"
           >
-            <div className="mb-4">
-              <h3 className="text-lg md:text-xl font-black mb-1">Distribuição de Resultados</h3>
-              <p className="text-xs md:text-sm opacity-60">Breakdown das apostas</p>
-            </div>
+            <SectionHeader
+              className="mb-4"
+              title="Distribuição de Resultados"
+              subtitle="Breakdown das apostas"
+            />
             <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
               <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 300}>
                 <PieChart>
@@ -397,7 +415,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         const Icon = icon;
 
                         return (
-                          <div className="bg-base-200/95 backdrop-blur-md border border-base-300 rounded-lg p-3 shadow-xl">
+                          <div className={chartTooltipCompactClassName}>
                             <div className="flex items-center gap-2 mb-2">
                               <div
                                 className="w-4 h-4 rounded-full"
@@ -510,23 +528,23 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <h3 className="text-lg md:text-xl font-black mb-1">Partidas Recentes</h3>
             <p className="text-xs md:text-sm opacity-60">Suas últimas análises</p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-base-300">
-                  <th className="text-left py-3 px-2 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide">
+                <tr className="border-b border-base-300/50">
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
                     Partida
                   </th>
-                  <th className="text-right py-3 px-2 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide">
+                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
                     Odd
                   </th>
-                  <th className="text-right py-3 px-2 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide">
+                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
                     EV
                   </th>
-                  <th className="text-center py-3 px-2 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide">
+                  <th className="text-center py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
                     Status
                   </th>
-                  <th className="text-right py-3 px-2 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide">
+                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
                     Lucro/Prejuízo
                   </th>
                 </tr>
@@ -551,21 +569,21 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <tr
                       key={match.id}
                       onClick={() => onMatchClick?.(match)}
-                      className="border-b border-base-300 hover:bg-base-200/50 transition-colors cursor-pointer"
+                      className="border-b border-base-300/50 hover:bg-base-200/50 transition-colors duration-200 cursor-pointer"
                     >
-                      <td className="py-3 px-2 md:px-4">
-                        <div className="text-sm font-semibold">
+                      <td className="py-3 px-3 md:px-4">
+                        <div className="text-sm font-semibold leading-relaxed">
                           {match.data.homeTeam} vs {match.data.awayTeam}
                         </div>
-                        <div className="text-xs opacity-60">
+                        <div className="text-xs opacity-70 mt-0.5 leading-relaxed">
                           {formatTimestampInBrasilia(match.timestamp)}
                         </div>
                       </td>
-                      <td className="py-3 px-2 md:px-4 text-right text-sm font-semibold">
+                      <td className="py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed">
                         {match.data.oddOver15?.toFixed(2) || '-'}
                       </td>
                       <td
-                        className={`py-3 px-2 md:px-4 text-right text-sm font-semibold ${
+                        className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
                           displayEv > 0
                             ? 'text-success'
                             : displayEv < 0
@@ -576,7 +594,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         {displayEv > 0 ? '+' : ''}
                         {displayEv.toFixed(1)}%
                       </td>
-                      <td className="py-3 px-2 md:px-4 text-center">
+                      <td className="py-3 px-3 md:px-4 text-center">
                         {hasBet ? (
                           <span
                             className={`badge badge-sm ${
@@ -598,7 +616,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         )}
                       </td>
                       <td
-                        className={`py-3 px-2 md:px-4 text-right text-sm font-semibold ${
+                        className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
                           profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''
                         }`}
                       >
