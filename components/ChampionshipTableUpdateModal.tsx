@@ -218,7 +218,7 @@ export default function ChampionshipTableUpdateModal({
           </div>
 
           {/* Extração automática do FBref */}
-          <div className="custom-card p-4 space-y-3 border-2 border-primary/20">
+          <div className="surface surface-hover p-4 space-y-3 border-2 border-primary/30 rounded-2xl">
             <div className="flex items-center justify-between">
               <div className="font-bold flex items-center gap-2">
                 <ExternalLink className="w-5 h-5 text-primary" />
@@ -230,7 +230,7 @@ export default function ChampionshipTableUpdateModal({
             </p>
             <button
               onClick={() => setShowFbrefModal(true)}
-              className="btn btn-primary btn-outline w-full gap-2"
+              className="btn btn-primary w-full gap-2"
             >
               <ExternalLink className="w-4 h-4" />
               Extrair do FBref.com
