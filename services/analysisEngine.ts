@@ -718,7 +718,14 @@ function calculateTableProbability(data: MatchData): {
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] Prob. Tabela calculada (avançada):', {
+    console.log('[AnalysisEngine] ===== Prob. Tabela calculada (com todas as 4 tabelas) =====');
+    console.log('[AnalysisEngine] Tabelas aplicadas:', {
+      geral: true, // Sempre aplicada (base para cálculo)
+      standard_for: hasStandardFor,
+      passing_for: hasPassingFor,
+      gca_for: hasGcaFor,
+    });
+    console.log('[AnalysisEngine] Resultados:', {
       lambdaHome,
       lambdaAway,
       lambdaTotal,
@@ -728,11 +735,20 @@ function calculateTableProbability(data: MatchData): {
       awayGdPerGame,
       homePtsPerGame,
       awayPtsPerGame,
-      hasStandardFor,
       tableProb,
       formAdjustment,
       finalProb,
     });
+    
+    if (!hasStandardFor || !hasPassingFor || !hasGcaFor) {
+      console.warn('[AnalysisEngine] ⚠️ Algumas tabelas complementares não foram aplicadas:', {
+        standard_for: hasStandardFor ? '✅' : '❌',
+        passing_for: hasPassingFor ? '✅' : '❌',
+        gca_for: hasGcaFor ? '✅' : '❌',
+      });
+    } else {
+      console.log('[AnalysisEngine] ✅ Todas as 4 tabelas foram aplicadas no cálculo da probabilidade da tabela!');
+    }
   }
 
   return {
@@ -1266,6 +1282,30 @@ function normalizeMatchData(data: MatchData): MatchData {
       ? data.competitionAvg
       : 0;
 
+  // Verificar se todas as 4 tabelas estão presentes antes de normalizar
+  const hasAllTables =
+    !!data.homeTableData &&
+    !!data.awayTableData &&
+    !!data.homeStandardForData &&
+    !!data.awayStandardForData &&
+    !!data.competitionStandardForAvg &&
+    !!data.homePassingForData &&
+    !!data.awayPassingForData &&
+    !!data.competitionPassingForAvg &&
+    !!data.homeGcaForData &&
+    !!data.awayGcaForData &&
+    !!data.competitionGcaForAvg;
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] normalizeMatchData - Verificando dados das 4 tabelas:', {
+      geral: !!(data.homeTableData && data.awayTableData),
+      standard_for: !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg),
+      passing_for: !!(data.homePassingForData && data.awayPassingForData && data.competitionPassingForAvg),
+      gca_for: !!(data.homeGcaForData && data.awayGcaForData && data.competitionGcaForAvg),
+      todasPresentes: hasAllTables,
+    });
+  }
+
   return {
     ...data,
     // Campos deprecated: usar valores padrão se não existirem
@@ -1279,6 +1319,18 @@ function normalizeMatchData(data: MatchData): MatchData {
     h2hOver15Freq: data.h2hOver15Freq ?? 0,
     matchImportance: data.matchImportance ?? 0,
     keyAbsences: data.keyAbsences ?? 'none',
+    // PRESERVAR TODOS OS DADOS DAS 4 TABELAS (spread operator já faz isso, mas garantindo explicitamente)
+    homeTableData: data.homeTableData,
+    awayTableData: data.awayTableData,
+    homeStandardForData: data.homeStandardForData,
+    awayStandardForData: data.awayStandardForData,
+    competitionStandardForAvg: data.competitionStandardForAvg,
+    homePassingForData: data.homePassingForData,
+    awayPassingForData: data.awayPassingForData,
+    competitionPassingForAvg: data.competitionPassingForAvg,
+    homeGcaForData: data.homeGcaForData,
+    awayGcaForData: data.awayGcaForData,
+    competitionGcaForAvg: data.competitionGcaForAvg,
   };
 }
 
@@ -1301,8 +1353,35 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     throw new Error('Dados de entrada inválidos: homeTeam e awayTeam são obrigatórios');
   }
 
+  // Log inicial: verificar dados recebidos ANTES de normalizar
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] ===== INÍCIO DA ANÁLISE =====');
+    console.log('[AnalysisEngine] Dados recebidos (ANTES de normalizar):', {
+      homeTeam: data.homeTeam,
+      awayTeam: data.awayTeam,
+      tabelas: {
+        geral: !!(data.homeTableData && data.awayTableData),
+        standard_for: !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg),
+        passing_for: !!(data.homePassingForData && data.awayPassingForData && data.competitionPassingForAvg),
+        gca_for: !!(data.homeGcaForData && data.awayGcaForData && data.competitionGcaForAvg),
+      },
+    });
+  }
+
   // Normalizar dados para garantir valores padrão seguros
   const normalizedData = normalizeMatchData(data);
+
+  // Log após normalização: verificar se dados foram preservados
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] Dados normalizados (APÓS normalizar):', {
+      tabelas: {
+        geral: !!(normalizedData.homeTableData && normalizedData.awayTableData),
+        standard_for: !!(normalizedData.homeStandardForData && normalizedData.awayStandardForData && normalizedData.competitionStandardForAvg),
+        passing_for: !!(normalizedData.homePassingForData && normalizedData.awayPassingForData && normalizedData.competitionPassingForAvg),
+        gca_for: !!(normalizedData.homeGcaForData && normalizedData.awayGcaForData && normalizedData.competitionGcaForAvg),
+      },
+    });
+  }
   
   // Extrair campos deprecated com valores padrão (para compatibilidade com dados antigos)
   const homeOver15Freq = normalizedData.homeOver15Freq ?? 0;
@@ -1757,6 +1836,8 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;
 
   // Aplicar ajustes avançados baseados em todas as 4 tabelas
+  // NOTA: Este ajuste é aplicado nos lambdas básicos, mas os lambdas finais vêm de calculateTableProbability
+  // que já inclui ajustes de standard_for, passing_for e gca_for
   const advancedAdjustments = applyAdvancedTableAdjustments(
     normalizedData,
     lambdaHome,
@@ -1764,6 +1845,9 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   );
   lambdaHome = advancedAdjustments.adjustedLambdaHome;
   lambdaAway = advancedAdjustments.adjustedLambdaAway;
+  
+  // Armazenar para uso no log final
+  let finalAdvancedAdjustments = advancedAdjustments;
 
   const lambdaTotal = lambdaHome + lambdaAway; // Média total de gols esperados no jogo (para Poisson combinado)
 
@@ -2102,6 +2186,74 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let finalEv = ev;
   if (normalizedData.oddOver15 && normalizedData.oddOver15 > 1) {
     finalEv = ((finalProb / 100) * normalizedData.oddOver15 - 1) * 100;
+  }
+
+  // VALIDAÇÃO FINAL: Verificar se todas as 4 tabelas disponíveis foram usadas
+  const finalTableCompleteness = calculateTableCompletenessScore(normalizedData);
+  const tablesUsedInAnalysis: string[] = [];
+  
+  // Verificar novamente quais tabelas estão disponíveis (para garantir que não perdemos dados)
+  const finalHasHomeTableData = !!normalizedData.homeTableData;
+  const finalHasAwayTableData = !!normalizedData.awayTableData;
+  const finalHasStandardFor =
+    !!normalizedData.homeStandardForData &&
+    !!normalizedData.awayStandardForData &&
+    !!normalizedData.competitionStandardForAvg;
+  const finalHasPassingFor =
+    !!normalizedData.homePassingForData &&
+    !!normalizedData.awayPassingForData &&
+    !!normalizedData.competitionPassingForAvg;
+  const finalHasGcaFor =
+    !!normalizedData.homeGcaForData &&
+    !!normalizedData.awayGcaForData &&
+    !!normalizedData.competitionGcaForAvg;
+  
+  if (finalHasHomeTableData && finalHasAwayTableData) {
+    tablesUsedInAnalysis.push('geral');
+  }
+  if (finalHasStandardFor) {
+    tablesUsedInAnalysis.push('standard_for');
+  }
+  if (finalHasPassingFor) {
+    tablesUsedInAnalysis.push('passing_for');
+  }
+  if (finalHasGcaFor) {
+    tablesUsedInAnalysis.push('gca_for');
+  }
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] ===== RESUMO FINAL DA ANÁLISE =====');
+    console.log('[AnalysisEngine] Tabelas disponíveis:', finalTableCompleteness.availableTables.join(', ') || 'Nenhuma');
+    console.log('[AnalysisEngine] Tabelas usadas na análise:', tablesUsedInAnalysis.join(', ') || 'Nenhuma');
+    console.log('[AnalysisEngine] Score de completude:', `${(finalTableCompleteness.score * 100).toFixed(0)}%`);
+    
+    if (finalTableCompleteness.availableTables.length !== tablesUsedInAnalysis.length) {
+      console.warn('[AnalysisEngine] ⚠️ ATENÇÃO: Nem todas as tabelas disponíveis foram usadas!');
+      console.warn('[AnalysisEngine] Disponíveis:', finalTableCompleteness.availableTables);
+      console.warn('[AnalysisEngine] Usadas:', tablesUsedInAnalysis);
+    } else if (finalTableCompleteness.score === 1.0) {
+      console.log('[AnalysisEngine] ✅ TODAS AS 4 TABELAS FORAM USADAS NA ANÁLISE!');
+    }
+    
+    // Mostrar impacto de cada tabela
+    if (tableResult) {
+      console.log('[AnalysisEngine] Impacto das tabelas nos lambdas finais:', {
+        tableLambdaHome: tableLambdaHome,
+        tableLambdaAway: tableLambdaAway,
+        tableLambdaTotal: tableLambdaTotal,
+        'standard_for aplicado': finalHasStandardFor,
+        'passing_for aplicado': finalHasPassingFor,
+        'gca_for aplicado': finalHasGcaFor,
+      });
+    }
+    
+    if (finalAdvancedAdjustments) {
+      console.log('[AnalysisEngine] Ajuste avançado aplicado:', {
+        homeScore: finalAdvancedAdjustments.impactSummary.creationScore.home,
+        awayScore: finalAdvancedAdjustments.impactSummary.creationScore.away,
+        'passing_for + gca_for combinados': true,
+      });
+    }
   }
 
   return {

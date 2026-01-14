@@ -93,6 +93,20 @@ const App: React.FC = () => {
   };
 
   const handleAnalyze = async (data: MatchData) => {
+    // Log: verificar dados recebidos antes de analisar
+    if (import.meta.env.DEV) {
+      console.log('[App] handleAnalyze - Dados recebidos do MatchForm:', {
+        homeTeam: data.homeTeam,
+        awayTeam: data.awayTeam,
+        tabelas: {
+          geral: !!(data.homeTableData && data.awayTableData),
+          standard_for: !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg),
+          passing_for: !!(data.homePassingForData && data.awayPassingForData && data.competitionPassingForAvg),
+          gca_for: !!(data.homeGcaForData && data.awayGcaForData && data.competitionGcaForAvg),
+        },
+      });
+    }
+    
     // Executar análise estatística (combina estatísticas + tabela)
     const result = performAnalysis(data);
     setAnalysisResult(result);

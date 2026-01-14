@@ -437,49 +437,55 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   <span className="opacity-60">(Alto impacto - base para cálculo)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`badge badge-sm ${formData.homeStandardForData && formData.awayStandardForData ? 'badge-success' : 'badge-warning'}`}>
-                    {formData.homeStandardForData && formData.awayStandardForData ? '✓' : '✗'}
+                  <span className={`badge badge-sm ${formData.homeStandardForData && formData.awayStandardForData && formData.competitionStandardForAvg ? 'badge-success' : 'badge-warning'}`}>
+                    {formData.homeStandardForData && formData.awayStandardForData && formData.competitionStandardForAvg ? '✓' : '✗'}
                   </span>
                   <span className="font-medium">Standard For</span>
                   <span className="opacity-60">(Médio-Alto - ajuste ataque/ritmo ±8%)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`badge badge-sm ${formData.homePassingForData && formData.awayPassingForData ? 'badge-success' : 'badge-warning'}`}>
-                    {formData.homePassingForData && formData.awayPassingForData ? '✓' : '✗'}
+                  <span className={`badge badge-sm ${formData.homePassingForData && formData.awayPassingForData && formData.competitionPassingForAvg ? 'badge-success' : 'badge-warning'}`}>
+                    {formData.homePassingForData && formData.awayPassingForData && formData.competitionPassingForAvg ? '✓' : '✗'}
                   </span>
                   <span className="font-medium">Passing For</span>
                   <span className="opacity-60">(Médio - criação via passe ±8%)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`badge badge-sm ${formData.homeGcaForData && formData.awayGcaForData ? 'badge-success' : 'badge-warning'}`}>
-                    {formData.homeGcaForData && formData.awayGcaForData ? '✓' : '✗'}
+                  <span className={`badge badge-sm ${formData.homeGcaForData && formData.awayGcaForData && formData.competitionGcaForAvg ? 'badge-success' : 'badge-warning'}`}>
+                    {formData.homeGcaForData && formData.awayGcaForData && formData.competitionGcaForAvg ? '✓' : '✗'}
                   </span>
                   <span className="font-medium">GCA For</span>
                   <span className="opacity-60">(Médio-Alto - ações de criação ±10%)</span>
                 </div>
               </div>
-              {formData.homeTableData && formData.awayTableData &&
-               formData.homeStandardForData && formData.awayStandardForData &&
-               formData.homePassingForData && formData.awayPassingForData &&
-               formData.homeGcaForData && formData.awayGcaForData ? (
-                <div className="mt-2 p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                  ✅ Todas as 4 tabelas carregadas! Análise com máxima precisão.
-                </div>
-              ) : (
-                <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs">
-                  ⚠️ Algumas tabelas estão faltando. Para análise completa com todas as 4 tabelas, extraia todas do fbref.com.
-                  <br />
-                  <span className="opacity-80">
-                    Tabelas faltando: {
-                      [
-                        (!formData.homeStandardForData || !formData.awayStandardForData) && 'standard_for',
-                        (!formData.homePassingForData || !formData.awayPassingForData) && 'passing_for',
-                        (!formData.homeGcaForData || !formData.awayGcaForData) && 'gca_for',
-                      ].filter(Boolean).join(', ') || 'Nenhuma'
-                    }
-                  </span>
-                </div>
-              )}
+              {(() => {
+                const hasGeral = !!(formData.homeTableData && formData.awayTableData);
+                const hasStandardFor = !!(formData.homeStandardForData && formData.awayStandardForData && formData.competitionStandardForAvg);
+                const hasPassingFor = !!(formData.homePassingForData && formData.awayPassingForData && formData.competitionPassingForAvg);
+                const hasGcaFor = !!(formData.homeGcaForData && formData.awayGcaForData && formData.competitionGcaForAvg);
+                const allTablesPresent = hasGeral && hasStandardFor && hasPassingFor && hasGcaFor;
+                
+                return allTablesPresent ? (
+                  <div className="mt-2 p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
+                    ✅ Todas as 4 tabelas carregadas! Análise com máxima precisão.
+                  </div>
+                ) : (
+                  <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs">
+                    ⚠️ Algumas tabelas estão faltando. Para análise completa com todas as 4 tabelas, extraia todas do fbref.com.
+                    <br />
+                    <span className="opacity-80">
+                      Tabelas faltando: {
+                        [
+                          !hasGeral && 'geral',
+                          !hasStandardFor && 'standard_for',
+                          !hasPassingFor && 'passing_for',
+                          !hasGcaFor && 'gca_for',
+                        ].filter(Boolean).join(', ') || 'Nenhuma'
+                      }
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
