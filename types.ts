@@ -182,6 +182,65 @@ export interface AnalysisResult {
   }>;
 }
 
+// ==============================
+// Sinais externos (para IA)
+// ==============================
+
+export type ExternalSignalStatus =
+  | 'disabled'
+  | 'missing_match_date'
+  | 'not_mapped'
+  | 'not_found'
+  | 'not_available'
+  | 'error'
+  | 'ok';
+
+export interface ExternalLineupsSignal {
+  status: ExternalSignalStatus;
+  provider: 'thesportsdb';
+  eventId?: string | null;
+  // Lineups podem não estar disponíveis; quando disponíveis, são listas de nomes
+  homeStarters?: string[] | null;
+  awayStarters?: string[] | null;
+  homeSubs?: string[] | null;
+  awaySubs?: string[] | null;
+  homeFormation?: string | null;
+  awayFormation?: string | null;
+  venue?: {
+    name?: string | null;
+    city?: string | null;
+    country?: string | null;
+  } | null;
+  lastUpdatedAt?: number | null;
+  error?: string | null;
+}
+
+export interface ExternalWeatherSignal {
+  status: ExternalSignalStatus;
+  provider: 'open-meteo';
+  // Coordenadas resolvidas (quando disponíveis)
+  latitude?: number | null;
+  longitude?: number | null;
+  // Momento do jogo (quando matchDate/matchTime existirem)
+  matchDate?: string | null; // YYYY-MM-DD
+  matchTime?: string | null; // HH:mm
+  // Snapshot do clima (aproximação pela hora mais próxima)
+  temperatureC?: number | null;
+  precipitationMm?: number | null; // mm/h
+  windKph?: number | null;
+  pitchCondition?: 'unknown' | 'dry' | 'wet' | 'very_wet' | 'windy';
+  // Sugestão determinística de ajuste (para a IA explicar)
+  suggestedProbabilityDeltaPp?: number | null;
+  lastUpdatedAt?: number | null;
+  error?: string | null;
+}
+
+export interface ExternalSignals {
+  enabled: boolean;
+  lineups: ExternalLineupsSignal;
+  weather: ExternalWeatherSignal;
+}
+
 // Aposta selecionada para combinação
 export interface SelectedBet {
   line: string; // '0.5', '1.5', etc.

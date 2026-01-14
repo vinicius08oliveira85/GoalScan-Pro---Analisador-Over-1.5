@@ -1,7 +1,8 @@
-import { MatchData } from '../types';
+import { ExternalSignals, MatchData } from '../types';
 import { performAnalysis } from './analysisEngine';
 import { generateGeminiContent, getGeminiSettings, toGeminiFriendlyError } from './geminiClient';
 import { syncMatchScore, MatchScore } from './googleMatchSync';
+import { getExternalSignals } from './externalSignalsService';
 
 /**
  * TIPAGEM E CONFIGURAÇÕES
@@ -14,6 +15,7 @@ type AiOver15Result = {
     title: string;
     message: string;
   };
+  externalSignals?: ExternalSignals;
 };
 
 /**
@@ -166,10 +168,22 @@ export function parseRecommendedCombinations(markdown: string): Array<{
  * CONSTRUÇÃO DE CONTEXTO E PROMPT
  */
 
-async function buildContext(data: MatchData, liveScore?: MatchScore) {
+async function buildContext(
+  data: MatchData,
+  liveScore?: MatchScore,
+  options?: { useExternalSignals?: boolean }
+) {
   const result = performAnalysis(data);
   const home = data.homeTeamStats?.gols?.home;
   const away = data.awayTeamStats?.gols?.away;
+
+  const externalSignals = await getExternalSignals({
+    enabled: Boolean(options?.useExternalSignals),
+    homeTeam: data.homeTeam,
+    awayTeam: data.awayTeam,
+    matchDate: data.matchDate,
+    matchTime: data.matchTime,
+  });
 
   // Validação: Verificar que todos os dados necessários estão presentes
   const hasHomeStats = !!home;
@@ -251,12 +265,17 @@ async function buildContext(data: MatchData, liveScore?: MatchScore) {
       prob: safeNumber(result.probabilityOver15),
       ev: safeNumber(result.ev),
       risk: result.riskLevel,
-    }
+    },
+    externalSignals,
   };
 }
 
-async function buildPrompt(data: MatchData, liveScore?: MatchScore): Promise<string> {
-  const ctx = await buildContext(data, liveScore);
+async function buildPrompt(
+  data: MatchData,
+  liveScore?: MatchScore,
+  options?: { useExternalSignals?: boolean }
+): Promise<string> {
+  const ctx = await buildContext(data, liveScore, options);
   
   return [
     '# PERSONA: Analista Quantitativo de Apostas (Over/Under Gols)',
@@ -330,6 +349,11 @@ async function buildPrompt(data: MatchData, liveScore?: MatchScore): Promise<str
     '3. Se houver divergência entre stats e tabela, priorize stats (são mais específicos)',
     '4. Use competitionAvg como baseline da competição',
     '',
+    '### SINAIS EXTERNOS (quando enabled=true):',
+    '- externalSignals.lineups: pode conter escalações/formation/venue (não inventar jogadores).',
+    '- externalSignals.weather: contém snapshot de clima + suggestedProbabilityDeltaPp (ajuste conservador).',
+    '- Use sinais externos principalmente para: (a) ajustar confiança, (b) aplicar ajuste fino explicado.',
+    '',
     '### ANÁLISE DE FATORES DE RISCO:',
     '- Times com alta classificação (Rk baixo) + boa forma (Last 5 com muitos W) = maior probabilidade de gols',
     '- Times com xG alto mas GF baixo = podem estar com azar, probabilidade pode aumentar',
@@ -349,8 +373,13 @@ async function buildPrompt(data: MatchData, liveScore?: MatchScore): Promise<str
  * FALLBACK LOCAL (Lógica Estatística de Segurança)
  */
 
-async function localFallbackReport(data: MatchData, liveScore?: MatchScore, notice?: AiOver15Result['notice']): Promise<AiOver15Result> {
-  const ctx = await buildContext(data, liveScore);
+async function localFallbackReport(
+  data: MatchData,
+  liveScore?: MatchScore,
+  notice?: AiOver15Result['notice'],
+  options?: { useExternalSignals?: boolean }
+): Promise<AiOver15Result> {
+  const ctx = await buildContext(data, liveScore, options);
   const baseProb = ctx.baseline.prob ?? 0;
   
   // Ajuste de probabilidade em tempo real para o fallback
@@ -372,6 +401,10 @@ async function localFallbackReport(data: MatchData, liveScore?: MatchScore, noti
     `- **EV**: ${ctx.baseline.ev?.toFixed(1) ?? 'N/A'}%`,
     `- **Nível de Risco**: ${ctx.baseline.risk}`,
     '',
+    '## Sinais Externos (Status)',
+    `- Lineups: ${ctx.externalSignals?.lineups.status ?? 'disabled'}`,
+    `- Clima: ${ctx.externalSignals?.weather.status ?? 'disabled'}`,
+    '',
     '---',
     '',
     '## Análise Quantitativa (Fallback Local)',
@@ -383,7 +416,7 @@ async function localFallbackReport(data: MatchData, liveScore?: MatchScore, noti
     'Este relatório foi gerado localmente devido à indisponibilidade da API do Gemini.'
   ].join('\n');
 
-  return { reportMarkdown: md, provider: 'local', notice };
+  return { reportMarkdown: md, provider: 'local', notice, externalSignals: ctx.externalSignals };
 }
 
 /**
@@ -392,7 +425,7 @@ async function localFallbackReport(data: MatchData, liveScore?: MatchScore, noti
 
 export async function generateAiOver15Report(
   data: MatchData,
-  options?: { fetchLiveData?: boolean; liveScore?: MatchScore; }
+  options?: { fetchLiveData?: boolean; liveScore?: MatchScore; useExternalSignals?: boolean }
 ): Promise<AiOver15Result> {
   let liveScore = options?.liveScore;
 
@@ -410,19 +443,21 @@ export async function generateAiOver15Report(
       kind: 'info',
       title: 'IA Local Ativa',
       message: 'Chave API não configurada. Usando processamento estatístico local.'
-    });
+    }, options);
   }
 
   try {
-    const prompt = await buildPrompt(data, liveScore);
+    const prompt = await buildPrompt(data, liveScore, options);
     const reportMarkdown = await generateGeminiContent(prompt, apiKey);
-    return { reportMarkdown, provider: 'gemini' };
+    // Contexto também é útil para UI (status de sinais externos)
+    const ctx = await buildContext(data, liveScore, options);
+    return { reportMarkdown, provider: 'gemini', externalSignals: ctx.externalSignals };
   } catch (e) {
     const friendly = toGeminiFriendlyError(e);
     return await localFallbackReport(data, liveScore, {
       kind: 'warning',
       title: friendly?.title ?? 'Erro na IA',
       message: friendly?.message ?? 'Falha na comunicação com o Gemini. Usando fallback.'
-    });
+    }, options);
   }
 }

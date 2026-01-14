@@ -9,7 +9,7 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react';
-import { MatchData } from '../types';
+import { ExternalSignals, MatchData } from '../types';
 import {
   generateAiOver15Report,
   extractProbabilityFromMarkdown,
@@ -204,6 +204,8 @@ const AiOver15Insights: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState<'gemini' | 'local' | null>(null);
   const [report, setReport] = useState<string | null>(null);
+  const [externalSignals, setExternalSignals] = useState<ExternalSignals | null>(null);
+  const [useExternalSignals, setUseExternalSignals] = useState<boolean>(true);
   const [notice, setNotice] = useState<{
     kind: 'info' | 'warning' | 'error';
     title: string;
@@ -261,6 +263,7 @@ const AiOver15Insights: React.FC<Props> = ({
     setError(null);
     setNotice(null);
     setProvider(null);
+    setExternalSignals(null);
     setReport(savedReportMarkdown ?? null);
   };
 
@@ -271,12 +274,14 @@ const AiOver15Insights: React.FC<Props> = ({
     setLoading(true);
     setError(null);
     setNotice(null);
+    setExternalSignals(null);
 
     try {
-      const res = await generateAiOver15Report(data);
+      const res = await generateAiOver15Report(data, { useExternalSignals });
       setProvider(res.provider);
       setReport(res.reportMarkdown);
       setNotice(res.notice ?? null);
+      setExternalSignals(res.externalSignals ?? null);
 
       // Extrair probabilidade e confiança da análise
       const aiProbability = extractProbabilityFromMarkdown(res.reportMarkdown);
@@ -349,8 +354,26 @@ const AiOver15Insights: React.FC<Props> = ({
                         ? 'Gerando...'
                         : ''}
               </p>
+              <p className="text-[11px] opacity-60 mt-1">
+                Sinais externos: {useExternalSignals ? 'ativados' : 'desativados'}
+                {externalSignals ? (
+                  <>
+                    {' '}• Lineups: <span className="font-bold">{externalSignals.lineups.status}</span>
+                    {' '}• Clima: <span className="font-bold">{externalSignals.weather.status}</span>
+                  </>
+                ) : null}
+              </p>
             </div>
             <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-xs opacity-80 select-none" title="Usar sinais externos (lineups/clima)">
+                <input
+                  type="checkbox"
+                  className="toggle toggle-xs"
+                  checked={useExternalSignals}
+                  onChange={(e) => setUseExternalSignals(e.target.checked)}
+                />
+                externos
+              </label>
               {hasSavedReport && (
                 <button
                   type="button"
