@@ -4,9 +4,8 @@ import { logger } from '../utils/logger';
 
 export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
 
-// NOTE: O deploy do slug original `fbref-scraper` falhou ao atualizar versão (erro interno no Supabase).
-// Usamos `fbref-scraper-v2` como versão ativa até normalizar o deploy do slug original.
-const FBREF_SCRAPER_FUNCTION_NAME = 'fbref-scraper-v2';
+// API route Python no Vercel
+const FBREF_SCRAPER_API_URL = '/api/fbref-extract';
 
 export interface FbrefExtractionRequest {
   championshipUrl: string;
@@ -89,48 +88,37 @@ export const extractFbrefData = async (
       return cached;
     }
 
-    // Obter cliente Supabase
-    const supabase = await getSupabaseClient();
-
-    // Chamar Edge Function
-    const { data, error } = await supabase.functions.invoke(FBREF_SCRAPER_FUNCTION_NAME, {
-      body: {
+    // Chamar API Python no Vercel
+    const response = await fetch(FBREF_SCRAPER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         championshipUrl: request.championshipUrl,
         championshipId: request.championshipId,
         extractTypes: request.extractTypes,
-      },
+      }),
     });
 
-    if (error) {
-      logger.error('[FBrefService] Erro ao chamar Edge Function:', error);
-
-      // Tentar extrair detalhes do response (quando disponível) para melhorar o feedback no UI
-      const tryReadResponseMessage = async (): Promise<string | null> => {
-        const resp = (error as unknown as { context?: { response?: Response } })?.context?.response;
-        if (!resp) return null;
-        try {
-          const text = await resp.text();
-          if (!text) return null;
-          try {
-            const json = JSON.parse(text) as { error?: string };
-            if (json?.error) return json.error;
-          } catch {
-            // não era JSON
-          }
-          return text;
-        } catch {
-          return null;
+    if (!response.ok) {
+      let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = (await response.json()) as { error?: string };
+        if (errorData?.error) {
+          errorMessage = errorData.error;
         }
-      };
-
-      const details = await tryReadResponseMessage();
+      } catch {
+        // Ignora erro ao parsear JSON
+      }
+      logger.error('[FBrefService] Erro ao chamar API:', errorMessage);
       return {
         success: false,
-        error: details || error.message || 'Erro ao extrair dados do fbref.com',
+        error: errorMessage,
       };
     }
 
-    const result = data as FbrefExtractionResult;
+    const result = (await response.json()) as FbrefExtractionResult;
 
     // Salvar no cache se bem-sucedido
     if (result.success) {
