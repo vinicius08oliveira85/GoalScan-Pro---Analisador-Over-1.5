@@ -136,7 +136,10 @@ export default function ChampionshipTableUpdateModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
-      onClick={onClose}
+      onClick={(e) => {
+        // Fechar apenas quando clicar no backdrop (evita fechar ao interagir com modais internos)
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
