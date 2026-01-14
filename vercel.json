@@ -5,7 +5,6 @@
   "framework": "vite",
   "functions": {
     "api/fbref-extract.py": {
-      "runtime": "python3.9",
       "maxDuration": 60
     }
   }
