@@ -1662,11 +1662,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let lambdaCombined = lambdaHomeCombined + lambdaAwayCombined;
 
   // Shrinkage calibrado para a média do campeonato (estabiliza extremos)
-  const hasStandardFor = !!(
-    normalizedData.homeStandardForData &&
-    normalizedData.awayStandardForData &&
-    normalizedData.competitionStandardForAvg
-  );
+  // hasStandardFor já foi declarado anteriormente na função
   const minMp =
     hasHomeTableData && hasAwayTableData
       ? Math.min(
