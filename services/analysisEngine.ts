@@ -1836,7 +1836,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   if (normalizedData.homeXG > 0 && normalizedData.awayXG > 0) confidence += 5;
 
   // Bônus por completude das 4 tabelas
-  const tableCompleteness = calculateTableCompletenessScore(normalizedData);
+  // tableCompleteness já foi calculado anteriormente na função
   if (tableCompleteness.score === 1.0) {
     // Todas as 4 tabelas disponíveis
     confidence += 15;
