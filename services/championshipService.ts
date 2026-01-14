@@ -1177,6 +1177,33 @@ export const syncTeamStatsFromTable = async (
 
       if (missingTables.length > 0) {
         console.warn('[ChampionshipService] ⚠️ Tabelas faltando após sincronização:', missingTables);
+        
+        // Diagnóstico detalhado para cada tabela faltante
+        for (const tableType of missingTables) {
+          const table = tables.find((t) => t.table_type === tableType);
+          if (!table) {
+            console.warn(`[ChampionshipService] ⚠️ Tabela ${tableType} não existe no banco de dados.`);
+            console.warn(`[ChampionshipService] Ação necessária: Extraia a tabela ${tableType} do fbref.com primeiro.`);
+          } else {
+            const rows = Array.isArray(table.table_data) ? table.table_data : [];
+            if (rows.length === 0) {
+              console.warn(`[ChampionshipService] ⚠️ Tabela ${tableType} existe mas está vazia.`);
+              console.warn(`[ChampionshipService] Ação necessária: Extraia novamente a tabela ${tableType} do fbref.com.`);
+            } else {
+              // Tabela existe e tem dados, mas Squads não foram encontrados
+              const allSquads = rows.map((row: any) => row.Squad).filter(Boolean);
+              const homeFound = allSquads.some((s: string) => s === homeSquad);
+              const awayFound = allSquads.some((s: string) => s === awaySquad);
+              
+              if (!homeFound || !awayFound) {
+                console.warn(`[ChampionshipService] ⚠️ Tabela ${tableType} existe mas Squads não foram encontrados.`);
+                console.warn(`[ChampionshipService] Time da casa encontrado: ${homeFound}, Time visitante encontrado: ${awayFound}`);
+                console.warn(`[ChampionshipService] Squads disponíveis (primeiros 10):`, allSquads.slice(0, 10));
+                console.warn(`[ChampionshipService] Ação necessária: Verifique se os nomes dos times (Squads) estão corretos.`);
+              }
+            }
+          }
+        }
       } else {
         console.log('[ChampionshipService] ✅ Todas as 4 tabelas carregadas com sucesso!');
       }
@@ -1210,6 +1237,155 @@ export const syncTeamStatsFromTable = async (
       homeGcaForData: null,
       awayGcaForData: null,
       competitionGcaForAvg: null,
+    };
+  }
+};
+
+/**
+ * Verifica a disponibilidade das tabelas para um campeonato e retorna informações de diagnóstico
+ */
+export interface TableAvailabilityInfo {
+  tableType: TableType;
+  exists: boolean;
+  hasData: boolean;
+  rowCount: number;
+  lastUpdated?: string;
+  availableSquads?: string[];
+  squadFound?: {
+    home: boolean;
+    away: boolean;
+  };
+}
+
+export interface ChampionshipTablesDiagnostic {
+  championshipId: string;
+  tables: Record<TableType, TableAvailabilityInfo>;
+  allTablesExist: boolean;
+  allTablesHaveData: boolean;
+  missingTables: TableType[];
+  emptyTables: TableType[];
+}
+
+export const checkChampionshipTablesAvailability = async (
+  championshipId: string,
+  homeSquad?: string,
+  awaySquad?: string
+): Promise<ChampionshipTablesDiagnostic> => {
+  try {
+    const tables = await loadChampionshipTables(championshipId);
+    
+    const diagnostic: ChampionshipTablesDiagnostic = {
+      championshipId,
+      tables: {
+        geral: {
+          tableType: 'geral',
+          exists: false,
+          hasData: false,
+          rowCount: 0,
+        },
+        standard_for: {
+          tableType: 'standard_for',
+          exists: false,
+          hasData: false,
+          rowCount: 0,
+        },
+        passing_for: {
+          tableType: 'passing_for',
+          exists: false,
+          hasData: false,
+          rowCount: 0,
+        },
+        gca_for: {
+          tableType: 'gca_for',
+          exists: false,
+          hasData: false,
+          rowCount: 0,
+        },
+      },
+      allTablesExist: false,
+      allTablesHaveData: false,
+      missingTables: [],
+      emptyTables: [],
+    };
+
+    // Verificar cada tipo de tabela
+    const tableTypes: TableType[] = ['geral', 'standard_for', 'passing_for', 'gca_for'];
+    
+    for (const tableType of tableTypes) {
+      const table = tables.find((t) => t.table_type === tableType);
+      const info: TableAvailabilityInfo = {
+        tableType,
+        exists: !!table,
+        hasData: false,
+        rowCount: 0,
+        lastUpdated: table?.updated_at || table?.created_at,
+      };
+
+      if (table && table.table_data && Array.isArray(table.table_data)) {
+        info.hasData = table.table_data.length > 0;
+        info.rowCount = table.table_data.length;
+
+        // Extrair Squads disponíveis
+        const rows = table.table_data as Array<{ Squad?: string; [key: string]: unknown }>;
+        info.availableSquads = rows
+          .map((row) => row.Squad)
+          .filter((squad): squad is string => typeof squad === 'string' && squad.trim() !== '');
+
+        // Verificar se os Squads foram encontrados (se fornecidos)
+        if (homeSquad && awaySquad) {
+          info.squadFound = {
+            home: info.availableSquads.some((s) => s === homeSquad),
+            away: info.availableSquads.some((s) => s === awaySquad),
+          };
+        }
+      }
+
+      diagnostic.tables[tableType] = info;
+
+      if (!info.exists) {
+        diagnostic.missingTables.push(tableType);
+      } else if (!info.hasData) {
+        diagnostic.emptyTables.push(tableType);
+      }
+    }
+
+    diagnostic.allTablesExist = diagnostic.missingTables.length === 0;
+    diagnostic.allTablesHaveData = diagnostic.missingTables.length === 0 && diagnostic.emptyTables.length === 0;
+
+    // Log detalhado
+    if (import.meta.env.DEV) {
+      console.log('[ChampionshipService] Diagnóstico de tabelas:', {
+        championshipId,
+        allTablesExist: diagnostic.allTablesExist,
+        allTablesHaveData: diagnostic.allTablesHaveData,
+        missingTables: diagnostic.missingTables,
+        emptyTables: diagnostic.emptyTables,
+        details: Object.entries(diagnostic.tables).map(([type, info]) => ({
+          type,
+          exists: info.exists,
+          hasData: info.hasData,
+          rowCount: info.rowCount,
+          squadsFound: homeSquad && awaySquad ? info.squadFound : undefined,
+        })),
+      });
+    }
+
+    return diagnostic;
+  } catch (error: unknown) {
+    logger.error('[ChampionshipService] Erro ao verificar disponibilidade de tabelas:', error);
+    // Retornar diagnóstico vazio em caso de erro
+    return {
+      championshipId,
+      tables: {
+        geral: { tableType: 'geral', exists: false, hasData: false, rowCount: 0 },
+        standard_for: { tableType: 'standard_for', exists: false, hasData: false, rowCount: 0 },
+        passing_for: { tableType: 'passing_for', exists: false, hasData: false, rowCount: 0 },
+        gca_for: { tableType: 'gca_for', exists: false, hasData: false, rowCount: 0 },
+      },
+      allTablesExist: false,
+      allTablesHaveData: false,
+      missingTables: ['geral', 'standard_for', 'passing_for', 'gca_for'],
+      emptyTables: [],
     };
   }
 };
