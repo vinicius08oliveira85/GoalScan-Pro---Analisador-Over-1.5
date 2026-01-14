@@ -53,6 +53,36 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function getZenRowsApiKey(): string | null {
+  try {
+    return Deno.env.get('ZENROWS_API_KEY') || null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchHtmlViaZenRows(targetUrl: string, apiKey: string): Promise<string> {
+  const zenUrl = new URL('https://api.zenrows.com/v1/');
+  zenUrl.searchParams.set('apikey', apiKey);
+  zenUrl.searchParams.set('url', targetUrl);
+
+  // Cloudflare challenge costuma exigir proxy “premium” e, às vezes, render JS.
+  zenUrl.searchParams.set('premium_proxy', 'true');
+  zenUrl.searchParams.set('js_render', 'true');
+
+  const resp = await fetch(zenUrl.toString(), {
+    headers: { Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
+  });
+
+  const text = await resp.text();
+  if (!resp.ok) {
+    const snippet = text ? ` - ${text.slice(0, 200)}` : '';
+    throw new Error(`ZenRows HTTP ${resp.status}: ${resp.statusText}${snippet}`);
+  }
+
+  return text;
+}
+
 const TABLE_ID_CANDIDATES: Record<FbrefTableType, Array<string | RegExp>> = {
   // “Geral” (classificação): o id muda por competição/temporada, mas termina em _overall.
   // Exemplos comuns: stats_results_2025-2026_111_overall, results2025-2026111_overall, results_..._overall
@@ -255,6 +285,11 @@ async function fetchHtml(url: string): Promise<string> {
   // Fazer requisição com delay (rate limit)
   await delay(DELAY_MS);
 
+  const zenKey = getZenRowsApiKey();
+  if (zenKey) {
+    return await fetchHtmlViaZenRows(url, zenKey);
+  }
+
   let response: Response;
   try {
     response = await fetch(url, { headers: UA_HEADERS });
@@ -264,6 +299,13 @@ async function fetchHtml(url: string): Promise<string> {
     if (e) console.warn('[fbref-scraper] fetch with UA failed, retrying with SAFE_HEADERS:', e);
   }
   if (!response.ok) {
+    const cfMitigated = response.headers.get('cf-mitigated');
+    if (response.status === 403 && cfMitigated) {
+      throw new Error(
+        'FBref bloqueou a requisição (Cloudflare). Configure o secret ZENROWS_API_KEY no Supabase para habilitar a extração automática.'
+      );
+    }
+
     throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
   }
 
