@@ -15,6 +15,10 @@ ALTER TABLE bank_settings
   ALTER COLUMN leverage SET NOT NULL;
 
 -- Adicionar constraint para garantir valores válidos (0.1 a 10.0)
+-- Remover constraint existente se houver (para evitar erro ao recriar)
+ALTER TABLE bank_settings
+  DROP CONSTRAINT IF EXISTS check_leverage_range;
+
 ALTER TABLE bank_settings
   ADD CONSTRAINT check_leverage_range CHECK (leverage >= 0.1 AND leverage <= 10.0);
 
