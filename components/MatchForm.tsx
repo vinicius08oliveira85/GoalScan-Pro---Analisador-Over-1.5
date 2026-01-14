@@ -338,6 +338,19 @@ const MatchForm: React.FC<MatchFormProps> = ({
     try {
       // Validar dados antes de enviar
       const validatedData = validateMatchData(formData);
+      
+      // Log: verificar se todas as 4 tabelas foram preservadas após validação
+      if (import.meta.env.DEV) {
+        console.log('[MatchForm] Dados após validação (validateMatchData):', {
+          tabelas: {
+            geral: !!(validatedData.homeTableData && validatedData.awayTableData),
+            standard_for: !!(validatedData.homeStandardForData && validatedData.awayStandardForData && validatedData.competitionStandardForAvg),
+            passing_for: !!(validatedData.homePassingForData && validatedData.awayPassingForData && validatedData.competitionPassingForAvg),
+            gca_for: !!(validatedData.homeGcaForData && validatedData.awayGcaForData && validatedData.competitionGcaForAvg),
+          },
+        });
+      }
+      
       // onAnalyze agora é assíncrono e executa análise estatística + IA automaticamente
       await onAnalyze(validatedData);
     } catch (error) {

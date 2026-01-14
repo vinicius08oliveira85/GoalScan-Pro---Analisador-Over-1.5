@@ -104,6 +104,13 @@ export const matchDataSchema = z.object({
   homeStandardForData: z.any().optional(), // Tabela complementar (TableRowStandardFor)
   awayStandardForData: z.any().optional(), // Tabela complementar (TableRowStandardFor)
   competitionStandardForAvg: z.any().optional(), // Médias do campeonato para normalização (CompetitionStandardForAverages)
+  // Tabelas complementares adicionais (FBref) - todas as 4 tabelas devem estar presentes no schema
+  homePassingForData: z.any().optional(), // Tabela passing_for (TableRowPassingFor)
+  awayPassingForData: z.any().optional(), // Tabela passing_for (TableRowPassingFor)
+  competitionPassingForAvg: z.any().optional(), // Médias do campeonato para passing_for (CompetitionPassingForAverages)
+  homeGcaForData: z.any().optional(), // Tabela gca_for (TableRowGcaFor)
+  awayGcaForData: z.any().optional(), // Tabela gca_for (TableRowGcaFor)
+  competitionGcaForAvg: z.any().optional(), // Médias do campeonato para gca_for (CompetitionGcaForAverages)
 });
 
 // Schema para validação de BetInfo
@@ -150,12 +157,14 @@ export const bankSettingsSchema = z.object({
 });
 
 // Schema para validação parcial (apenas campos críticos)
+// IMPORTANTE: .passthrough() preserva TODOS os campos adicionais, incluindo todas as 4 tabelas
+// (geral, standard_for, passing_for, gca_for) e suas médias de competição
 const matchDataPartialSchema = z
   .object({
     homeTeam: z.string().min(1, 'Nome do time da casa é obrigatório').max(100),
     awayTeam: z.string().min(1, 'Nome do time visitante é obrigatório').max(100),
   })
-  .passthrough(); // Permite campos adicionais sem validar
+  .passthrough(); // Permite campos adicionais sem validar - PRESERVA todas as 4 tabelas e seus dados
 
 // Função helper para validar e sanitizar dados
 export function validateMatchData(data: unknown) {

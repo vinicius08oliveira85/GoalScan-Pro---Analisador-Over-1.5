@@ -391,6 +391,14 @@ function calculateTableProbability(data: MatchData): {
     !!data.awayStandardForData &&
     !!data.competitionStandardForAvg;
 
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] calculateTableProbability - Antes de aplicar standard_for:', {
+      hasStandardFor,
+      lambdaHomeAntes: lambdaHome,
+      lambdaAwayAntes: lambdaAway,
+    });
+  }
+
   if (hasStandardFor) {
     const parseNum = (value: unknown): number => {
       if (value == null) return 0;
@@ -472,6 +480,14 @@ function calculateTableProbability(data: MatchData): {
     !!data.homePassingForData &&
     !!data.awayPassingForData &&
     !!data.competitionPassingForAvg;
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] calculateTableProbability - Antes de aplicar passing_for:', {
+      hasPassingFor,
+      lambdaHomeAntes: lambdaHome,
+      lambdaAwayAntes: lambdaAway,
+    });
+  }
 
   if (hasPassingFor) {
     const parseNum = (value: unknown): number => {
@@ -556,6 +572,14 @@ function calculateTableProbability(data: MatchData): {
     !!data.homeGcaForData &&
     !!data.awayGcaForData &&
     !!data.competitionGcaForAvg;
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] calculateTableProbability - Antes de aplicar gca_for:', {
+      hasGcaFor,
+      lambdaHomeAntes: lambdaHome,
+      lambdaAwayAntes: lambdaAway,
+    });
+  }
 
   if (hasGcaFor) {
     const parseNum = (value: unknown): number => {
@@ -1271,6 +1295,71 @@ function getTableImpactSummary(data: MatchData): {
   };
 }
 
+/**
+ * Valida integridade dos dados das tabelas
+ * Verifica se os dados básicos estão presentes e se há consistência entre tabelas
+ */
+function validateTableDataIntegrity(data: MatchData): {
+  isValid: boolean;
+  issues: string[];
+  warnings: string[];
+} {
+  const issues: string[] = [];
+  const warnings: string[] = [];
+
+  // Verificar tabela geral
+  if (data.homeTableData) {
+    const mp = parseFloat(String(data.homeTableData.MP || '0'));
+    const gf = parseFloat(String(data.homeTableData.GF || '0'));
+    const ga = parseFloat(String(data.homeTableData.GA || '0'));
+    if (mp === 0 || (gf === 0 && ga === 0)) {
+      warnings.push('Tabela geral do time da casa tem dados incompletos (MP=0 ou sem gols)');
+    }
+  }
+  if (data.awayTableData) {
+    const mp = parseFloat(String(data.awayTableData.MP || '0'));
+    const gf = parseFloat(String(data.awayTableData.GF || '0'));
+    const ga = parseFloat(String(data.awayTableData.GA || '0'));
+    if (mp === 0 || (gf === 0 && ga === 0)) {
+      warnings.push('Tabela geral do time visitante tem dados incompletos (MP=0 ou sem gols)');
+    }
+  }
+
+  // Verificar correspondência de Squads entre tabelas
+  if (data.homeTableData && data.homeStandardForData) {
+    const geralSquad = String(data.homeTableData.Squad || '').trim();
+    const standardSquad = String((data.homeStandardForData as { Squad?: string })?.Squad || '').trim();
+    if (geralSquad && standardSquad && geralSquad !== standardSquad) {
+      warnings.push(`Divergência de Squad na tabela geral vs standard_for (casa): "${geralSquad}" vs "${standardSquad}"`);
+    }
+  }
+
+  if (data.awayTableData && data.awayStandardForData) {
+    const geralSquad = String(data.awayTableData.Squad || '').trim();
+    const standardSquad = String((data.awayStandardForData as { Squad?: string })?.Squad || '').trim();
+    if (geralSquad && standardSquad && geralSquad !== standardSquad) {
+      warnings.push(`Divergência de Squad na tabela geral vs standard_for (visitante): "${geralSquad}" vs "${standardSquad}"`);
+    }
+  }
+
+  // Verificar se tabelas complementares têm competitionAvg quando necessário
+  if (data.homeStandardForData && data.awayStandardForData && !data.competitionStandardForAvg) {
+    warnings.push('Tabela standard_for presente mas competitionStandardForAvg ausente');
+  }
+  if (data.homePassingForData && data.awayPassingForData && !data.competitionPassingForAvg) {
+    warnings.push('Tabela passing_for presente mas competitionPassingForAvg ausente');
+  }
+  if (data.homeGcaForData && data.awayGcaForData && !data.competitionGcaForAvg) {
+    warnings.push('Tabela gca_for presente mas competitionGcaForAvg ausente');
+  }
+
+  return {
+    isValid: issues.length === 0,
+    issues,
+    warnings,
+  };
+}
+
 function normalizeMatchData(data: MatchData): MatchData {
   // competitionAvg deve representar média de gols por jogo (ex.: 2.6, 3.1).
   // Valores muito altos (>10) geralmente indicam dado antigo/corrompido (ex.: percentual) e devem ser ignorados.
@@ -1304,6 +1393,20 @@ function normalizeMatchData(data: MatchData): MatchData {
       gca_for: !!(data.homeGcaForData && data.awayGcaForData && data.competitionGcaForAvg),
       todasPresentes: hasAllTables,
     });
+  }
+
+  // Validar integridade dos dados das tabelas
+  const integrityCheck = validateTableDataIntegrity(data);
+  if (import.meta.env.DEV) {
+    if (integrityCheck.issues.length > 0) {
+      console.error('[AnalysisEngine] ⚠️ Problemas de integridade encontrados:', integrityCheck.issues);
+    }
+    if (integrityCheck.warnings.length > 0) {
+      console.warn('[AnalysisEngine] ⚠️ Avisos de integridade:', integrityCheck.warnings);
+    }
+    if (integrityCheck.isValid && integrityCheck.warnings.length === 0) {
+      console.log('[AnalysisEngine] ✅ Integridade dos dados das tabelas validada com sucesso');
+    }
   }
 
   return {
@@ -1835,9 +1938,31 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let lambdaHome = (homeGoalsScored + awayGoalsConceded) / 2;
   let lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;
 
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] performAnalysis - Lambdas iniciais (base estatísticas):', {
+      lambdaHome,
+      lambdaAway,
+      homeGoalsScored,
+      awayGoalsConceded,
+      awayGoalsScored,
+      homeGoalsConceded,
+    });
+  }
+
   // Aplicar ajustes avançados baseados em todas as 4 tabelas
   // NOTA: Este ajuste é aplicado nos lambdas básicos, mas os lambdas finais vêm de calculateTableProbability
   // que já inclui ajustes de standard_for, passing_for e gca_for
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] performAnalysis - Antes de aplicar ajustes avançados (applyAdvancedTableAdjustments):', {
+      lambdaHome,
+      lambdaAway,
+      tabelasDisponiveis: {
+        passing_for: !!(normalizedData.homePassingForData && normalizedData.awayPassingForData && normalizedData.competitionPassingForAvg),
+        gca_for: !!(normalizedData.homeGcaForData && normalizedData.awayGcaForData && normalizedData.competitionGcaForAvg),
+      },
+    });
+  }
+
   const advancedAdjustments = applyAdvancedTableAdjustments(
     normalizedData,
     lambdaHome,
@@ -1845,6 +1970,14 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   );
   lambdaHome = advancedAdjustments.adjustedLambdaHome;
   lambdaAway = advancedAdjustments.adjustedLambdaAway;
+  
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] performAnalysis - Após aplicar ajustes avançados:', {
+      lambdaHome,
+      lambdaAway,
+      creationScore: advancedAdjustments.impactSummary.creationScore,
+    });
+  }
   
   // Armazenar para uso no log final
   let finalAdvancedAdjustments = advancedAdjustments;
@@ -2044,12 +2177,36 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const statsLambdaAway = statsResult?.lambdaAway;
 
   // Calcular Prob. Tabela separadamente (baseada apenas em dados da tabela)
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] performAnalysis - Antes de calcular probabilidade da tabela (calculateTableProbability):', {
+      tabelasDisponiveis: {
+        geral: !!(normalizedData.homeTableData && normalizedData.awayTableData),
+        standard_for: !!(normalizedData.homeStandardForData && normalizedData.awayStandardForData && normalizedData.competitionStandardForAvg),
+        passing_for: !!(normalizedData.homePassingForData && normalizedData.awayPassingForData && normalizedData.competitionPassingForAvg),
+        gca_for: !!(normalizedData.homeGcaForData && normalizedData.awayGcaForData && normalizedData.competitionGcaForAvg),
+      },
+    });
+  }
+
   const tableResult = calculateTableProbability(normalizedData);
   const tableProb = tableResult?.probability ?? null;
   const tableOverUnderProbabilities = tableResult?.overUnderProbabilities;
   const tableLambdaTotal = tableResult?.lambdaTotal;
   const tableLambdaHome = tableResult?.lambdaHome;
   const tableLambdaAway = tableResult?.lambdaAway;
+
+  if (import.meta.env.DEV && tableResult) {
+    console.log('[AnalysisEngine] performAnalysis - Resultado de calculateTableProbability:', {
+      tableProb,
+      tableLambdaTotal,
+      tableLambdaHome,
+      tableLambdaAway,
+      'todas as 4 tabelas foram aplicadas': !!(normalizedData.homeTableData && normalizedData.awayTableData &&
+        normalizedData.homeStandardForData && normalizedData.awayStandardForData && normalizedData.competitionStandardForAvg &&
+        normalizedData.homePassingForData && normalizedData.awayPassingForData && normalizedData.competitionPassingForAvg &&
+        normalizedData.homeGcaForData && normalizedData.awayGcaForData && normalizedData.competitionGcaForAvg),
+    });
+  }
 
   // Obter pesos para combinar lambdas (mesmos pesos usados na combinação de probabilidades)
   const { probability: _, statsWeight, tableWeight } = combineStatisticsAndTable(

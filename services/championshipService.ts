@@ -1144,6 +1144,44 @@ export const syncTeamStatsFromTable = async (
     const awayGcaForData = gcaForRows.find((row) => row.Squad === awaySquad) || null;
     const competitionGcaForAvg = calculateCompetitionGcaForAveragesFromRows(gcaForRows);
 
+    // Validação de correspondência de Squads entre tabelas
+    if (import.meta.env.DEV) {
+      const squadsFound: Record<string, string[]> = {
+        geral: homeData ? [homeData.Squad, awayData?.Squad].filter(Boolean) as string[] : [],
+        standard_for: homeStandardForData ? [homeStandardForData.Squad, awayStandardForData?.Squad].filter(Boolean) as string[] : [],
+        passing_for: homePassingForData ? [homePassingForData.Squad, awayPassingForData?.Squad].filter(Boolean) as string[] : [],
+        gca_for: homeGcaForData ? [homeGcaForData.Squad, awayGcaForData?.Squad].filter(Boolean) as string[] : [],
+      };
+
+      // Verificar se há divergência de nomes entre tabelas
+      const allSquads = Object.values(squadsFound).flat();
+      const uniqueSquads = [...new Set(allSquads)];
+      if (uniqueSquads.length > 2) {
+        console.warn('[ChampionshipService] ⚠️ Possível divergência de nomes de Squads entre tabelas:', {
+          buscado: { home: homeSquad, away: awaySquad },
+          encontrado: squadsFound,
+          unicos: uniqueSquads,
+        });
+      }
+
+      // Verificar completude
+      const tablesLoaded = {
+        geral: !!(homeData && awayData),
+        standard_for: !!(homeStandardForData && awayStandardForData && competitionStandardForAvg),
+        passing_for: !!(homePassingForData && awayPassingForData && competitionPassingForAvg),
+        gca_for: !!(homeGcaForData && awayGcaForData && competitionGcaForAvg),
+      };
+      const missingTables = Object.entries(tablesLoaded)
+        .filter(([, loaded]) => !loaded)
+        .map(([name]) => name);
+
+      if (missingTables.length > 0) {
+        console.warn('[ChampionshipService] ⚠️ Tabelas faltando após sincronização:', missingTables);
+      } else {
+        console.log('[ChampionshipService] ✅ Todas as 4 tabelas carregadas com sucesso!');
+      }
+    }
+
     return {
       homeTableData: homeData,
       awayTableData: awayData,
