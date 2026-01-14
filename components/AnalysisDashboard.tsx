@@ -18,6 +18,7 @@ import {
 import BetManager from './BetManager';
 import ProbabilityGauge from './ProbabilityGauge';
 import MetricCard from './MetricCard';
+import AiOver15Insights from './AiOver15Insights';
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
@@ -44,6 +45,13 @@ interface AnalysisDashboardProps {
   isUpdatingBetStatus?: boolean;
   onOddChange?: (odd: number) => void;
   initialSelectedBets?: SelectedBet[]; // Apostas selecionadas salvas (para restaurar ao carregar partida)
+  savedAiReportMarkdown?: string | null; // Relatório de IA salvo (para restaurar)
+  onAiAnalysisGenerated?: (
+    data: MatchData,
+    markdown: string,
+    aiProbability: number | null,
+    aiConfidence: number | null
+  ) => void; // Callback quando análise de IA for gerada
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
@@ -58,6 +66,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   isUpdatingBetStatus = false,
   onOddChange,
   initialSelectedBets,
+  savedAiReportMarkdown,
+  onAiAnalysisGenerated,
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
   const [selectedBets, setSelectedBets] = useState<SelectedBet[]>(initialSelectedBets || []);
@@ -264,7 +274,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                     <span className="break-words">{data.awayTeam}</span>
                   </h3>
                 </div>
-                <p className="text-xs sm:text-sm font-semibold opacity-60 uppercase tracking-wide">
+                <p className="text-xs sm:text-sm font-semibold opacity-70 uppercase tracking-wide leading-relaxed">
                   Análise de Probabilidade de Gols (Over/Under)
                 </p>
               </div>
@@ -300,7 +310,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-primary opacity-60" />
+                  <Calculator className="w-4 h-4 text-primary opacity-70" />
                   <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
                     Probabilidades
                   </h4>
@@ -401,7 +411,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             {/* Grid de 4 Métricas Essenciais */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-primary opacity-60" />
+                <Target className="w-4 h-4 text-primary opacity-70" />
                 <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
                   Métricas de Performance
                 </h4>
@@ -472,6 +482,21 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
         </motion.div>
       </div>
 
+      {/* Análise de IA com Sinais Externos */}
+      <motion.div
+        className="surface surface-hover p-4 md:p-6"
+        variants={animations.fadeInUp}
+        initial="initial"
+        animate="animate"
+      >
+        <AiOver15Insights
+          data={data}
+          onError={onError}
+          onAiAnalysisGenerated={onAiAnalysisGenerated}
+          savedReportMarkdown={savedAiReportMarkdown}
+        />
+      </motion.div>
+
       {/* Probabilidades Over/Under por Linha */}
       {(result.overUnderProbabilities || result.tableOverUnderProbabilities || result.statsOverUnderProbabilities) && (
         <motion.div
@@ -534,7 +559,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           </div>
 
           {overUnderTab !== 'combined' && (
-            <div className="text-xs opacity-60 mb-3">
+            <div className="text-xs opacity-70 mb-3 leading-relaxed">
               Somente leitura. Use a aba <span className="font-bold">Combinada</span> para selecionar
               apostas.
             </div>
@@ -837,7 +862,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 </div>
               ) : (
                 <div className="surface-muted p-5 text-center">
-                  <p className="text-sm opacity-60">
+                  <p className="text-sm opacity-70 leading-relaxed">
                     Clique em "Registrar Aposta" para adicionar informações sobre sua aposta nesta
                     partida.
                   </p>

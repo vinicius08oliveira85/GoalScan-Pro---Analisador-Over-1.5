@@ -286,6 +286,7 @@ export interface SavedAnalysis {
   data: MatchData;
   result: AnalysisResult;
   aiAnalysis?: string; // @deprecated Markdown completo da análise da IA (não mais usado)
+  aiReportMarkdown?: string | null; // Relatório de análise de IA (markdown) com sinais externos
   betInfo?: BetInfo; // Informações da aposta (opcional)
   selectedBets?: SelectedBet[]; // Apostas selecionadas quando a partida foi salva (opcional)
 }

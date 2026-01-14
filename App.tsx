@@ -54,6 +54,7 @@ const App: React.FC = () => {
   const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
   const [isUpdatingBetStatus, setIsUpdatingBetStatus] = useState<boolean>(false);
+  const [currentAiReportMarkdown, setCurrentAiReportMarkdown] = useState<string | null>(null);
 
   // Funções de Navegação
   const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
@@ -61,10 +62,12 @@ const App: React.FC = () => {
       setSelectedMatch(match);
       setCurrentMatchData(match.data);
       setAnalysisResult(match.result);
+      setCurrentAiReportMarkdown(match.aiReportMarkdown || null);
     } else {
       setSelectedMatch(null);
       setCurrentMatchData(null);
       setAnalysisResult(null);
+      setCurrentAiReportMarkdown(null);
     }
     setShowAnalysisModal(true);
   };
@@ -74,6 +77,7 @@ const App: React.FC = () => {
     setAnalysisResult(null);
     setCurrentMatchData(null);
     setSelectedMatch(null);
+    setCurrentAiReportMarkdown(null);
   };
 
   const handleNewMatch = () => {
@@ -133,6 +137,7 @@ const App: React.FC = () => {
             result: analysisResult,
             betInfo: selectedMatch.betInfo, // Manter betInfo se existir
             selectedBets: selectedBets, // Incluir apostas selecionadas
+            aiReportMarkdown: currentAiReportMarkdown, // Incluir relatório de IA se existir
             timestamp: Date.now(), // Atualizar timestamp
           };
         } else {
@@ -144,6 +149,7 @@ const App: React.FC = () => {
             result: analysisResult,
             betInfo: selectedMatch?.betInfo, // Incluir betInfo se existir
             selectedBets: selectedBets, // Incluir apostas selecionadas
+            aiReportMarkdown: currentAiReportMarkdown, // Incluir relatório de IA se existir
           };
         }
 
@@ -159,6 +165,28 @@ const App: React.FC = () => {
       } catch {
         showError('Erro ao salvar partida. Tente novamente.');
       }
+    }
+  };
+
+  const handleAiAnalysisGenerated = (
+    data: MatchData,
+    markdown: string,
+    aiProbability: number | null,
+    aiConfidence: number | null
+  ) => {
+    // Armazenar o relatório de IA no estado local
+    setCurrentAiReportMarkdown(markdown);
+    
+    // Se há uma partida selecionada, atualizar ela imediatamente (sem salvar ainda)
+    if (selectedMatch && currentMatchData) {
+      const updatedMatch: SavedAnalysis = {
+        ...selectedMatch,
+        data: currentMatchData,
+        result: analysisResult!,
+        aiReportMarkdown: markdown,
+        timestamp: Date.now(),
+      };
+      setSelectedMatch(updatedMatch);
     }
   };
 
@@ -197,10 +225,11 @@ const App: React.FC = () => {
         resultAt: Date.now(),
       };
 
-      // Atualizar a partida com o novo betInfo
+      // Atualizar a partida com o novo betInfo (preservar relatório de IA)
       const updatedMatch: SavedAnalysis = {
         ...match,
         betInfo: updatedBetInfo,
+        aiReportMarkdown: match.aiReportMarkdown, // Preservar relatório de IA
         timestamp: Date.now(),
       };
 
@@ -318,6 +347,7 @@ const App: React.FC = () => {
           data: currentMatchData,
           result: analysisResult,
           betInfo,
+          aiReportMarkdown: currentAiReportMarkdown || selectedMatch.aiReportMarkdown, // Preservar relatório de IA
           timestamp: Date.now(),
         };
 
@@ -337,6 +367,7 @@ const App: React.FC = () => {
         data: currentMatchData,
         result: analysisResult,
         betInfo,
+        aiReportMarkdown: currentAiReportMarkdown || selectedMatch?.aiReportMarkdown, // Preservar relatório de IA
       };
       setSelectedMatch(tempMatch);
     }
@@ -617,6 +648,7 @@ const App: React.FC = () => {
                       setAnalysisResult(null);
                       setCurrentMatchData(null);
                       setSelectedMatch(null);
+                      setCurrentAiReportMarkdown(null);
                     }}
                     className="btn btn-xs btn-ghost text-error"
                   >
@@ -655,6 +687,8 @@ const App: React.FC = () => {
                     isUpdatingBetStatus={isUpdatingBetStatus}
                     onOddChange={handleOddChange}
                     initialSelectedBets={selectedMatch?.selectedBets}
+                    savedAiReportMarkdown={currentAiReportMarkdown}
+                    onAiAnalysisGenerated={handleAiAnalysisGenerated}
                   />
                 </Suspense>
               ) : (
