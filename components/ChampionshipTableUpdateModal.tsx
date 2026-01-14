@@ -218,21 +218,21 @@ export default function ChampionshipTableUpdateModal({
           </div>
 
           {/* Extração automática do FBref */}
-          <div className="surface surface-hover p-4 space-y-3 border-2 border-primary/30 rounded-2xl">
+          <div className="surface surface-hover p-5 space-y-4 border-2 border-primary/40 rounded-2xl bg-primary/5">
             <div className="flex items-center justify-between">
-              <div className="font-bold flex items-center gap-2">
-                <ExternalLink className="w-5 h-5 text-primary" />
-                Extração Automática do FBref.com
+              <div className="font-bold flex items-center gap-2 text-primary">
+                <ExternalLink className="w-6 h-6" />
+                <span className="text-lg">Extração Automática do FBref.com</span>
               </div>
             </div>
-            <p className="text-sm opacity-70">
+            <p className="text-sm opacity-80 leading-relaxed">
               Extraia automaticamente dados de tabelas do fbref.com sem precisar copiar/colar JSON manualmente.
             </p>
             <button
               onClick={() => setShowFbrefModal(true)}
-              className="btn btn-primary w-full gap-2"
+              className="btn btn-primary btn-lg w-full gap-2 font-bold shadow-lg hover:shadow-xl transition-all"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-5 h-5" />
               Extrair do FBref.com
             </button>
           </div>
