@@ -615,8 +615,6 @@ function calculateTableProbability(data: MatchData): {
   // Calcular probabilidades Over/Under para múltiplas linhas
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
-  const hasHomeAway = !!(data.homeHomeAwayData && data.awayHomeAwayData);
-
   if (import.meta.env.DEV) {
     console.log('[AnalysisEngine] ===== Prob. Tabela calculada (com as 3 tabelas) =====');
     console.log('[AnalysisEngine] Tabelas aplicadas:', {
