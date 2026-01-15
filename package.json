@@ -19,7 +19,8 @@
     "format": "prettier --write .",
     "setup:vercel": "node scripts/setup-vercel-env.js",
     "setup:vercel:api": "node scripts/setup-vercel-env-api.js",
-    "config:vercel": "node scripts/config-vercel-now.js"
+    "config:vercel": "node scripts/config-vercel-now.js",
+    "set:vercel:production-branch": "node scripts/set-vercel-production-branch.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
