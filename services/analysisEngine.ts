@@ -341,10 +341,60 @@ function calculateTableProbability(data: MatchData): {
     return gaPer;
   };
 
-  const homeAttackPerMatch = blendAttack(homeXg, homeGf, homeMp);
-  const homeDefensePerMatch = blendDefense(homeXga, homeGa, homeMp);
-  const awayAttackPerMatch = blendAttack(awayXg, awayGf, awayMp);
-  const awayDefensePerMatch = blendDefense(awayXga, awayGa, awayMp);
+  let homeAttackPerMatch = blendAttack(homeXg, homeGf, homeMp);
+  let homeDefensePerMatch = blendDefense(homeXga, homeGa, homeMp);
+  let awayAttackPerMatch = blendAttack(awayXg, awayGf, awayMp);
+  let awayDefensePerMatch = blendDefense(awayXga, awayGa, awayMp);
+
+  // 3a. Ajustar com dados específicos de casa/fora (home_away) - ALTO IMPACTO
+  const hasHomeAway = !!(data.homeHomeAwayData && data.awayHomeAwayData);
+
+  if (hasHomeAway) {
+    // Usar dados específicos de casa/fora em vez dos dados gerais
+    const homeHomeMp = parseFloat(String(data.homeHomeAwayData?.['Home MP'] || '0'));
+    const homeHomeGf = parseFloat(String(data.homeHomeAwayData?.['Home GF'] || '0'));
+    const homeHomeGa = parseFloat(String(data.homeHomeAwayData?.['Home GA'] || '0'));
+    
+    const awayAwayMp = parseFloat(String(data.awayHomeAwayData?.['Away MP'] || '0'));
+    const awayAwayGf = parseFloat(String(data.awayHomeAwayData?.['Away GF'] || '0'));
+    const awayAwayGa = parseFloat(String(data.awayHomeAwayData?.['Away GA'] || '0'));
+    
+    if (homeHomeMp > 0) {
+      // Substituir com dados específicos de casa (mais precisos para jogo em casa)
+      homeAttackPerMatch = homeHomeGf / homeHomeMp;
+      homeDefensePerMatch = homeHomeGa / homeHomeMp;
+      
+      if (import.meta.env.DEV) {
+        console.log('[AnalysisEngine] ✅ Usando dados home_away para time da casa:', {
+          homeHomeMp,
+          homeHomeGf,
+          homeHomeGa,
+          homeAttackPerMatch,
+          homeDefensePerMatch,
+        });
+      }
+    }
+    
+    if (awayAwayMp > 0) {
+      // Substituir com dados específicos de fora (mais precisos para jogo fora)
+      awayAttackPerMatch = awayAwayGf / awayAwayMp;
+      awayDefensePerMatch = awayAwayGa / awayAwayMp;
+      
+      if (import.meta.env.DEV) {
+        console.log('[AnalysisEngine] ✅ Usando dados home_away para time visitante:', {
+          awayAwayMp,
+          awayAwayGf,
+          awayAwayGa,
+          awayAttackPerMatch,
+          awayDefensePerMatch,
+        });
+      }
+    }
+  } else {
+    if (import.meta.env.DEV) {
+      console.warn('[AnalysisEngine] ⚠️ Tabela home_away não disponível - usando dados gerais da tabela');
+    }
+  }
 
   // 3. Lambda base calibrável: forças relativas vs média do campeonato (gols/jogo)
   const rawCompetitionAvg = typeof data.competitionAvg === 'number' ? data.competitionAvg : 0;
