@@ -475,182 +475,6 @@ function calculateTableProbability(data: MatchData): {
     }
   }
 
-  // 3c. Complementos adicionais (passing_for / gca_for): ajustes conservadores (baixo impacto, clampado)
-  const hasPassingFor =
-    !!data.homePassingForData &&
-    !!data.awayPassingForData &&
-    !!data.competitionPassingForAvg;
-
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] calculateTableProbability - Antes de aplicar passing_for:', {
-      hasPassingFor,
-      lambdaHomeAntes: lambdaHome,
-      lambdaAwayAntes: lambdaAway,
-    });
-  }
-
-  if (hasPassingFor) {
-    const parseNum = (value: unknown): number => {
-      if (value == null) return 0;
-      const raw = String(value).trim();
-      if (!raw) return 0;
-      const normalized = raw.replace(/,/g, '').replace(/%/g, '');
-      const n = Number.parseFloat(normalized);
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    const getPer90 = (row: Record<string, unknown>, per90Keys: string[], totalKeys: string[]): number => {
-      for (const k of per90Keys) {
-        const v = parseNum(row[k]);
-        if (v > 0) return v;
-      }
-      const n90 =
-        parseNum(row['90s']) ||
-        parseNum(row['Playing Time 90s']) ||
-        parseNum(row['Playing Time 90S']);
-
-      for (const k of totalKeys) {
-        const total = parseNum(row[k]);
-        if (total > 0 && n90 > 0) return total / n90;
-      }
-      return 0;
-    };
-
-    const avg = data.competitionPassingForAvg!;
-    const homeRow = data.homePassingForData as unknown as Record<string, unknown>;
-    const awayRow = data.awayPassingForData as unknown as Record<string, unknown>;
-
-    const homeProg = getPer90(homeRow, ['Per 90 Minutes Prog', 'Prog/90', 'Prog 90'], ['Prog']);
-    const awayProg = getPer90(awayRow, ['Per 90 Minutes Prog', 'Prog/90', 'Prog 90'], ['Prog']);
-
-    const homeKp = getPer90(homeRow, ['Per 90 Minutes KP', 'KP/90', 'KP 90'], ['KP']);
-    const awayKp = getPer90(awayRow, ['Per 90 Minutes KP', 'KP/90', 'KP 90'], ['KP']);
-
-    const homePpa = getPer90(homeRow, ['Per 90 Minutes PPA', 'PPA/90', 'PPA 90'], ['PPA']);
-    const awayPpa = getPer90(awayRow, ['Per 90 Minutes PPA', 'PPA/90', 'PPA 90'], ['PPA']);
-
-    const progRatioHome = avg.progPer90 > 0 && homeProg > 0 ? homeProg / avg.progPer90 : 1;
-    const progRatioAway = avg.progPer90 > 0 && awayProg > 0 ? awayProg / avg.progPer90 : 1;
-
-    const kpRatioHome = avg.kpPer90 > 0 && homeKp > 0 ? homeKp / avg.kpPer90 : 1;
-    const kpRatioAway = avg.kpPer90 > 0 && awayKp > 0 ? awayKp / avg.kpPer90 : 1;
-
-    const ppaRatioHome = avg.ppaPer90 > 0 && homePpa > 0 ? homePpa / avg.ppaPer90 : 1;
-    const ppaRatioAway = avg.ppaPer90 > 0 && awayPpa > 0 ? awayPpa / avg.ppaPer90 : 1;
-
-    const homeCreationRatio = 0.4 * progRatioHome + 0.3 * kpRatioHome + 0.3 * ppaRatioHome;
-    const awayCreationRatio = 0.4 * progRatioAway + 0.3 * kpRatioAway + 0.3 * ppaRatioAway;
-
-    // Impacto aumentado: até ±8% no λ por time (era ±4%)
-    const homeDelta = clamp((homeCreationRatio - 1) * 0.20, -0.08, 0.08);
-    const awayDelta = clamp((awayCreationRatio - 1) * 0.20, -0.08, 0.08);
-
-    lambdaHome *= 1 + homeDelta;
-    lambdaAway *= 1 + awayDelta;
-
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ✅ Ajuste passing_for aplicado:', {
-        homeCreationRatio,
-        awayCreationRatio,
-        homeDelta,
-        awayDelta,
-        homeProg,
-        awayProg,
-        homeKp,
-        awayKp,
-        homePpa,
-        awayPpa,
-      });
-    }
-  } else {
-    if (import.meta.env.DEV) {
-      console.warn('[AnalysisEngine] ⚠️ Tabela passing_for não disponível - ajuste de criação via passe não aplicado');
-    }
-  }
-
-  const hasGcaFor =
-    !!data.homeGcaForData &&
-    !!data.awayGcaForData &&
-    !!data.competitionGcaForAvg;
-
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] calculateTableProbability - Antes de aplicar gca_for:', {
-      hasGcaFor,
-      lambdaHomeAntes: lambdaHome,
-      lambdaAwayAntes: lambdaAway,
-    });
-  }
-
-  if (hasGcaFor) {
-    const parseNum = (value: unknown): number => {
-      if (value == null) return 0;
-      const raw = String(value).trim();
-      if (!raw) return 0;
-      const normalized = raw.replace(/,/g, '').replace(/%/g, '');
-      const n = Number.parseFloat(normalized);
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    const getPer90 = (row: Record<string, unknown>, per90Keys: string[], totalKeys: string[]): number => {
-      for (const k of per90Keys) {
-        const v = parseNum(row[k]);
-        if (v > 0) return v;
-      }
-      const n90 =
-        parseNum(row['90s']) ||
-        parseNum(row['Playing Time 90s']) ||
-        parseNum(row['Playing Time 90S']);
-
-      for (const k of totalKeys) {
-        const total = parseNum(row[k]);
-        if (total > 0 && n90 > 0) return total / n90;
-      }
-      return 0;
-    };
-
-    const avg = data.competitionGcaForAvg!;
-    const homeRow = data.homeGcaForData as unknown as Record<string, unknown>;
-    const awayRow = data.awayGcaForData as unknown as Record<string, unknown>;
-
-    const homeSca = getPer90(homeRow, ['SCA90', 'SCA 90', 'Per 90 Minutes SCA'], ['SCA']);
-    const awaySca = getPer90(awayRow, ['SCA90', 'SCA 90', 'Per 90 Minutes SCA'], ['SCA']);
-
-    const homeGca = getPer90(homeRow, ['GCA90', 'GCA 90', 'Per 90 Minutes GCA'], ['GCA']);
-    const awayGca = getPer90(awayRow, ['GCA90', 'GCA 90', 'Per 90 Minutes GCA'], ['GCA']);
-
-    const scaRatioHome = avg.scaPer90 > 0 && homeSca > 0 ? homeSca / avg.scaPer90 : 1;
-    const scaRatioAway = avg.scaPer90 > 0 && awaySca > 0 ? awaySca / avg.scaPer90 : 1;
-
-    const gcaRatioHome = avg.gcaPer90 > 0 && homeGca > 0 ? homeGca / avg.gcaPer90 : 1;
-    const gcaRatioAway = avg.gcaPer90 > 0 && awayGca > 0 ? awayGca / avg.gcaPer90 : 1;
-
-    const homeCreationRatio = 0.6 * scaRatioHome + 0.4 * gcaRatioHome;
-    const awayCreationRatio = 0.6 * scaRatioAway + 0.4 * gcaRatioAway;
-
-    // Impacto aumentado: até ±10% no λ por time (era ±5%)
-    const homeDelta = clamp((homeCreationRatio - 1) * 0.25, -0.10, 0.10);
-    const awayDelta = clamp((awayCreationRatio - 1) * 0.25, -0.10, 0.10);
-
-    lambdaHome *= 1 + homeDelta;
-    lambdaAway *= 1 + awayDelta;
-
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ✅ Ajuste gca_for aplicado:', {
-        homeCreationRatio,
-        awayCreationRatio,
-        homeDelta,
-        awayDelta,
-        homeSca,
-        awaySca,
-        homeGca,
-        awayGca,
-      });
-    }
-  } else {
-    if (import.meta.env.DEV) {
-      console.warn('[AnalysisEngine] ⚠️ Tabela gca_for não disponível - ajuste de ações de criação (SCA/GCA) não aplicado');
-    }
-  }
 
   // 4. Ajustar baseado em posição na tabela (times no topo são mais ofensivos)
   // Assumir que há 20 times (ajustar se necessário)
@@ -741,13 +565,14 @@ function calculateTableProbability(data: MatchData): {
   // Calcular probabilidades Over/Under para múltiplas linhas
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
+  const hasHomeAway = !!(data.homeHomeAwayData && data.awayHomeAwayData);
+
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] ===== Prob. Tabela calculada (com todas as 4 tabelas) =====');
+    console.log('[AnalysisEngine] ===== Prob. Tabela calculada (com as 3 tabelas) =====');
     console.log('[AnalysisEngine] Tabelas aplicadas:', {
       geral: true, // Sempre aplicada (base para cálculo)
+      home_away: hasHomeAway,
       standard_for: hasStandardFor,
-      passing_for: hasPassingFor,
-      gca_for: hasGcaFor,
     });
     console.log('[AnalysisEngine] Resultados:', {
       lambdaHome,
@@ -764,14 +589,13 @@ function calculateTableProbability(data: MatchData): {
       finalProb,
     });
     
-    if (!hasStandardFor || !hasPassingFor || !hasGcaFor) {
+    if (!hasHomeAway || !hasStandardFor) {
       console.warn('[AnalysisEngine] ⚠️ Algumas tabelas complementares não foram aplicadas:', {
+        home_away: hasHomeAway ? '✅' : '❌',
         standard_for: hasStandardFor ? '✅' : '❌',
-        passing_for: hasPassingFor ? '✅' : '❌',
-        gca_for: hasGcaFor ? '✅' : '❌',
       });
     } else {
-      console.log('[AnalysisEngine] ✅ Todas as 4 tabelas foram aplicadas no cálculo da probabilidade da tabela!');
+      console.log('[AnalysisEngine] ✅ Todas as 3 tabelas foram aplicadas no cálculo da probabilidade da tabela!');
     }
   }
 
@@ -1019,125 +843,16 @@ function calculateAdaptiveWeights(
  * Previne erros com dados antigos ou incompletos
  */
 /**
- * Calcula score de criação ofensiva combinando dados de passing_for e gca_for
+ * Calcula score de criação ofensiva (removido - não usa mais passing_for e gca_for)
+ * Retorna score neutro já que essas tabelas não são mais usadas
  */
 function calculateOffensiveCreationScore(data: MatchData): {
   homeScore: number;
   awayScore: number;
   hasData: boolean;
 } {
-  const hasPassingFor =
-    !!data.homePassingForData &&
-    !!data.awayPassingForData &&
-    !!data.competitionPassingForAvg;
-  const hasGcaFor =
-    !!data.homeGcaForData &&
-    !!data.awayGcaForData &&
-    !!data.competitionGcaForAvg;
-
-  if (!hasPassingFor && !hasGcaFor) {
-    return { homeScore: 1.0, awayScore: 1.0, hasData: false };
-  }
-
-  const parseNum = (value: unknown): number => {
-    if (value == null) return 0;
-    const raw = String(value).trim();
-    if (!raw) return 0;
-    const normalized = raw.replace(/,/g, '').replace(/%/g, '');
-    const n = Number.parseFloat(normalized);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  const getPer90 = (
-    row: Record<string, unknown>,
-    per90Keys: string[],
-    totalKeys: string[]
-  ): number => {
-    for (const k of per90Keys) {
-      const v = parseNum(row[k]);
-      if (v > 0) return v;
-    }
-    const n90 =
-      parseNum(row['90s']) ||
-      parseNum(row['Playing Time 90s']) ||
-      parseNum(row['Playing Time 90S']);
-
-    for (const k of totalKeys) {
-      const total = parseNum(row[k]);
-      if (total > 0 && n90 > 0) return total / n90;
-    }
-    return 0;
-  };
-
-  let homePassingScore = 1.0;
-  let awayPassingScore = 1.0;
-  let homeGcaScore = 1.0;
-  let awayGcaScore = 1.0;
-
-  if (hasPassingFor) {
-    const avg = data.competitionPassingForAvg!;
-    const homeRow = data.homePassingForData as unknown as Record<string, unknown>;
-    const awayRow = data.awayPassingForData as unknown as Record<string, unknown>;
-
-    const homeProg = getPer90(homeRow, ['Per 90 Minutes Prog', 'Prog/90', 'Prog 90'], ['Prog']);
-    const awayProg = getPer90(awayRow, ['Per 90 Minutes Prog', 'Prog/90', 'Prog 90'], ['Prog']);
-    const homeKp = getPer90(homeRow, ['Per 90 Minutes KP', 'KP/90', 'KP 90'], ['KP']);
-    const awayKp = getPer90(awayRow, ['Per 90 Minutes KP', 'KP/90', 'KP 90'], ['KP']);
-    const homePpa = getPer90(homeRow, ['Per 90 Minutes PPA', 'PPA/90', 'PPA 90'], ['PPA']);
-    const awayPpa = getPer90(awayRow, ['Per 90 Minutes PPA', 'PPA/90', 'PPA 90'], ['PPA']);
-
-    const progRatioHome = avg.progPer90 > 0 && homeProg > 0 ? homeProg / avg.progPer90 : 1;
-    const progRatioAway = avg.progPer90 > 0 && awayProg > 0 ? awayProg / avg.progPer90 : 1;
-    const kpRatioHome = avg.kpPer90 > 0 && homeKp > 0 ? homeKp / avg.kpPer90 : 1;
-    const kpRatioAway = avg.kpPer90 > 0 && awayKp > 0 ? awayKp / avg.kpPer90 : 1;
-    const ppaRatioHome = avg.ppaPer90 > 0 && homePpa > 0 ? homePpa / avg.ppaPer90 : 1;
-    const ppaRatioAway = avg.ppaPer90 > 0 && awayPpa > 0 ? awayPpa / avg.ppaPer90 : 1;
-
-    homePassingScore = 0.4 * progRatioHome + 0.3 * kpRatioHome + 0.3 * ppaRatioHome;
-    awayPassingScore = 0.4 * progRatioAway + 0.3 * kpRatioAway + 0.3 * ppaRatioAway;
-  }
-
-  if (hasGcaFor) {
-    const avg = data.competitionGcaForAvg!;
-    const homeRow = data.homeGcaForData as unknown as Record<string, unknown>;
-    const awayRow = data.awayGcaForData as unknown as Record<string, unknown>;
-
-    const homeSca = getPer90(homeRow, ['SCA90', 'SCA 90', 'Per 90 Minutes SCA'], ['SCA']);
-    const awaySca = getPer90(awayRow, ['SCA90', 'SCA 90', 'Per 90 Minutes SCA'], ['SCA']);
-    const homeGca = getPer90(homeRow, ['GCA90', 'GCA 90', 'Per 90 Minutes GCA'], ['GCA']);
-    const awayGca = getPer90(awayRow, ['GCA90', 'GCA 90', 'Per 90 Minutes GCA'], ['GCA']);
-
-    const scaRatioHome = avg.scaPer90 > 0 && homeSca > 0 ? homeSca / avg.scaPer90 : 1;
-    const scaRatioAway = avg.scaPer90 > 0 && awaySca > 0 ? awaySca / avg.scaPer90 : 1;
-    const gcaRatioHome = avg.gcaPer90 > 0 && homeGca > 0 ? homeGca / avg.gcaPer90 : 1;
-    const gcaRatioAway = avg.gcaPer90 > 0 && awayGca > 0 ? awayGca / avg.gcaPer90 : 1;
-
-    homeGcaScore = 0.6 * scaRatioHome + 0.4 * gcaRatioHome;
-    awayGcaScore = 0.6 * scaRatioAway + 0.4 * gcaRatioAway;
-  }
-
-  // Combinar scores: 50% passing + 50% gca (ou usar apenas o disponível)
-  const homeScore = hasPassingFor && hasGcaFor
-    ? 0.5 * homePassingScore + 0.5 * homeGcaScore
-    : hasPassingFor
-      ? homePassingScore
-      : hasGcaFor
-        ? homeGcaScore
-        : 1.0;
-
-  const awayScore = hasPassingFor && hasGcaFor
-    ? 0.5 * awayPassingScore + 0.5 * awayGcaScore
-    : hasPassingFor
-      ? awayPassingScore
-      : hasGcaFor
-        ? awayGcaScore
-        : 1.0;
-
-  return {
-    homeScore,
-    awayScore,
-    hasData: hasPassingFor || hasGcaFor,
-  };
+  // Retorna score neutro já que passing_for e gca_for não são mais usadas
+  return { homeScore: 1.0, awayScore: 1.0, hasData: false };
 }
 
 /**
@@ -1158,6 +873,15 @@ function calculateTableCompletenessScore(data: MatchData): {
   }
 
   if (
+    data.homeHomeAwayData &&
+    data.awayHomeAwayData
+  ) {
+    availableTables.push('home_away');
+  } else {
+    missingTables.push('home_away');
+  }
+
+  if (
     data.homeStandardForData &&
     data.awayStandardForData &&
     data.competitionStandardForAvg
@@ -1167,33 +891,13 @@ function calculateTableCompletenessScore(data: MatchData): {
     missingTables.push('standard_for');
   }
 
-  if (
-    data.homePassingForData &&
-    data.awayPassingForData &&
-    data.competitionPassingForAvg
-  ) {
-    availableTables.push('passing_for');
-  } else {
-    missingTables.push('passing_for');
-  }
-
-  if (
-    data.homeGcaForData &&
-    data.awayGcaForData &&
-    data.competitionGcaForAvg
-  ) {
-    availableTables.push('gca_for');
-  } else {
-    missingTables.push('gca_for');
-  }
-
-  const score = availableTables.length / 4; // 0.0 a 1.0
+  const score = availableTables.length / 3; // 0.0 a 1.0
 
   return { score, availableTables, missingTables };
 }
 
 /**
- * Aplica ajustes avançados baseados em todas as 4 tabelas
+ * Aplica ajustes avançados baseados nas 3 tabelas disponíveis
  */
 function applyAdvancedTableAdjustments(
   data: MatchData,
@@ -1203,8 +907,6 @@ function applyAdvancedTableAdjustments(
   adjustedLambdaHome: number;
   adjustedLambdaAway: number;
   impactSummary: {
-    passingFor: { home: number; away: number };
-    gcaFor: { home: number; away: number };
     creationScore: { home: number; away: number };
   };
 } {
@@ -1212,38 +914,11 @@ function applyAdvancedTableAdjustments(
   let adjustedLambdaAway = lambdaAway;
 
   const impactSummary = {
-    passingFor: { home: 0, away: 0 },
-    gcaFor: { home: 0, away: 0 },
     creationScore: { home: 1.0, away: 1.0 },
   };
 
-  // Calcular score de criação ofensiva
-  const creationScore = calculateOffensiveCreationScore(data);
-  impactSummary.creationScore = {
-    home: creationScore.homeScore,
-    away: creationScore.awayScore,
-  };
-
-  if (creationScore.hasData) {
-    // Aplicar ajuste baseado no score combinado (até ±6%)
-    const homeDelta = clamp((creationScore.homeScore - 1) * 0.15, -0.06, 0.06);
-    const awayDelta = clamp((creationScore.awayScore - 1) * 0.15, -0.06, 0.06);
-
-    adjustedLambdaHome *= 1 + homeDelta;
-    adjustedLambdaAway *= 1 + awayDelta;
-
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] Ajuste avançado de criação ofensiva aplicado:', {
-        homeScore: creationScore.homeScore,
-        awayScore: creationScore.awayScore,
-        homeDelta,
-        awayDelta,
-      });
-    }
-  }
-
-  // Ajustes individuais de passing_for e gca_for já são aplicados em calculateTableProbability
-  // Aqui apenas registramos o impacto para o resumo
+  // Score de criação ofensiva não é mais usado (passing_for e gca_for removidas)
+  // Retorna lambdas sem ajustes adicionais
 
   return {
     adjustedLambdaHome,
@@ -1257,40 +932,28 @@ function applyAdvancedTableAdjustments(
  */
 function getTableImpactSummary(data: MatchData): {
   geral: { available: boolean; impact: string };
+  homeAway: { available: boolean; impact: string };
   standardFor: { available: boolean; impact: string };
-  passingFor: { available: boolean; impact: string };
-  gcaFor: { available: boolean; impact: string };
 } {
   const hasGeral = !!(data.homeTableData && data.awayTableData);
+  const hasHomeAway = !!(data.homeHomeAwayData && data.awayHomeAwayData);
   const hasStandardFor =
     !!data.homeStandardForData &&
     !!data.awayStandardForData &&
     !!data.competitionStandardForAvg;
-  const hasPassingFor =
-    !!data.homePassingForData &&
-    !!data.awayPassingForData &&
-    !!data.competitionPassingForAvg;
-  const hasGcaFor =
-    !!data.homeGcaForData &&
-    !!data.awayGcaForData &&
-    !!data.competitionGcaForAvg;
 
   return {
     geral: {
       available: hasGeral,
       impact: hasGeral ? 'Alto (base para cálculo de lambda)' : 'Não disponível',
     },
+    homeAway: {
+      available: hasHomeAway,
+      impact: hasHomeAway ? 'Alto (desempenho específico casa/fora)' : 'Não disponível',
+    },
     standardFor: {
       available: hasStandardFor,
       impact: hasStandardFor ? 'Médio-Alto (ajuste de ataque/ritmo até ±8%)' : 'Não disponível',
-    },
-    passingFor: {
-      available: hasPassingFor,
-      impact: hasPassingFor ? 'Médio (ajuste de criação via passe até ±8%)' : 'Não disponível',
-    },
-    gcaFor: {
-      available: hasGcaFor,
-      impact: hasGcaFor ? 'Médio-Alto (ajuste de ações de criação até ±10%)' : 'Não disponível',
     },
   };
 }
@@ -1371,26 +1034,21 @@ function normalizeMatchData(data: MatchData): MatchData {
       ? data.competitionAvg
       : 0;
 
-  // Verificar se todas as 4 tabelas estão presentes antes de normalizar
+  // Verificar se todas as 3 tabelas estão presentes antes de normalizar
   const hasAllTables =
     !!data.homeTableData &&
     !!data.awayTableData &&
+    !!data.homeHomeAwayData &&
+    !!data.awayHomeAwayData &&
     !!data.homeStandardForData &&
     !!data.awayStandardForData &&
-    !!data.competitionStandardForAvg &&
-    !!data.homePassingForData &&
-    !!data.awayPassingForData &&
-    !!data.competitionPassingForAvg &&
-    !!data.homeGcaForData &&
-    !!data.awayGcaForData &&
-    !!data.competitionGcaForAvg;
+    !!data.competitionStandardForAvg;
 
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] normalizeMatchData - Verificando dados das 4 tabelas:', {
+    console.log('[AnalysisEngine] normalizeMatchData - Verificando dados das 3 tabelas:', {
       geral: !!(data.homeTableData && data.awayTableData),
+      home_away: !!(data.homeHomeAwayData && data.awayHomeAwayData),
       standard_for: !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg),
-      passing_for: !!(data.homePassingForData && data.awayPassingForData && data.competitionPassingForAvg),
-      gca_for: !!(data.homeGcaForData && data.awayGcaForData && data.competitionGcaForAvg),
       todasPresentes: hasAllTables,
     });
   }
@@ -1422,18 +1080,14 @@ function normalizeMatchData(data: MatchData): MatchData {
     h2hOver15Freq: data.h2hOver15Freq ?? 0,
     matchImportance: data.matchImportance ?? 0,
     keyAbsences: data.keyAbsences ?? 'none',
-    // PRESERVAR TODOS OS DADOS DAS 4 TABELAS (spread operator já faz isso, mas garantindo explicitamente)
+    // PRESERVAR TODOS OS DADOS DAS 3 TABELAS (spread operator já faz isso, mas garantindo explicitamente)
     homeTableData: data.homeTableData,
     awayTableData: data.awayTableData,
+    homeHomeAwayData: data.homeHomeAwayData,
+    awayHomeAwayData: data.awayHomeAwayData,
     homeStandardForData: data.homeStandardForData,
     awayStandardForData: data.awayStandardForData,
     competitionStandardForAvg: data.competitionStandardForAvg,
-    homePassingForData: data.homePassingForData,
-    awayPassingForData: data.awayPassingForData,
-    competitionPassingForAvg: data.competitionPassingForAvg,
-    homeGcaForData: data.homeGcaForData,
-    awayGcaForData: data.awayGcaForData,
-    competitionGcaForAvg: data.competitionGcaForAvg,
   };
 }
 
@@ -1464,9 +1118,8 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       awayTeam: data.awayTeam,
       tabelas: {
         geral: !!(data.homeTableData && data.awayTableData),
+        home_away: !!(data.homeHomeAwayData && data.awayHomeAwayData),
         standard_for: !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg),
-        passing_for: !!(data.homePassingForData && data.awayPassingForData && data.competitionPassingForAvg),
-        gca_for: !!(data.homeGcaForData && data.awayGcaForData && data.competitionGcaForAvg),
       },
     });
   }
@@ -1503,14 +1156,9 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     !!normalizedData.homeStandardForData &&
     !!normalizedData.awayStandardForData &&
     !!normalizedData.competitionStandardForAvg;
-  const hasPassingFor =
-    !!normalizedData.homePassingForData &&
-    !!normalizedData.awayPassingForData &&
-    !!normalizedData.competitionPassingForAvg;
-  const hasGcaFor =
-    !!normalizedData.homeGcaForData &&
-    !!normalizedData.awayGcaForData &&
-    !!normalizedData.competitionGcaForAvg;
+  const hasHomeAway =
+    !!normalizedData.homeHomeAwayData &&
+    !!normalizedData.awayHomeAwayData;
 
   // Validar completude dos dados essenciais
   const dataCompleteness = {
@@ -1519,9 +1167,8 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     hasHomeTableData,
     hasAwayTableData,
     hasCompetitionAvg,
+    hasHomeAway,
     hasStandardFor,
-    hasPassingFor,
-    hasGcaFor,
   };
 
   const missingData: string[] = [];
@@ -1536,11 +1183,11 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   if (!hasStandardFor) {
     missingTables.push('standard_for');
   }
-  if (!hasPassingFor) {
-    missingTables.push('passing_for');
+  if (!hasHomeAway) {
+    missingTables.push('home_away');
   }
-  if (!hasGcaFor) {
-    missingTables.push('gca_for');
+  if (!hasHomeAway) {
+    missingTables.push('home_away');
   }
 
   // Calcular resumo de impacto das tabelas
@@ -1563,22 +1210,18 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       console.warn('[AnalysisEngine] A análise pode ser menos confiável sem esses dados.');
     }
 
-    console.log('[AnalysisEngine] --- Status das 4 Tabelas ---');
+    console.log('[AnalysisEngine] --- Status das 3 Tabelas ---');
     console.log('[AnalysisEngine] 1. Tabela GERAL:', {
       disponível: tableImpactSummary.geral.available,
       impacto: tableImpactSummary.geral.impact,
     });
-    console.log('[AnalysisEngine] 2. Tabela STANDARD_FOR:', {
+    console.log('[AnalysisEngine] 2. Tabela HOME_AWAY:', {
+      disponível: tableImpactSummary.homeAway.available,
+      impacto: tableImpactSummary.homeAway.impact,
+    });
+    console.log('[AnalysisEngine] 3. Tabela STANDARD_FOR:', {
       disponível: tableImpactSummary.standardFor.available,
       impacto: tableImpactSummary.standardFor.impact,
-    });
-    console.log('[AnalysisEngine] 3. Tabela PASSING_FOR:', {
-      disponível: tableImpactSummary.passingFor.available,
-      impacto: tableImpactSummary.passingFor.impact,
-    });
-    console.log('[AnalysisEngine] 4. Tabela GCA_FOR:', {
-      disponível: tableImpactSummary.gcaFor.available,
-      impacto: tableImpactSummary.gcaFor.impact,
     });
 
     console.log('[AnalysisEngine] --- Completude das Tabelas ---');
@@ -1589,13 +1232,11 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     }
 
     if (tableCompleteness.score === 1.0) {
-      console.log('[AnalysisEngine] ✅ TODAS AS 4 TABELAS DISPONÍVEIS - Análise com máxima precisão');
-    } else if (tableCompleteness.score >= 0.75) {
-      console.warn('[AnalysisEngine] ⚠️ 3 de 4 tabelas disponíveis - Análise com boa precisão');
-    } else if (tableCompleteness.score >= 0.5) {
-      console.warn('[AnalysisEngine] ⚠️ Apenas 2 de 4 tabelas disponíveis - Análise com precisão reduzida');
+      console.log('[AnalysisEngine] ✅ TODAS AS 3 TABELAS DISPONÍVEIS - Análise com máxima precisão');
+    } else if (tableCompleteness.score >= 0.67) {
+      console.warn('[AnalysisEngine] ⚠️ 2 de 3 tabelas disponíveis - Análise com boa precisão');
     } else {
-      console.warn('[AnalysisEngine] ⚠️ Menos de 2 tabelas disponíveis - Análise com precisão limitada');
+      console.warn('[AnalysisEngine] ⚠️ Apenas 1 de 3 tabelas disponíveis - Análise com precisão reduzida');
     }
 
     if (missingTables.length > 0) {
@@ -1606,10 +1247,10 @@ export function performAnalysis(data: MatchData): AnalysisResult {
         '[AnalysisEngine] A análise será feita apenas com as tabelas disponíveis, o que pode reduzir a precisão.'
       );
       console.warn(
-        '[AnalysisEngine] Recomendação: Extraia todas as 4 tabelas (geral, standard_for, passing_for, gca_for) do fbref.com para análise completa.'
+        '[AnalysisEngine] Recomendação: Extraia todas as 3 tabelas (geral, home_away, standard_for) do fbref.com para análise completa.'
       );
     } else {
-      console.log('[AnalysisEngine] ✅ Todas as 4 tabelas disponíveis! A análise usará todos os dados.');
+      console.log('[AnalysisEngine] ✅ Todas as 3 tabelas disponíveis! A análise usará todos os dados.');
     }
   }
 
@@ -1883,8 +1524,26 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let awayGoalsScored = normalizedData.awayTeamStats?.gols?.away?.avgScored || 0;
   let awayGoalsConceded = normalizedData.awayTeamStats?.gols?.away?.avgConceded || 0;
   
-  // Fallback: usar dados da tabela se Estatísticas Globais não estiverem disponíveis
-  if (homeGoalsScored === 0 && normalizedData.homeTableData) {
+  // Prioridade: usar dados de home_away se disponíveis (mais específicos para casa/fora)
+  if (normalizedData.homeHomeAwayData) {
+    const homeMp = parseFloat(normalizedData.homeHomeAwayData['Home MP'] || '0');
+    const homeGf = parseFloat(normalizedData.homeHomeAwayData['Home GF'] || '0');
+    const homeGa = parseFloat(normalizedData.homeHomeAwayData['Home GA'] || '0');
+    if (homeMp > 0) {
+      homeGoalsScored = homeGf / homeMp;
+      homeGoalsConceded = homeGa / homeMp;
+      if (import.meta.env.DEV) {
+        console.log('[AnalysisEngine] Usando dados home_away para time da casa:', {
+          homeMp,
+          homeGf,
+          homeGa,
+          homeGoalsScored,
+          homeGoalsConceded,
+        });
+      }
+    }
+  } else if (homeGoalsScored === 0 && normalizedData.homeTableData) {
+    // Fallback: usar dados da tabela geral se home_away não estiver disponível
     const mp = parseFloat(normalizedData.homeTableData.MP || '0');
     const gf = parseFloat(normalizedData.homeTableData.GF || '0');
     const ga = parseFloat(normalizedData.homeTableData.GA || '0');
@@ -1894,7 +1553,25 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     }
   }
   
-  if (awayGoalsScored === 0 && normalizedData.awayTableData) {
+  if (normalizedData.awayHomeAwayData) {
+    const awayMp = parseFloat(normalizedData.awayHomeAwayData['Away MP'] || '0');
+    const awayGf = parseFloat(normalizedData.awayHomeAwayData['Away GF'] || '0');
+    const awayGa = parseFloat(normalizedData.awayHomeAwayData['Away GA'] || '0');
+    if (awayMp > 0) {
+      awayGoalsScored = awayGf / awayMp;
+      awayGoalsConceded = awayGa / awayMp;
+      if (import.meta.env.DEV) {
+        console.log('[AnalysisEngine] Usando dados home_away para time visitante:', {
+          awayMp,
+          awayGf,
+          awayGa,
+          awayGoalsScored,
+          awayGoalsConceded,
+        });
+      }
+    }
+  } else if (awayGoalsScored === 0 && normalizedData.awayTableData) {
+    // Fallback: usar dados da tabela geral se home_away não estiver disponível
     const mp = parseFloat(normalizedData.awayTableData.MP || '0');
     const gf = parseFloat(normalizedData.awayTableData.GF || '0');
     const ga = parseFloat(normalizedData.awayTableData.GA || '0');
@@ -1949,16 +1626,16 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     });
   }
 
-  // Aplicar ajustes avançados baseados em todas as 4 tabelas
+  // Aplicar ajustes avançados baseados nas 3 tabelas
   // NOTA: Este ajuste é aplicado nos lambdas básicos, mas os lambdas finais vêm de calculateTableProbability
-  // que já inclui ajustes de standard_for, passing_for e gca_for
+  // que já inclui ajustes de home_away e standard_for
   if (import.meta.env.DEV) {
     console.log('[AnalysisEngine] performAnalysis - Antes de aplicar ajustes avançados (applyAdvancedTableAdjustments):', {
       lambdaHome,
       lambdaAway,
       tabelasDisponiveis: {
-        passing_for: !!(normalizedData.homePassingForData && normalizedData.awayPassingForData && normalizedData.competitionPassingForAvg),
-        gca_for: !!(normalizedData.homeGcaForData && normalizedData.awayGcaForData && normalizedData.competitionGcaForAvg),
+        home_away: !!(normalizedData.homeHomeAwayData && normalizedData.awayHomeAwayData),
+        standard_for: !!(normalizedData.homeStandardForData && normalizedData.awayStandardForData && normalizedData.competitionStandardForAvg),
       },
     });
   }
@@ -2052,27 +1729,20 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   if (normalizedData.h2hOver15Freq > 0) confidence += 5;
   if (normalizedData.homeXG > 0 && normalizedData.awayXG > 0) confidence += 5;
 
-  // Bônus por completude das 4 tabelas
+  // Bônus por completude das 3 tabelas
   // tableCompleteness já foi calculado anteriormente na função
   if (tableCompleteness.score === 1.0) {
-    // Todas as 4 tabelas disponíveis
+    // Todas as 3 tabelas disponíveis
     confidence += 15;
     if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ✅ Bônus de confiança: todas as 4 tabelas disponíveis (+15)');
+      console.log('[AnalysisEngine] ✅ Bônus de confiança: todas as 3 tabelas disponíveis (+15)');
     }
-  } else if (tableCompleteness.score >= 0.75) {
-    // 3 de 4 tabelas disponíveis
+  } else if (tableCompleteness.score >= 0.67) {
+    // 2 de 3 tabelas disponíveis
     confidence += 8;
     if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ⚠️ Bônus parcial de confiança: 3 de 4 tabelas disponíveis (+8)');
+      console.log('[AnalysisEngine] ⚠️ Bônus parcial de confiança: 2 de 3 tabelas disponíveis (+8)');
       console.log('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables);
-    }
-  } else if (tableCompleteness.score >= 0.5) {
-    // 2 de 4 tabelas disponíveis
-    confidence += 3;
-    if (import.meta.env.DEV) {
-      console.warn('[AnalysisEngine] ⚠️ Bônus reduzido de confiança: apenas 2 de 4 tabelas disponíveis (+3)');
-      console.warn('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables);
     }
   } else {
     // Menos de 2 tabelas disponíveis - penalizar
@@ -2345,7 +2015,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     finalEv = ((finalProb / 100) * normalizedData.oddOver15 - 1) * 100;
   }
 
-  // VALIDAÇÃO FINAL: Verificar se todas as 4 tabelas disponíveis foram usadas
+  // VALIDAÇÃO FINAL: Verificar se todas as 3 tabelas disponíveis foram usadas
   const finalTableCompleteness = calculateTableCompletenessScore(normalizedData);
   const tablesUsedInAnalysis: string[] = [];
   
@@ -2389,7 +2059,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       console.warn('[AnalysisEngine] Disponíveis:', finalTableCompleteness.availableTables);
       console.warn('[AnalysisEngine] Usadas:', tablesUsedInAnalysis);
     } else if (finalTableCompleteness.score === 1.0) {
-      console.log('[AnalysisEngine] ✅ TODAS AS 4 TABELAS FORAM USADAS NA ANÁLISE!');
+      console.log('[AnalysisEngine] ✅ TODAS AS 3 TABELAS FORAM USADAS NA ANÁLISE!');
     }
     
     // Mostrar impacto de cada tabela
@@ -2398,17 +2068,8 @@ export function performAnalysis(data: MatchData): AnalysisResult {
         tableLambdaHome: tableLambdaHome,
         tableLambdaAway: tableLambdaAway,
         tableLambdaTotal: tableLambdaTotal,
+        'home_away aplicado': finalHasHomeAway,
         'standard_for aplicado': finalHasStandardFor,
-        'passing_for aplicado': finalHasPassingFor,
-        'gca_for aplicado': finalHasGcaFor,
-      });
-    }
-    
-    if (finalAdvancedAdjustments) {
-      console.log('[AnalysisEngine] Ajuste avançado aplicado:', {
-        homeScore: finalAdvancedAdjustments.impactSummary.creationScore.home,
-        awayScore: finalAdvancedAdjustments.impactSummary.creationScore.away,
-        'passing_for + gca_for combinados': true,
       });
     }
   }

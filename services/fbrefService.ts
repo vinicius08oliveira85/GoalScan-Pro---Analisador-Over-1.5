@@ -17,8 +17,8 @@ export interface FbrefExtractionRequest {
 export interface FbrefExtractionResult {
   success: boolean;
   data?: {
-    tables?: Record<'geral' | 'standard_for' | 'passing_for' | 'gca_for', unknown[]>;
-    missingTables?: Array<'geral' | 'standard_for' | 'passing_for' | 'gca_for'>;
+    tables?: Record<'geral' | 'home_away' | 'standard_for', unknown[]>;
+    missingTables?: Array<'geral' | 'home_away' | 'standard_for'>;
     matches?: unknown[];
     teamStats?: unknown[];
   };
@@ -196,12 +196,12 @@ export const saveExtractedTable = async (
 };
 
 /**
- * Salva um pacote de tabelas extraídas (geral + home_away + standard_for + passing_for + gca_for).
+ * Salva um pacote de tabelas extraídas (geral + home_away + standard_for).
  * Retorna as tabelas efetivamente salvas (pode pular as vazias).
  */
 export const saveExtractedTables = async (
   championshipId: string,
-  tablesByType: Record<'geral' | 'home_away' | 'standard_for' | 'passing_for' | 'gca_for', unknown[]>
+  tablesByType: Record<'geral' | 'home_away' | 'standard_for', unknown[]>
 ): Promise<ChampionshipTable[]> => {
   const saved: ChampionshipTable[] = [];
 
