@@ -111,6 +111,9 @@ export const matchDataSchema = z.object({
   homeGcaForData: z.any().optional(), // Tabela gca_for (TableRowGcaFor)
   awayGcaForData: z.any().optional(), // Tabela gca_for (TableRowGcaFor)
   competitionGcaForAvg: z.any().optional(), // Médias do campeonato para gca_for (CompetitionGcaForAverages)
+  // Tabela Home/Away (desempenho em casa vs fora)
+  homeHomeAwayData: z.any().optional(), // Tabela home_away (TableRowHomeAway)
+  awayHomeAwayData: z.any().optional(), // Tabela home_away (TableRowHomeAway)
 });
 
 // Schema para validação de BetInfo

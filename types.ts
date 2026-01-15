@@ -139,6 +139,10 @@ export interface MatchData {
   homeGcaForData?: TableRowGcaFor;
   awayGcaForData?: TableRowGcaFor;
   competitionGcaForAvg?: CompetitionGcaForAverages;
+
+  // Tabela Home/Away (desempenho em casa vs fora)
+  homeHomeAwayData?: TableRowHomeAway;
+  awayHomeAwayData?: TableRowHomeAway;
 }
 
 export interface AnalysisResult {
@@ -301,7 +305,7 @@ export interface SavedAnalysis {
 }
 
 // Tipos de tabela de campeonato
-export type TableType = 'geral' | 'standard_for' | 'passing_for' | 'gca_for';
+export type TableType = 'geral' | 'home_away' | 'standard_for' | 'passing_for' | 'gca_for';
 
 // Interface para linha da tabela "Geral" (traduzida para PT-BR)
 export interface TableRowGeral {
@@ -372,6 +376,29 @@ export interface TableRowGcaFor {
 export interface CompetitionGcaForAverages {
   scaPer90: number;
   gcaPer90: number;
+}
+
+// Interface para linha da tabela Home/Away (desempenho em casa vs fora)
+export interface TableRowHomeAway {
+  Rk: string; // Classificação
+  Squad: string; // Equipe
+  'Home MP': string; // Partidas em Casa
+  'Home W': string; // Vitórias em Casa
+  'Home D': string; // Empates em Casa
+  'Home L': string; // Derrotas em Casa
+  'Home GF': string; // Gols a Favor em Casa
+  'Home GA': string; // Gols Contra em Casa
+  'Home GD': string; // Saldo de Gols em Casa
+  Pts?: string; // Pontos (pode estar presente)
+  'Pts/MP'?: string; // Pontos por Partida (pode estar presente)
+  'Away MP': string; // Partidas Fora
+  'Away W': string; // Vitórias Fora
+  'Away D': string; // Empates Fora
+  'Away L': string; // Derrotas Fora
+  'Away GF': string; // Gols a Favor Fora
+  'Away GA': string; // Gols Contra Fora
+  'Away GD': string; // Saldo de Gols Fora
+  [key: string]: unknown; // Permitir campos adicionais
 }
 
 // Dados do campeonato

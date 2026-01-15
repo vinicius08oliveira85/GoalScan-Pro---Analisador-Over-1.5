@@ -13,6 +13,7 @@ interface ChampionshipFormProps {
 
 const TABLE_TYPES: Array<{ type: TableType; name: string; required: boolean }> = [
   { type: 'geral', name: 'Geral', required: false },
+  { type: 'home_away', name: 'Home/Away - Desempenho Casa vs Fora', required: false },
   { type: 'standard_for', name: 'Standard (For) - Complemento', required: false },
 ];
 

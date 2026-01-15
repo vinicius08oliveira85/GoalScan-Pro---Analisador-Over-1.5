@@ -7,12 +7,12 @@ interface ExtractRequest {
   extractTypes: ('table' | 'matches' | 'team-stats' | 'all')[];
 }
 
-type FbrefTableType = 'geral' | 'standard_for' | 'passing_for' | 'gca_for';
+type FbrefTableType = 'geral' | 'home_away' | 'standard_for' | 'passing_for' | 'gca_for';
 
 interface ExtractionResult {
   success: boolean;
   data?: {
-    tables?: Record<FbrefTableType, unknown[]>;
+    tables?: Partial<Record<FbrefTableType, unknown[]>>;
     missingTables?: FbrefTableType[];
     matches?: unknown[];
     teamStats?: unknown[];
@@ -87,6 +87,8 @@ const TABLE_ID_CANDIDATES: Record<FbrefTableType, Array<string | RegExp>> = {
   // “Geral” (classificação): o id muda por competição/temporada, mas termina em _overall.
   // Exemplos comuns: stats_results_2025-2026_111_overall, results2025-2026111_overall, results_..._overall
   geral: [/^stats_results_.*_overall$/i, /^results.*_overall$/i, /_overall$/i],
+  // Home/Away: tabela com desempenho separado por casa/fora
+  home_away: [/^stats_results_.*_home_away$/i, /^results.*_home_away$/i, /_home_away$/i],
   standard_for: ['stats_squads_standard_for', /standard_for$/i],
   passing_for: ['stats_squads_passing_for', /passing_for$/i],
   gca_for: ['stats_squads_gca_for', /gca_for$/i],
@@ -319,8 +321,9 @@ async function extractTablesFromUrl(url: string): Promise<{
   const html = await fetchHtml(url);
   const allTables = collectTablesById(html);
 
-  const tables: Record<FbrefTableType, unknown[]> = {
+  const tables: Partial<Record<FbrefTableType, unknown[]>> = {
     geral: [],
+    home_away: [],
     standard_for: [],
     passing_for: [],
     gca_for: [],
