@@ -6,6 +6,7 @@ export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
 
 // API route Python no Vercel
 const FBREF_SCRAPER_API_URL = '/api/fbref-extract';
+const FBREF_SELENIUM_SCRAPER_API_URL = '/api/fbref-extract-selenium';
 
 export interface FbrefExtractionRequest {
   championshipUrl: string;
@@ -66,7 +67,7 @@ function setCachedResult(key: string, result: FbrefExtractionResult): void {
 }
 
 /**
- * Extrai dados do fbref.com via Edge Function
+ * Extrai dados do fbref.com via Edge Function (requests + BeautifulSoup)
  */
 export const extractFbrefData = async (
   request: FbrefExtractionRequest
@@ -137,6 +138,7 @@ export const extractFbrefData = async (
 
 const TABLE_NAME_BY_TYPE: Record<TableType, string> = {
   geral: 'Geral',
+  home_away: 'Home/Away - Desempenho Casa vs Fora',
   standard_for: 'Standard (For) - Complemento',
   passing_for: 'Passing (For) - Complemento',
   gca_for: 'GCA (For) - Complemento',
@@ -194,12 +196,12 @@ export const saveExtractedTable = async (
 };
 
 /**
- * Salva um pacote de tabelas extraídas (geral + standard_for + passing_for + gca_for).
+ * Salva um pacote de tabelas extraídas (geral + home_away + standard_for + passing_for + gca_for).
  * Retorna as tabelas efetivamente salvas (pode pular as vazias).
  */
 export const saveExtractedTables = async (
   championshipId: string,
-  tablesByType: Record<'geral' | 'standard_for' | 'passing_for' | 'gca_for', unknown[]>
+  tablesByType: Record<'geral' | 'home_away' | 'standard_for' | 'passing_for' | 'gca_for', unknown[]>
 ): Promise<ChampionshipTable[]> => {
   const saved: ChampionshipTable[] = [];
 
@@ -212,6 +214,76 @@ export const saveExtractedTables = async (
   }
 
   return saved;
+};
+
+/**
+ * Extrai dados do fbref.com via Selenium (para páginas com JavaScript dinâmico)
+ */
+export const extractFbrefDataWithSelenium = async (
+  request: FbrefExtractionRequest
+): Promise<FbrefExtractionResult> => {
+  try {
+    // Validar URL
+    if (!request.championshipUrl || !request.championshipUrl.includes('fbref.com')) {
+      return {
+        success: false,
+        error: 'URL inválida. Apenas URLs do fbref.com são permitidas.',
+      };
+    }
+
+    // Cache com sufixo diferente para Selenium
+    const cacheKey = `${getCacheKey(request.championshipUrl, request.extractTypes)}_selenium`;
+    const cached = getCachedResult(cacheKey);
+    if (cached) {
+      logger.log('[FBrefService] Usando dados do cache (Selenium)');
+      return cached;
+    }
+
+    // Chamar API Python com Selenium no Vercel
+    const response = await fetch(FBREF_SELENIUM_SCRAPER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        championshipUrl: request.championshipUrl,
+        championshipId: request.championshipId,
+        extractTypes: request.extractTypes,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = (await response.json()) as { error?: string };
+        if (errorData?.error) {
+          errorMessage = errorData.error;
+        }
+      } catch {
+        // Ignora erro ao parsear JSON
+      }
+      logger.error('[FBrefService] Erro ao chamar API Selenium:', errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+
+    const result = (await response.json()) as FbrefExtractionResult;
+
+    // Salvar no cache se bem-sucedido
+    if (result.success) {
+      setCachedResult(cacheKey, result);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[FBrefService] Erro inesperado (Selenium):', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao extrair dados com Selenium',
+    };
+  }
 };
 
 /**

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, X, Upload } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, ExternalLink } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
 import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
+import FbrefExtractionModal from './FbrefExtractionModal';
 import { animations } from '../utils/animations';
 
 const ChampionshipsScreen: React.FC = () => {
@@ -26,6 +27,7 @@ const ChampionshipsScreen: React.FC = () => {
     championship: Championship;
     tables: ChampionshipTable[];
   } | null>(null);
+  const [extractingFromFbref, setExtractingFromFbref] = useState<Championship | null>(null);
 
   const handleNewChampionship = () => {
     setEditingChampionship(null);
@@ -162,7 +164,7 @@ const ChampionshipsScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-4">
+              <div className="flex gap-2 mt-4 flex-wrap">
                 <button
                   onClick={() => handleViewTables(championship)}
                   className="btn btn-sm btn-ghost flex-1 gap-1"
@@ -171,6 +173,16 @@ const ChampionshipsScreen: React.FC = () => {
                   <Eye className="w-4 h-4" />
                   Tabelas
                 </button>
+                {championship.fbrefUrl && (
+                  <button
+                    onClick={() => setExtractingFromFbref(championship)}
+                    className="btn btn-sm btn-primary gap-1"
+                    title="Extrair tabelas do FBref.com automaticamente"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Extrair FBref
+                  </button>
+                )}
                 <button
                   onClick={() => handleUpdateTables(championship)}
                   className="btn btn-sm btn-ghost flex-1 gap-1"
@@ -313,6 +325,27 @@ const ChampionshipsScreen: React.FC = () => {
               if (viewingTables?.championship.id === updatingTables.championship.id) {
                 setViewingTables({ championship: viewingTables.championship, tables });
               }
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Extração do FBref */}
+      <AnimatePresence>
+        {extractingFromFbref && (
+          <FbrefExtractionModal
+            championship={extractingFromFbref}
+            onClose={() => setExtractingFromFbref(null)}
+            onTableSaved={async () => {
+              setExtractingFromFbref(null);
+              // Atualizar tabelas se o modal de visualização estiver aberto
+              if (viewingTables?.championship.id === extractingFromFbref.id) {
+                const tables = await loadTables(extractingFromFbref.id);
+                setViewingTables({ championship: viewingTables.championship, tables });
+              }
+            }}
+            onError={(message) => {
+              console.error('[ChampionshipsScreen] Erro ao extrair do FBref:', message);
             }}
           />
         )}

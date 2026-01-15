@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
-import { extractFbrefData, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
+import { extractFbrefData, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
 import {
   mapToTableRowsGcaFor,
   mapToTableRowsGeral,
@@ -34,6 +34,7 @@ export default function FbrefExtractionModal({
   >(null);
   const [activePreviewTable, setActivePreviewTable] = useState<TableType>('geral');
   const [saving, setSaving] = useState(false);
+  const [useSelenium, setUseSelenium] = useState(false);
 
   const handleExtract = async () => {
     if (!url.trim()) {
@@ -51,11 +52,18 @@ export default function FbrefExtractionModal({
     setPreviewTables(null);
 
     try {
-      const extractionResult = await extractFbrefData({
-        championshipUrl: url.trim(),
-        championshipId: championship.id,
-        extractTypes,
-      });
+      // Usa Selenium se marcado, senão usa a API padrão
+      const extractionResult = useSelenium
+        ? await extractFbrefDataWithSelenium({
+            championshipUrl: url.trim(),
+            championshipId: championship.id,
+            extractTypes,
+          })
+        : await extractFbrefData({
+            championshipUrl: url.trim(),
+            championshipId: championship.id,
+            extractTypes,
+          });
 
       setResult(extractionResult);
 
@@ -81,6 +89,18 @@ export default function FbrefExtractionModal({
       setLoading(false);
     }
   };
+
+  // Auto-extrair se a URL já estiver preenchida ao abrir o modal
+  React.useEffect(() => {
+    if (url.trim() && url.includes('fbref.com') && !loading && !result && !previewTables) {
+      // Pequeno delay para garantir que o modal está renderizado
+      const timer = setTimeout(() => {
+        handleExtract();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Executa apenas uma vez ao montar
 
   const handleSave = async () => {
     if (!previewTables) {
@@ -177,6 +197,25 @@ export default function FbrefExtractionModal({
             <span className="font-semibold">gca_for</span>.
           </div>
 
+          {/* Selenium Toggle */}
+          <div className="form-control">
+            <label className="label cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                checked={useSelenium}
+                onChange={(e) => setUseSelenium(e.target.checked)}
+                className="checkbox checkbox-primary"
+                disabled={loading || saving}
+              />
+              <div className="label-text">
+                <div className="font-bold">Usar Selenium</div>
+                <div className="text-xs opacity-70">
+                  Use quando a página tiver JavaScript dinâmico ou proteções anti-scraping. Pode ser mais lento.
+                </div>
+              </div>
+            </label>
+          </div>
+
           {/* Extract Button */}
           <button
             onClick={handleExtract}
@@ -186,12 +225,12 @@ export default function FbrefExtractionModal({
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Extraindo dados...
+                {useSelenium ? 'Extraindo com Selenium...' : 'Extraindo dados...'}
               </>
             ) : (
               <>
                 <ExternalLink className="w-5 h-5" />
-                Extrair Dados
+                Extrair Dados {useSelenium && '(Selenium)'}
               </>
             )}
           </button>

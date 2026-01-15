@@ -6,6 +6,9 @@
   "functions": {
     "api/fbref-extract.py": {
       "maxDuration": 60
+    },
+    "api/fbref-extract-selenium.py": {
+      "maxDuration": 120
     }
   }
 }
