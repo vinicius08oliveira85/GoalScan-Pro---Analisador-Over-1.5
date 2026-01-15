@@ -1088,65 +1088,6 @@ export const syncTeamStatsFromTable = async (
 
     const competitionStandardForAvg = calculateCompetitionStandardForAveragesFromRows(standardForRows);
 
-    // Complementos adicionais (passing_for / gca_for) - opcionais
-    const passingForTable = tables.find((t) => t.table_type === 'passing_for');
-    const passingForRows = Array.isArray(passingForTable?.table_data)
-      ? (passingForTable?.table_data as TableRowPassingFor[])
-      : [];
-
-    if (import.meta.env.DEV) {
-      if (!passingForTable) {
-        console.warn('[ChampionshipService] ⚠️ Tabela passing_for não encontrada para campeonato:', championshipId);
-      } else if (passingForRows.length === 0) {
-        console.warn('[ChampionshipService] ⚠️ Tabela passing_for está vazia');
-      } else {
-        console.log('[ChampionshipService] ✅ Tabela passing_for encontrada com', passingForRows.length, 'times');
-        // Verificar se os Squads estão na tabela
-        const homeFound = passingForRows.some(row => row.Squad === homeSquad);
-        const awayFound = passingForRows.some(row => row.Squad === awaySquad);
-        if (!homeFound) {
-          console.warn('[ChampionshipService] ⚠️ Time da casa não encontrado na tabela passing_for:', homeSquad);
-          console.log('[ChampionshipService] Squads disponíveis (primeiros 5):', passingForRows.slice(0, 5).map(r => r.Squad));
-        }
-        if (!awayFound) {
-          console.warn('[ChampionshipService] ⚠️ Time visitante não encontrado na tabela passing_for:', awaySquad);
-        }
-      }
-    }
-
-    const homePassingForData = passingForRows.find((row) => row.Squad === homeSquad) || null;
-    const awayPassingForData = passingForRows.find((row) => row.Squad === awaySquad) || null;
-    const competitionPassingForAvg = calculateCompetitionPassingForAveragesFromRows(passingForRows);
-
-    const gcaForTable = tables.find((t) => t.table_type === 'gca_for');
-    const gcaForRows = Array.isArray(gcaForTable?.table_data)
-      ? (gcaForTable?.table_data as TableRowGcaFor[])
-      : [];
-
-    if (import.meta.env.DEV) {
-      if (!gcaForTable) {
-        console.warn('[ChampionshipService] ⚠️ Tabela gca_for não encontrada para campeonato:', championshipId);
-      } else if (gcaForRows.length === 0) {
-        console.warn('[ChampionshipService] ⚠️ Tabela gca_for está vazia');
-      } else {
-        console.log('[ChampionshipService] ✅ Tabela gca_for encontrada com', gcaForRows.length, 'times');
-        // Verificar se os Squads estão na tabela
-        const homeFound = gcaForRows.some(row => row.Squad === homeSquad);
-        const awayFound = gcaForRows.some(row => row.Squad === awaySquad);
-        if (!homeFound) {
-          console.warn('[ChampionshipService] ⚠️ Time da casa não encontrado na tabela gca_for:', homeSquad);
-          console.log('[ChampionshipService] Squads disponíveis (primeiros 5):', gcaForRows.slice(0, 5).map(r => r.Squad));
-        }
-        if (!awayFound) {
-          console.warn('[ChampionshipService] ⚠️ Time visitante não encontrado na tabela gca_for:', awaySquad);
-        }
-      }
-    }
-
-    const homeGcaForData = gcaForRows.find((row) => row.Squad === homeSquad) || null;
-    const awayGcaForData = gcaForRows.find((row) => row.Squad === awaySquad) || null;
-    const competitionGcaForAvg = calculateCompetitionGcaForAveragesFromRows(gcaForRows);
-
     // Tabela Home/Away (desempenho em casa vs fora)
     const homeAwayTable = tables.find((t) => t.table_type === 'home_away');
     const homeAwayRows = Array.isArray(homeAwayTable?.table_data)
@@ -1172,8 +1113,6 @@ export const syncTeamStatsFromTable = async (
         geral: homeData ? [homeData.Squad, awayData?.Squad].filter(Boolean) as string[] : [],
         home_away: homeHomeAwayData ? [homeHomeAwayData.Squad, awayHomeAwayData?.Squad].filter(Boolean) as string[] : [],
         standard_for: homeStandardForData ? [homeStandardForData.Squad, awayStandardForData?.Squad].filter(Boolean) as string[] : [],
-        passing_for: homePassingForData ? [homePassingForData.Squad, awayPassingForData?.Squad].filter(Boolean) as string[] : [],
-        gca_for: homeGcaForData ? [homeGcaForData.Squad, awayGcaForData?.Squad].filter(Boolean) as string[] : [],
       };
 
       // Verificar se há divergência de nomes entre tabelas
@@ -1192,8 +1131,6 @@ export const syncTeamStatsFromTable = async (
         geral: !!(homeData && awayData),
         home_away: !!(homeHomeAwayData && awayHomeAwayData),
         standard_for: !!(homeStandardForData && awayStandardForData && competitionStandardForAvg),
-        passing_for: !!(homePassingForData && awayPassingForData && competitionPassingForAvg),
-        gca_for: !!(homeGcaForData && awayGcaForData && competitionGcaForAvg),
       };
       const missingTables = Object.entries(tablesLoaded)
         .filter(([, loaded]) => !loaded)
@@ -1229,7 +1166,7 @@ export const syncTeamStatsFromTable = async (
           }
         }
       } else {
-        console.log('[ChampionshipService] ✅ Todas as 4 tabelas carregadas com sucesso!');
+        console.log('[ChampionshipService] ✅ Todas as 3 tabelas carregadas com sucesso!');
       }
     }
 
@@ -1237,34 +1174,22 @@ export const syncTeamStatsFromTable = async (
       homeTableData: homeData,
       awayTableData: awayData,
       competitionAvg: competitionAvg || undefined,
+      homeHomeAwayData,
+      awayHomeAwayData,
       homeStandardForData,
       awayStandardForData,
       competitionStandardForAvg,
-      homePassingForData,
-      awayPassingForData,
-      competitionPassingForAvg,
-      homeGcaForData,
-      awayGcaForData,
-      competitionGcaForAvg,
-      homeHomeAwayData,
-      awayHomeAwayData,
     };
   } catch (error: unknown) {
     logger.error('[ChampionshipService] Erro ao sincronizar dados da tabela:', error);
     return {
       homeTableData: null,
       awayTableData: null,
+      homeHomeAwayData: null,
+      awayHomeAwayData: null,
       homeStandardForData: null,
       awayStandardForData: null,
       competitionStandardForAvg: null,
-      homePassingForData: null,
-      awayPassingForData: null,
-      competitionPassingForAvg: null,
-      homeGcaForData: null,
-      awayGcaForData: null,
-      competitionGcaForAvg: null,
-      homeHomeAwayData: null,
-      awayHomeAwayData: null,
     };
   }
 };
@@ -1323,18 +1248,6 @@ export const checkChampionshipTablesAvailability = async (
           hasData: false,
           rowCount: 0,
         },
-        passing_for: {
-          tableType: 'passing_for',
-          exists: false,
-          hasData: false,
-          rowCount: 0,
-        },
-        gca_for: {
-          tableType: 'gca_for',
-          exists: false,
-          hasData: false,
-          rowCount: 0,
-        },
       },
       allTablesExist: false,
       allTablesHaveData: false,
@@ -1343,7 +1256,7 @@ export const checkChampionshipTablesAvailability = async (
     };
 
     // Verificar cada tipo de tabela
-    const tableTypes: TableType[] = ['geral', 'home_away', 'standard_for', 'passing_for', 'gca_for'];
+    const tableTypes: TableType[] = ['geral', 'home_away', 'standard_for'];
     
     for (const tableType of tableTypes) {
       const table = tables.find((t) => t.table_type === tableType);
@@ -1412,13 +1325,12 @@ export const checkChampionshipTablesAvailability = async (
       championshipId,
       tables: {
         geral: { tableType: 'geral', exists: false, hasData: false, rowCount: 0 },
+        home_away: { tableType: 'home_away', exists: false, hasData: false, rowCount: 0 },
         standard_for: { tableType: 'standard_for', exists: false, hasData: false, rowCount: 0 },
-        passing_for: { tableType: 'passing_for', exists: false, hasData: false, rowCount: 0 },
-        gca_for: { tableType: 'gca_for', exists: false, hasData: false, rowCount: 0 },
       },
       allTablesExist: false,
       allTablesHaveData: false,
-      missingTables: ['geral', 'standard_for', 'passing_for', 'gca_for'],
+      missingTables: ['geral', 'home_away', 'standard_for'],
       emptyTables: [],
     };
   }

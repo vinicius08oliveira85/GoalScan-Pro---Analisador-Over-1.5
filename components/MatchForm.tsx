@@ -149,6 +149,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
         homeGcaForData,
         awayGcaForData,
         competitionGcaForAvg,
+        homeHomeAwayData,
+        awayHomeAwayData,
       } = await syncTeamStatsFromTable(
         selectedChampionshipId,
         selectedHomeSquad,
@@ -173,6 +175,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
           homeGcaForData: !!homeGcaForData,
           awayGcaForData: !!awayGcaForData,
           competitionGcaForAvg: !!competitionGcaForAvg,
+          homeHomeAwayData: !!homeHomeAwayData,
+          awayHomeAwayData: !!awayHomeAwayData,
           hasPreviousHomeStats: !!previousHomeStats,
           hasPreviousAwayStats: !!previousAwayStats,
           // Nota: homeTeamStats/awayTeamStats não são afetados pela sincronização
@@ -196,6 +200,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
           homeGcaForData: homeGcaForData || undefined,
           awayGcaForData: awayGcaForData || undefined,
           competitionGcaForAvg: competitionGcaForAvg || undefined,
+          homeHomeAwayData: homeHomeAwayData || undefined,
+          awayHomeAwayData: awayHomeAwayData || undefined,
           // Preencher automaticamente a média da competição calculada da tabela
           competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
           // homeTeamStats e awayTeamStats permanecem inalterados (inseridos manualmente)
@@ -217,9 +223,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
       // Verificar quais tabelas foram carregadas
       const loadedTables = {
         geral: !!(homeTableData && awayTableData),
+        home_away: !!(homeHomeAwayData && awayHomeAwayData),
         standard_for: !!(homeStandardForData && awayStandardForData && competitionStandardForAvg),
-        passing_for: !!(homePassingForData && awayPassingForData && competitionPassingForAvg),
-        gca_for: !!(homeGcaForData && awayGcaForData && competitionGcaForAvg),
       };
 
       const loadedCount = Object.values(loadedTables).filter(Boolean).length;
@@ -238,20 +243,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
               home: !!homeTableData,
               away: !!awayTableData,
             },
+            home_away: {
+              home: !!homeHomeAwayData,
+              away: !!awayHomeAwayData,
+            },
             standard_for: {
               home: !!homeStandardForData,
               away: !!awayStandardForData,
               competitionAvg: !!competitionStandardForAvg,
-            },
-            passing_for: {
-              home: !!homePassingForData,
-              away: !!awayPassingForData,
-              competitionAvg: !!competitionPassingForAvg,
-            },
-            gca_for: {
-              home: !!homeGcaForData,
-              away: !!awayGcaForData,
-              competitionAvg: !!competitionGcaForAvg,
             },
           },
         });
@@ -268,16 +267,16 @@ const MatchForm: React.FC<MatchFormProps> = ({
       }
 
       // Mostrar feedback sobre tabelas carregadas
-      if (loadedCount === 4) {
+      if (loadedCount === 3) {
         // Todas as tabelas carregadas - sucesso silencioso
         if (import.meta.env.DEV) {
-          console.log('[MatchForm] ✅ Todas as 4 tabelas carregadas com sucesso!');
+          console.log('[MatchForm] ✅ Todas as 3 tabelas carregadas com sucesso!');
         }
       } else if (loadedCount > 0) {
         // Algumas tabelas carregadas - avisar sobre as faltantes
         // NÃO mostrar erro, apenas aviso informativo (não é um erro crítico)
         if (import.meta.env.DEV) {
-          console.warn('[MatchForm] ⚠️ Apenas', loadedCount, 'de 4 tabelas foram carregadas. Faltando:', missingTables.join(', '));
+          console.warn('[MatchForm] ⚠️ Apenas', loadedCount, 'de 3 tabelas foram carregadas. Faltando:', missingTables.join(', '));
         }
       } else {
         // Nenhuma tabela carregada
@@ -373,14 +372,13 @@ const MatchForm: React.FC<MatchFormProps> = ({
       // Validar dados antes de enviar
       const validatedData = validateMatchData(formData);
       
-      // Log: verificar se todas as 4 tabelas foram preservadas após validação
+      // Log: verificar se todas as 3 tabelas foram preservadas após validação
       if (import.meta.env.DEV) {
         console.log('[MatchForm] Dados após validação (validateMatchData):', {
           tabelas: {
             geral: !!(validatedData.homeTableData && validatedData.awayTableData),
+            home_away: !!(validatedData.homeHomeAwayData && validatedData.awayHomeAwayData),
             standard_for: !!(validatedData.homeStandardForData && validatedData.awayStandardForData && validatedData.competitionStandardForAvg),
-            passing_for: !!(validatedData.homePassingForData && validatedData.awayPassingForData && validatedData.competitionPassingForAvg),
-            gca_for: !!(validatedData.homeGcaForData && validatedData.awayGcaForData && validatedData.competitionGcaForAvg),
           },
         });
       }
@@ -526,7 +524,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     Algumas tabelas não foram extraídas ainda
                   </p>
                   <p className="text-warning text-xs mb-2">
-                    Para análise completa, extraia todas as 4 tabelas do fbref.com primeiro.
+                    Para análise completa, extraia todas as 3 tabelas do fbref.com primeiro.
                   </p>
                   <div className="text-xs opacity-80 space-y-1">
                     {tablesDiagnostic.missingTables.map((tableType) => {
@@ -562,17 +560,15 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <div className="mt-4 p-4 bg-base-300/50 rounded-lg border border-base-content/10 space-y-3">
               <div className="font-semibold text-sm mb-2">Status das Tabelas Sincronizadas:</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                {(['geral', 'standard_for', 'passing_for', 'gca_for'] as const).map((tableType) => {
+                {(['geral', 'home_away', 'standard_for'] as const).map((tableType) => {
                   const hasTable = (() => {
                     switch (tableType) {
                       case 'geral':
                         return !!(formData.homeTableData && formData.awayTableData);
+                      case 'home_away':
+                        return !!(formData.homeHomeAwayData && formData.awayHomeAwayData);
                       case 'standard_for':
                         return !!(formData.homeStandardForData && formData.awayStandardForData && formData.competitionStandardForAvg);
-                      case 'passing_for':
-                        return !!(formData.homePassingForData && formData.awayPassingForData && formData.competitionPassingForAvg);
-                      case 'gca_for':
-                        return !!(formData.homeGcaForData && formData.awayGcaForData && formData.competitionGcaForAvg);
                     }
                   })();
 
@@ -583,12 +579,10 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     switch (tableType) {
                       case 'geral':
                         return { name: 'Geral', impact: '(Alto impacto - base para cálculo)' };
+                      case 'home_away':
+                        return { name: 'Home/Away', impact: '(Alto - desempenho específico casa/fora)' };
                       case 'standard_for':
                         return { name: 'Standard For', impact: '(Médio-Alto - ajuste ataque/ritmo ±8%)' };
-                      case 'passing_for':
-                        return { name: 'Passing For', impact: '(Médio - criação via passe ±8%)' };
-                      case 'gca_for':
-                        return { name: 'GCA For', impact: '(Médio-Alto - ações de criação ±10%)' };
                     }
                   };
 
@@ -624,24 +618,22 @@ const MatchForm: React.FC<MatchFormProps> = ({
               </div>
               {(() => {
                 const hasGeral = !!(formData.homeTableData && formData.awayTableData);
+                const hasHomeAway = !!(formData.homeHomeAwayData && formData.awayHomeAwayData);
                 const hasStandardFor = !!(formData.homeStandardForData && formData.awayStandardForData && formData.competitionStandardForAvg);
-                const hasPassingFor = !!(formData.homePassingForData && formData.awayPassingForData && formData.competitionPassingForAvg);
-                const hasGcaFor = !!(formData.homeGcaForData && formData.awayGcaForData && formData.competitionGcaForAvg);
-                const allTablesPresent = hasGeral && hasStandardFor && hasPassingFor && hasGcaFor;
+                const allTablesPresent = hasGeral && hasHomeAway && hasStandardFor;
                 
                 if (allTablesPresent) {
                   return (
                     <div className="mt-2 p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                      ✅ Todas as 4 tabelas carregadas! Análise com máxima precisão.
+                      ✅ Todas as 3 tabelas carregadas! Análise com máxima precisão.
                     </div>
                   );
                 }
 
                 const missingTables = [
                   !hasGeral && 'geral',
+                  !hasHomeAway && 'home_away',
                   !hasStandardFor && 'standard_for',
-                  !hasPassingFor && 'passing_for',
-                  !hasGcaFor && 'gca_for',
                 ].filter(Boolean) as string[];
 
                 // Verificar se tabelas não existem no banco ou se Squads não foram encontrados
@@ -669,7 +661,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   suggestion = 'Verifique se os nomes dos times (Squads) estão corretos e correspondem aos nomes nas tabelas.';
                 } else {
                   message = 'Algumas tabelas estão faltando.';
-                  suggestion = 'Para análise completa com todas as 4 tabelas, extraia todas do fbref.com.';
+                  suggestion = 'Para análise completa com todas as 3 tabelas, extraia todas do fbref.com.';
                 }
 
                 return (
