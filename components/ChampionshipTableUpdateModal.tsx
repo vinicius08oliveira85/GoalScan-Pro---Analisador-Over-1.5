@@ -1,17 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileJson, X, Save, ExternalLink } from 'lucide-react';
+import { Upload, FileJson, X, Save, ExternalLink, Download } from 'lucide-react';
 import type { Championship, ChampionshipTable, TableType } from '../types';
 import { animations } from '../utils/animations';
+import { downloadChampionshipTables } from '../services/championshipService';
 import FbrefExtractionModal from './FbrefExtractionModal';
 
 type TableMeta = { type: TableType; name: string };
 
 const TABLES: TableMeta[] = [
   { type: 'geral', name: 'Geral' },
+  { type: 'home_away', name: 'Home/Away - Desempenho Casa vs Fora' },
   { type: 'standard_for', name: 'Standard (For) - Complemento' },
-  { type: 'passing_for', name: 'Passing (For) - Complemento' },
-  { type: 'gca_for', name: 'GCA (For) - Complemento' },
 ];
 
 interface Props {
@@ -49,17 +49,16 @@ export default function ChampionshipTableUpdateModal({
   const [activeType, setActiveType] = useState<TableType>('geral');
   const [jsonTextByType, setJsonTextByType] = useState<Record<TableType, string>>({
     geral: '',
+    home_away: '',
     standard_for: '',
-    passing_for: '',
-    gca_for: '',
   });
   const [errorByType, setErrorByType] = useState<Record<TableType, string | null>>({
     geral: null,
+    home_away: null,
     standard_for: null,
-    passing_for: null,
-    gca_for: null,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showFbrefModal, setShowFbrefModal] = useState(false);
 
   const existingByType = useMemo(() => {
@@ -128,6 +127,18 @@ export default function ChampionshipTableUpdateModal({
 
     await onReloadTables();
     setIsSaving(false);
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await downloadChampionshipTables(championship.id, championship.nome);
+    } catch (error) {
+      console.error('[ChampionshipTableUpdateModal] Erro ao exportar tabelas:', error);
+      setErrorByType((prev) => ({ ...prev, [activeType]: 'Erro ao exportar tabelas. Tente novamente.' }));
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -243,6 +254,31 @@ export default function ChampionshipTableUpdateModal({
             >
               <ExternalLink className="w-5 h-5" />
               Extrair do FBref.com
+            </button>
+          </div>
+
+          {/* Exportação de tabelas */}
+          <div className="surface surface-hover p-5 space-y-4 border-2 border-secondary/40 rounded-2xl bg-secondary/5">
+            <div className="flex items-center justify-between">
+              <div className="font-bold flex items-center gap-2 text-secondary">
+                <Download className="w-6 h-6" />
+                <span className="text-lg">Exportar Tabelas</span>
+              </div>
+            </div>
+            <p className="text-sm opacity-80 leading-relaxed">
+              Exporte apenas as 3 tabelas especificadas (Geral, Home/Away, Standard For) como arquivos JSON.
+            </p>
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="btn btn-secondary btn-lg w-full gap-2 font-bold shadow-lg hover:shadow-xl transition-all"
+            >
+              {isExporting ? (
+                <span className="loading loading-spinner loading-sm" />
+              ) : (
+                <Download className="w-5 h-5" />
+              )}
+              {isExporting ? 'Exportando...' : 'Exportar Tabelas'}
             </button>
           </div>
 
