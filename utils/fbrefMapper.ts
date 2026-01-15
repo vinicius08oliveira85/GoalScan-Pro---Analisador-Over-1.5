@@ -1,4 +1,4 @@
-import { TableRowGcaFor, TableRowGeral, TableRowPassingFor, TableRowStandardFor } from '../types';
+import { TableRowGcaFor, TableRowGeral, TableRowHomeAway, TableRowPassingFor, TableRowStandardFor } from '../types';
 
 /**
  * Normaliza nome de cabeçalho do fbref.com para formato esperado
@@ -233,5 +233,51 @@ export function mapToTableRowsGcaFor(rawData: unknown[]): TableRowGcaFor[] {
       return mapToTableRowGcaFor(row as Record<string, unknown>);
     })
     .filter((row): row is TableRowGcaFor => row !== null);
+}
+
+/**
+ * Mapeia uma linha bruta da tabela home_away para TableRowHomeAway
+ */
+export function mapToTableRowHomeAway(rawRow: Record<string, unknown>): TableRowHomeAway | null {
+  if (!rawRow.Squad && !rawRow.squad) {
+    return null;
+  }
+
+  const normalized: TableRowHomeAway = {
+    Rk: String(rawRow.Rk || rawRow.rk || ''),
+    Squad: String(rawRow.Squad || rawRow.squad || ''),
+    'Home MP': String(rawRow['Home MP'] || rawRow['Home MP'] || '0'),
+    'Home W': String(rawRow['Home W'] || rawRow['Home W'] || '0'),
+    'Home D': String(rawRow['Home D'] || rawRow['Home D'] || '0'),
+    'Home L': String(rawRow['Home L'] || rawRow['Home L'] || '0'),
+    'Home GF': String(rawRow['Home GF'] || rawRow['Home GF'] || '0'),
+    'Home GA': String(rawRow['Home GA'] || rawRow['Home GA'] || '0'),
+    'Home GD': String(rawRow['Home GD'] || rawRow['Home GD'] || '0'),
+    'Away MP': String(rawRow['Away MP'] || rawRow['Away MP'] || '0'),
+    'Away W': String(rawRow['Away W'] || rawRow['Away W'] || '0'),
+    'Away D': String(rawRow['Away D'] || rawRow['Away D'] || '0'),
+    'Away L': String(rawRow['Away L'] || rawRow['Away L'] || '0'),
+    'Away GF': String(rawRow['Away GF'] || rawRow['Away GF'] || '0'),
+    'Away GA': String(rawRow['Away GA'] || rawRow['Away GA'] || '0'),
+    'Away GD': String(rawRow['Away GD'] || rawRow['Away GD'] || '0'),
+  };
+
+  // Campos opcionais
+  if (rawRow.Pts) normalized.Pts = String(rawRow.Pts);
+  if (rawRow['Pts/MP']) normalized['Pts/MP'] = String(rawRow['Pts/MP']);
+
+  return normalized;
+}
+
+/**
+ * Mapeia um array de linhas brutas da tabela home_away para TableRowHomeAway[]
+ */
+export function mapToTableRowsHomeAway(rawData: unknown[]): TableRowHomeAway[] {
+  return rawData
+    .map((row) => {
+      if (typeof row !== 'object' || row === null) return null;
+      return mapToTableRowHomeAway(row as Record<string, unknown>);
+    })
+    .filter((row): row is TableRowHomeAway => row !== null);
 }
 
