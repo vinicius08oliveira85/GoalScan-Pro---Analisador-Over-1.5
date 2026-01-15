@@ -661,6 +661,34 @@ export const saveChampionshipTable = async (
       updated_at: result.updated_at,
     };
 
+    // Atualizar updated_at do campeonato quando uma tabela é salva
+    try {
+      const supabase = await getSupabaseClient();
+      const { data: updatedChampionship } = await supabase
+        .from('championships')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', table.championship_id)
+        .select()
+        .single();
+      
+      // Atualizar também no localStorage
+      if (updatedChampionship) {
+        const championship: Championship = {
+          id: updatedChampionship.id,
+          nome: updatedChampionship.nome,
+          fbrefUrl: (updatedChampionship as unknown as { fbref_url?: string | null }).fbref_url ?? null,
+          created_at: updatedChampionship.created_at,
+          updated_at: updatedChampionship.updated_at,
+        };
+        saveChampionshipToLocalStorage(championship);
+      }
+    } catch (error) {
+      // Não bloquear se falhar - apenas logar em dev
+      if (import.meta.env.DEV) {
+        logger.warn('[ChampionshipService] Erro ao atualizar updated_at do campeonato:', error);
+      }
+    }
+
     // Sincronizar com localStorage
     const tables = await loadChampionshipTables(table.championship_id);
     const updated = tables.filter((t) => t.id !== saved.id);

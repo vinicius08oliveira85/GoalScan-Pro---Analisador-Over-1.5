@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, ExternalLink } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
+import { loadChampionship } from '../services/championshipService';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
@@ -148,9 +149,11 @@ const ChampionshipsScreen: React.FC = () => {
                   <div>
                     <h3 className="font-bold text-lg">{championship.nome}</h3>
                     <p className="text-sm text-base-content/60">
-                      {championship.created_at
-                        ? new Date(championship.created_at).toLocaleDateString('pt-BR')
-                        : 'Data não disponível'}
+                      {championship.updated_at
+                        ? new Date(championship.updated_at).toLocaleDateString('pt-BR')
+                        : championship.created_at
+                          ? new Date(championship.created_at).toLocaleDateString('pt-BR')
+                          : 'Data não disponível'}
                     </p>
                     {championship.fbrefUrl && (
                       <p
@@ -338,10 +341,26 @@ const ChampionshipsScreen: React.FC = () => {
             onClose={() => setExtractingFromFbref(null)}
             onTableSaved={async () => {
               setExtractingFromFbref(null);
+              // Recarregar campeonato para atualizar updated_at
+              const updatedChampionship = await loadChampionship(extractingFromFbref.id);
+              if (updatedChampionship) {
+                setChampionships((prev) => {
+                  const index = prev.findIndex((c) => c.id === updatedChampionship.id);
+                  if (index >= 0) {
+                    const updated = [...prev];
+                    updated[index] = updatedChampionship;
+                    return updated;
+                  }
+                  return prev;
+                });
+              }
               // Atualizar tabelas se o modal de visualização estiver aberto
               if (viewingTables?.championship.id === extractingFromFbref.id) {
                 const tables = await loadTables(extractingFromFbref.id);
-                setViewingTables({ championship: viewingTables.championship, tables });
+                setViewingTables({ 
+                  championship: updatedChampionship || viewingTables.championship, 
+                  tables 
+                });
               }
             }}
             onError={(message) => {
