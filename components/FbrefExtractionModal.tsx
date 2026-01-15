@@ -4,9 +4,8 @@ import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'luc
 import ModalShell from './ui/ModalShell';
 import { extractFbrefData, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
 import {
-  mapToTableRowsGcaFor,
   mapToTableRowsGeral,
-  mapToTableRowsPassingFor,
+  mapToTableRowsHomeAway,
   mapToTableRowsStandardFor,
 } from '../utils/fbrefMapper';
 import { Championship, TableType } from '../types';
@@ -30,7 +29,7 @@ export default function FbrefExtractionModal({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FbrefExtractionResult | null>(null);
   const [previewTables, setPreviewTables] = useState<
-    Record<'geral' | 'standard_for' | 'passing_for' | 'gca_for', unknown[]> | null
+    Record<'geral' | 'home_away' | 'standard_for', unknown[]> | null
   >(null);
   const [activePreviewTable, setActivePreviewTable] = useState<TableType>('geral');
   const [saving, setSaving] = useState(false);
@@ -71,7 +70,7 @@ export default function FbrefExtractionModal({
         setPreviewTables(extractionResult.data.tables);
 
         // Selecionar a primeira tabela com dados para preview
-        const order: Array<TableType> = ['geral', 'standard_for', 'passing_for', 'gca_for'];
+        const order: Array<TableType> = ['geral', 'home_away', 'standard_for'];
         const firstWithData =
           order.find((t) => (extractionResult.data?.tables?.[t]?.length ?? 0) > 0) || 'geral';
         setActivePreviewTable(firstWithData);
@@ -113,16 +112,14 @@ export default function FbrefExtractionModal({
     try {
       const mapped = {
         geral: mapToTableRowsGeral(previewTables.geral || []),
+        home_away: mapToTableRowsHomeAway(previewTables.home_away || []),
         standard_for: mapToTableRowsStandardFor(previewTables.standard_for || []),
-        passing_for: mapToTableRowsPassingFor(previewTables.passing_for || []),
-        gca_for: mapToTableRowsGcaFor(previewTables.gca_for || []),
       };
 
       const totalRows =
         mapped.geral.length +
-        mapped.standard_for.length +
-        mapped.passing_for.length +
-        mapped.gca_for.length;
+        mapped.home_away.length +
+        mapped.standard_for.length;
 
       if (totalRows === 0) {
         throw new Error('Nenhum dado válido encontrado após mapeamento');
@@ -192,9 +189,8 @@ export default function FbrefExtractionModal({
           <div className="text-sm opacity-70">
             Este modo extrai automaticamente as tabelas:{' '}
             <span className="font-semibold">geral</span>,{' '}
-            <span className="font-semibold">standard_for</span>,{' '}
-            <span className="font-semibold">passing_for</span> e{' '}
-            <span className="font-semibold">gca_for</span>.
+            <span className="font-semibold">home_away</span> e{' '}
+            <span className="font-semibold">standard_for</span>.
           </div>
 
           {/* Selenium Toggle */}
@@ -281,7 +277,7 @@ export default function FbrefExtractionModal({
               </div>
 
               <div role="tablist" className="tabs tabs-boxed tabs-sm mb-3">
-                {(['geral', 'standard_for', 'passing_for', 'gca_for'] as TableType[]).map((t) => (
+                {(['geral', 'home_away', 'standard_for'] as TableType[]).map((t) => (
                   <button
                     key={t}
                     type="button"
