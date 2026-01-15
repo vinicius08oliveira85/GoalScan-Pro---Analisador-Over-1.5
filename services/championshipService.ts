@@ -7,6 +7,7 @@ import {
   TableType,
   TableRowGcaFor,
   TableRowGeral,
+  TableRowHomeAway,
   TableRowPassingFor,
   TableRowStandardFor,
 } from '../types';
@@ -1046,6 +1047,8 @@ export const syncTeamStatsFromTable = async (
   homeGcaForData?: TableRowGcaFor | null;
   awayGcaForData?: TableRowGcaFor | null;
   competitionGcaForAvg?: CompetitionGcaForAverages | null;
+  homeHomeAwayData?: TableRowHomeAway | null;
+  awayHomeAwayData?: TableRowHomeAway | null;
 }> => {
   try {
     // Carregar tabelas uma única vez (evita múltiplas chamadas ao Supabase/localStorage)
@@ -1144,10 +1147,30 @@ export const syncTeamStatsFromTable = async (
     const awayGcaForData = gcaForRows.find((row) => row.Squad === awaySquad) || null;
     const competitionGcaForAvg = calculateCompetitionGcaForAveragesFromRows(gcaForRows);
 
+    // Tabela Home/Away (desempenho em casa vs fora)
+    const homeAwayTable = tables.find((t) => t.table_type === 'home_away');
+    const homeAwayRows = Array.isArray(homeAwayTable?.table_data)
+      ? (homeAwayTable?.table_data as TableRowHomeAway[])
+      : [];
+
+    if (import.meta.env.DEV) {
+      if (!homeAwayTable) {
+        console.warn('[ChampionshipService] ⚠️ Tabela home_away não encontrada para campeonato:', championshipId);
+      } else if (homeAwayRows.length === 0) {
+        console.warn('[ChampionshipService] ⚠️ Tabela home_away está vazia');
+      } else {
+        console.log('[ChampionshipService] ✅ Tabela home_away encontrada com', homeAwayRows.length, 'times');
+      }
+    }
+
+    const homeHomeAwayData = homeAwayRows.find((row) => row.Squad === homeSquad) || null;
+    const awayHomeAwayData = homeAwayRows.find((row) => row.Squad === awaySquad) || null;
+
     // Validação de correspondência de Squads entre tabelas
     if (import.meta.env.DEV) {
       const squadsFound: Record<string, string[]> = {
         geral: homeData ? [homeData.Squad, awayData?.Squad].filter(Boolean) as string[] : [],
+        home_away: homeHomeAwayData ? [homeHomeAwayData.Squad, awayHomeAwayData?.Squad].filter(Boolean) as string[] : [],
         standard_for: homeStandardForData ? [homeStandardForData.Squad, awayStandardForData?.Squad].filter(Boolean) as string[] : [],
         passing_for: homePassingForData ? [homePassingForData.Squad, awayPassingForData?.Squad].filter(Boolean) as string[] : [],
         gca_for: homeGcaForData ? [homeGcaForData.Squad, awayGcaForData?.Squad].filter(Boolean) as string[] : [],
@@ -1167,6 +1190,7 @@ export const syncTeamStatsFromTable = async (
       // Verificar completude
       const tablesLoaded = {
         geral: !!(homeData && awayData),
+        home_away: !!(homeHomeAwayData && awayHomeAwayData),
         standard_for: !!(homeStandardForData && awayStandardForData && competitionStandardForAvg),
         passing_for: !!(homePassingForData && awayPassingForData && competitionPassingForAvg),
         gca_for: !!(homeGcaForData && awayGcaForData && competitionGcaForAvg),
@@ -1222,6 +1246,8 @@ export const syncTeamStatsFromTable = async (
       homeGcaForData,
       awayGcaForData,
       competitionGcaForAvg,
+      homeHomeAwayData,
+      awayHomeAwayData,
     };
   } catch (error: unknown) {
     logger.error('[ChampionshipService] Erro ao sincronizar dados da tabela:', error);
@@ -1237,6 +1263,8 @@ export const syncTeamStatsFromTable = async (
       homeGcaForData: null,
       awayGcaForData: null,
       competitionGcaForAvg: null,
+      homeHomeAwayData: null,
+      awayHomeAwayData: null,
     };
   }
 };
@@ -1283,6 +1311,12 @@ export const checkChampionshipTablesAvailability = async (
           hasData: false,
           rowCount: 0,
         },
+        home_away: {
+          tableType: 'home_away',
+          exists: false,
+          hasData: false,
+          rowCount: 0,
+        },
         standard_for: {
           tableType: 'standard_for',
           exists: false,
@@ -1309,7 +1343,7 @@ export const checkChampionshipTablesAvailability = async (
     };
 
     // Verificar cada tipo de tabela
-    const tableTypes: TableType[] = ['geral', 'standard_for', 'passing_for', 'gca_for'];
+    const tableTypes: TableType[] = ['geral', 'home_away', 'standard_for', 'passing_for', 'gca_for'];
     
     for (const tableType of tableTypes) {
       const table = tables.find((t) => t.table_type === tableType);
@@ -1494,6 +1528,108 @@ function saveChampionshipTablesToLocalStorage(tables: ChampionshipTable[]): void
     logger.error('[ChampionshipService] Erro ao salvar tabelas no localStorage:', error);
   }
 }
+
+/**
+ * Exporta apenas as 3 tabelas especificadas (geral, home_away, standard_for) para arquivos JSON
+ * @param championshipId - ID do campeonato
+ * @param championshipName - Nome do campeonato (para nomear os arquivos)
+ * @returns Objeto com os dados das tabelas exportadas
+ */
+export const exportChampionshipTables = async (
+  championshipId: string,
+  championshipName?: string
+): Promise<{
+  geral: unknown[] | null;
+  home_away: unknown[] | null;
+  standard_for: unknown[] | null;
+}> => {
+  try {
+    const tables = await loadChampionshipTables(championshipId);
+    
+    // Filtrar apenas as 3 tabelas especificadas
+    const geralTable = tables.find((t) => t.table_type === 'geral');
+    const homeAwayTable = tables.find((t) => t.table_type === 'home_away');
+    const standardForTable = tables.find((t) => t.table_type === 'standard_for');
+    
+    const result = {
+      geral: Array.isArray(geralTable?.table_data) ? geralTable.table_data : null,
+      home_away: Array.isArray(homeAwayTable?.table_data) ? homeAwayTable.table_data : null,
+      standard_for: Array.isArray(standardForTable?.table_data) ? standardForTable.table_data : null,
+    };
+    
+    if (import.meta.env.DEV) {
+      console.log('[ChampionshipService] Exportação de tabelas:', {
+        championshipId,
+        championshipName,
+        geral: result.geral ? `${result.geral.length} registros` : 'não disponível',
+        home_away: result.home_away ? `${result.home_away.length} registros` : 'não disponível',
+        standard_for: result.standard_for ? `${result.standard_for.length} registros` : 'não disponível',
+      });
+    }
+    
+    return result;
+  } catch (error) {
+    logger.error('[ChampionshipService] Erro ao exportar tabelas:', error);
+    return {
+      geral: null,
+      home_away: null,
+      standard_for: null,
+    };
+  }
+};
+
+/**
+ * Gera arquivos JSON para download das 3 tabelas especificadas
+ * @param championshipId - ID do campeonato
+ * @param championshipName - Nome do campeonato (para nomear os arquivos)
+ */
+export const downloadChampionshipTables = async (
+  championshipId: string,
+  championshipName?: string
+): Promise<void> => {
+  try {
+    const tables = await exportChampionshipTables(championshipId, championshipName);
+    
+    // Nome base para os arquivos
+    const baseName = championshipName 
+      ? championshipName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
+      : `championship_${championshipId}`;
+    
+    // Função helper para criar e baixar arquivo
+    const downloadFile = (data: unknown, filename: string) => {
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+    
+    // Exportar cada tabela se disponível
+    if (tables.geral) {
+      downloadFile(tables.geral, `${baseName}_overall.json`);
+    }
+    
+    if (tables.home_away) {
+      downloadFile(tables.home_away, `${baseName}_home_away.json`);
+    }
+    
+    if (tables.standard_for) {
+      downloadFile(tables.standard_for, `stats_squads_standard_for.json`);
+    }
+    
+    if (import.meta.env.DEV) {
+      console.log('[ChampionshipService] Download de tabelas concluído');
+    }
+  } catch (error) {
+    logger.error('[ChampionshipService] Erro ao fazer download das tabelas:', error);
+    throw error;
+  }
+};
 
 function saveChampionshipTableToLocalStorage(table: ChampionshipTable): ChampionshipTable {
   const tables = loadChampionshipTablesFromLocalStorage(table.championship_id);
