@@ -344,21 +344,15 @@ const ChampionshipsScreen: React.FC = () => {
               // Recarregar campeonato para atualizar updated_at
               const updatedChampionship = await loadChampionship(extractingFromFbref.id);
               if (updatedChampionship) {
-                setChampionships((prev) => {
-                  const index = prev.findIndex((c) => c.id === updatedChampionship.id);
-                  if (index >= 0) {
-                    const updated = [...prev];
-                    updated[index] = updatedChampionship;
-                    return updated;
-                  }
-                  return prev;
-                });
+                // Atualizar campeonato usando a função save do hook
+                await save(updatedChampionship);
               }
               // Atualizar tabelas se o modal de visualização estiver aberto
               if (viewingTables?.championship.id === extractingFromFbref.id) {
                 const tables = await loadTables(extractingFromFbref.id);
+                const currentChampionship = updatedChampionship || extractingFromFbref;
                 setViewingTables({ 
-                  championship: updatedChampionship || viewingTables.championship, 
+                  championship: currentChampionship, 
                   tables 
                 });
               }
