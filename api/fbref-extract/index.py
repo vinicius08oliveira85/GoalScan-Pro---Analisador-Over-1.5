@@ -46,28 +46,46 @@ class FBrefScraper:
         ]
     }
 
+    # Lista de User-Agents para rotação
+    USER_AGENTS = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+    ]
+
     def __init__(self, base_url: str = "https://fbref.com"):
         self.base_url = base_url
         self.session = requests.Session()
-        # Headers mais completos para evitar bloqueio 403
-        # User-Agent atualizado para versão mais recente do Chrome
+        self._update_headers()
+
+    def _update_headers(self):
+        """Atualiza headers com User-Agent aleatório e headers mais realistas"""
+        user_agent = random.choice(self.USER_AGENTS)
+        
+        # Headers mais completos e realistas para evitar bloqueio
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'User-Agent': user_agent,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-Site': random.choice(['none', 'same-origin', 'cross-site']),
             'Sec-Fetch-User': '?1',
+            'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
             'Cache-Control': 'max-age=0',
             'DNT': '1',
             'Referer': 'https://www.google.com/',
             'Origin': 'https://www.google.com',
-            'Viewport-Width': '1920',
-            'Width': '1920',
+            'Viewport-Width': str(random.randint(1920, 2560)),
+            'Width': str(random.randint(1920, 2560)),
+            'Priority': 'u=0, i',
         })
 
     def get_page(self, url: str, retries: int = 3) -> tuple[Optional[BeautifulSoup], Optional[Dict]]:
@@ -88,21 +106,36 @@ class FBrefScraper:
 
         for attempt in range(retries):
             try:
-                # Adiciona delay antes da requisição para parecer mais humano
-                # Delays variáveis para parecer mais natural
+                # Rotaciona User-Agent e headers a cada tentativa
                 if attempt > 0:
-                    # Backoff exponencial com variação aleatória
+                    self._update_headers()
+                    # Atualiza Referer para parecer que veio de outra página do site
+                    self.session.headers['Referer'] = self.base_url + '/'
+                    self.session.headers['Sec-Fetch-Site'] = 'same-origin'
+                
+                # Adiciona delay antes da requisição para parecer mais humano
+                # Delays variáveis mais longos para parecer mais natural
+                if attempt > 0:
+                    # Backoff exponencial com variação aleatória maior
                     base_delay = 2 ** attempt
-                    delay = base_delay + random.uniform(0.5, 1.5)
+                    delay = base_delay + random.uniform(2.0, 5.0)
                     time.sleep(delay)
                 else:
-                    # Primeira tentativa: delay aleatório entre 1-2 segundos
-                    delay = random.uniform(1.0, 2.0)
+                    # Primeira tentativa: delay aleatório entre 2-4 segundos (mais humano)
+                    delay = random.uniform(2.0, 4.0)
                     time.sleep(delay)
 
                 print(f"[FBrefScraper] Tentativa {attempt + 1}/{retries} - Acessando: {url}")
+                print(f"[FBrefScraper] User-Agent: {self.session.headers.get('User-Agent', 'N/A')[:50]}...")
+                
                 # Timeout aumentado para 45s para dar mais tempo em conexões lentas
-                response = self.session.get(url, timeout=45, allow_redirects=True)
+                # Usa allow_redirects para seguir redirecionamentos naturalmente
+                response = self.session.get(
+                    url, 
+                    timeout=45, 
+                    allow_redirects=True,
+                    verify=True  # Verifica certificados SSL
+                )
                 print(f"[FBrefScraper] Status code: {response.status_code}, URL final: {response.url}")
 
                 # Verifica status code
@@ -122,10 +155,16 @@ class FBrefScraper:
                     
                     if attempt < retries - 1:
                         # Tenta com headers diferentes e estratégias anti-detecção
+                        # Rotaciona User-Agent completamente
+                        self._update_headers()
                         self.session.headers['Referer'] = 'https://fbref.com/'
-                        # Adiciona delay variável antes de tentar novamente
-                        retry_delay = random.uniform(2.0, 4.0)
-                        print(f"[FBrefScraper] Aguardando {retry_delay:.2f}s antes de nova tentativa...")
+                        self.session.headers['Sec-Fetch-Site'] = 'same-origin'
+                        # Remove alguns headers que podem ser detectados
+                        if 'Priority' in self.session.headers:
+                            del self.session.headers['Priority']
+                        # Adiciona delay variável maior antes de tentar novamente
+                        retry_delay = random.uniform(5.0, 10.0)
+                        print(f"[FBrefScraper] Erro 403 - Aguardando {retry_delay:.2f}s antes de nova tentativa com User-Agent diferente...")
                         time.sleep(retry_delay)
                         continue
                     else:

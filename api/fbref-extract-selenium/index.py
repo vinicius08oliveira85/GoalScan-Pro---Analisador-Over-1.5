@@ -67,13 +67,37 @@ class FBrefSeleniumScraper:
         """
         chrome_options = Options()
         if headless:
-            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--headless=new')  # Novo modo headless mais difícil de detectar
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_argument('--disable-infobars')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-plugins-discovery')
+        chrome_options.add_argument('--disable-default-apps')
+        chrome_options.add_argument('--window-size=1920,1080')
+        chrome_options.add_argument('--start-maximized')
+        
+        # User-Agent mais recente e realista
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+        chrome_options.add_argument(f'user-agent={user_agent}')
+        
+        # Configurações experimentais para evitar detecção
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
-        chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36')
+        chrome_options.add_experimental_option("detach", True)
+        
+        # Prefs para parecer mais real
+        prefs = {
+            "profile.default_content_setting_values": {
+                "notifications": 2,
+                "geolocation": 2,
+            },
+            "profile.managed_default_content_settings": {
+                "images": 1
+            }
+        }
+        chrome_options.add_experimental_option("prefs", prefs)
         
         # Para ambiente serverless (Vercel), pode precisar de configurações adicionais
         if os.environ.get('VERCEL'):
@@ -94,7 +118,31 @@ class FBrefSeleniumScraper:
                 # Fallback: tenta sem service
                 self.driver = webdriver.Chrome(options=chrome_options)
         
+        # Scripts para evitar detecção de automação
         self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        self.driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})")
+        self.driver.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en', 'pt-BR', 'pt']})")
+        self.driver.execute_script("window.chrome = {runtime: {}};")
+        
+        # Tenta usar CDP se disponível (Selenium 4+)
+        try:
+            self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+                "userAgent": user_agent,
+                "platform": "Win32",
+                "acceptLanguage": "en-US,en;q=0.9,pt-BR;q=0.8"
+            })
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': '''
+                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                    Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                    Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en', 'pt-BR', 'pt']});
+                    window.chrome = {runtime: {}};
+                    Object.defineProperty(navigator, 'permissions', {get: () => ({query: () => Promise.resolve({state: 'granted'})})});
+                '''
+            })
+        except AttributeError:
+            # CDP não disponível, usa apenas execute_script
+            pass
 
     def get_page(self, url: str, wait_time: int = 10) -> tuple[Optional[BeautifulSoup], Optional[Dict]]:
         """
@@ -127,8 +175,16 @@ class FBrefSeleniumScraper:
                 print(f"[FBrefSeleniumScraper] Erro detectado no título: {error_info}")
                 return (None, error_info)
             
-            # Aguarda o carregamento da página
-            time.sleep(3)
+            # Aguarda o carregamento da página com delay aleatório
+            time.sleep(random.uniform(3.0, 5.0))
+            
+            # Simula movimento do mouse e scroll para parecer mais humano
+            try:
+                self.driver.execute_script("window.scrollTo(0, 100);")
+                time.sleep(random.uniform(0.5, 1.0))
+                self.driver.execute_script("window.scrollTo(0, 0);")
+            except:
+                pass
             
             # Tenta aceitar cookies se existir
             try:
