@@ -3,11 +3,6 @@ import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
 import { extractFbrefData, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
-import {
-  mapToTableRowsGeral,
-  mapToTableRowsHomeAway,
-  mapToTableRowsStandardFor,
-} from '../utils/fbrefMapper';
 import { Championship, TableType } from '../types';
 import { animations } from '../utils/animations';
 
@@ -110,22 +105,23 @@ export default function FbrefExtractionModal({
     setSaving(true);
 
     try {
-      const mapped = {
-        geral: mapToTableRowsGeral(previewTables.geral || []),
-        home_away: mapToTableRowsHomeAway(previewTables.home_away || []),
-        standard_for: mapToTableRowsStandardFor(previewTables.standard_for || []),
+      // Passar dados diretamente - saveExtractedTables já faz a normalização
+      const tablesToSave = {
+        geral: previewTables.geral || [],
+        home_away: previewTables.home_away || [],
+        standard_for: previewTables.standard_for || [],
       };
 
       const totalRows =
-        mapped.geral.length +
-        mapped.home_away.length +
-        mapped.standard_for.length;
+        tablesToSave.geral.length +
+        tablesToSave.home_away.length +
+        tablesToSave.standard_for.length;
 
       if (totalRows === 0) {
-        throw new Error('Nenhum dado válido encontrado após mapeamento');
+        throw new Error('Nenhum dado válido encontrado para salvar');
       }
 
-      await saveExtractedTables(championship.id, mapped);
+      await saveExtractedTables(championship.id, tablesToSave);
 
       onTableSaved?.();
       onClose();
