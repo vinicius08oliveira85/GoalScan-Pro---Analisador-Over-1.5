@@ -46,13 +46,26 @@ class FBrefScraper:
         ]
     }
 
-    # Lista de User-Agents para rotação
+    # Lista expandida de User-Agents realistas para rotação
     USER_AGENTS = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0',
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+    ]
+    
+    # Lista de Accept-Language para rotação
+    ACCEPT_LANGUAGES = [
+        'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
+        'en-US,en;q=0.9',
+        'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'en-GB,en;q=0.9',
     ]
 
     def __init__(self, base_url: str = "https://fbref.com"):
@@ -63,12 +76,24 @@ class FBrefScraper:
     def _update_headers(self):
         """Atualiza headers com User-Agent aleatório e headers mais realistas"""
         user_agent = random.choice(self.USER_AGENTS)
+        accept_language = random.choice(self.ACCEPT_LANGUAGES)
+        
+        # Determina plataforma baseado no User-Agent
+        if 'Windows' in user_agent:
+            platform = '"Windows"'
+            sec_ch_ua_platform = '"Windows"'
+        elif 'Macintosh' in user_agent:
+            platform = '"macOS"'
+            sec_ch_ua_platform = '"macOS"'
+        else:
+            platform = '"Linux"'
+            sec_ch_ua_platform = '"Linux"'
         
         # Headers mais completos e realistas para evitar bloqueio
         self.session.headers.update({
             'User-Agent': user_agent,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
+            'Accept-Language': accept_language,
             'Accept-Encoding': 'gzip, deflate, br, zstd',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
@@ -76,9 +101,9 @@ class FBrefScraper:
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': random.choice(['none', 'same-origin', 'cross-site']),
             'Sec-Fetch-User': '?1',
-            'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-            'Sec-Ch-Ua-Mobile': '?0',
-            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-CH-UA': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+            'Sec-CH-UA-Mobile': '?0',
+            'Sec-CH-UA-Platform': sec_ch_ua_platform,
             'Cache-Control': 'max-age=0',
             'DNT': '1',
             'Referer': 'https://www.google.com/',
@@ -86,7 +111,14 @@ class FBrefScraper:
             'Viewport-Width': str(random.randint(1920, 2560)),
             'Width': str(random.randint(1920, 2560)),
             'Priority': 'u=0, i',
+            # Headers adicionais para parecer mais realista
+            'sec-ch-ua-full-version-list': '"Google Chrome";v="131.0.6778.85", "Chromium";v="131.0.6778.85", "Not_A Brand";v="24.0.0.0"',
         })
+        
+        # Simular cookies básicos (alguns sites verificam se há cookies)
+        if not hasattr(self.session, 'cookies') or len(self.session.cookies) == 0:
+            # Adiciona um cookie básico simulado
+            self.session.cookies.set('session_id', ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=32)), domain='.fbref.com')
 
     def get_page(self, url: str, retries: int = 3) -> tuple[Optional[BeautifulSoup], Optional[Dict]]:
         """
@@ -114,19 +146,22 @@ class FBrefScraper:
                     self.session.headers['Sec-Fetch-Site'] = 'same-origin'
                 
                 # Adiciona delay antes da requisição para parecer mais humano
-                # Delays variáveis mais longos para parecer mais natural
+                # Delays variáveis MUITO mais longos para evitar bloqueio
                 if attempt > 0:
-                    # Backoff exponencial com variação aleatória maior
+                    # Backoff exponencial com variação aleatória muito maior
                     base_delay = 2 ** attempt
-                    delay = base_delay + random.uniform(2.0, 5.0)
+                    delay = base_delay + random.uniform(10.0, 20.0)  # 10-20s adicionais
+                    print(f"[FBrefScraper] Aguardando {delay:.2f}s antes de retry {attempt + 1}...")
                     time.sleep(delay)
                 else:
-                    # Primeira tentativa: delay aleatório entre 2-4 segundos (mais humano)
-                    delay = random.uniform(2.0, 4.0)
+                    # Primeira tentativa: delay aleatório entre 5-10 segundos (muito mais humano)
+                    delay = random.uniform(5.0, 10.0)
+                    print(f"[FBrefScraper] Aguardando {delay:.2f}s antes da primeira requisição...")
                     time.sleep(delay)
 
                 print(f"[FBrefScraper] Tentativa {attempt + 1}/{retries} - Acessando: {url}")
                 print(f"[FBrefScraper] User-Agent: {self.session.headers.get('User-Agent', 'N/A')[:50]}...")
+                print(f"[FBrefScraper] Headers principais: Referer={self.session.headers.get('Referer', 'N/A')}, Accept-Language={self.session.headers.get('Accept-Language', 'N/A')[:30]}")
                 
                 # Timeout aumentado para 45s para dar mais tempo em conexões lentas
                 # Usa allow_redirects para seguir redirecionamentos naturalmente
@@ -137,6 +172,7 @@ class FBrefScraper:
                     verify=True  # Verifica certificados SSL
                 )
                 print(f"[FBrefScraper] Status code: {response.status_code}, URL final: {response.url}")
+                print(f"[FBrefScraper] Response headers: {dict(list(response.headers.items())[:5])}")  # Primeiros 5 headers
 
                 # Verifica status code
                 if response.status_code == 403:
@@ -162,8 +198,11 @@ class FBrefScraper:
                         # Remove alguns headers que podem ser detectados
                         if 'Priority' in self.session.headers:
                             del self.session.headers['Priority']
-                        # Adiciona delay variável maior antes de tentar novamente
-                        retry_delay = random.uniform(5.0, 10.0)
+                        # Limpa cookies e recria (simula nova sessão)
+                        self.session.cookies.clear()
+                        self.session.cookies.set('session_id', ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=32)), domain='.fbref.com')
+                        # Adiciona delay variável MUITO maior antes de tentar novamente
+                        retry_delay = random.uniform(15.0, 25.0)  # 15-25 segundos
                         print(f"[FBrefScraper] Erro 403 - Aguardando {retry_delay:.2f}s antes de nova tentativa com User-Agent diferente...")
                         time.sleep(retry_delay)
                         continue
@@ -217,6 +256,9 @@ class FBrefScraper:
                         return (None, error_info)
 
                 print(f"[FBrefScraper] Página carregada com sucesso (título: {title_tag.get_text() if title_tag else 'N/A'})")
+                # Log adicional: verifica se há tabelas na página
+                tables_found = soup.find_all('table', limit=5)
+                print(f"[FBrefScraper] Tabelas encontradas na página: {len(tables_found)}")
                 return (soup, None)
 
             except requests.exceptions.Timeout as e:
@@ -682,13 +724,102 @@ def handler():
                 'error': 'URL inválida. Apenas URLs do fbref.com são permitidas.'
             }), 400
 
-        # Inicializar scraper
+        # Inicializar scraper com requests primeiro
         scraper = FBrefScraper()
+        print(f"[FBrefExtract] Tentando extrair com requests: {championship_url}")
 
-        # Extrair tabelas
+        # Extrair tabelas com requests
         result = scraper.scrape_any_page(championship_url, extract_all_tables=True)
 
+        # Se falhou com 403, tenta com Selenium automaticamente
         if 'error' in result:
+            error_details = result.get('error_details', {})
+            error_type = error_details.get('type', '')
+            status_code = error_details.get('status_code')
+            
+            # Se for erro 403, tenta com Selenium
+            if error_type == '403' or status_code == 403:
+                print(f"[FBrefExtract] Erro 403 detectado, tentando fallback para Selenium...")
+                try:
+                    # Importa Selenium scraper dinamicamente
+                    # Nota: Em ambiente Vercel, os módulos estão no mesmo nível
+                    import sys
+                    import os
+                    # Adiciona o diretório pai ao path para importar o módulo Selenium
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    parent_dir = os.path.dirname(current_dir)
+                    selenium_dir = os.path.join(parent_dir, 'fbref-extract-selenium')
+                    if selenium_dir not in sys.path:
+                        sys.path.insert(0, selenium_dir)
+                    # Tenta importar de diferentes formas
+                    try:
+                        from index import FBrefSeleniumScraper
+                    except ImportError:
+                        # Tenta importar diretamente do módulo
+                        import importlib.util
+                        spec = importlib.util.spec_from_file_location("fbref_selenium", os.path.join(selenium_dir, "index.py"))
+                        selenium_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(selenium_module)
+                        FBrefSeleniumScraper = selenium_module.FBrefSeleniumScraper
+                    
+                    selenium_scraper = FBrefSeleniumScraper(headless=True)
+                    print(f"[FBrefExtract] Tentando extrair com Selenium: {championship_url}")
+                    
+                    selenium_result = selenium_scraper.scrape_any_page(championship_url, extract_all_tables=True)
+                    
+                    # Fecha o driver
+                    selenium_scraper.close()
+                    
+                    # Se Selenium funcionou, retorna o resultado
+                    if 'error' not in selenium_result:
+                        print(f"[FBrefExtract] Selenium conseguiu extrair dados com sucesso!")
+                        # Mapear tabelas para formato esperado
+                        tables = selenium_result.get('tables', {})
+                        mapped_tables = {
+                            'geral': tables.get('geral', []),
+                            'home_away': tables.get('home_away', []),
+                            'standard_for': tables.get('standard_for', [])
+                        }
+                        
+                        # Identificar tabelas faltantes
+                        missing_tables = []
+                        for table_type in ['geral', 'home_away', 'standard_for']:
+                            if not mapped_tables[table_type] or len(mapped_tables[table_type]) == 0:
+                                missing_tables.append(table_type)
+                        
+                        return jsonify({
+                            'success': True,
+                            'data': {
+                                'tables': mapped_tables,
+                                'missingTables': missing_tables
+                            },
+                            'method': 'selenium_fallback'
+                        }), 200
+                    else:
+                        # Selenium também falhou, retorna erro combinado
+                        print(f"[FBrefExtract] Selenium também falhou: {selenium_result.get('error', 'Erro desconhecido')}")
+                        response_data = {
+                            'success': False,
+                            'error': f"Ambos os métodos falharam. Requests: {result.get('error', 'Erro desconhecido')}. Selenium: {selenium_result.get('error', 'Erro desconhecido')}",
+                            'error_details': {
+                                'requests_error': result.get('error_details'),
+                                'selenium_error': selenium_result.get('error_details')
+                            }
+                        }
+                        return jsonify(response_data), 200
+                        
+                except ImportError:
+                    print(f"[FBrefExtract] Selenium não disponível para fallback")
+                    # Se Selenium não estiver disponível, retorna erro do requests
+                    pass
+                except Exception as selenium_error:
+                    print(f"[FBrefExtract] Erro ao tentar Selenium fallback: {selenium_error}")
+                    import traceback
+                    print(traceback.format_exc())
+                    # Retorna erro do requests original
+                    pass
+            
+            # Se não for 403 ou se Selenium não estiver disponível, retorna erro do requests
             response_data = {
                 'success': False,
                 'error': result['error']
@@ -718,20 +849,31 @@ def handler():
             'data': {
                 'tables': mapped_tables,
                 'missingTables': missing_tables
-            }
+            },
+            'method': 'requests'
         }), 200
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"[FBrefExtract] Erro ao decodificar JSON: {e}")
         return jsonify({
             'success': False,
-            'error': 'JSON inválido no body da requisição'
+            'error': 'JSON inválido no body da requisição',
+            'details': str(e)
         }), 400
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
+        error_type = type(e).__name__
+        print(f"[FBrefExtract] Erro não tratado ({error_type}): {error_trace}")
         return jsonify({
             'success': False,
             'error': f'Erro interno: {str(e)}',
-            'traceback': error_trace
+            'error_type': error_type,
+            'traceback': error_trace,
+            'suggestion': 'Verifique os logs do servidor para mais detalhes. Se o erro persistir, tente novamente em alguns minutos.'
         }), 500
+
+# Exportar app para Vercel (opcional, mas ajuda na detecção)
+# O Vercel detecta automaticamente apps Flask, mas exportar explicitamente garante compatibilidade
+__all__ = ['app']
 

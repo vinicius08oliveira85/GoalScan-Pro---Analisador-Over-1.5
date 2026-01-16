@@ -118,13 +118,57 @@ class FBrefSeleniumScraper:
                 # Fallback: tenta sem service
                 self.driver = webdriver.Chrome(options=chrome_options)
         
-        # Scripts para evitar detecção de automação
-        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        self.driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})")
-        self.driver.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en', 'pt-BR', 'pt']})")
-        self.driver.execute_script("window.chrome = {runtime: {}};")
+        # Scripts avançados para evitar detecção de automação
+        anti_detection_script = '''
+            // Mascarar webdriver
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            
+            // Adicionar plugins falsos realistas
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [
+                    {name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer'},
+                    {name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai'},
+                    {name: 'Native Client', filename: 'internal-nacl-plugin'}
+                ]
+            });
+            
+            // Mascarar languages
+            Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en', 'pt-BR', 'pt']});
+            
+            // Adicionar chrome object completo
+            window.chrome = {
+                runtime: {},
+                loadTimes: function() {},
+                csi: function() {},
+                app: {}
+            };
+            
+            // Mascarar permissions
+            const originalQuery = window.navigator.permissions.query;
+            window.navigator.permissions.query = (parameters) => (
+                parameters.name === 'notifications' ?
+                    Promise.resolve({ state: Notification.permission }) :
+                    originalQuery(parameters)
+            );
+            
+            // Adicionar propriedades adicionais
+            Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
+            Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+            
+            // Mascarar getBattery se existir
+            if (navigator.getBattery) {
+                navigator.getBattery = () => Promise.resolve({
+                    charging: true,
+                    chargingTime: 0,
+                    dischargingTime: Infinity,
+                    level: 1
+                });
+            }
+        '''
         
-        # Tenta usar CDP se disponível (Selenium 4+)
+        self.driver.execute_script(anti_detection_script)
+        
+        # Tenta usar CDP se disponível (Selenium 4+) para override mais profundo
         try:
             self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {
                 "userAgent": user_agent,
@@ -132,16 +176,27 @@ class FBrefSeleniumScraper:
                 "acceptLanguage": "en-US,en;q=0.9,pt-BR;q=0.8"
             })
             self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': anti_detection_script
+            })
+            # Adiciona script para mascarar WebGL
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
                 'source': '''
-                    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                    Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-                    Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en', 'pt-BR', 'pt']});
-                    window.chrome = {runtime: {}};
-                    Object.defineProperty(navigator, 'permissions', {get: () => ({query: () => Promise.resolve({state: 'granted'})})});
+                    // Override getParameter para evitar detecção de WebGL
+                    const getParameter = WebGLRenderingContext.prototype.getParameter;
+                    WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                        if (parameter === 37445) {
+                            return 'Intel Inc.';
+                        }
+                        if (parameter === 37446) {
+                            return 'Intel Iris OpenGL Engine';
+                        }
+                        return getParameter.call(this, parameter);
+                    };
                 '''
             })
-        except AttributeError:
-            # CDP não disponível, usa apenas execute_script
+        except (AttributeError, Exception) as e:
+            # CDP não disponível ou erro, usa apenas execute_script
+            print(f"[FBrefSeleniumScraper] CDP não disponível: {e}")
             pass
 
     def get_page(self, url: str, wait_time: int = 10) -> tuple[Optional[BeautifulSoup], Optional[Dict]]:
@@ -175,38 +230,69 @@ class FBrefSeleniumScraper:
                 print(f"[FBrefSeleniumScraper] Erro detectado no título: {error_info}")
                 return (None, error_info)
             
-            # Aguarda o carregamento da página com delay aleatório
-            time.sleep(random.uniform(3.0, 5.0))
+            # Aguarda o carregamento da página com delay aleatório maior
+            initial_delay = random.uniform(5.0, 8.0)
+            print(f"[FBrefSeleniumScraper] Aguardando {initial_delay:.2f}s para carregamento inicial...")
+            time.sleep(initial_delay)
             
-            # Simula movimento do mouse e scroll para parecer mais humano
+            # Simula comportamento humano: scroll progressivo e variado
             try:
-                self.driver.execute_script("window.scrollTo(0, 100);")
-                time.sleep(random.uniform(0.5, 1.0))
-                self.driver.execute_script("window.scrollTo(0, 0);")
-            except:
+                # Scroll progressivo (não instantâneo) para parecer mais humano
+                scroll_steps = random.randint(3, 6)
+                for i in range(scroll_steps):
+                    scroll_position = int((i + 1) * (1000 / scroll_steps))
+                    self.driver.execute_script(f"window.scrollTo(0, {scroll_position});")
+                    time.sleep(random.uniform(0.3, 0.8))  # Pausa entre scrolls
+                
+                # Volta ao topo gradualmente
+                time.sleep(random.uniform(1.0, 2.0))
+                self.driver.execute_script("window.scrollTo({top: 0, behavior: 'smooth'});")
+                time.sleep(random.uniform(1.0, 2.0))
+                
+                # Simula movimento do mouse (move para um elemento aleatório)
+                try:
+                    elements = self.driver.find_elements(By.TAG_NAME, "a")
+                    if elements:
+                        random_element = random.choice(elements[:10])  # Primeiros 10 links
+                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", random_element)
+                        time.sleep(random.uniform(0.5, 1.5))
+                except:
+                    pass
+            except Exception as e:
+                print(f"[FBrefSeleniumScraper] Erro ao simular comportamento humano: {e}")
                 pass
             
-            # Tenta aceitar cookies se existir
+            # Tenta aceitar cookies se existir (com delay antes e depois)
             try:
-                accept_button = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Accept') or contains(text(), 'Aceitar')]"))
+                time.sleep(random.uniform(2.0, 4.0))  # Aguarda antes de procurar botão
+                accept_button = WebDriverWait(self.driver, 8).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Accept') or contains(text(), 'Aceitar') or contains(text(), 'I agree')]"))
                 )
+                # Move para o elemento antes de clicar (comportamento humano)
+                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", accept_button)
+                time.sleep(random.uniform(0.5, 1.5))
                 accept_button.click()
                 print("[FBrefSeleniumScraper] Cookies aceitos")
-                time.sleep(1)
+                time.sleep(random.uniform(2.0, 4.0))  # Aguarda após clicar
             except:
                 pass  # Botão de cookies não encontrado ou já foi clicado
             
-            # Aguarda tabelas carregarem
+            # Aguarda tabelas carregarem com mais paciência
             try:
-                WebDriverWait(self.driver, wait_time).until(
+                # Aguarda um pouco mais antes de procurar tabelas
+                time.sleep(random.uniform(2.0, 4.0))
+                WebDriverWait(self.driver, wait_time + 5).until(
                     EC.presence_of_element_located((By.TAG_NAME, "table"))
                 )
                 print("[FBrefSeleniumScraper] Tabelas detectadas na página")
+                # Aguarda um pouco mais após detectar tabelas (para garantir carregamento completo)
+                time.sleep(random.uniform(2.0, 4.0))
             except Exception as e:
                 # Se não encontrou tabelas, ainda pode ser uma página válida
-                print(f"[FBrefSeleniumScraper] Aviso: Nenhuma tabela encontrada após {wait_time}s: {e}")
+                print(f"[FBrefSeleniumScraper] Aviso: Nenhuma tabela encontrada após {wait_time + 5}s: {e}")
                 # Não retorna erro aqui, apenas loga o aviso
+                # Mas aguarda um pouco mais antes de continuar
+                time.sleep(random.uniform(3.0, 5.0))
             
             # Obtém o HTML da página
             html = self.driver.page_source
@@ -242,6 +328,11 @@ class FBrefSeleniumScraper:
                     return (None, error_info)
             
             print(f"[FBrefSeleniumScraper] Página carregada com sucesso (título: {title_tag.get_text() if title_tag else 'N/A'})")
+            # Log adicional: verifica se há tabelas na página
+            tables_found = soup.find_all('table', limit=5)
+            print(f"[FBrefSeleniumScraper] Tabelas encontradas na página: {len(tables_found)}")
+            if tables_found:
+                print(f"[FBrefSeleniumScraper] IDs das primeiras tabelas: {[t.get('id', 'sem-id') for t in tables_found[:3]]}")
             return (soup, None)
             
         except Exception as e:
@@ -737,21 +828,30 @@ def handler():
             }
         }), 200
         
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"[FBrefExtractSelenium] Erro ao decodificar JSON: {e}")
         return jsonify({
             'success': False,
-            'error': 'JSON inválido no body da requisição'
+            'error': 'JSON inválido no body da requisição',
+            'details': str(e)
         }), 400
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
+        error_type = type(e).__name__
+        print(f"[FBrefExtractSelenium] Erro não tratado ({error_type}): {error_trace}")
         return jsonify({
             'success': False,
             'error': f'Erro interno: {str(e)}',
-            'traceback': error_trace
+            'error_type': error_type,
+            'traceback': error_trace,
+            'suggestion': 'Verifique os logs do servidor para mais detalhes. Se o erro persistir, pode ser necessário verificar a configuração do Selenium/Chrome.'
         }), 500
     finally:
         # Sempre fecha o driver
         if scraper:
             scraper.close()
+
+# Exportar app para Vercel (opcional, mas ajuda na detecção)
+__all__ = ['app']
 
