@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, X, Upload } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, ExternalLink } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
 import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
+import FbrefExtractionModal from './FbrefExtractionModal';
 import { animations } from '../utils/animations';
 
 const ChampionshipsScreen: React.FC = () => {
@@ -26,6 +27,7 @@ const ChampionshipsScreen: React.FC = () => {
     championship: Championship;
     tables: ChampionshipTable[];
   } | null>(null);
+  const [extractingFbref, setExtractingFbref] = useState<Championship | null>(null);
 
   const handleNewChampionship = () => {
     setEditingChampionship(null);
@@ -162,6 +164,13 @@ const ChampionshipsScreen: React.FC = () => {
                 >
                   <Eye className="w-4 h-4" />
                   Tabelas
+                </button>
+                <button
+                  onClick={() => setExtractingFbref(championship)}
+                  className="btn btn-sm btn-ghost gap-1"
+                  title="Extrair Dados do FBref.com"
+                >
+                  <ExternalLink className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleUpdateTables(championship)}
@@ -304,6 +313,23 @@ const ChampionshipsScreen: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Modal de Extração FBref */}
+      {extractingFbref && (
+        <FbrefExtractionModal
+          championship={extractingFbref}
+          onClose={() => setExtractingFbref(null)}
+          onTableSaved={async () => {
+            // Recarregar tabelas após salvar
+            if (viewingTables?.championship.id === extractingFbref.id) {
+              const tables = await loadTables(extractingFbref.id);
+              setViewingTables({ championship: extractingFbref, tables });
+            }
+            setExtractingFbref(null);
+          }}
+          onError={handleError}
+        />
+      )}
     </div>
   );
 };

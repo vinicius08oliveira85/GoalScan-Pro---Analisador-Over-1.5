@@ -24,7 +24,7 @@ export default function FbrefExtractionModal({
   onTableSaved,
   onError,
 }: Props) {
-  const [url, setUrl] = useState(championship.fbrefUrl ?? '');
+  const [url, setUrl] = useState((championship as any).fbrefUrl ?? '');
   const extractTypes: ExtractType[] = ['table'];
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FbrefExtractionResult | null>(null);
