@@ -687,9 +687,12 @@ def handler():
             'error': 'JSON inválido no body da requisição'
         }), 400
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
         return jsonify({
             'success': False,
-            'error': f'Erro interno: {str(e)}'
+            'error': f'Erro interno: {str(e)}',
+            'traceback': error_trace
         }), 500
     finally:
         # Sempre fecha o driver
