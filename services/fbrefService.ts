@@ -23,6 +23,13 @@ export interface FbrefExtractionResult {
     teamStats?: unknown[];
   };
   error?: string;
+  error_details?: {
+    type?: string;
+    status_code?: number;
+    message?: string;
+    url?: string;
+    [key: string]: unknown;
+  };
 }
 
 const CACHE_KEY_PREFIX = 'fbref_extraction_';
@@ -104,18 +111,31 @@ export const extractFbrefData = async (
 
     if (!response.ok) {
       let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`;
+      let errorDetails: FbrefExtractionResult['error_details'] | undefined;
+      
       try {
-        const errorData = (await response.json()) as { error?: string };
+        const errorData = (await response.json()) as { error?: string; error_details?: FbrefExtractionResult['error_details'] };
         if (errorData?.error) {
           errorMessage = errorData.error;
+        }
+        if (errorData?.error_details) {
+          errorDetails = errorData.error_details;
         }
       } catch {
         // Ignora erro ao parsear JSON
       }
-      logger.error('[FBrefService] Erro ao chamar API:', errorMessage);
+      
+      logger.error('[FBrefService] Erro ao chamar API:', {
+        status: response.status,
+        statusText: response.statusText,
+        message: errorMessage,
+        details: errorDetails,
+      });
+      
       return {
         success: false,
         error: errorMessage,
+        error_details: errorDetails,
       };
     }
 
@@ -254,22 +274,45 @@ export const extractFbrefDataWithSelenium = async (
 
     if (!response.ok) {
       let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`;
+      let errorDetails: FbrefExtractionResult['error_details'] | undefined;
+      
       try {
-        const errorData = (await response.json()) as { error?: string };
+        const errorData = (await response.json()) as { error?: string; error_details?: FbrefExtractionResult['error_details'] };
         if (errorData?.error) {
           errorMessage = errorData.error;
+        }
+        if (errorData?.error_details) {
+          errorDetails = errorData.error_details;
         }
       } catch {
         // Ignora erro ao parsear JSON
       }
-      logger.error('[FBrefService] Erro ao chamar API Selenium:', errorMessage);
+      
+      logger.error('[FBrefService] Erro ao chamar API Selenium:', {
+        status: response.status,
+        statusText: response.statusText,
+        message: errorMessage,
+        details: errorDetails,
+      });
+      
       return {
         success: false,
         error: errorMessage,
+        error_details: errorDetails,
       };
     }
 
     const result = (await response.json()) as FbrefExtractionResult;
+
+    // Log detalhado de erros
+    if (!result.success && result.error_details) {
+      logger.error('[FBrefService] Detalhes do erro (Selenium):', {
+        type: result.error_details.type,
+        status_code: result.error_details.status_code,
+        message: result.error_details.message,
+        url: result.error_details.url,
+      });
+    }
 
     // Salvar no cache se bem-sucedido
     if (result.success) {

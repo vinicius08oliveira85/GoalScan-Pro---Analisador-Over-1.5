@@ -3,6 +3,7 @@ API route Python para extrair dados de tabelas do fbref.com
 Baseado no repositório app-scraper/scraper.py
 """
 import json
+import random
 import time
 from http.server import BaseHTTPRequestHandler
 from typing import Dict, List, Optional
@@ -49,8 +50,9 @@ class FBrefScraper:
         self.base_url = base_url
         self.session = requests.Session()
         # Headers mais completos para evitar bloqueio 403
+        # User-Agent atualizado para versão mais recente do Chrome
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -63,49 +65,91 @@ class FBrefScraper:
             'Cache-Control': 'max-age=0',
             'DNT': '1',
             'Referer': 'https://www.google.com/',
+            'Origin': 'https://www.google.com',
+            'Viewport-Width': '1920',
+            'Width': '1920',
         })
 
-    def get_page(self, url: str, retries: int = 3) -> Optional[BeautifulSoup]:
+    def get_page(self, url: str, retries: int = 3) -> tuple[Optional[BeautifulSoup], Optional[Dict]]:
         """
-        Faz requisição HTTP e retorna o conteúdo parseado
+        Faz requisição HTTP e retorna o conteúdo parseado com informações de erro
 
         Args:
             url: URL completa ou relativa
             retries: Número de tentativas em caso de falha
 
         Returns:
-            BeautifulSoup object ou None em caso de erro
+            Tupla (BeautifulSoup object ou None, dict com informações de erro ou None)
         """
         if not url.startswith('http'):
             url = urljoin(self.base_url, url)
 
+        last_error = None
+
         for attempt in range(retries):
             try:
                 # Adiciona delay antes da requisição para parecer mais humano
+                # Delays variáveis para parecer mais natural
                 if attempt > 0:
-                    time.sleep(2 ** attempt)
+                    # Backoff exponencial com variação aleatória
+                    base_delay = 2 ** attempt
+                    delay = base_delay + random.uniform(0.5, 1.5)
+                    time.sleep(delay)
                 else:
-                    time.sleep(1)
+                    # Primeira tentativa: delay aleatório entre 1-2 segundos
+                    delay = random.uniform(1.0, 2.0)
+                    time.sleep(delay)
 
-                response = self.session.get(url, timeout=30, allow_redirects=True)
+                print(f"[FBrefScraper] Tentativa {attempt + 1}/{retries} - Acessando: {url}")
+                # Timeout aumentado para 45s para dar mais tempo em conexões lentas
+                response = self.session.get(url, timeout=45, allow_redirects=True)
+                print(f"[FBrefScraper] Status code: {response.status_code}, URL final: {response.url}")
 
                 # Verifica status code
                 if response.status_code == 403:
-                    error_msg = f"Erro 403: Acesso negado. O site pode estar bloqueando requisições automatizadas."
+                    error_info = {
+                        "type": "403",
+                        "status_code": 403,
+                        "message": "Acesso negado. O site está bloqueando requisições automatizadas.",
+                        "url": url,
+                        "final_url": response.url,
+                        "headers": dict(response.headers),
+                        "attempt": attempt + 1,
+                        "retries": retries
+                    }
+                    print(f"[FBrefScraper] Erro 403 detectado: {error_info}")
+                    last_error = error_info
+                    
                     if attempt < retries - 1:
-                        # Tenta com headers diferentes
-                        self.session.headers['Referer'] = url
-                        time.sleep(2)
+                        # Tenta com headers diferentes e estratégias anti-detecção
+                        self.session.headers['Referer'] = 'https://fbref.com/'
+                        # Adiciona delay variável antes de tentar novamente
+                        retry_delay = random.uniform(2.0, 4.0)
+                        print(f"[FBrefScraper] Aguardando {retry_delay:.2f}s antes de nova tentativa...")
+                        time.sleep(retry_delay)
                         continue
                     else:
-                        return None
+                        return (None, error_info)
 
                 # Verifica outros códigos de erro
                 if response.status_code >= 400:
+                    error_info = {
+                        "type": "http_error",
+                        "status_code": response.status_code,
+                        "message": f"Erro HTTP {response.status_code}: {response.reason}",
+                        "url": url,
+                        "final_url": response.url,
+                        "headers": dict(response.headers),
+                        "attempt": attempt + 1,
+                        "retries": retries
+                    }
+                    print(f"[FBrefScraper] Erro HTTP {response.status_code}: {error_info}")
+                    last_error = error_info
+                    
                     if attempt < retries - 1:
                         continue
                     else:
-                        return None
+                        return (None, error_info)
 
                 response.raise_for_status()
 
@@ -120,17 +164,76 @@ class FBrefScraper:
                 if title_tag:
                     title_text = title_tag.get_text().lower()
                     if 'error' in title_text or 'not found' in title_text or '404' in title_text:
-                        return None
+                        error_info = {
+                            "type": "page_error",
+                            "status_code": response.status_code,
+                            "message": f"Página retornou erro: {title_tag.get_text()}",
+                            "url": url,
+                            "final_url": response.url,
+                            "title": title_tag.get_text(),
+                            "attempt": attempt + 1,
+                            "retries": retries
+                        }
+                        print(f"[FBrefScraper] Erro detectado no título da página: {error_info}")
+                        return (None, error_info)
 
-                return soup
+                print(f"[FBrefScraper] Página carregada com sucesso (título: {title_tag.get_text() if title_tag else 'N/A'})")
+                return (soup, None)
 
-            except requests.exceptions.RequestException as e:
+            except requests.exceptions.Timeout as e:
+                error_info = {
+                    "type": "timeout",
+                    "status_code": None,
+                    "message": f"Timeout ao acessar a página: {str(e)}",
+                    "url": url,
+                    "attempt": attempt + 1,
+                    "retries": retries
+                }
+                print(f"[FBrefScraper] Timeout: {error_info}")
+                last_error = error_info
+                
                 if attempt < retries - 1:
                     time.sleep(2 ** attempt)  # Backoff exponencial
                 else:
-                    return None
+                    return (None, error_info)
+                    
+            except requests.exceptions.ConnectionError as e:
+                error_info = {
+                    "type": "connection_error",
+                    "status_code": None,
+                    "message": f"Erro de conexão: {str(e)}",
+                    "url": url,
+                    "attempt": attempt + 1,
+                    "retries": retries
+                }
+                print(f"[FBrefScraper] Erro de conexão: {error_info}")
+                last_error = error_info
+                
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)  # Backoff exponencial
+                else:
+                    return (None, error_info)
+                    
+            except requests.exceptions.RequestException as e:
+                error_info = {
+                    "type": "request_exception",
+                    "status_code": None,
+                    "message": f"Erro na requisição: {str(e)}",
+                    "url": url,
+                    "exception_type": type(e).__name__,
+                    "attempt": attempt + 1,
+                    "retries": retries
+                }
+                print(f"[FBrefScraper] Exceção na requisição: {error_info}")
+                last_error = error_info
+                
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)  # Backoff exponencial
+                else:
+                    return (None, error_info)
 
-        return None
+        # Se chegou aqui, todas as tentativas falharam
+        return (None, last_error)
 
     def _normalize_header_name(self, header: str) -> str:
         """
@@ -438,14 +541,35 @@ class FBrefScraper:
         """
         Extrai todas as tabelas de qualquer página web (FBref)
         """
-        soup = self.get_page(url)
+        soup, error_info = self.get_page(url)
 
         if not soup:
+            # Construir mensagem de erro específica baseada no tipo de erro
+            if error_info:
+                error_type = error_info.get("type", "unknown")
+                status_code = error_info.get("status_code")
+                
+                if error_type == "403":
+                    error_message = f"Erro 403: Acesso negado. O site está bloqueando requisições automatizadas.\nURL: {url}"
+                elif error_type == "http_error":
+                    if status_code == 404:
+                        error_message = f"Erro 404: A URL está incorreta ou a página não existe.\nURL: {url}"
+                    else:
+                        error_message = f"Erro HTTP {status_code}: {error_info.get('message', 'Erro desconhecido')}\nURL: {url}"
+                elif error_type == "timeout":
+                    error_message = f"Timeout: A requisição excedeu o tempo limite (30s).\nURL: {url}\nTentativas: {error_info.get('attempt', 'N/A')}/{error_info.get('retries', 'N/A')}"
+                elif error_type == "connection_error":
+                    error_message = f"Erro de conexão: Não foi possível conectar ao servidor.\nURL: {url}\nDetalhes: {error_info.get('message', 'Erro desconhecido')}"
+                elif error_type == "page_error":
+                    error_message = f"Erro na página: {error_info.get('message', 'Página retornou erro')}\nURL: {url}"
+                else:
+                    error_message = f"Erro ao acessar a página: {error_info.get('message', 'Erro desconhecido')}\nURL: {url}"
+            else:
+                error_message = "Não foi possível acessar a página. Erro desconhecido."
+            
             return {
-                "error": "Não foi possível acessar a página. Possíveis causas:\n"
-                        "- O site está bloqueando requisições automatizadas (erro 403)\n"
-                        "- A URL está incorreta ou a página não existe (erro 404)\n"
-                        "- Problemas de conexão ou timeout",
+                "error": error_message,
+                "error_details": error_info,
                 "url": url,
                 "tables": {}
             }
@@ -517,10 +641,14 @@ class handler(BaseHTTPRequestHandler):
             result = scraper.scrape_any_page(championship_url, extract_all_tables=True)
 
             if 'error' in result:
-                self._send_response({
+                response_data = {
                     'success': False,
                     'error': result['error']
-                })
+                }
+                # Incluir detalhes do erro se disponível (para debug)
+                if 'error_details' in result:
+                    response_data['error_details'] = result['error_details']
+                self._send_response(response_data)
                 return
 
             # Mapear tabelas para formato esperado

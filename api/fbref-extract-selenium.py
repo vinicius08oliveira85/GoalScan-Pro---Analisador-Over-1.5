@@ -72,7 +72,7 @@ class FBrefSeleniumScraper:
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
-        chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36')
         
         # Para ambiente serverless (Vercel), pode precisar de configurações adicionais
         if os.environ.get('VERCEL'):
@@ -95,19 +95,36 @@ class FBrefSeleniumScraper:
         
         self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-    def get_page(self, url: str, wait_time: int = 10) -> Optional[BeautifulSoup]:
+    def get_page(self, url: str, wait_time: int = 10) -> tuple[Optional[BeautifulSoup], Optional[Dict]]:
         """
-        Carrega a página e retorna o conteúdo parseado
+        Carrega a página e retorna o conteúdo parseado com informações de erro
         
         Args:
             url: URL completa
             wait_time: Tempo de espera em segundos
             
         Returns:
-            BeautifulSoup object ou None em caso de erro
+            Tupla (BeautifulSoup object ou None, dict com informações de erro ou None)
         """
         try:
+            print(f"[FBrefSeleniumScraper] Acessando: {url}")
             self.driver.get(url)
+            current_url = self.driver.current_url
+            print(f"[FBrefSeleniumScraper] URL atual: {current_url}")
+            
+            # Verifica se foi redirecionado para página de erro
+            page_title = self.driver.title.lower()
+            if 'error' in page_title or 'not found' in page_title or '404' in page_title or '403' in page_title:
+                error_info = {
+                    "type": "page_error",
+                    "status_code": None,
+                    "message": f"Página retornou erro: {self.driver.title}",
+                    "url": url,
+                    "current_url": current_url,
+                    "title": self.driver.title
+                }
+                print(f"[FBrefSeleniumScraper] Erro detectado no título: {error_info}")
+                return (None, error_info)
             
             # Aguarda o carregamento da página
             time.sleep(3)
@@ -118,24 +135,99 @@ class FBrefSeleniumScraper:
                     EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Accept') or contains(text(), 'Aceitar')]"))
                 )
                 accept_button.click()
+                print("[FBrefSeleniumScraper] Cookies aceitos")
                 time.sleep(1)
             except:
                 pass  # Botão de cookies não encontrado ou já foi clicado
             
             # Aguarda tabelas carregarem
-            WebDriverWait(self.driver, wait_time).until(
-                EC.presence_of_element_located((By.TAG_NAME, "table"))
-            )
+            try:
+                WebDriverWait(self.driver, wait_time).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "table"))
+                )
+                print("[FBrefSeleniumScraper] Tabelas detectadas na página")
+            except Exception as e:
+                # Se não encontrou tabelas, ainda pode ser uma página válida
+                print(f"[FBrefSeleniumScraper] Aviso: Nenhuma tabela encontrada após {wait_time}s: {e}")
+                # Não retorna erro aqui, apenas loga o aviso
             
             # Obtém o HTML da página
             html = self.driver.page_source
+            
+            # Verifica se o HTML contém indicadores de erro
+            if '403' in html or 'Forbidden' in html or 'Access Denied' in html:
+                error_info = {
+                    "type": "403",
+                    "status_code": 403,
+                    "message": "Acesso negado detectado no conteúdo da página",
+                    "url": url,
+                    "current_url": current_url
+                }
+                print(f"[FBrefSeleniumScraper] Erro 403 detectado no conteúdo: {error_info}")
+                return (None, error_info)
+            
             soup = BeautifulSoup(html, 'lxml')
             
-            return soup
+            # Verifica se a página carregou corretamente pelo título
+            title_tag = soup.find('title')
+            if title_tag:
+                title_text = title_tag.get_text().lower()
+                if 'error' in title_text or 'not found' in title_text or '404' in title_text:
+                    error_info = {
+                        "type": "page_error",
+                        "status_code": None,
+                        "message": f"Página retornou erro: {title_tag.get_text()}",
+                        "url": url,
+                        "current_url": current_url,
+                        "title": title_tag.get_text()
+                    }
+                    print(f"[FBrefSeleniumScraper] Erro detectado no título HTML: {error_info}")
+                    return (None, error_info)
+            
+            print(f"[FBrefSeleniumScraper] Página carregada com sucesso (título: {title_tag.get_text() if title_tag else 'N/A'})")
+            return (soup, None)
             
         except Exception as e:
-            print(f"Erro ao carregar página: {e}")
-            return None
+            error_type = type(e).__name__
+            error_message = str(e)
+            
+            # Identifica tipos específicos de erro do Selenium
+            if 'TimeoutException' in error_type or 'timeout' in error_message.lower():
+                error_info = {
+                    "type": "timeout",
+                    "status_code": None,
+                    "message": f"Timeout ao aguardar elementos da página: {error_message}",
+                    "url": url,
+                    "exception_type": error_type,
+                    "wait_time": wait_time
+                }
+            elif 'WebDriverException' in error_type:
+                error_info = {
+                    "type": "webdriver_error",
+                    "status_code": None,
+                    "message": f"Erro do WebDriver: {error_message}",
+                    "url": url,
+                    "exception_type": error_type
+                }
+            elif 'NoSuchElementException' in error_type:
+                error_info = {
+                    "type": "element_not_found",
+                    "status_code": None,
+                    "message": f"Elemento não encontrado: {error_message}",
+                    "url": url,
+                    "exception_type": error_type
+                }
+            else:
+                error_info = {
+                    "type": "selenium_exception",
+                    "status_code": None,
+                    "message": f"Erro ao carregar página: {error_message}",
+                    "url": url,
+                    "exception_type": error_type
+                }
+            
+            print(f"[FBrefSeleniumScraper] Erro: {error_info}")
+            return (None, error_info)
 
     def _normalize_header_name(self, header: str) -> str:
         """
@@ -440,14 +532,33 @@ class FBrefSeleniumScraper:
         """
         Extrai todas as tabelas de qualquer página web (FBref)
         """
-        soup = self.get_page(url)
+        soup, error_info = self.get_page(url)
         
         if not soup:
+            # Construir mensagem de erro específica baseada no tipo de erro
+            if error_info:
+                error_type = error_info.get("type", "unknown")
+                
+                if error_type == "403":
+                    error_message = f"Erro 403: Acesso negado. O site está bloqueando requisições automatizadas.\nURL: {url}"
+                elif error_type == "timeout":
+                    error_message = f"Timeout: A requisição excedeu o tempo limite.\nURL: {url}\nTempo de espera: {error_info.get('wait_time', 'N/A')}s"
+                elif error_type == "webdriver_error":
+                    error_message = f"Erro do WebDriver: {error_info.get('message', 'Erro desconhecido')}\nURL: {url}"
+                elif error_type == "element_not_found":
+                    error_message = f"Elemento não encontrado: {error_info.get('message', 'Erro desconhecido')}\nURL: {url}"
+                elif error_type == "page_error":
+                    error_message = f"Erro na página: {error_info.get('message', 'Página retornou erro')}\nURL: {url}"
+                elif error_type == "selenium_exception":
+                    error_message = f"Erro do Selenium: {error_info.get('message', 'Erro desconhecido')}\nURL: {url}"
+                else:
+                    error_message = f"Erro ao acessar a página: {error_info.get('message', 'Erro desconhecido')}\nURL: {url}"
+            else:
+                error_message = "Não foi possível acessar a página. Erro desconhecido."
+            
             return {
-                "error": "Não foi possível acessar a página. Possíveis causas:\n"
-                        "- O site está bloqueando requisições automatizadas\n"
-                        "- A URL está incorreta ou a página não existe\n"
-                        "- Problemas de conexão ou timeout",
+                "error": error_message,
+                "error_details": error_info,
                 "url": url,
                 "tables": {}
             }
@@ -528,10 +639,14 @@ class handler(BaseHTTPRequestHandler):
             result = scraper.scrape_any_page(championship_url, extract_all_tables=True)
             
             if 'error' in result:
-                self._send_response({
+                response_data = {
                     'success': False,
                     'error': result['error']
-                })
+                }
+                # Incluir detalhes do erro se disponível (para debug)
+                if 'error_details' in result:
+                    response_data['error_details'] = result['error_details']
+                self._send_response(response_data)
                 return
             
             # Mapear tabelas para formato esperado
