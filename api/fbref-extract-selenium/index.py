@@ -1,31 +1,32 @@
 """
 API route Python para extrair dados de tabelas do fbref.com usando Selenium
-Baseado no repositório app-scraper/scraper_selenium.py
+Formato Vercel Serverless Function
 """
 import json
 import time
 import os
 import re
-from http.server import BaseHTTPRequestHandler
 from typing import Dict, List, Optional
 
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+# Tentar importar webdriver-manager, mas ter fallback para ambiente serverless
 try:
-    from selenium import webdriver
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.chrome.options import Options
-    from bs4 import BeautifulSoup
-    # Tentar importar webdriver-manager, mas ter fallback para ambiente serverless
-    try:
-        from webdriver_manager.chrome import ChromeDriverManager
-        USE_WEBDRIVER_MANAGER = True
-    except ImportError:
-        USE_WEBDRIVER_MANAGER = False
+    from webdriver_manager.chrome import ChromeDriverManager
+    USE_WEBDRIVER_MANAGER = True
 except ImportError:
-    # Fallback para desenvolvimento local
-    pass
+    USE_WEBDRIVER_MANAGER = False
+
+app = Flask(__name__)
+CORS(app)
 
 
 class FBrefSeleniumScraper:
@@ -603,100 +604,95 @@ class FBrefSeleniumScraper:
                 pass
 
 
-class handler(BaseHTTPRequestHandler):
-    """Handler HTTP para Vercel Serverless Function"""
+@app.route('/', methods=['POST', 'OPTIONS'])
+def handler():
+    """
+    Handler para Vercel Serverless Function usando Flask
+    """
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
 
-    def do_OPTIONS(self):
-        """Handle CORS preflight"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
-
-    def do_POST(self):
-        """Handle POST request"""
-        scraper = None
-        try:
-            # Ler body
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
-            request_data = json.loads(body.decode('utf-8'))
-            
-            # Validar request
-            championship_url = request_data.get('championshipUrl', '')
-            championship_id = request_data.get('championshipId', '')
-            extract_types = request_data.get('extractTypes', ['table'])
-            
-            if not championship_url or 'fbref.com' not in championship_url:
-                self._send_error(400, 'URL inválida. Apenas URLs do fbref.com são permitidas.')
-                return
-            
-            # Inicializar scraper
-            scraper = FBrefSeleniumScraper(headless=True)
-            
-            # Extrair tabelas
-            result = scraper.scrape_any_page(championship_url, extract_all_tables=True)
-            
-            if 'error' in result:
-                response_data = {
-                    'success': False,
-                    'error': result['error']
-                }
-                # Incluir detalhes do erro se disponível (para debug)
-                if 'error_details' in result:
-                    response_data['error_details'] = result['error_details']
-                self._send_response(response_data)
-                return
-            
-            # Mapear tabelas para formato esperado
-            tables = result.get('tables', {})
-            mapped_tables = {
-                'geral': tables.get('geral', []),
-                'home_away': tables.get('home_away', []),
-                'standard_for': tables.get('standard_for', [])
-            }
-            
-            # Identificar tabelas faltantes
-            missing_tables = []
-            for table_type in ['geral', 'home_away', 'standard_for']:
-                if not mapped_tables[table_type] or len(mapped_tables[table_type]) == 0:
-                    missing_tables.append(table_type)
-            
-            # Retornar resposta
-            self._send_response({
-                'success': True,
-                'data': {
-                    'tables': mapped_tables,
-                    'missingTables': missing_tables
-                }
-            })
-            
-        except json.JSONDecodeError:
-            self._send_error(400, 'JSON inválido no body da requisição')
-        except Exception as e:
-            self._send_error(500, f'Erro interno: {str(e)}')
-        finally:
-            # Sempre fecha o driver
-            if scraper:
-                scraper.close()
-
-    def _send_response(self, data: Dict, status_code: int = 200):
-        """Envia resposta JSON"""
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
-
-    def _send_error(self, status_code: int, message: str):
-        """Envia erro"""
-        self._send_response({
+    # Apenas aceita POST
+    if request.method != 'POST':
+        return jsonify({
             'success': False,
-            'error': message
-        }, status_code)
+            'error': 'Método não permitido. Use POST.'
+        }), 405
 
-    def log_message(self, format, *args):
-        """Suprime logs padrão"""
-        pass
+    scraper = None
+    try:
+        # Ler body
+        request_data = request.get_json()
+
+        if not request_data:
+            return jsonify({
+                'success': False,
+                'error': 'JSON inválido no body da requisição'
+            }), 400
+        
+        # Validar request
+        championship_url = request_data.get('championshipUrl', '')
+        championship_id = request_data.get('championshipId', '')
+        extract_types = request_data.get('extractTypes', ['table'])
+        
+        if not championship_url or 'fbref.com' not in championship_url:
+            return jsonify({
+                'success': False,
+                'error': 'URL inválida. Apenas URLs do fbref.com são permitidas.'
+            }), 400
+        
+        # Inicializar scraper
+        scraper = FBrefSeleniumScraper(headless=True)
+        
+        # Extrair tabelas
+        result = scraper.scrape_any_page(championship_url, extract_all_tables=True)
+        
+        if 'error' in result:
+            response_data = {
+                'success': False,
+                'error': result['error']
+            }
+            # Incluir detalhes do erro se disponível (para debug)
+            if 'error_details' in result:
+                response_data['error_details'] = result['error_details']
+            return jsonify(response_data), 200
+        
+        # Mapear tabelas para formato esperado
+        tables = result.get('tables', {})
+        mapped_tables = {
+            'geral': tables.get('geral', []),
+            'home_away': tables.get('home_away', []),
+            'standard_for': tables.get('standard_for', [])
+        }
+        
+        # Identificar tabelas faltantes
+        missing_tables = []
+        for table_type in ['geral', 'home_away', 'standard_for']:
+            if not mapped_tables[table_type] or len(mapped_tables[table_type]) == 0:
+                missing_tables.append(table_type)
+        
+        # Retornar resposta
+        return jsonify({
+            'success': True,
+            'data': {
+                'tables': mapped_tables,
+                'missingTables': missing_tables
+            }
+        }), 200
+        
+    except json.JSONDecodeError:
+        return jsonify({
+            'success': False,
+            'error': 'JSON inválido no body da requisição'
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Erro interno: {str(e)}'
+        }), 500
+    finally:
+        # Sempre fecha o driver
+        if scraper:
+            scraper.close()
 
