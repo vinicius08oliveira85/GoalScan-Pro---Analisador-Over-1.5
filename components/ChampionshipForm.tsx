@@ -283,36 +283,52 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                 <div className="space-y-3">
                   <div className="form-control">
                     <label className="label cursor-pointer">
-                      <span className="label-text">Upload de arquivo JSON</span>
+                      <span className="label-text font-bold flex items-center gap-2">
+                        Upload de arquivo Excel ou JSON
+                        <FileSpreadsheet className="w-4 h-4 text-primary" />
+                        <FileJson className="w-4 h-4 text-secondary" />
+                      </span>
                     </label>
                     <input
                       type="file"
-                      accept=".json,application/json"
+                      accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,.json,application/json"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
                           handleFileUpload(type, file);
                         }
                       }}
-                      className="file-input file-input-bordered w-full"
+                      className="file-input file-input-bordered w-full file-input-primary"
                     />
+                    <label className="label">
+                      <span className="label-text-alt text-xs opacity-70">
+                        <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls) ou JSON (.json)
+                        <br />
+                        <strong>Requisito:</strong> A planilha deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team")
+                      </span>
+                    </label>
                   </div>
 
                   <div className="divider">OU</div>
 
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text">Colar JSON diretamente</span>
+                      <span className="label-text font-bold">Colar JSON diretamente</span>
                     </label>
                     <textarea
                       className="textarea textarea-bordered h-32 font-mono text-sm"
-                      placeholder='[{"Squad": "Inter", "MP": "18", ...}]'
+                      placeholder='[{"Squad": "Inter", "MP": "18", "W": "12", ...}]'
                       onBlur={(e) => {
                         if (e.target.value.trim()) {
                           handleJsonPaste(type, e.target.value);
                         }
                       }}
                     />
+                    <label className="label">
+                      <span className="label-text-alt text-xs opacity-70">
+                        Cole aqui o conteúdo de um arquivo JSON válido
+                      </span>
+                    </label>
                   </div>
 
                   {hasError && <span className="text-error text-sm">{hasError}</span>}

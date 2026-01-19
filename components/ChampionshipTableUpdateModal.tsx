@@ -167,7 +167,7 @@ export default function ChampionshipTableUpdateModal({
       >
         <div className="sticky top-0 bg-base-100 border-b border-base-300 p-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
-            <FileJson className="w-5 h-5 text-primary" />
+            <FileSpreadsheet className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-bold">Atualizar Tabelas — {championship.nome}</h2>
           </div>
           <button onClick={onClose} className="btn btn-sm btn-ghost btn-circle">
@@ -207,23 +207,25 @@ export default function ChampionshipTableUpdateModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="custom-card p-4 space-y-3">
               <div className="font-bold flex items-center gap-2">
-                Upload do arquivo
-                <FileJson className="w-4 h-4" />
-                <FileSpreadsheet className="w-4 h-4" />
+                Upload de arquivo Excel ou JSON
+                <FileSpreadsheet className="w-4 h-4 text-primary" />
+                <FileJson className="w-4 h-4 text-secondary" />
               </div>
               <input
                 type="file"
-                accept="application/json,.json,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                className="file-input file-input-bordered w-full"
+                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/json,.json"
+                className="file-input file-input-bordered w-full file-input-primary"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFileUpload(activeType, file);
                 }}
               />
               <div className="text-xs opacity-70">
-                Formatos aceitos: JSON, Excel (.xlsx, .xls)
+                <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls) ou JSON (.json)
                 <br />
-                Requisito: Deve ser um array e conter o campo <code>Squad</code>.
+                <strong>Requisito:</strong> Deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team")
+                <br />
+                <strong>Nota:</strong> Arquivos Excel são convertidos automaticamente para JSON
               </div>
             </div>
 
