@@ -294,25 +294,31 @@ function calculateTableProbability(data: MatchData): {
     return null;
   }
 
-  const homeMp = parseFloat(data.homeTableData.MP || '0');
-  const homeGf = parseFloat(data.homeTableData.GF || '0');
-  const homeGa = parseFloat(data.homeTableData.GA || '0');
-  const homeXg = parseFloat(data.homeTableData.xG || '0');
-  const homeXga = parseFloat(data.homeTableData.xGA || '0');
+  // Usar campos Home/Away da nova estrutura
+  // Para time da casa: usar Home MP, Home GF, Home GA, etc.
+  // Para time visitante: usar Away MP, Away GF, Away GA, etc.
+  const homeMp = parseFloat(data.homeTableData['Home MP'] || data.homeTableData.MP || '0');
+  const homeGf = parseFloat(data.homeTableData['Home GF'] || data.homeTableData.GF || '0');
+  const homeGa = parseFloat(data.homeTableData['Home GA'] || data.homeTableData.GA || '0');
+  const homeXg = parseFloat(data.homeTableData['Home xG'] || data.homeTableData.xG || '0');
+  const homeXga = parseFloat(data.homeTableData['Home xGA'] || data.homeTableData.xGA || '0');
   const homeRk = parseFloat(data.homeTableData.Rk || '0');
-  const homeGd = parseFloat(data.homeTableData.GD || '0');
-  const homeXgd = parseFloat(data.homeTableData.xGD || '0');
-  const homePtsPerGame = parseFloat(data.homeTableData['Pts/MP'] || '0');
+  const homeGd = parseFloat(data.homeTableData['Home GD'] || data.homeTableData.GD || '0');
+  const homeXgd = parseFloat(data.homeTableData['Home xGD'] || data.homeTableData.xGD || '0');
+  const homePtsPerGame = parseFloat(data.homeTableData['Home Pts/MP'] || data.homeTableData['Pts/MP'] || '0');
 
-  const awayMp = parseFloat(data.awayTableData.MP || '0');
-  const awayGf = parseFloat(data.awayTableData.GF || '0');
-  const awayGa = parseFloat(data.awayTableData.GA || '0');
-  const awayXg = parseFloat(data.awayTableData.xG || '0');
-  const awayXga = parseFloat(data.awayTableData.xGA || '0');
+  // Para time visitante: usar Away MP, Away GF, etc.
+  const awayMp = parseFloat(data.awayTableData['Away MP'] || data.awayTableData.MP || '0');
+  const awayGf = parseFloat(data.awayTableData['Away GF'] || data.awayTableData.GF || '0');
+  // Defesa do visitante: gols sofridos pelo time da casa em casa (Home GA do time da casa)
+  const awayGa = parseFloat(data.homeTableData['Home GA'] || data.homeTableData.GA || '0');
+  const awayXg = parseFloat(data.awayTableData['Away xG'] || data.awayTableData.xG || '0');
+  // Defesa esperada do visitante: Home xGA do time da casa
+  const awayXga = parseFloat(data.homeTableData['Home xGA'] || data.homeTableData.xGA || '0');
   const awayRk = parseFloat(data.awayTableData.Rk || '0');
-  const awayGd = parseFloat(data.awayTableData.GD || '0');
-  const awayXgd = parseFloat(data.awayTableData.xGD || '0');
-  const awayPtsPerGame = parseFloat(data.awayTableData['Pts/MP'] || '0');
+  const awayGd = parseFloat(data.awayTableData['Away GD'] || data.awayTableData.GD || '0');
+  const awayXgd = parseFloat(data.awayTableData['Away xGD'] || data.awayTableData.xGD || '0');
+  const awayPtsPerGame = parseFloat(data.awayTableData['Away Pts/MP'] || data.awayTableData['Pts/MP'] || '0');
 
   if (homeMp === 0 || awayMp === 0) {
     return null;
@@ -321,11 +327,18 @@ function calculateTableProbability(data: MatchData): {
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
   const safeDiv = (num: number, den: number, fallback: number) => (den > 0 ? num / den : fallback);
 
-  // 1. Calcular médias de gols da tabela
+  // 1. Calcular médias de gols da tabela usando campos Home/Away
+  // Time da casa: Home GF / Home MP (gols marcados em casa)
   const homeAvgScored = homeGf / homeMp;
-  const homeAvgConceded = homeGa / homeMp;
+  // Time da casa: Away GA do visitante / Away MP do visitante (gols sofridos pelo visitante fora)
+  const awayGaForHome = parseFloat(data.awayTableData['Away GA'] || data.awayTableData.GA || '0');
+  const awayMpForHome = parseFloat(data.awayTableData['Away MP'] || data.awayTableData.MP || '0');
+  const homeAvgConceded = awayMpForHome > 0 ? awayGaForHome / awayMpForHome : (homeMp > 0 ? homeGa / homeMp : 0);
+  
+  // Time visitante: Away GF / Away MP (gols marcados fora)
   const awayAvgScored = awayGf / awayMp;
-  const awayAvgConceded = awayGa / awayMp;
+  // Time visitante: Home GA do time da casa / Home MP do time da casa (gols sofridos pelo time da casa em casa)
+  const awayAvgConceded = homeMp > 0 ? homeGa / homeMp : 0;
 
   // 2. Misturar xG/xGA com GF/GA para reduzir ruído (xG costuma ser mais estável quando disponível)
   const blendAttack = (xgTotal: number, gfTotal: number, mp: number): number => {
@@ -478,19 +491,21 @@ function calculateTableProbability(data: MatchData): {
   else if (awayRk <= 10) lambdaAway *= 1.02;
 
   // 5. Ajustar baseado em Saldo de Gols (GD) - times com GD positivo são mais ofensivos
-  const homeGdPerGame = homeGd / homeMp;
-  const awayGdPerGame = awayGd / awayMp;
+  // Usar Home GD para time da casa e Away GD para visitante
+  const homeGdPerGame = homeMp > 0 ? homeGd / homeMp : 0;
+  const awayGdPerGame = awayMp > 0 ? awayGd / awayMp : 0;
   
   // GD positivo aumenta probabilidade de gols (até +3% por GD/game > 0.5)
   if (homeGdPerGame > 0.5) lambdaHome *= (1 + Math.min(0.03, homeGdPerGame * 0.02));
   if (awayGdPerGame > 0.5) lambdaAway *= (1 + Math.min(0.03, awayGdPerGame * 0.02));
 
   // 6. Ajustar baseado em xGD (Expected Goal Difference) quando disponível
-  if (homeXgd !== 0) {
+  // Usar Home xGD para time da casa e Away xGD para visitante
+  if (homeXgd !== 0 && homeMp > 0) {
     const homeXgdPerGame = homeXgd / homeMp;
     if (homeXgdPerGame > 0.3) lambdaHome *= (1 + Math.min(0.025, homeXgdPerGame * 0.015));
   }
-  if (awayXgd !== 0) {
+  if (awayXgd !== 0 && awayMp > 0) {
     const awayXgdPerGame = awayXgd / awayMp;
     if (awayXgdPerGame > 0.3) lambdaAway *= (1 + Math.min(0.025, awayXgdPerGame * 0.015));
   }

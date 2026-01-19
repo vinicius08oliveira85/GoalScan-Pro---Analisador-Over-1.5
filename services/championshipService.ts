@@ -749,6 +749,13 @@ export const getSquadsFromTable = async (
   tableType: TableType = 'geral'
 ): Promise<string[]> => {
   try {
+    // Para tabela geral, buscar de championship_teams (normalizada)
+    if (tableType === 'geral') {
+      const teams = await loadChampionshipTeams(championshipId);
+      return teams.map((team) => team.squad).filter((squad) => squad && squad.trim() !== '');
+    }
+
+    // Para outros tipos de tabela (ex: standard_for), ainda usar championship_tables
     const tables = await loadChampionshipTables(championshipId);
     const table = tables.find((t) => t.table_type === tableType);
 
@@ -756,13 +763,7 @@ export const getSquadsFromTable = async (
       return [];
     }
 
-    // Se for tabela geral, extrair Squads
-    if (tableType === 'geral' && Array.isArray(table.table_data)) {
-      const rows = table.table_data as TableRowGeral[];
-      return rows.map((row) => row.Squad).filter((squad) => squad && squad.trim() !== '');
-    }
-
-    // Para outros tipos de tabela, tentar extrair campo "Squad" se existir
+    // Tentar extrair campo "Squad" se existir
     if (Array.isArray(table.table_data)) {
       const rows = table.table_data as Array<{ Squad?: string; [key: string]: unknown }>;
       return rows
@@ -779,6 +780,8 @@ export const getSquadsFromTable = async (
 
 /**
  * Obtém dados de uma equipe específica da tabela do campeonato
+ * Para tabela geral, busca de championship_teams e converte para TableRowGeral
+ * Para outros tipos, ainda usa championship_tables (compatibilidade)
  */
 export const getTeamDataFromTable = async (
   championshipId: string,
@@ -786,6 +789,61 @@ export const getTeamDataFromTable = async (
   tableType: TableType = 'geral'
 ): Promise<TableRowGeral | null> => {
   try {
+    // Para tabela geral, buscar de championship_teams (normalizada)
+    if (tableType === 'geral') {
+      const teams = await loadChampionshipTeams(championshipId);
+      const team = teams.find((t) => t.squad === squad);
+      
+      if (!team) {
+        return null;
+      }
+
+      // Converter para TableRowGeral (usar campos Home como padrão)
+      // Nota: Esta função não sabe se o time é home ou away, então retorna ambos os campos
+      const row: TableRowGeral = {
+        Rk: team.rk || '',
+        Squad: team.squad,
+        'Home MP': team.home_mp,
+        'Home W': team.home_w,
+        'Home D': team.home_d,
+        'Home L': team.home_l,
+        'Home GF': team.home_gf,
+        'Home GA': team.home_ga,
+        'Home GD': team.home_gd,
+        'Home Pts': team.home_pts,
+        'Home Pts/MP': team.home_pts_mp,
+        'Home xG': team.home_xg,
+        'Home xGA': team.home_xga,
+        'Home xGD': team.home_xgd,
+        'Home xGD/90': team.home_xgd_90,
+        'Away MP': team.away_mp,
+        'Away W': team.away_w,
+        'Away D': team.away_d,
+        'Away L': team.away_l,
+        'Away GF': team.away_gf,
+        'Away GA': team.away_ga,
+        'Away GD': team.away_gd,
+        'Away Pts': team.away_pts,
+        'Away Pts/MP': team.away_pts_mp,
+        'Away xG': team.away_xg,
+        'Away xGA': team.away_xga,
+        'Away xGD': team.away_xgd,
+        'Away xGD/90': team.away_xgd_90,
+      };
+
+      // Adicionar campos extras se existirem
+      if (team.extra_fields && typeof team.extra_fields === 'object') {
+        for (const [key, value] of Object.entries(team.extra_fields)) {
+          if (!row.hasOwnProperty(key)) {
+            row[key] = value;
+          }
+        }
+      }
+
+      return row;
+    }
+
+    // Para outros tipos de tabela, ainda usar championship_tables
     const tables = await loadChampionshipTables(championshipId);
     const table = tables.find((t) => t.table_type === tableType);
 
@@ -885,6 +943,49 @@ function parseNumberFromUnknown(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Calcula média de gols do campeonato a partir de ChampionshipTeam[]
+ * Usa campos Home/Away: soma(Home GF) + soma(Away GF) / soma(Home MP) + soma(Away MP)
+ */
+function calculateCompetitionAverageGoalsFromTeams(teams: ChampionshipTeam[]): number | null {
+  if (!Array.isArray(teams) || teams.length === 0) return null;
+
+  let totalGoals = 0;
+  let totalMatches = 0;
+
+  for (const team of teams) {
+    // Usar campos Home
+    const homeGf = parseNumberFromUnknown(team.home_gf);
+    const homeMp = parseNumberFromUnknown(team.home_mp);
+    if (homeGf > 0 && homeMp > 0) {
+      totalGoals += homeGf;
+      totalMatches += homeMp;
+    } else if (homeMp > 0) {
+      totalMatches += homeMp;
+    }
+
+    // Usar campos Away
+    const awayGf = parseNumberFromUnknown(team.away_gf);
+    const awayMp = parseNumberFromUnknown(team.away_mp);
+    if (awayGf > 0 && awayMp > 0) {
+      totalGoals += awayGf;
+      totalMatches += awayMp;
+    } else if (awayMp > 0) {
+      totalMatches += awayMp;
+    }
+  }
+
+  if (totalMatches === 0) return null;
+  // Média de gols por partida = 2 * totalGoals / totalMatches
+  // (multiplicamos por 2 porque cada partida envolve 2 times)
+  const averageGoals = (2 * totalGoals) / totalMatches;
+  return Math.round(averageGoals * 100) / 100;
+}
+
+/**
+ * Calcula média de gols do campeonato a partir de TableRowGeral[]
+ * Usa campos Home/Away quando disponíveis, fallback para campos gerais (compatibilidade)
+ */
 function calculateCompetitionAverageGoalsFromRows(rows: TableRowGeral[]): number | null {
   if (!Array.isArray(rows) || rows.length === 0) return null;
 
@@ -892,14 +993,37 @@ function calculateCompetitionAverageGoalsFromRows(rows: TableRowGeral[]): number
   let totalMatches = 0;
 
   for (const row of rows) {
-    const gf = parseNumberFromUnknown(row.GF);
-    const mp = parseNumberFromUnknown(row.MP);
-    if (gf > 0 && mp > 0) {
-      totalGoals += gf;
-      totalMatches += mp;
-    } else if (mp > 0) {
-      // mesmo com GF=0, conta a partida para média do campeonato
-      totalMatches += mp;
+    // Tentar usar campos Home/Away primeiro (estrutura do CSV)
+    const homeGf = parseNumberFromUnknown(row['Home GF']);
+    const homeMp = parseNumberFromUnknown(row['Home MP']);
+    const awayGf = parseNumberFromUnknown(row['Away GF']);
+    const awayMp = parseNumberFromUnknown(row['Away MP']);
+
+    if (homeMp > 0 || awayMp > 0) {
+      // Usar campos Home/Away
+      if (homeGf > 0 && homeMp > 0) {
+        totalGoals += homeGf;
+        totalMatches += homeMp;
+      } else if (homeMp > 0) {
+        totalMatches += homeMp;
+      }
+
+      if (awayGf > 0 && awayMp > 0) {
+        totalGoals += awayGf;
+        totalMatches += awayMp;
+      } else if (awayMp > 0) {
+        totalMatches += awayMp;
+      }
+    } else {
+      // Fallback para campos gerais (formato antigo - compatibilidade)
+      const gf = parseNumberFromUnknown(row.GF);
+      const mp = parseNumberFromUnknown(row.MP);
+      if (gf > 0 && mp > 0) {
+        totalGoals += gf;
+        totalMatches += mp;
+      } else if (mp > 0) {
+        totalMatches += mp;
+      }
     }
   }
 
@@ -972,7 +1096,66 @@ function calculateCompetitionStandardForAveragesFromRows(
 }
 
 /**
+ * Converte ChampionshipTeam para TableRowGeral com campos Home/Away
+ * Para time da casa: inclui campos Home do próprio time
+ * Para time visitante: inclui campos Away do próprio time
+ */
+function convertChampionshipTeamToTableRowGeral(
+  team: ChampionshipTeam,
+  isHome: boolean
+): TableRowGeral {
+  const baseRow: TableRowGeral = {
+    Rk: team.rk || '',
+    Squad: team.squad,
+  };
+
+  if (isHome) {
+    // Time da casa: usar campos Home
+    baseRow['Home MP'] = team.home_mp;
+    baseRow['Home W'] = team.home_w;
+    baseRow['Home D'] = team.home_d;
+    baseRow['Home L'] = team.home_l;
+    baseRow['Home GF'] = team.home_gf;
+    baseRow['Home GA'] = team.home_ga;
+    baseRow['Home GD'] = team.home_gd;
+    baseRow['Home Pts'] = team.home_pts;
+    baseRow['Home Pts/MP'] = team.home_pts_mp;
+    baseRow['Home xG'] = team.home_xg;
+    baseRow['Home xGA'] = team.home_xga;
+    baseRow['Home xGD'] = team.home_xgd;
+    baseRow['Home xGD/90'] = team.home_xgd_90;
+  } else {
+    // Time visitante: usar campos Away
+    baseRow['Away MP'] = team.away_mp;
+    baseRow['Away W'] = team.away_w;
+    baseRow['Away D'] = team.away_d;
+    baseRow['Away L'] = team.away_l;
+    baseRow['Away GF'] = team.away_gf;
+    baseRow['Away GA'] = team.away_ga;
+    baseRow['Away GD'] = team.away_gd;
+    baseRow['Away Pts'] = team.away_pts;
+    baseRow['Away Pts/MP'] = team.away_pts_mp;
+    baseRow['Away xG'] = team.away_xg;
+    baseRow['Away xGA'] = team.away_xga;
+    baseRow['Away xGD'] = team.away_xgd;
+    baseRow['Away xGD/90'] = team.away_xgd_90;
+  }
+
+  // Adicionar campos extras se existirem
+  if (team.extra_fields && typeof team.extra_fields === 'object') {
+    for (const [key, value] of Object.entries(team.extra_fields)) {
+      if (!baseRow.hasOwnProperty(key)) {
+        baseRow[key] = value;
+      }
+    }
+  }
+
+  return baseRow;
+}
+
+/**
  * Sincroniza dados completos da tabela do campeonato para ambas equipes
+ * Busca dados da tabela normalizada championship_teams (com campos Home/Away)
  * Retorna TODOS os campos da tabela para análise pela IA
  */
 export const syncTeamStatsFromTable = async (
@@ -988,21 +1171,23 @@ export const syncTeamStatsFromTable = async (
   competitionStandardForAvg?: CompetitionStandardForAverages | null;
 }> => {
   try {
-    // Carregar tabelas uma única vez (evita múltiplas chamadas ao Supabase/localStorage)
+    // Carregar times normalizados da tabela championship_teams
+    const teams = await loadChampionshipTeams(championshipId);
+
+    const homeTeam = teams.find((t) => t.squad === homeSquad) || null;
+    const awayTeam = teams.find((t) => t.squad === awaySquad) || null;
+
+    // Converter ChampionshipTeam para TableRowGeral
+    // Para time da casa: usar campos Home do próprio time
+    // Para time visitante: usar campos Away do próprio time
+    const homeData = homeTeam ? convertChampionshipTeamToTableRowGeral(homeTeam, true) : null;
+    const awayData = awayTeam ? convertChampionshipTeamToTableRowGeral(awayTeam, false) : null;
+
+    // Calcular média de gols do campeonato usando todos os times
+    const competitionAvg = calculateCompetitionAverageGoalsFromTeams(teams);
+
+    // Complemento (standard_for) - opcional (ainda usa championship_tables)
     const tables = await loadChampionshipTables(championshipId);
-
-    const geralTable = tables.find((t) => t.table_type === 'geral');
-    const geralRows = Array.isArray(geralTable?.table_data)
-      ? (geralTable?.table_data as TableRowGeral[])
-      : [];
-
-    const homeData = geralRows.find((row) => row.Squad === homeSquad) || null;
-    const awayData = geralRows.find((row) => row.Squad === awaySquad) || null;
-
-    // Média de gols do campeonato (derivada da tabela geral)
-    const competitionAvg = calculateCompetitionAverageGoalsFromRows(geralRows);
-
-    // Complemento (standard_for) - opcional
     const standardForTable = tables.find((t) => t.table_type === 'standard_for');
     const standardForRows = Array.isArray(standardForTable?.table_data)
       ? (standardForTable?.table_data as TableRowStandardFor[])
