@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Championship, ChampionshipTable, TableType, TableRowGeral } from '../types';
-import { Upload, X, Check, FileJson } from 'lucide-react';
+import { Upload, X, Check, FileJson, FileSpreadsheet } from 'lucide-react';
 import { animations } from '../utils/animations';
 import ChampionshipTableView from './ChampionshipTableView';
+import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -39,62 +40,81 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
     }
   }, [championship]);
 
-  const handleFileUpload = (tableType: TableType, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const jsonData = JSON.parse(content);
+  const handleFileUpload = async (tableType: TableType, file: File) => {
+    try {
+      let jsonData: TableRowGeral[];
 
-        if (!Array.isArray(jsonData)) {
+      // Verificar se é arquivo Excel
+      if (isExcelFile(file)) {
+        // Processar Excel
+        jsonData = await parseExcelToJson(file);
+      } else {
+        // Processar JSON
+        const reader = new FileReader();
+        const content = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => {
+            resolve(e.target?.result as string);
+          };
+          reader.onerror = () => {
+            reject(new Error('Erro ao ler arquivo'));
+          };
+          reader.readAsText(file);
+        });
+
+        const parsed = JSON.parse(content);
+        if (!Array.isArray(parsed)) {
           setErrors((prev) => ({
             ...prev,
             [tableType]: 'O JSON deve ser um array de objetos.',
           }));
           return;
         }
-
-        // Validar estrutura básica (chave de união por Squad)
-        if (jsonData.length > 0) {
-          const firstRow = jsonData[0] as Partial<TableRowGeral>;
-          if (!firstRow.Squad) {
-            setErrors((prev) => ({
-              ...prev,
-              [tableType]: 'O JSON deve conter objetos com o campo "Squad".',
-            }));
-            return;
-          }
-        }
-
-        const table: ChampionshipTable = {
-          id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
-          championship_id: championship?.id || '',
-          table_type: tableType,
-          table_name: TABLE_TYPES.find((t) => t.type === tableType)?.name || tableType,
-          table_data: jsonData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        setTables((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(tableType, table);
-          return newMap;
-        });
-
-        setErrors((prev => {
-          const newErrors = { ...prev };
-          delete newErrors[tableType];
-          return newErrors;
-        }));
-      } catch (error) {
-        setErrors((prev) => ({
-          ...prev,
-          [tableType]: 'Erro ao processar JSON. Verifique se o arquivo é válido.',
-        }));
+        jsonData = parsed as TableRowGeral[];
       }
-    };
-    reader.readAsText(file);
+
+      // Validar estrutura básica (chave de união por Squad)
+      if (jsonData.length > 0) {
+        const firstRow = jsonData[0] as Partial<TableRowGeral>;
+        if (!firstRow.Squad) {
+          setErrors((prev) => ({
+            ...prev,
+            [tableType]: 'O arquivo deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team").',
+          }));
+          return;
+        }
+      }
+
+      const table: ChampionshipTable = {
+        id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
+        championship_id: championship?.id || '',
+        table_type: tableType,
+        table_name: TABLE_TYPES.find((t) => t.type === tableType)?.name || tableType,
+        table_data: jsonData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setTables((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(tableType, table);
+        return newMap;
+      });
+
+      setErrors((prev => {
+        const newErrors = { ...prev };
+        delete newErrors[tableType];
+        return newErrors;
+      }));
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao processar arquivo. Verifique se o arquivo é válido.';
+      setErrors((prev) => ({
+        ...prev,
+        [tableType]: errorMessage,
+      }));
+    }
   };
 
   const handleJsonPaste = (tableType: TableType, jsonText: string) => {
@@ -289,36 +309,52 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                 <div className="space-y-3">
                   <div className="form-control">
                     <label className="label cursor-pointer">
-                      <span className="label-text">Upload de arquivo JSON</span>
+                      <span className="label-text font-bold flex items-center gap-2">
+                        Upload de arquivo Excel ou JSON
+                        <FileSpreadsheet className="w-4 h-4 text-primary" />
+                        <FileJson className="w-4 h-4 text-secondary" />
+                      </span>
                     </label>
                     <input
                       type="file"
-                      accept=".json,application/json"
+                      accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,.json,application/json"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
                           handleFileUpload(type, file);
                         }
                       }}
-                      className="file-input file-input-bordered w-full"
+                      className="file-input file-input-bordered w-full file-input-primary"
                     />
+                    <label className="label">
+                      <span className="label-text-alt text-xs opacity-70">
+                        <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls), CSV (.csv) ou JSON (.json)
+                        <br />
+                        <strong>Requisito:</strong> A planilha deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team")
+                      </span>
+                    </label>
                   </div>
 
                   <div className="divider">OU</div>
 
                   <div className="form-control">
                     <label className="label">
-                      <span className="label-text">Colar JSON diretamente</span>
+                      <span className="label-text font-bold">Colar JSON diretamente</span>
                     </label>
                     <textarea
                       className="textarea textarea-bordered h-32 font-mono text-sm"
-                      placeholder='[{"Squad": "Inter", "MP": "18", ...}]'
+                      placeholder='[{"Squad": "Inter", "MP": "18", "W": "12", ...}]'
                       onBlur={(e) => {
                         if (e.target.value.trim()) {
                           handleJsonPaste(type, e.target.value);
                         }
                       }}
                     />
+                    <label className="label">
+                      <span className="label-text-alt text-xs opacity-70">
+                        Cole aqui o conteúdo de um arquivo JSON válido
+                      </span>
+                    </label>
                   </div>
 
                   {hasError && <span className="text-error text-sm">{hasError}</span>}

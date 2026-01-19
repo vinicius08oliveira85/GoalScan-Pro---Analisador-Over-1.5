@@ -220,39 +220,18 @@ const MatchForm: React.FC<MatchFormProps> = ({
         return updated;
       });
 
-      // Verificar quais tabelas foram carregadas
-      const loadedTables = {
-        geral: !!(homeTableData && awayTableData),
-        home_away: !!(homeHomeAwayData && awayHomeAwayData),
-        standard_for: !!(homeStandardForData && awayStandardForData && competitionStandardForAvg),
-      };
-
-      const loadedCount = Object.values(loadedTables).filter(Boolean).length;
-      const missingTables = Object.entries(loadedTables)
-        .filter(([, loaded]) => !loaded)
-        .map(([name]) => name);
+      // Verificar se a tabela geral foi carregada
+      const hasGeralTable = !!(homeTableData && awayTableData);
 
       // Log detalhado para diagnóstico
       if (import.meta.env.DEV) {
         console.log('[MatchForm] Resultado da sincronização:', {
-          loadedTables,
-          loadedCount,
-          missingTables,
-          detalhes: {
-            geral: {
-              home: !!homeTableData,
-              away: !!awayTableData,
-            },
-            home_away: {
-              home: !!homeHomeAwayData,
-              away: !!awayHomeAwayData,
-            },
-            standard_for: {
-              home: !!homeStandardForData,
-              away: !!awayStandardForData,
-              competitionAvg: !!competitionStandardForAvg,
-            },
+          geral: {
+            home: !!homeTableData,
+            away: !!awayTableData,
+            loaded: hasGeralTable,
           },
+          competitionAvg,
         });
       }
 
@@ -266,19 +245,17 @@ const MatchForm: React.FC<MatchFormProps> = ({
         setTablesDiagnostic(updatedDiagnostic);
       }
 
-      // Mostrar feedback sobre tabelas carregadas
-      if (loadedCount === 3) {
-        // Todas as tabelas carregadas - sucesso silencioso
+      // Mostrar feedback sobre tabela carregada
+      if (hasGeralTable) {
+        // Tabela geral carregada - sucesso silencioso
         if (import.meta.env.DEV) {
-          console.log('[MatchForm] ✅ Todas as 3 tabelas carregadas com sucesso!');
-        }
-      } else if (loadedCount > 0) {
-        // Algumas tabelas carregadas - avisar sobre as faltantes
-        // NÃO mostrar erro, apenas aviso informativo (não é um erro crítico)
-        if (import.meta.env.DEV) {
-          console.warn('[MatchForm] ⚠️ Apenas', loadedCount, 'de 3 tabelas foram carregadas. Faltando:', missingTables.join(', '));
+          console.log('[MatchForm] ✅ Tabela geral carregada com sucesso!');
         }
       } else {
+        // Tabela geral não carregada
+        if (import.meta.env.DEV) {
+          console.warn('[MatchForm] ⚠️ Tabela geral não foi carregada.');
+        }
         // Nenhuma tabela carregada
         if (onError) {
           onError('Nenhuma tabela foi encontrada. Verifique se as equipes existem no campeonato e se as tabelas foram extraídas do fbref.com.');
@@ -372,13 +349,11 @@ const MatchForm: React.FC<MatchFormProps> = ({
       // Validar dados antes de enviar
       const validatedData = validateMatchData(formData);
       
-      // Log: verificar se todas as 3 tabelas foram preservadas após validação
+      // Log: verificar se a tabela geral foi preservada após validação
       if (import.meta.env.DEV) {
         console.log('[MatchForm] Dados após validação (validateMatchData):', {
-          tabelas: {
+          tabela: {
             geral: !!(validatedData.homeTableData && validatedData.awayTableData),
-            home_away: !!(validatedData.homeHomeAwayData && validatedData.awayHomeAwayData),
-            standard_for: !!(validatedData.homeStandardForData && validatedData.awayStandardForData && validatedData.competitionStandardForAvg),
           },
         });
       }
@@ -502,7 +477,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             >
               Sincronizar com Tabela
             </button>
-            {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.allTablesExist && (
+            {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.tables.geral?.exists && (
               <button
                 type="button"
                 onClick={() => setShowFbrefModal(true)}
@@ -514,171 +489,77 @@ const MatchForm: React.FC<MatchFormProps> = ({
             )}
           </div>
 
-          {/* Aviso Preventivo: Mostrar antes de sincronizar se tabelas não existem */}
-          {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.allTablesExist && (
+          {/* Aviso Preventivo: Mostrar antes de sincronizar se tabela geral não existe */}
+          {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.tables.geral?.exists && (
             <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-warning font-semibold text-sm mb-1">
-                    Algumas tabelas não foram extraídas ainda
+                    A tabela geral não foi extraída ainda
                   </p>
                   <p className="text-warning text-xs mb-2">
-                    Para análise completa, extraia todas as 3 tabelas do fbref.com primeiro.
+                    Para análise completa, extraia a tabela geral do fbref.com primeiro.
                   </p>
-                  <div className="text-xs opacity-80 space-y-1">
-                    {tablesDiagnostic.missingTables.map((tableType) => {
-                      const info = tablesDiagnostic.tables[tableType];
-                      return (
-                        <div key={tableType} className="flex items-center gap-2">
-                          <XCircle className="w-3 h-3" />
-                          <span>
-                            <strong>{tableType}</strong>: Não foi extraída ainda
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {tablesDiagnostic.emptyTables.map((tableType) => {
-                      const info = tablesDiagnostic.tables[tableType];
-                      return (
-                        <div key={tableType} className="flex items-center gap-2">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>
-                            <strong>{tableType}</strong>: Está vazia (extraia novamente)
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {tablesDiagnostic.missingTables.includes('geral') && (
+                    <div className="text-xs opacity-80">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="w-3 h-3" />
+                        <span>
+                          <strong>geral</strong>: Não foi extraída ainda
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {tablesDiagnostic.emptyTables.includes('geral') && (
+                    <div className="text-xs opacity-80">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>
+                          <strong>geral</strong>: Está vazia (extraia novamente)
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Status das Tabelas Sincronizadas: Mostrar após sincronização */}
+          {/* Status da Tabela Sincronizada: Mostrar após sincronização */}
           {formData.homeTableData && formData.awayTableData && (
             <div className="mt-4 p-4 bg-base-300/50 rounded-lg border border-base-content/10 space-y-3">
-              <div className="font-semibold text-sm mb-2">Status das Tabelas Sincronizadas:</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                {(['geral', 'home_away', 'standard_for'] as const).map((tableType) => {
-                  const hasTable = (() => {
-                    switch (tableType) {
-                      case 'geral':
-                        return !!(formData.homeTableData && formData.awayTableData);
-                      case 'home_away':
-                        return !!(formData.homeHomeAwayData && formData.awayHomeAwayData);
-                      case 'standard_for':
-                        return !!(formData.homeStandardForData && formData.awayStandardForData && formData.competitionStandardForAvg);
+              <div className="font-semibold text-sm mb-2">Status da Tabela Sincronizada:</div>
+              <div className="flex items-center gap-2 text-xs">
+                <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium">Geral</span>
+                  <span className="opacity-60 ml-1">(Alto impacto - base para cálculo)</span>
+                  {(() => {
+                    const tableInfo = tablesDiagnostic?.tables.geral;
+                    const squadIssue = tableInfo?.squadFound && (!tableInfo.squadFound.home || !tableInfo.squadFound.away);
+                    if (squadIssue) {
+                      return (
+                        <div className="text-warning text-xs mt-1">
+                          {!tableInfo.squadFound?.home && `Time da casa não encontrado`}
+                          {!tableInfo.squadFound?.home && !tableInfo.squadFound?.away && ' e '}
+                          {!tableInfo.squadFound?.away && `Time visitante não encontrado`}
+                          {tableInfo.availableSquads && tableInfo.availableSquads.length > 0 && (
+                            <div className="opacity-70 mt-1">
+                              Squads disponíveis: {tableInfo.availableSquads.slice(0, 3).join(', ')}
+                              {tableInfo.availableSquads.length > 3 && '...'}
+                            </div>
+                          )}
+                        </div>
+                      );
                     }
-                  })();
-
-                  const tableInfo = tablesDiagnostic?.tables[tableType];
-                  const squadIssue = tableInfo?.squadFound && (!tableInfo.squadFound.home || !tableInfo.squadFound.away);
-
-                  const getTableLabel = () => {
-                    switch (tableType) {
-                      case 'geral':
-                        return { name: 'Geral', impact: '(Alto impacto - base para cálculo)' };
-                      case 'home_away':
-                        return { name: 'Home/Away', impact: '(Alto - desempenho específico casa/fora)' };
-                      case 'standard_for':
-                        return { name: 'Standard For', impact: '(Médio-Alto - ajuste ataque/ritmo ±8%)' };
-                    }
-                  };
-
-                  const label = getTableLabel();
-
-                  return (
-                    <div key={tableType} className="flex items-center gap-2">
-                      {hasTable ? (
-                        <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-warning flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium">{label.name}</span>
-                        <span className="opacity-60 ml-1">{label.impact}</span>
-                        {squadIssue && (
-                          <div className="text-warning text-xs mt-1">
-                            {!tableInfo.squadFound?.home && `Time da casa não encontrado`}
-                            {!tableInfo.squadFound?.home && !tableInfo.squadFound?.away && ' e '}
-                            {!tableInfo.squadFound?.away && `Time visitante não encontrado`}
-                            {tableInfo.availableSquads && tableInfo.availableSquads.length > 0 && (
-                              <div className="opacity-70 mt-1">
-                                Squads disponíveis: {tableInfo.availableSquads.slice(0, 3).join(', ')}
-                                {tableInfo.availableSquads.length > 3 && '...'}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    return null;
+                  })()}
+                </div>
               </div>
-              {(() => {
-                const hasGeral = !!(formData.homeTableData && formData.awayTableData);
-                const hasHomeAway = !!(formData.homeHomeAwayData && formData.awayHomeAwayData);
-                const hasStandardFor = !!(formData.homeStandardForData && formData.awayStandardForData && formData.competitionStandardForAvg);
-                const allTablesPresent = hasGeral && hasHomeAway && hasStandardFor;
-                
-                if (allTablesPresent) {
-                  return (
-                    <div className="mt-2 p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                      ✅ Todas as 3 tabelas carregadas! Análise com máxima precisão.
-                    </div>
-                  );
-                }
-
-                const missingTables = [
-                  !hasGeral && 'geral',
-                  !hasHomeAway && 'home_away',
-                  !hasStandardFor && 'standard_for',
-                ].filter(Boolean) as string[];
-
-                // Verificar se tabelas não existem no banco ou se Squads não foram encontrados
-                const diagnostic = tablesDiagnostic;
-                const missingInDb = diagnostic?.missingTables || [];
-                const emptyInDb = diagnostic?.emptyTables || [];
-                const squadIssues = diagnostic?.tables && Object.entries(diagnostic.tables).some(
-                  ([type, info]) => {
-                    if (!info.exists || !info.hasData) return false;
-                    return info.squadFound && (!info.squadFound.home || !info.squadFound.away);
-                  }
-                );
-
-                let message = '';
-                let suggestion = '';
-
-                if (missingInDb.length > 0 && missingInDb.some(t => missingTables.includes(t))) {
-                  message = `As tabelas ${missingInDb.filter(t => missingTables.includes(t)).join(', ')} não foram extraídas ainda.`;
-                  suggestion = 'Clique em "Extrair Tabelas do FBref.com" para extrair todas as tabelas.';
-                } else if (emptyInDb.length > 0 && emptyInDb.some(t => missingTables.includes(t))) {
-                  message = `As tabelas ${emptyInDb.filter(t => missingTables.includes(t)).join(', ')} estão vazias.`;
-                  suggestion = 'Extraia novamente do fbref.com.';
-                } else if (squadIssues) {
-                  message = 'Alguns times não foram encontrados nas tabelas.';
-                  suggestion = 'Verifique se os nomes dos times (Squads) estão corretos e correspondem aos nomes nas tabelas.';
-                } else {
-                  message = 'Algumas tabelas estão faltando.';
-                  suggestion = 'Para análise completa com todas as 3 tabelas, extraia todas do fbref.com.';
-                }
-
-                return (
-                  <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold mb-1">{message}</p>
-                        <p className="opacity-80 mb-1">{suggestion}</p>
-                        <p className="opacity-70">
-                          Tabelas faltando: {missingTables.join(', ') || 'Nenhuma'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
+              <div className="mt-2 p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
+                ✅ Tabela geral carregada! Análise pronta.
+              </div>
             </div>
           )}
         </div>

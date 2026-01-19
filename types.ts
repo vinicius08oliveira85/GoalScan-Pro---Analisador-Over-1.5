@@ -307,30 +307,64 @@ export interface SavedAnalysis {
 // Tipos de tabela de campeonato
 export type TableType = 'geral' | 'home_away' | 'standard_for' | 'passing_for' | 'gca_for';
 
-// Interface para linha da tabela "Geral" (traduzida para PT-BR)
+// Interface para linha da tabela "Geral" baseada no CSV Bundesliga.csv
+// Estrutura com estatísticas separadas para Casa (Home) e Fora (Away)
 export interface TableRowGeral {
   Rk: string; // Classificação
   Squad: string; // Equipe
-  MP: string; // Partidas Jogadas
-  W: string; // Vitórias
-  D: string; // Empates
-  L: string; // Derrotas
-  GF: string; // Gols a Favor
-  GA: string; // Gols Contra
-  GD: string; // Saldo de Gols
-  Pts: string; // Pontos
-  'Pts/MP': string; // Pontos por Partida
-  xG: string; // Gols Esperados
-  xGA: string; // Gols Esperados Permitidos
-  xGD: string; // Diferença de Gols Esperados
-  'xGD/90': string; // Diferença de xG por 90 Minutos
-  'Last 5': string; // Últimos 5 Jogos
-  Attendance: string; // Público por Jogo
-  'Top Team Scorer_link'?: string;
-  'Top Team Scorer': string; // Artilheiro da Equipe
-  'Goalkeeper_link'?: string;
-  Goalkeeper: string; // Goleiro
-  Notes: string; // Observações
+  
+  // Estatísticas Casa (Home)
+  'Home MP'?: string; // Partidas em Casa
+  'Home W'?: string; // Vitórias em Casa
+  'Home D'?: string; // Empates em Casa
+  'Home L'?: string; // Derrotas em Casa
+  'Home GF'?: string; // Gols a Favor em Casa
+  'Home GA'?: string; // Gols Contra em Casa
+  'Home GD'?: string; // Saldo de Gols em Casa
+  'Home Pts'?: string; // Pontos em Casa
+  'Home Pts/MP'?: string; // Pontos por Partida em Casa
+  'Home xG'?: string; // Expected Goals em Casa
+  'Home xGA'?: string; // Expected Goals Against em Casa
+  'Home xGD'?: string; // Expected Goals Difference em Casa
+  'Home xGD/90'?: string; // Expected Goals Difference por 90min em Casa
+  
+  // Estatísticas Fora (Away)
+  'Away MP'?: string; // Partidas Fora
+  'Away W'?: string; // Vitórias Fora
+  'Away D'?: string; // Empates Fora
+  'Away L'?: string; // Derrotas Fora
+  'Away GF'?: string; // Gols a Favor Fora
+  'Away GA'?: string; // Gols Contra Fora
+  'Away GD'?: string; // Saldo de Gols Fora
+  'Away Pts'?: string; // Pontos Fora
+  'Away Pts/MP'?: string; // Pontos por Partida Fora
+  'Away xG'?: string; // Expected Goals Fora
+  'Away xGA'?: string; // Expected Goals Against Fora
+  'Away xGD'?: string; // Expected Goals Difference Fora
+  'Away xGD/90'?: string; // Expected Goals Difference por 90min Fora
+  
+  // Campos opcionais para compatibilidade com formatos antigos
+  MP?: string; // Partidas Jogadas (geral - formato antigo)
+  W?: string; // Vitórias (geral - formato antigo)
+  D?: string; // Empates (geral - formato antigo)
+  L?: string; // Derrotas (geral - formato antigo)
+  GF?: string; // Gols a Favor (geral - formato antigo)
+  GA?: string; // Gols Contra (geral - formato antigo)
+  GD?: string; // Saldo de Gols (geral - formato antigo)
+  Pts?: string; // Pontos (geral - formato antigo)
+  'Pts/MP'?: string; // Pontos por Partida (geral - formato antigo)
+  xG?: string; // xG (geral - formato antigo)
+  xGA?: string; // xGA (geral - formato antigo)
+  xGD?: string; // xGD (geral - formato antigo)
+  'xGD/90'?: string; // xGD/90 (geral - formato antigo)
+  'Last 5'?: string; // Últimos 5 Jogos
+  Attendance?: string; // Público por Jogo
+  'Top Team Scorer'?: string; // Artilheiro da Equipe
+  Goalkeeper?: string; // Goleiro
+  Notes?: string; // Observações
+  
+  // Permitir campos extras dinâmicos
+  [key: string]: unknown;
 }
 
 // Interface mínima para linha da tabela complementar (Standard - For)
@@ -406,6 +440,55 @@ export interface Championship {
   id: string;
   nome: string;
   fbrefUrl?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  uploaded_at?: string; // Data do último upload/atualização da tabela de dados
+}
+
+// Dados normalizados de um time do campeonato
+// Baseado na estrutura do CSV Bundesliga.csv com campos Home e Away
+export interface ChampionshipTeam {
+  id: string;
+  championship_id: string;
+  squad: string; // Nome do time
+  table_name: string; // Nome da tabela original (ex: Bundesliga.csv)
+  
+  // Campo básico
+  rk?: string; // Classificação
+  
+  // Estatísticas Casa (Home)
+  home_mp?: string; // Partidas em Casa
+  home_w?: string; // Vitórias em Casa
+  home_d?: string; // Empates em Casa
+  home_l?: string; // Derrotas em Casa
+  home_gf?: string; // Gols a Favor em Casa
+  home_ga?: string; // Gols Contra em Casa
+  home_gd?: string; // Saldo de Gols em Casa
+  home_pts?: string; // Pontos em Casa
+  home_pts_mp?: string; // Pontos por Partida em Casa
+  home_xg?: string; // Expected Goals em Casa
+  home_xga?: string; // Expected Goals Against em Casa
+  home_xgd?: string; // Expected Goals Difference em Casa
+  home_xgd_90?: string; // Expected Goals Difference por 90min em Casa
+  
+  // Estatísticas Fora (Away)
+  away_mp?: string; // Partidas Fora
+  away_w?: string; // Vitórias Fora
+  away_d?: string; // Empates Fora
+  away_l?: string; // Derrotas Fora
+  away_gf?: string; // Gols a Favor Fora
+  away_ga?: string; // Gols Contra Fora
+  away_gd?: string; // Saldo de Gols Fora
+  away_pts?: string; // Pontos Fora
+  away_pts_mp?: string; // Pontos por Partida Fora
+  away_xg?: string; // Expected Goals Fora
+  away_xga?: string; // Expected Goals Against Fora
+  away_xgd?: string; // Expected Goals Difference Fora
+  away_xgd_90?: string; // Expected Goals Difference por 90min Fora
+  
+  // Campo para campos extras de outros campeonatos
+  extra_fields?: Record<string, unknown>; // Campos extras em formato JSONB
+  
   created_at?: string;
   updated_at?: string;
 }
