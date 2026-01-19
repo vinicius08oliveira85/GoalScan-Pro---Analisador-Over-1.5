@@ -35,24 +35,40 @@ export interface ChampionshipTeamRow {
   squad: string;
   table_name: string;
   rk?: string;
-  mp?: string;
-  w?: string;
-  d?: string;
-  l?: string;
-  gf?: string;
-  ga?: string;
-  gd?: string;
-  pts?: string;
-  pts_mp?: string;
-  xg?: string;
-  xga?: string;
-  xgd?: string;
-  xgd_90?: string;
-  last_5?: string;
-  attendance?: string;
-  top_team_scorer?: string;
-  goalkeeper?: string;
-  notes?: string;
+  
+  // Campos Home
+  home_mp?: string;
+  home_w?: string;
+  home_d?: string;
+  home_l?: string;
+  home_gf?: string;
+  home_ga?: string;
+  home_gd?: string;
+  home_pts?: string;
+  home_pts_mp?: string;
+  home_xg?: string;
+  home_xga?: string;
+  home_xgd?: string;
+  home_xgd_90?: string;
+  
+  // Campos Away
+  away_mp?: string;
+  away_w?: string;
+  away_d?: string;
+  away_l?: string;
+  away_gf?: string;
+  away_ga?: string;
+  away_gd?: string;
+  away_pts?: string;
+  away_pts_mp?: string;
+  away_xg?: string;
+  away_xga?: string;
+  away_xgd?: string;
+  away_xgd_90?: string;
+  
+  // Campo para campos extras
+  extra_fields?: Record<string, unknown>;
+  
   created_at?: string;
   updated_at?: string;
 }
@@ -814,13 +830,31 @@ export const calculateCompetitionAverageGoals = async (
     let totalMatches = 0; // Soma de todas as partidas jogadas (MP)
 
     for (const row of rows) {
-      // Converter GF e MP para números
-      const gf = parseFloat(row.GF || '0');
-      const mp = parseFloat(row.MP || '0');
+      // Tentar usar campos Home/Away primeiro (estrutura do CSV)
+      const homeGf = parseFloat(row['Home GF'] || '0');
+      const homeMp = parseFloat(row['Home MP'] || '0');
+      const awayGf = parseFloat(row['Away GF'] || '0');
+      const awayMp = parseFloat(row['Away MP'] || '0');
+      
+      // Se tiver campos Home/Away, usar eles
+      if (!isNaN(homeMp) && homeMp > 0) {
+        totalGoals += homeGf;
+        totalMatches += homeMp;
+      }
+      if (!isNaN(awayMp) && awayMp > 0) {
+        totalGoals += awayGf;
+        totalMatches += awayMp;
+      }
+      
+      // Se não tiver campos Home/Away, tentar campos gerais (formato antigo)
+      if (isNaN(homeMp) && isNaN(awayMp)) {
+        const gf = parseFloat(row.GF || '0');
+        const mp = parseFloat(row.MP || '0');
 
-      if (!isNaN(gf) && !isNaN(mp) && mp > 0) {
-        totalGoals += gf;
-        totalMatches += mp;
+        if (!isNaN(gf) && !isNaN(mp) && mp > 0) {
+          totalGoals += gf;
+          totalMatches += mp;
+        }
       }
     }
 
@@ -1002,40 +1036,84 @@ export const syncTeamStatsFromTable = async (
 };
 
 /**
- * Converte dados do JSON para formato normalizado
+ * Converte dados do JSON/CSV para formato normalizado
+ * Suporta estrutura do CSV (Home/Away) e formato antigo (geral)
  */
 function normalizeTeamData(
   championshipId: string,
   tableName: string,
   row: TableRowGeral
 ): ChampionshipTeam {
-  return {
+  // Separar campos conhecidos de campos extras
+  const knownFields = new Set([
+    'Rk', 'Squad',
+    // Campos Home
+    'Home MP', 'Home W', 'Home D', 'Home L', 'Home GF', 'Home GA', 'Home GD',
+    'Home Pts', 'Home Pts/MP', 'Home xG', 'Home xGA', 'Home xGD', 'Home xGD/90',
+    // Campos Away
+    'Away MP', 'Away W', 'Away D', 'Away L', 'Away GF', 'Away GA', 'Away GD',
+    'Away Pts', 'Away Pts/MP', 'Away xG', 'Away xGA', 'Away xGD', 'Away xGD/90',
+    // Campos gerais (formato antigo - para compatibilidade)
+    'MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts', 'Pts/MP', 'xG', 'xGA', 'xGD', 'xGD/90',
+    'Last 5', 'Attendance', 'Top Team Scorer', 'Goalkeeper', 'Notes',
+    // Campos de link (ignorados)
+    'Top Team Scorer_link', 'Goalkeeper_link',
+  ]);
+
+  // Coletar campos extras (que não são conhecidos)
+  const extraFields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (!knownFields.has(key) && key !== 'Squad' && key !== 'Rk') {
+      extraFields[key] = value;
+    }
+  }
+
+  // Criar objeto normalizado
+  const normalized: ChampionshipTeam = {
     id: `${championshipId}_${row.Squad}_${Date.now()}`,
     championship_id: championshipId,
     squad: row.Squad,
     table_name: tableName,
     rk: row.Rk,
-    mp: row.MP,
-    w: row.W,
-    d: row.D,
-    l: row.L,
-    gf: row.GF,
-    ga: row.GA,
-    gd: row.GD,
-    pts: row.Pts,
-    pts_mp: row['Pts/MP'],
-    xg: row.xG,
-    xga: row.xGA,
-    xgd: row.xGD,
-    xgd_90: row['xGD/90'],
-    last_5: row['Last 5'],
-    attendance: row.Attendance,
-    top_team_scorer: row['Top Team Scorer'],
-    goalkeeper: row.Goalkeeper,
-    notes: row.Notes,
+    
+    // Campos Home (prioridade: usar campos Home do CSV)
+    home_mp: row['Home MP'] || undefined,
+    home_w: row['Home W'] || undefined,
+    home_d: row['Home D'] || undefined,
+    home_l: row['Home L'] || undefined,
+    home_gf: row['Home GF'] || undefined,
+    home_ga: row['Home GA'] || undefined,
+    home_gd: row['Home GD'] || undefined,
+    home_pts: row['Home Pts'] || undefined,
+    home_pts_mp: row['Home Pts/MP'] || undefined,
+    home_xg: row['Home xG'] || undefined,
+    home_xga: row['Home xGA'] || undefined,
+    home_xgd: row['Home xGD'] || undefined,
+    home_xgd_90: row['Home xGD/90'] || undefined,
+    
+    // Campos Away
+    away_mp: row['Away MP'] || undefined,
+    away_w: row['Away W'] || undefined,
+    away_d: row['Away D'] || undefined,
+    away_l: row['Away L'] || undefined,
+    away_gf: row['Away GF'] || undefined,
+    away_ga: row['Away GA'] || undefined,
+    away_gd: row['Away GD'] || undefined,
+    away_pts: row['Away Pts'] || undefined,
+    away_pts_mp: row['Away Pts/MP'] || undefined,
+    away_xg: row['Away xG'] || undefined,
+    away_xga: row['Away xGA'] || undefined,
+    away_xgd: row['Away xGD'] || undefined,
+    away_xgd_90: row['Away xGD/90'] || undefined,
+    
+    // Campos extras (se houver)
+    extra_fields: Object.keys(extraFields).length > 0 ? extraFields : undefined,
+    
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
+
+  return normalized;
 }
 
 /**
@@ -1163,24 +1241,40 @@ export const loadChampionshipTeams = async (
       squad: row.squad,
       table_name: row.table_name,
       rk: row.rk,
-      mp: row.mp,
-      w: row.w,
-      d: row.d,
-      l: row.l,
-      gf: row.gf,
-      ga: row.ga,
-      gd: row.gd,
-      pts: row.pts,
-      pts_mp: row.pts_mp,
-      xg: row.xg,
-      xga: row.xga,
-      xgd: row.xgd,
-      xgd_90: row.xgd_90,
-      last_5: row.last_5,
-      attendance: row.attendance,
-      top_team_scorer: row.top_team_scorer,
-      goalkeeper: row.goalkeeper,
-      notes: row.notes,
+      
+      // Campos Home
+      home_mp: row.home_mp,
+      home_w: row.home_w,
+      home_d: row.home_d,
+      home_l: row.home_l,
+      home_gf: row.home_gf,
+      home_ga: row.home_ga,
+      home_gd: row.home_gd,
+      home_pts: row.home_pts,
+      home_pts_mp: row.home_pts_mp,
+      home_xg: row.home_xg,
+      home_xga: row.home_xga,
+      home_xgd: row.home_xgd,
+      home_xgd_90: row.home_xgd_90,
+      
+      // Campos Away
+      away_mp: row.away_mp,
+      away_w: row.away_w,
+      away_d: row.away_d,
+      away_l: row.away_l,
+      away_gf: row.away_gf,
+      away_ga: row.away_ga,
+      away_gd: row.away_gd,
+      away_pts: row.away_pts,
+      away_pts_mp: row.away_pts_mp,
+      away_xg: row.away_xg,
+      away_xga: row.away_xga,
+      away_xgd: row.away_xgd,
+      away_xgd_90: row.away_xgd_90,
+      
+      // Campos extras
+      extra_fields: row.extra_fields,
+      
       created_at: row.created_at,
       updated_at: row.updated_at,
     }));

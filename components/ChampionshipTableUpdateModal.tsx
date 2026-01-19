@@ -213,7 +213,7 @@ export default function ChampionshipTableUpdateModal({
               </div>
               <input
                 type="file"
-                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/json,.json"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/json,.json"
                 className="file-input file-input-bordered w-full file-input-primary"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -221,7 +221,7 @@ export default function ChampionshipTableUpdateModal({
                 }}
               />
               <div className="text-xs opacity-70">
-                <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls) ou JSON (.json)
+                <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls), CSV (.csv) ou JSON (.json)
                 <br />
                 <strong>Requisito:</strong> Deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team")
                 <br />

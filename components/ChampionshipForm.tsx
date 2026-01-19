@@ -291,7 +291,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                     </label>
                     <input
                       type="file"
-                      accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,.json,application/json"
+                      accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,.json,application/json"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -302,7 +302,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                     />
                     <label className="label">
                       <span className="label-text-alt text-xs opacity-70">
-                        <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls) ou JSON (.json)
+                        <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls), CSV (.csv) ou JSON (.json)
                         <br />
                         <strong>Requisito:</strong> A planilha deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team")
                       </span>
