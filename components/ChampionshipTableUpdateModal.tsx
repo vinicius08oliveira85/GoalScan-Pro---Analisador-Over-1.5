@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileJson, X, Save } from 'lucide-react';
+import { Upload, FileJson, X, Save, FileSpreadsheet } from 'lucide-react';
 import type { Championship, ChampionshipTable, TableType } from '../types';
 import { animations } from '../utils/animations';
+import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
 
 type TableMeta = { type: TableType; name: string };
 
@@ -64,17 +65,43 @@ export default function ChampionshipTableUpdateModal({
 
   const activeExisting = existingByType.get(activeType) || null;
 
-  const handleFileUpload = (type: TableType, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = (e.target?.result as string) || '';
-      setJsonTextByType((prev) => ({ ...prev, [type]: content }));
+  const handleFileUpload = async (type: TableType, file: File) => {
+    try {
+      let jsonData: unknown;
 
-      const parsed = safeJsonParse(content);
-      const err = validateTableJson(parsed);
+      // Verificar se é arquivo Excel
+      if (isExcelFile(file)) {
+        // Processar Excel
+        const excelData = await parseExcelToJson(file);
+        // Converter para JSON string para exibir no textarea
+        jsonData = excelData;
+        setJsonTextByType((prev) => ({ ...prev, [type]: JSON.stringify(excelData, null, 2) }));
+      } else {
+        // Processar JSON
+        const reader = new FileReader();
+        const content = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => {
+            resolve((e.target?.result as string) || '');
+          };
+          reader.onerror = () => {
+            reject(new Error('Erro ao ler arquivo'));
+          };
+          reader.readAsText(file);
+        });
+
+        setJsonTextByType((prev) => ({ ...prev, [type]: content }));
+        jsonData = safeJsonParse(content);
+      }
+
+      const err = validateTableJson(jsonData);
       setErrorByType((prev) => ({ ...prev, [type]: err }));
-    };
-    reader.readAsText(file);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao processar arquivo. Verifique se o arquivo é válido.';
+      setErrorByType((prev) => ({ ...prev, [type]: errorMessage }));
+    }
   };
 
   const handleUpdate = async () => {
@@ -179,10 +206,14 @@ export default function ChampionshipTableUpdateModal({
           {/* Upload */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="custom-card p-4 space-y-3">
-              <div className="font-bold">Upload do arquivo JSON</div>
+              <div className="font-bold flex items-center gap-2">
+                Upload do arquivo
+                <FileJson className="w-4 h-4" />
+                <FileSpreadsheet className="w-4 h-4" />
+              </div>
               <input
                 type="file"
-                accept="application/json,.json"
+                accept="application/json,.json,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 className="file-input file-input-bordered w-full"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -190,7 +221,9 @@ export default function ChampionshipTableUpdateModal({
                 }}
               />
               <div className="text-xs opacity-70">
-                Requisito: JSON deve ser um array e conter o campo <code>Squad</code>.
+                Formatos aceitos: JSON, Excel (.xlsx, .xls)
+                <br />
+                Requisito: Deve ser um array e conter o campo <code>Squad</code>.
               </div>
             </div>
 

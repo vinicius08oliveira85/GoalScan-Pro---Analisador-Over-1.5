@@ -147,11 +147,26 @@ const ChampionshipsScreen: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{championship.nome}</h3>
-                    <p className="text-sm text-base-content/60">
-                      {championship.created_at
-                        ? new Date(championship.created_at).toLocaleDateString('pt-BR')
-                        : 'Data não disponível'}
-                    </p>
+                    <div className="text-sm text-base-content/60 space-y-0.5">
+                      <p>
+                        Criado em:{' '}
+                        {championship.created_at
+                          ? new Date(championship.created_at).toLocaleDateString('pt-BR')
+                          : 'Data não disponível'}
+                      </p>
+                      {championship.uploaded_at && (
+                        <p className="text-xs">
+                          Último upload:{' '}
+                          {new Date(championship.uploaded_at).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -286,6 +286,39 @@ export interface Championship {
   nome: string;
   created_at?: string;
   updated_at?: string;
+  uploaded_at?: string; // Data do último upload/atualização da tabela de dados
+}
+
+// Dados normalizados de um time do campeonato
+export interface ChampionshipTeam {
+  id: string;
+  championship_id: string;
+  squad: string; // Nome do time
+  table_name: string; // Nome da tabela original (ex: results2025-2026201_overall)
+  
+  // Colunas do JSON normalizadas
+  rk?: string; // Classificação
+  mp?: string; // Partidas Jogadas
+  w?: string; // Vitórias
+  d?: string; // Empates
+  l?: string; // Derrotas
+  gf?: string; // Gols a Favor
+  ga?: string; // Gols Contra
+  gd?: string; // Saldo de Gols
+  pts?: string; // Pontos
+  pts_mp?: string; // Pontos por Partida
+  xg?: string; // xG
+  xga?: string; // xGA
+  xgd?: string; // xGD
+  xgd_90?: string; // xGD/90
+  last_5?: string; // Últimos 5 jogos
+  attendance?: string; // Público
+  top_team_scorer?: string; // Artilheiro
+  goalkeeper?: string; // Goleiro
+  notes?: string; // Observações
+  
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Dados de uma tabela de campeonato

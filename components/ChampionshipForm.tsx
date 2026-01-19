@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Championship, ChampionshipTable, TableType, TableRowGeral } from '../types';
-import { Upload, X, Check, FileJson } from 'lucide-react';
+import { Upload, X, Check, FileJson, FileSpreadsheet } from 'lucide-react';
 import { animations } from '../utils/animations';
 import ChampionshipTableView from './ChampionshipTableView';
+import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -35,62 +36,81 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
     }
   }, [championship]);
 
-  const handleFileUpload = (tableType: TableType, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const jsonData = JSON.parse(content);
+  const handleFileUpload = async (tableType: TableType, file: File) => {
+    try {
+      let jsonData: TableRowGeral[];
 
-        if (!Array.isArray(jsonData)) {
+      // Verificar se é arquivo Excel
+      if (isExcelFile(file)) {
+        // Processar Excel
+        jsonData = await parseExcelToJson(file);
+      } else {
+        // Processar JSON
+        const reader = new FileReader();
+        const content = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => {
+            resolve(e.target?.result as string);
+          };
+          reader.onerror = () => {
+            reject(new Error('Erro ao ler arquivo'));
+          };
+          reader.readAsText(file);
+        });
+
+        const parsed = JSON.parse(content);
+        if (!Array.isArray(parsed)) {
           setErrors((prev) => ({
             ...prev,
             [tableType]: 'O JSON deve ser um array de objetos.',
           }));
           return;
         }
-
-        // Validar estrutura básica (chave de união por Squad)
-        if (jsonData.length > 0) {
-          const firstRow = jsonData[0] as Partial<TableRowGeral>;
-          if (!firstRow.Squad) {
-            setErrors((prev) => ({
-              ...prev,
-              [tableType]: 'O JSON deve conter objetos com o campo "Squad".',
-            }));
-            return;
-          }
-        }
-
-        const table: ChampionshipTable = {
-          id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
-          championship_id: championship?.id || '',
-          table_type: tableType,
-          table_name: TABLE_TYPES.find((t) => t.type === tableType)?.name || tableType,
-          table_data: jsonData,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        setTables((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(tableType, table);
-          return newMap;
-        });
-
-        setErrors((prev => {
-          const newErrors = { ...prev };
-          delete newErrors[tableType];
-          return newErrors;
-        }));
-      } catch (error) {
-        setErrors((prev) => ({
-          ...prev,
-          [tableType]: 'Erro ao processar JSON. Verifique se o arquivo é válido.',
-        }));
+        jsonData = parsed as TableRowGeral[];
       }
-    };
-    reader.readAsText(file);
+
+      // Validar estrutura básica (chave de união por Squad)
+      if (jsonData.length > 0) {
+        const firstRow = jsonData[0] as Partial<TableRowGeral>;
+        if (!firstRow.Squad) {
+          setErrors((prev) => ({
+            ...prev,
+            [tableType]: 'O arquivo deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team").',
+          }));
+          return;
+        }
+      }
+
+      const table: ChampionshipTable = {
+        id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
+        championship_id: championship?.id || '',
+        table_type: tableType,
+        table_name: TABLE_TYPES.find((t) => t.type === tableType)?.name || tableType,
+        table_data: jsonData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setTables((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(tableType, table);
+        return newMap;
+      });
+
+      setErrors((prev => {
+        const newErrors = { ...prev };
+        delete newErrors[tableType];
+        return newErrors;
+      }));
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao processar arquivo. Verifique se o arquivo é válido.';
+      setErrors((prev) => ({
+        ...prev,
+        [tableType]: errorMessage,
+      }));
+    }
   };
 
   const handleJsonPaste = (tableType: TableType, jsonText: string) => {

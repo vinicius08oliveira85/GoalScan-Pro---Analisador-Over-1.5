@@ -1,6 +1,7 @@
 import {
   Championship,
   ChampionshipTable,
+  ChampionshipTeam,
   CompetitionStandardForAverages,
   TableType,
   TableRowGeral,
@@ -15,6 +16,7 @@ export interface ChampionshipRow {
   nome: string;
   created_at?: string;
   updated_at?: string;
+  uploaded_at?: string;
 }
 
 export interface ChampionshipTableRow {
@@ -23,6 +25,34 @@ export interface ChampionshipTableRow {
   table_type: TableType;
   table_name: string;
   table_data: unknown;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChampionshipTeamRow {
+  id: string;
+  championship_id: string;
+  squad: string;
+  table_name: string;
+  rk?: string;
+  mp?: string;
+  w?: string;
+  d?: string;
+  l?: string;
+  gf?: string;
+  ga?: string;
+  gd?: string;
+  pts?: string;
+  pts_mp?: string;
+  xg?: string;
+  xga?: string;
+  xgd?: string;
+  xgd_90?: string;
+  last_5?: string;
+  attendance?: string;
+  top_team_scorer?: string;
+  goalkeeper?: string;
+  notes?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -288,6 +318,7 @@ export const loadChampionships = async (): Promise<Championship[]> => {
       nome: row.nome,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      uploaded_at: row.uploaded_at,
     }));
 
     if (import.meta.env.DEV) {
@@ -352,6 +383,7 @@ export const loadChampionship = async (id: string): Promise<Championship | null>
         nome: data.nome,
         created_at: data.created_at,
         updated_at: data.updated_at,
+        uploaded_at: (data as { uploaded_at?: string }).uploaded_at,
       };
     }, `Carregamento de campeonato ${id}`);
 
@@ -421,6 +453,7 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
       nome: result.nome,
       created_at: result.created_at,
       updated_at: result.updated_at,
+      uploaded_at: result.uploaded_at,
     };
 
     // Sincronizar com localStorage
@@ -650,6 +683,25 @@ export const saveChampionshipTable = async (
       created_at: result.created_at,
       updated_at: result.updated_at,
     };
+
+    // Se for tabela do tipo 'geral', também salvar na tabela normalizada
+    if (table.table_type === 'geral' && Array.isArray(table.table_data)) {
+      try {
+        await saveChampionshipTeamsNormalized(
+          table.championship_id,
+          table.table_name,
+          table.table_data as TableRowGeral[]
+        );
+        
+        // Atualizar uploaded_at no campeonato
+        await updateChampionshipUploadedAt(table.championship_id);
+      } catch (error) {
+        // Log mas não falhar o salvamento da tabela JSONB
+        if (import.meta.env.DEV) {
+          logger.warn('[ChampionshipService] Erro ao salvar dados normalizados:', error);
+        }
+      }
+    }
 
     // Sincronizar com localStorage
     const tables = await loadChampionshipTables(table.championship_id);
@@ -946,6 +998,197 @@ export const syncTeamStatsFromTable = async (
       awayStandardForData: null,
       competitionStandardForAvg: null,
     };
+  }
+};
+
+/**
+ * Converte dados do JSON para formato normalizado
+ */
+function normalizeTeamData(
+  championshipId: string,
+  tableName: string,
+  row: TableRowGeral
+): ChampionshipTeam {
+  return {
+    id: `${championshipId}_${row.Squad}_${Date.now()}`,
+    championship_id: championshipId,
+    squad: row.Squad,
+    table_name: tableName,
+    rk: row.Rk,
+    mp: row.MP,
+    w: row.W,
+    d: row.D,
+    l: row.L,
+    gf: row.GF,
+    ga: row.GA,
+    gd: row.GD,
+    pts: row.Pts,
+    pts_mp: row['Pts/MP'],
+    xg: row.xG,
+    xga: row.xGA,
+    xgd: row.xGD,
+    xgd_90: row['xGD/90'],
+    last_5: row['Last 5'],
+    attendance: row.Attendance,
+    top_team_scorer: row['Top Team Scorer'],
+    goalkeeper: row.Goalkeeper,
+    notes: row.Notes,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Salva dados normalizados dos times na tabela championship_teams
+ * Substitui dados existentes do campeonato (DELETE + INSERT)
+ */
+export const saveChampionshipTeamsNormalized = async (
+  championshipId: string,
+  tableName: string,
+  teamsData: TableRowGeral[]
+): Promise<void> => {
+  try {
+    const supabase = await getSupabaseClient();
+
+    // 1. Deletar dados existentes do campeonato
+    const { error: deleteError } = await supabase
+      .from('championship_teams')
+      .delete()
+      .eq('championship_id', championshipId);
+
+    if (deleteError && deleteError.code !== 'PGRST116' && deleteError.code !== '42P01') {
+      // Ignorar erro se tabela não existe ainda
+      if (import.meta.env.DEV) {
+        logger.warn('[ChampionshipService] Erro ao deletar times existentes:', deleteError);
+      }
+    }
+
+    // 2. Normalizar e inserir novos dados
+    const normalizedTeams = teamsData.map((row) =>
+      normalizeTeamData(championshipId, tableName, row)
+    );
+
+    if (normalizedTeams.length === 0) {
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from('championship_teams')
+      .insert(normalizedTeams);
+
+    if (insertError) {
+      if (insertError.code === 'PGRST116' || insertError.code === '42P01') {
+        // Tabela não existe ainda, apenas logar em dev
+        if (import.meta.env.DEV) {
+          logger.warn(
+            '[ChampionshipService] Tabela championship_teams não encontrada. ' +
+            'Execute a migração create_championship_teams.sql no Supabase.'
+          );
+        }
+        return;
+      }
+      throw insertError;
+    }
+
+    if (import.meta.env.DEV) {
+      logger.log(
+        `[ChampionshipService] ${normalizedTeams.length} time(s) normalizado(s) salvo(s) para campeonato ${championshipId}`
+      );
+    }
+  } catch (error: unknown) {
+    if (import.meta.env.DEV) {
+      logger.error('[ChampionshipService] Erro ao salvar times normalizados:', error);
+    }
+    throw error;
+  }
+};
+
+/**
+ * Atualiza o campo uploaded_at do campeonato
+ */
+export const updateChampionshipUploadedAt = async (championshipId: string): Promise<void> => {
+  try {
+    const supabase = await getSupabaseClient();
+    const { error } = await supabase
+      .from('championships')
+      .update({ uploaded_at: new Date().toISOString() })
+      .eq('id', championshipId);
+
+    if (error) {
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        // Tabela não existe ou coluna não existe ainda
+        return;
+      }
+      if (import.meta.env.DEV) {
+        logger.warn('[ChampionshipService] Erro ao atualizar uploaded_at:', error);
+      }
+    }
+  } catch (error: unknown) {
+    // Ignorar erros silenciosamente
+    if (import.meta.env.DEV) {
+      logger.warn('[ChampionshipService] Erro ao atualizar uploaded_at:', error);
+    }
+  }
+};
+
+/**
+ * Carrega times normalizados de um campeonato
+ */
+export const loadChampionshipTeams = async (
+  championshipId: string
+): Promise<ChampionshipTeam[]> => {
+  try {
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase
+      .from('championship_teams')
+      .select('*')
+      .eq('championship_id', championshipId)
+      .order('rk', { ascending: true });
+
+    if (error) {
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        // Tabela não existe ainda
+        return [];
+      }
+      throw error;
+    }
+
+    if (!data) {
+      return [];
+    }
+
+    return (data as ChampionshipTeamRow[]).map((row) => ({
+      id: row.id,
+      championship_id: row.championship_id,
+      squad: row.squad,
+      table_name: row.table_name,
+      rk: row.rk,
+      mp: row.mp,
+      w: row.w,
+      d: row.d,
+      l: row.l,
+      gf: row.gf,
+      ga: row.ga,
+      gd: row.gd,
+      pts: row.pts,
+      pts_mp: row.pts_mp,
+      xg: row.xg,
+      xga: row.xga,
+      xgd: row.xgd,
+      xgd_90: row.xgd_90,
+      last_5: row.last_5,
+      attendance: row.attendance,
+      top_team_scorer: row.top_team_scorer,
+      goalkeeper: row.goalkeeper,
+      notes: row.notes,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
+  } catch (error: unknown) {
+    if (import.meta.env.DEV) {
+      logger.error('[ChampionshipService] Erro ao carregar times normalizados:', error);
+    }
+    return [];
   }
 };
 
