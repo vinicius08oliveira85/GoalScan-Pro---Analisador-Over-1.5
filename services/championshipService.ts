@@ -1,14 +1,10 @@
 import {
   Championship,
   ChampionshipTable,
-  CompetitionGcaForAverages,
-  CompetitionPassingForAverages,
+  ChampionshipTeam,
   CompetitionStandardForAverages,
   TableType,
-  TableRowGcaFor,
   TableRowGeral,
-  TableRowHomeAway,
-  TableRowPassingFor,
   TableRowStandardFor,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
@@ -18,9 +14,9 @@ import { logger } from '../utils/logger';
 export interface ChampionshipRow {
   id: string;
   nome: string;
-  fbref_url?: string | null;
   created_at?: string;
   updated_at?: string;
+  uploaded_at?: string;
 }
 
 export interface ChampionshipTableRow {
@@ -29,6 +25,50 @@ export interface ChampionshipTableRow {
   table_type: TableType;
   table_name: string;
   table_data: unknown;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ChampionshipTeamRow {
+  id: string;
+  championship_id: string;
+  squad: string;
+  table_name: string;
+  rk?: string;
+  
+  // Campos Home
+  home_mp?: string;
+  home_w?: string;
+  home_d?: string;
+  home_l?: string;
+  home_gf?: string;
+  home_ga?: string;
+  home_gd?: string;
+  home_pts?: string;
+  home_pts_mp?: string;
+  home_xg?: string;
+  home_xga?: string;
+  home_xgd?: string;
+  home_xgd_90?: string;
+  
+  // Campos Away
+  away_mp?: string;
+  away_w?: string;
+  away_d?: string;
+  away_l?: string;
+  away_gf?: string;
+  away_ga?: string;
+  away_gd?: string;
+  away_pts?: string;
+  away_pts_mp?: string;
+  away_xg?: string;
+  away_xga?: string;
+  away_xgd?: string;
+  away_xgd_90?: string;
+  
+  // Campo para campos extras
+  extra_fields?: Record<string, unknown>;
+  
   created_at?: string;
   updated_at?: string;
 }
@@ -292,9 +332,9 @@ export const loadChampionships = async (): Promise<Championship[]> => {
     const championships = (result as ChampionshipRow[]).map((row: ChampionshipRow) => ({
       id: row.id,
       nome: row.nome,
-      fbrefUrl: row.fbref_url ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      uploaded_at: row.uploaded_at,
     }));
 
     if (import.meta.env.DEV) {
@@ -357,9 +397,9 @@ export const loadChampionship = async (id: string): Promise<Championship | null>
       return {
         id: data.id,
         nome: data.nome,
-        fbrefUrl: (data as unknown as { fbref_url?: string | null }).fbref_url ?? null,
         created_at: data.created_at,
         updated_at: data.updated_at,
+        uploaded_at: (data as { uploaded_at?: string }).uploaded_at,
       };
     }, `Carregamento de campeonato ${id}`);
 
@@ -395,7 +435,6 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
           {
             id: championship.id,
             nome: championship.nome,
-            fbref_url: championship.fbrefUrl ?? null,
             updated_at: new Date().toISOString(),
           },
           {
@@ -406,7 +445,7 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116' || error.code === '42P01' || error.code === '42703') {
+        if (error.code === 'PGRST116' || error.code === '42P01') {
           // Salvar apenas no localStorage
           return saveChampionshipToLocalStorage(championship);
         }
@@ -428,9 +467,9 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
     const saved: Championship = {
       id: result.id,
       nome: result.nome,
-      fbrefUrl: (result as unknown as { fbref_url?: string | null }).fbref_url ?? championship.fbrefUrl ?? null,
       created_at: result.created_at,
       updated_at: result.updated_at,
+      uploaded_at: result.uploaded_at,
     };
 
     // Sincronizar com localStorage
@@ -661,31 +700,22 @@ export const saveChampionshipTable = async (
       updated_at: result.updated_at,
     };
 
-    // Atualizar updated_at do campeonato quando uma tabela é salva
-    try {
-      const supabase = await getSupabaseClient();
-      const { data: updatedChampionship } = await supabase
-        .from('championships')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', table.championship_id)
-        .select()
-        .single();
-      
-      // Atualizar também no localStorage
-      if (updatedChampionship) {
-        const championship: Championship = {
-          id: updatedChampionship.id,
-          nome: updatedChampionship.nome,
-          fbrefUrl: (updatedChampionship as unknown as { fbref_url?: string | null }).fbref_url ?? null,
-          created_at: updatedChampionship.created_at,
-          updated_at: updatedChampionship.updated_at,
-        };
-        saveChampionshipToLocalStorage(championship);
-      }
-    } catch (error) {
-      // Não bloquear se falhar - apenas logar em dev
-      if (import.meta.env.DEV) {
-        logger.warn('[ChampionshipService] Erro ao atualizar updated_at do campeonato:', error);
+    // Se for tabela do tipo 'geral', também salvar na tabela normalizada
+    if (table.table_type === 'geral' && Array.isArray(table.table_data)) {
+      try {
+        await saveChampionshipTeamsNormalized(
+          table.championship_id,
+          table.table_name,
+          table.table_data as TableRowGeral[]
+        );
+        
+        // Atualizar uploaded_at no campeonato
+        await updateChampionshipUploadedAt(table.championship_id);
+      } catch (error) {
+        // Log mas não falhar o salvamento da tabela JSONB
+        if (import.meta.env.DEV) {
+          logger.warn('[ChampionshipService] Erro ao salvar dados normalizados:', error);
+        }
       }
     }
 
@@ -719,6 +749,13 @@ export const getSquadsFromTable = async (
   tableType: TableType = 'geral'
 ): Promise<string[]> => {
   try {
+    // Para tabela geral, buscar de championship_teams (normalizada)
+    if (tableType === 'geral') {
+      const teams = await loadChampionshipTeams(championshipId);
+      return teams.map((team) => team.squad).filter((squad) => squad && squad.trim() !== '');
+    }
+
+    // Para outros tipos de tabela (ex: standard_for), ainda usar championship_tables
     const tables = await loadChampionshipTables(championshipId);
     const table = tables.find((t) => t.table_type === tableType);
 
@@ -726,13 +763,7 @@ export const getSquadsFromTable = async (
       return [];
     }
 
-    // Se for tabela geral, extrair Squads
-    if (tableType === 'geral' && Array.isArray(table.table_data)) {
-      const rows = table.table_data as TableRowGeral[];
-      return rows.map((row) => row.Squad).filter((squad) => squad && squad.trim() !== '');
-    }
-
-    // Para outros tipos de tabela, tentar extrair campo "Squad" se existir
+    // Tentar extrair campo "Squad" se existir
     if (Array.isArray(table.table_data)) {
       const rows = table.table_data as Array<{ Squad?: string; [key: string]: unknown }>;
       return rows
@@ -749,6 +780,8 @@ export const getSquadsFromTable = async (
 
 /**
  * Obtém dados de uma equipe específica da tabela do campeonato
+ * Para tabela geral, busca de championship_teams e converte para TableRowGeral
+ * Para outros tipos, ainda usa championship_tables (compatibilidade)
  */
 export const getTeamDataFromTable = async (
   championshipId: string,
@@ -756,6 +789,61 @@ export const getTeamDataFromTable = async (
   tableType: TableType = 'geral'
 ): Promise<TableRowGeral | null> => {
   try {
+    // Para tabela geral, buscar de championship_teams (normalizada)
+    if (tableType === 'geral') {
+      const teams = await loadChampionshipTeams(championshipId);
+      const team = teams.find((t) => t.squad === squad);
+      
+      if (!team) {
+        return null;
+      }
+
+      // Converter para TableRowGeral (usar campos Home como padrão)
+      // Nota: Esta função não sabe se o time é home ou away, então retorna ambos os campos
+      const row: TableRowGeral = {
+        Rk: team.rk || '',
+        Squad: team.squad,
+        'Home MP': team.home_mp,
+        'Home W': team.home_w,
+        'Home D': team.home_d,
+        'Home L': team.home_l,
+        'Home GF': team.home_gf,
+        'Home GA': team.home_ga,
+        'Home GD': team.home_gd,
+        'Home Pts': team.home_pts,
+        'Home Pts/MP': team.home_pts_mp,
+        'Home xG': team.home_xg,
+        'Home xGA': team.home_xga,
+        'Home xGD': team.home_xgd,
+        'Home xGD/90': team.home_xgd_90,
+        'Away MP': team.away_mp,
+        'Away W': team.away_w,
+        'Away D': team.away_d,
+        'Away L': team.away_l,
+        'Away GF': team.away_gf,
+        'Away GA': team.away_ga,
+        'Away GD': team.away_gd,
+        'Away Pts': team.away_pts,
+        'Away Pts/MP': team.away_pts_mp,
+        'Away xG': team.away_xg,
+        'Away xGA': team.away_xga,
+        'Away xGD': team.away_xgd,
+        'Away xGD/90': team.away_xgd_90,
+      };
+
+      // Adicionar campos extras se existirem
+      if (team.extra_fields && typeof team.extra_fields === 'object') {
+        for (const [key, value] of Object.entries(team.extra_fields)) {
+          if (!row.hasOwnProperty(key)) {
+            row[key] = value;
+          }
+        }
+      }
+
+      return row;
+    }
+
+    // Para outros tipos de tabela, ainda usar championship_tables
     const tables = await loadChampionshipTables(championshipId);
     const table = tables.find((t) => t.table_type === tableType);
 
@@ -800,13 +888,31 @@ export const calculateCompetitionAverageGoals = async (
     let totalMatches = 0; // Soma de todas as partidas jogadas (MP)
 
     for (const row of rows) {
-      // Converter GF e MP para números
-      const gf = parseFloat(row.GF || '0');
-      const mp = parseFloat(row.MP || '0');
+      // Tentar usar campos Home/Away primeiro (estrutura do CSV)
+      const homeGf = parseFloat(row['Home GF'] || '0');
+      const homeMp = parseFloat(row['Home MP'] || '0');
+      const awayGf = parseFloat(row['Away GF'] || '0');
+      const awayMp = parseFloat(row['Away MP'] || '0');
+      
+      // Se tiver campos Home/Away, usar eles
+      if (!isNaN(homeMp) && homeMp > 0) {
+        totalGoals += homeGf;
+        totalMatches += homeMp;
+      }
+      if (!isNaN(awayMp) && awayMp > 0) {
+        totalGoals += awayGf;
+        totalMatches += awayMp;
+      }
+      
+      // Se não tiver campos Home/Away, tentar campos gerais (formato antigo)
+      if (isNaN(homeMp) && isNaN(awayMp)) {
+        const gf = parseFloat(row.GF || '0');
+        const mp = parseFloat(row.MP || '0');
 
-      if (!isNaN(gf) && !isNaN(mp) && mp > 0) {
-        totalGoals += gf;
-        totalMatches += mp;
+        if (!isNaN(gf) && !isNaN(mp) && mp > 0) {
+          totalGoals += gf;
+          totalMatches += mp;
+        }
       }
     }
 
@@ -837,6 +943,49 @@ function parseNumberFromUnknown(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Calcula média de gols do campeonato a partir de ChampionshipTeam[]
+ * Usa campos Home/Away: soma(Home GF) + soma(Away GF) / soma(Home MP) + soma(Away MP)
+ */
+function calculateCompetitionAverageGoalsFromTeams(teams: ChampionshipTeam[]): number | null {
+  if (!Array.isArray(teams) || teams.length === 0) return null;
+
+  let totalGoals = 0;
+  let totalMatches = 0;
+
+  for (const team of teams) {
+    // Usar campos Home
+    const homeGf = parseNumberFromUnknown(team.home_gf);
+    const homeMp = parseNumberFromUnknown(team.home_mp);
+    if (homeGf > 0 && homeMp > 0) {
+      totalGoals += homeGf;
+      totalMatches += homeMp;
+    } else if (homeMp > 0) {
+      totalMatches += homeMp;
+    }
+
+    // Usar campos Away
+    const awayGf = parseNumberFromUnknown(team.away_gf);
+    const awayMp = parseNumberFromUnknown(team.away_mp);
+    if (awayGf > 0 && awayMp > 0) {
+      totalGoals += awayGf;
+      totalMatches += awayMp;
+    } else if (awayMp > 0) {
+      totalMatches += awayMp;
+    }
+  }
+
+  if (totalMatches === 0) return null;
+  // Média de gols por partida = 2 * totalGoals / totalMatches
+  // (multiplicamos por 2 porque cada partida envolve 2 times)
+  const averageGoals = (2 * totalGoals) / totalMatches;
+  return Math.round(averageGoals * 100) / 100;
+}
+
+/**
+ * Calcula média de gols do campeonato a partir de TableRowGeral[]
+ * Usa campos Home/Away quando disponíveis, fallback para campos gerais (compatibilidade)
+ */
 function calculateCompetitionAverageGoalsFromRows(rows: TableRowGeral[]): number | null {
   if (!Array.isArray(rows) || rows.length === 0) return null;
 
@@ -844,14 +993,37 @@ function calculateCompetitionAverageGoalsFromRows(rows: TableRowGeral[]): number
   let totalMatches = 0;
 
   for (const row of rows) {
-    const gf = parseNumberFromUnknown(row.GF);
-    const mp = parseNumberFromUnknown(row.MP);
-    if (gf > 0 && mp > 0) {
-      totalGoals += gf;
-      totalMatches += mp;
-    } else if (mp > 0) {
-      // mesmo com GF=0, conta a partida para média do campeonato
-      totalMatches += mp;
+    // Tentar usar campos Home/Away primeiro (estrutura do CSV)
+    const homeGf = parseNumberFromUnknown(row['Home GF']);
+    const homeMp = parseNumberFromUnknown(row['Home MP']);
+    const awayGf = parseNumberFromUnknown(row['Away GF']);
+    const awayMp = parseNumberFromUnknown(row['Away MP']);
+
+    if (homeMp > 0 || awayMp > 0) {
+      // Usar campos Home/Away
+      if (homeGf > 0 && homeMp > 0) {
+        totalGoals += homeGf;
+        totalMatches += homeMp;
+      } else if (homeMp > 0) {
+        totalMatches += homeMp;
+      }
+
+      if (awayGf > 0 && awayMp > 0) {
+        totalGoals += awayGf;
+        totalMatches += awayMp;
+      } else if (awayMp > 0) {
+        totalMatches += awayMp;
+      }
+    } else {
+      // Fallback para campos gerais (formato antigo - compatibilidade)
+      const gf = parseNumberFromUnknown(row.GF);
+      const mp = parseNumberFromUnknown(row.MP);
+      if (gf > 0 && mp > 0) {
+        totalGoals += gf;
+        totalMatches += mp;
+      } else if (mp > 0) {
+        totalMatches += mp;
+      }
     }
   }
 
@@ -923,139 +1095,67 @@ function calculateCompetitionStandardForAveragesFromRows(
   };
 }
 
-function calculateCompetitionPassingForAveragesFromRows(
-  rows: TableRowPassingFor[]
-): CompetitionPassingForAverages | null {
-  const parseNum = (value: unknown): number => {
-    if (value == null) return 0;
-    const raw = String(value).trim();
-    if (!raw) return 0;
-    const normalized = raw.replace(/,/g, '').replace(/%/g, '');
-    const n = Number.parseFloat(normalized);
-    return Number.isFinite(n) ? n : 0;
+/**
+ * Converte ChampionshipTeam para TableRowGeral com campos Home/Away
+ * Para time da casa: inclui campos Home do próprio time
+ * Para time visitante: inclui campos Away do próprio time
+ */
+function convertChampionshipTeamToTableRowGeral(
+  team: ChampionshipTeam,
+  isHome: boolean
+): TableRowGeral {
+  const baseRow: TableRowGeral = {
+    Rk: team.rk || '',
+    Squad: team.squad,
   };
 
-  const getPer90 = (row: Record<string, unknown>, per90Keys: string[], totalKeys: string[]): number => {
-    for (const k of per90Keys) {
-      const v = parseNum(row[k]);
-      if (v > 0) return v;
-    }
-    const n90 =
-      parseNum(row['90s']) ||
-      parseNum(row['Playing Time 90s']) ||
-      parseNum(row['Playing Time 90S']) ||
-      parseNum(row['Playing Time 90s ']);
+  if (isHome) {
+    // Time da casa: usar campos Home
+    baseRow['Home MP'] = team.home_mp;
+    baseRow['Home W'] = team.home_w;
+    baseRow['Home D'] = team.home_d;
+    baseRow['Home L'] = team.home_l;
+    baseRow['Home GF'] = team.home_gf;
+    baseRow['Home GA'] = team.home_ga;
+    baseRow['Home GD'] = team.home_gd;
+    baseRow['Home Pts'] = team.home_pts;
+    baseRow['Home Pts/MP'] = team.home_pts_mp;
+    baseRow['Home xG'] = team.home_xg;
+    baseRow['Home xGA'] = team.home_xga;
+    baseRow['Home xGD'] = team.home_xgd;
+    baseRow['Home xGD/90'] = team.home_xgd_90;
+  } else {
+    // Time visitante: usar campos Away
+    baseRow['Away MP'] = team.away_mp;
+    baseRow['Away W'] = team.away_w;
+    baseRow['Away D'] = team.away_d;
+    baseRow['Away L'] = team.away_l;
+    baseRow['Away GF'] = team.away_gf;
+    baseRow['Away GA'] = team.away_ga;
+    baseRow['Away GD'] = team.away_gd;
+    baseRow['Away Pts'] = team.away_pts;
+    baseRow['Away Pts/MP'] = team.away_pts_mp;
+    baseRow['Away xG'] = team.away_xg;
+    baseRow['Away xGA'] = team.away_xga;
+    baseRow['Away xGD'] = team.away_xgd;
+    baseRow['Away xGD/90'] = team.away_xgd_90;
+  }
 
-    for (const k of totalKeys) {
-      const total = parseNum(row[k]);
-      if (total > 0 && n90 > 0) return total / n90;
-    }
-    return 0;
-  };
-
-  let progSum = 0;
-  let kpSum = 0;
-  let ppaSum = 0;
-  let countProg = 0;
-  let countKp = 0;
-  let countPpa = 0;
-
-  for (const r of rows) {
-    const row = r as unknown as Record<string, unknown>;
-
-    const prog = getPer90(row, ['Per 90 Minutes Prog', 'Prog/90', 'Prog 90'], ['Prog']);
-    if (prog > 0) {
-      progSum += prog;
-      countProg++;
-    }
-
-    const kp = getPer90(row, ['Per 90 Minutes KP', 'KP/90', 'KP 90'], ['KP']);
-    if (kp > 0) {
-      kpSum += kp;
-      countKp++;
-    }
-
-    const ppa = getPer90(row, ['Per 90 Minutes PPA', 'PPA/90', 'PPA 90'], ['PPA']);
-    if (ppa > 0) {
-      ppaSum += ppa;
-      countPpa++;
+  // Adicionar campos extras se existirem
+  if (team.extra_fields && typeof team.extra_fields === 'object') {
+    for (const [key, value] of Object.entries(team.extra_fields)) {
+      if (!baseRow.hasOwnProperty(key)) {
+        baseRow[key] = value;
+      }
     }
   }
 
-  const progAvg = countProg > 0 ? progSum / countProg : 0;
-  const kpAvg = countKp > 0 ? kpSum / countKp : 0;
-  const ppaAvg = countPpa > 0 ? ppaSum / countPpa : 0;
-
-  if (progAvg <= 0 && kpAvg <= 0 && ppaAvg <= 0) return null;
-
-  return {
-    progPer90: Math.round(progAvg * 100) / 100,
-    kpPer90: Math.round(kpAvg * 100) / 100,
-    ppaPer90: Math.round(ppaAvg * 100) / 100,
-  };
-}
-
-function calculateCompetitionGcaForAveragesFromRows(rows: TableRowGcaFor[]): CompetitionGcaForAverages | null {
-  const parseNum = (value: unknown): number => {
-    if (value == null) return 0;
-    const raw = String(value).trim();
-    if (!raw) return 0;
-    const normalized = raw.replace(/,/g, '').replace(/%/g, '');
-    const n = Number.parseFloat(normalized);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  const getPer90 = (row: Record<string, unknown>, per90Keys: string[], totalKeys: string[]): number => {
-    for (const k of per90Keys) {
-      const v = parseNum(row[k]);
-      if (v > 0) return v;
-    }
-    const n90 =
-      parseNum(row['90s']) ||
-      parseNum(row['Playing Time 90s']) ||
-      parseNum(row['Playing Time 90S']) ||
-      parseNum(row['Playing Time 90s ']);
-
-    for (const k of totalKeys) {
-      const total = parseNum(row[k]);
-      if (total > 0 && n90 > 0) return total / n90;
-    }
-    return 0;
-  };
-
-  let scaSum = 0;
-  let gcaSum = 0;
-  let countSca = 0;
-  let countGca = 0;
-
-  for (const r of rows) {
-    const row = r as unknown as Record<string, unknown>;
-    const sca = getPer90(row, ['SCA90', 'SCA 90', 'Per 90 Minutes SCA'], ['SCA']);
-    if (sca > 0) {
-      scaSum += sca;
-      countSca++;
-    }
-
-    const gca = getPer90(row, ['GCA90', 'GCA 90', 'Per 90 Minutes GCA'], ['GCA']);
-    if (gca > 0) {
-      gcaSum += gca;
-      countGca++;
-    }
-  }
-
-  const scaAvg = countSca > 0 ? scaSum / countSca : 0;
-  const gcaAvg = countGca > 0 ? gcaSum / countGca : 0;
-
-  if (scaAvg <= 0 && gcaAvg <= 0) return null;
-
-  return {
-    scaPer90: Math.round(scaAvg * 100) / 100,
-    gcaPer90: Math.round(gcaAvg * 100) / 100,
-  };
+  return baseRow;
 }
 
 /**
  * Sincroniza dados completos da tabela do campeonato para ambas equipes
+ * Busca dados da tabela normalizada championship_teams (com campos Home/Away)
  * Retorna TODOS os campos da tabela para análise pela IA
  */
 export const syncTeamStatsFromTable = async (
@@ -1069,41 +1169,25 @@ export const syncTeamStatsFromTable = async (
   homeStandardForData?: TableRowStandardFor | null;
   awayStandardForData?: TableRowStandardFor | null;
   competitionStandardForAvg?: CompetitionStandardForAverages | null;
-  homePassingForData?: TableRowPassingFor | null;
-  awayPassingForData?: TableRowPassingFor | null;
-  competitionPassingForAvg?: CompetitionPassingForAverages | null;
-  homeGcaForData?: TableRowGcaFor | null;
-  awayGcaForData?: TableRowGcaFor | null;
-  competitionGcaForAvg?: CompetitionGcaForAverages | null;
-  homeHomeAwayData?: TableRowHomeAway | null;
-  awayHomeAwayData?: TableRowHomeAway | null;
 }> => {
   try {
-    // Carregar tabelas uma única vez (evita múltiplas chamadas ao Supabase/localStorage)
+    // Carregar times normalizados da tabela championship_teams
+    const teams = await loadChampionshipTeams(championshipId);
+
+    const homeTeam = teams.find((t) => t.squad === homeSquad) || null;
+    const awayTeam = teams.find((t) => t.squad === awaySquad) || null;
+
+    // Converter ChampionshipTeam para TableRowGeral
+    // Para time da casa: usar campos Home do próprio time
+    // Para time visitante: usar campos Away do próprio time
+    const homeData = homeTeam ? convertChampionshipTeamToTableRowGeral(homeTeam, true) : null;
+    const awayData = awayTeam ? convertChampionshipTeamToTableRowGeral(awayTeam, false) : null;
+
+    // Calcular média de gols do campeonato usando todos os times
+    const competitionAvg = calculateCompetitionAverageGoalsFromTeams(teams);
+
+    // Complemento (standard_for) - opcional (ainda usa championship_tables)
     const tables = await loadChampionshipTables(championshipId);
-
-    // Log: verificar quais tabelas foram carregadas
-    if (import.meta.env.DEV) {
-      console.log('[ChampionshipService] syncTeamStatsFromTable - Tabelas carregadas:', {
-        total: tables.length,
-        tipos: tables.map(t => t.table_type),
-        homeSquad,
-        awaySquad,
-      });
-    }
-
-    const geralTable = tables.find((t) => t.table_type === 'geral');
-    const geralRows = Array.isArray(geralTable?.table_data)
-      ? (geralTable?.table_data as TableRowGeral[])
-      : [];
-
-    const homeData = geralRows.find((row) => row.Squad === homeSquad) || null;
-    const awayData = geralRows.find((row) => row.Squad === awaySquad) || null;
-
-    // Média de gols do campeonato (derivada da tabela geral)
-    const competitionAvg = calculateCompetitionAverageGoalsFromRows(geralRows);
-
-    // Complemento (standard_for) - opcional
     const standardForTable = tables.find((t) => t.table_type === 'standard_for');
     const standardForRows = Array.isArray(standardForTable?.table_data)
       ? (standardForTable?.table_data as TableRowStandardFor[])
@@ -1116,94 +1200,10 @@ export const syncTeamStatsFromTable = async (
 
     const competitionStandardForAvg = calculateCompetitionStandardForAveragesFromRows(standardForRows);
 
-    // Tabela Home/Away (desempenho em casa vs fora)
-    const homeAwayTable = tables.find((t) => t.table_type === 'home_away');
-    const homeAwayRows = Array.isArray(homeAwayTable?.table_data)
-      ? (homeAwayTable?.table_data as TableRowHomeAway[])
-      : [];
-
-    if (import.meta.env.DEV) {
-      if (!homeAwayTable) {
-        console.warn('[ChampionshipService] ⚠️ Tabela home_away não encontrada para campeonato:', championshipId);
-      } else if (homeAwayRows.length === 0) {
-        console.warn('[ChampionshipService] ⚠️ Tabela home_away está vazia');
-      } else {
-        console.log('[ChampionshipService] ✅ Tabela home_away encontrada com', homeAwayRows.length, 'times');
-      }
-    }
-
-    const homeHomeAwayData = homeAwayRows.find((row) => row.Squad === homeSquad) || null;
-    const awayHomeAwayData = homeAwayRows.find((row) => row.Squad === awaySquad) || null;
-
-    // Validação de correspondência de Squads entre tabelas
-    if (import.meta.env.DEV) {
-      const squadsFound: Record<string, string[]> = {
-        geral: homeData ? [homeData.Squad, awayData?.Squad].filter(Boolean) as string[] : [],
-        home_away: homeHomeAwayData ? [homeHomeAwayData.Squad, awayHomeAwayData?.Squad].filter(Boolean) as string[] : [],
-        standard_for: homeStandardForData ? [homeStandardForData.Squad, awayStandardForData?.Squad].filter(Boolean) as string[] : [],
-      };
-
-      // Verificar se há divergência de nomes entre tabelas
-      const allSquads = Object.values(squadsFound).flat();
-      const uniqueSquads = [...new Set(allSquads)];
-      if (uniqueSquads.length > 2) {
-        console.warn('[ChampionshipService] ⚠️ Possível divergência de nomes de Squads entre tabelas:', {
-          buscado: { home: homeSquad, away: awaySquad },
-          encontrado: squadsFound,
-          unicos: uniqueSquads,
-        });
-      }
-
-      // Verificar completude
-      const tablesLoaded = {
-        geral: !!(homeData && awayData),
-        home_away: !!(homeHomeAwayData && awayHomeAwayData),
-        standard_for: !!(homeStandardForData && awayStandardForData && competitionStandardForAvg),
-      };
-      const missingTables = Object.entries(tablesLoaded)
-        .filter(([, loaded]) => !loaded)
-        .map(([name]) => name);
-
-      if (missingTables.length > 0) {
-        console.warn('[ChampionshipService] ⚠️ Tabelas faltando após sincronização:', missingTables);
-        
-        // Diagnóstico detalhado para cada tabela faltante
-        for (const tableType of missingTables) {
-          const table = tables.find((t) => t.table_type === tableType);
-          if (!table) {
-            console.warn(`[ChampionshipService] ⚠️ Tabela ${tableType} não existe no banco de dados.`);
-            console.warn(`[ChampionshipService] Ação necessária: Extraia a tabela ${tableType} do fbref.com primeiro.`);
-          } else {
-            const rows = Array.isArray(table.table_data) ? table.table_data : [];
-            if (rows.length === 0) {
-              console.warn(`[ChampionshipService] ⚠️ Tabela ${tableType} existe mas está vazia.`);
-              console.warn(`[ChampionshipService] Ação necessária: Extraia novamente a tabela ${tableType} do fbref.com.`);
-            } else {
-              // Tabela existe e tem dados, mas Squads não foram encontrados
-              const allSquads = rows.map((row: any) => row.Squad).filter(Boolean);
-              const homeFound = allSquads.some((s: string) => s === homeSquad);
-              const awayFound = allSquads.some((s: string) => s === awaySquad);
-              
-              if (!homeFound || !awayFound) {
-                console.warn(`[ChampionshipService] ⚠️ Tabela ${tableType} existe mas Squads não foram encontrados.`);
-                console.warn(`[ChampionshipService] Time da casa encontrado: ${homeFound}, Time visitante encontrado: ${awayFound}`);
-                console.warn(`[ChampionshipService] Squads disponíveis (primeiros 10):`, allSquads.slice(0, 10));
-                console.warn(`[ChampionshipService] Ação necessária: Verifique se os nomes dos times (Squads) estão corretos.`);
-              }
-            }
-          }
-        }
-      } else {
-        console.log('[ChampionshipService] ✅ Todas as 3 tabelas carregadas com sucesso!');
-      }
-    }
-
     return {
       homeTableData: homeData,
       awayTableData: awayData,
       competitionAvg: competitionAvg || undefined,
-      homeHomeAwayData,
-      awayHomeAwayData,
       homeStandardForData,
       awayStandardForData,
       competitionStandardForAvg,
@@ -1213,8 +1213,6 @@ export const syncTeamStatsFromTable = async (
     return {
       homeTableData: null,
       awayTableData: null,
-      homeHomeAwayData: null,
-      awayHomeAwayData: null,
       homeStandardForData: null,
       awayStandardForData: null,
       competitionStandardForAvg: null,
@@ -1223,144 +1221,253 @@ export const syncTeamStatsFromTable = async (
 };
 
 /**
- * Verifica a disponibilidade das tabelas para um campeonato e retorna informações de diagnóstico
+ * Converte dados do JSON/CSV para formato normalizado
+ * Suporta estrutura do CSV (Home/Away) e formato antigo (geral)
  */
-export interface TableAvailabilityInfo {
-  tableType: TableType;
-  exists: boolean;
-  hasData: boolean;
-  rowCount: number;
-  lastUpdated?: string;
-  availableSquads?: string[];
-  squadFound?: {
-    home: boolean;
-    away: boolean;
-  };
-}
-
-export interface ChampionshipTablesDiagnostic {
-  championshipId: string;
-  tables: Record<TableType, TableAvailabilityInfo>;
-  allTablesExist: boolean;
-  allTablesHaveData: boolean;
-  missingTables: TableType[];
-  emptyTables: TableType[];
-}
-
-export const checkChampionshipTablesAvailability = async (
+function normalizeTeamData(
   championshipId: string,
-  homeSquad?: string,
-  awaySquad?: string
-): Promise<ChampionshipTablesDiagnostic> => {
+  tableName: string,
+  row: TableRowGeral
+): ChampionshipTeam {
+  // Separar campos conhecidos de campos extras
+  const knownFields = new Set([
+    'Rk', 'Squad',
+    // Campos Home
+    'Home MP', 'Home W', 'Home D', 'Home L', 'Home GF', 'Home GA', 'Home GD',
+    'Home Pts', 'Home Pts/MP', 'Home xG', 'Home xGA', 'Home xGD', 'Home xGD/90',
+    // Campos Away
+    'Away MP', 'Away W', 'Away D', 'Away L', 'Away GF', 'Away GA', 'Away GD',
+    'Away Pts', 'Away Pts/MP', 'Away xG', 'Away xGA', 'Away xGD', 'Away xGD/90',
+    // Campos gerais (formato antigo - para compatibilidade)
+    'MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts', 'Pts/MP', 'xG', 'xGA', 'xGD', 'xGD/90',
+    'Last 5', 'Attendance', 'Top Team Scorer', 'Goalkeeper', 'Notes',
+    // Campos de link (ignorados)
+    'Top Team Scorer_link', 'Goalkeeper_link',
+  ]);
+
+  // Coletar campos extras (que não são conhecidos)
+  const extraFields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (!knownFields.has(key) && key !== 'Squad' && key !== 'Rk') {
+      extraFields[key] = value;
+    }
+  }
+
+  // Criar objeto normalizado
+  const normalized: ChampionshipTeam = {
+    id: `${championshipId}_${row.Squad}_${Date.now()}`,
+    championship_id: championshipId,
+    squad: row.Squad,
+    table_name: tableName,
+    rk: row.Rk,
+    
+    // Campos Home (prioridade: usar campos Home do CSV)
+    home_mp: row['Home MP'] || undefined,
+    home_w: row['Home W'] || undefined,
+    home_d: row['Home D'] || undefined,
+    home_l: row['Home L'] || undefined,
+    home_gf: row['Home GF'] || undefined,
+    home_ga: row['Home GA'] || undefined,
+    home_gd: row['Home GD'] || undefined,
+    home_pts: row['Home Pts'] || undefined,
+    home_pts_mp: row['Home Pts/MP'] || undefined,
+    home_xg: row['Home xG'] || undefined,
+    home_xga: row['Home xGA'] || undefined,
+    home_xgd: row['Home xGD'] || undefined,
+    home_xgd_90: row['Home xGD/90'] || undefined,
+    
+    // Campos Away
+    away_mp: row['Away MP'] || undefined,
+    away_w: row['Away W'] || undefined,
+    away_d: row['Away D'] || undefined,
+    away_l: row['Away L'] || undefined,
+    away_gf: row['Away GF'] || undefined,
+    away_ga: row['Away GA'] || undefined,
+    away_gd: row['Away GD'] || undefined,
+    away_pts: row['Away Pts'] || undefined,
+    away_pts_mp: row['Away Pts/MP'] || undefined,
+    away_xg: row['Away xG'] || undefined,
+    away_xga: row['Away xGA'] || undefined,
+    away_xgd: row['Away xGD'] || undefined,
+    away_xgd_90: row['Away xGD/90'] || undefined,
+    
+    // Campos extras (se houver)
+    extra_fields: Object.keys(extraFields).length > 0 ? extraFields : undefined,
+    
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  return normalized;
+}
+
+/**
+ * Salva dados normalizados dos times na tabela championship_teams
+ * Substitui dados existentes do campeonato (DELETE + INSERT)
+ */
+export const saveChampionshipTeamsNormalized = async (
+  championshipId: string,
+  tableName: string,
+  teamsData: TableRowGeral[]
+): Promise<void> => {
   try {
-    const tables = await loadChampionshipTables(championshipId);
-    
-    const diagnostic: ChampionshipTablesDiagnostic = {
-      championshipId,
-      tables: {
-        geral: {
-          tableType: 'geral',
-          exists: false,
-          hasData: false,
-          rowCount: 0,
-        },
-        home_away: {
-          tableType: 'home_away',
-          exists: false,
-          hasData: false,
-          rowCount: 0,
-        },
-        standard_for: {
-          tableType: 'standard_for',
-          exists: false,
-          hasData: false,
-          rowCount: 0,
-        },
-      },
-      allTablesExist: false,
-      allTablesHaveData: false,
-      missingTables: [],
-      emptyTables: [],
-    };
+    const supabase = await getSupabaseClient();
 
-    // Verificar cada tipo de tabela
-    const tableTypes: TableType[] = ['geral', 'home_away', 'standard_for'];
-    
-    for (const tableType of tableTypes) {
-      const table = tables.find((t) => t.table_type === tableType);
-      const info: TableAvailabilityInfo = {
-        tableType,
-        exists: !!table,
-        hasData: false,
-        rowCount: 0,
-        lastUpdated: table?.updated_at || table?.created_at,
-      };
+    // 1. Deletar dados existentes do campeonato
+    const { error: deleteError } = await supabase
+      .from('championship_teams')
+      .delete()
+      .eq('championship_id', championshipId);
 
-      if (table && table.table_data && Array.isArray(table.table_data)) {
-        info.hasData = table.table_data.length > 0;
-        info.rowCount = table.table_data.length;
+    if (deleteError && deleteError.code !== 'PGRST116' && deleteError.code !== '42P01') {
+      // Ignorar erro se tabela não existe ainda
+      if (import.meta.env.DEV) {
+        logger.warn('[ChampionshipService] Erro ao deletar times existentes:', deleteError);
+      }
+    }
 
-        // Extrair Squads disponíveis
-        const rows = table.table_data as Array<{ Squad?: string; [key: string]: unknown }>;
-        info.availableSquads = rows
-          .map((row) => row.Squad)
-          .filter((squad): squad is string => typeof squad === 'string' && squad.trim() !== '');
+    // 2. Normalizar e inserir novos dados
+    const normalizedTeams = teamsData.map((row) =>
+      normalizeTeamData(championshipId, tableName, row)
+    );
 
-        // Verificar se os Squads foram encontrados (se fornecidos)
-        if (homeSquad && awaySquad) {
-          info.squadFound = {
-            home: info.availableSquads.some((s) => s === homeSquad),
-            away: info.availableSquads.some((s) => s === awaySquad),
-          };
+    if (normalizedTeams.length === 0) {
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from('championship_teams')
+      .insert(normalizedTeams);
+
+    if (insertError) {
+      if (insertError.code === 'PGRST116' || insertError.code === '42P01') {
+        // Tabela não existe ainda, apenas logar em dev
+        if (import.meta.env.DEV) {
+          logger.warn(
+            '[ChampionshipService] Tabela championship_teams não encontrada. ' +
+            'Execute a migração create_championship_teams.sql no Supabase.'
+          );
         }
+        return;
       }
-
-      diagnostic.tables[tableType] = info;
-
-      if (!info.exists) {
-        diagnostic.missingTables.push(tableType);
-      } else if (!info.hasData) {
-        diagnostic.emptyTables.push(tableType);
-      }
+      throw insertError;
     }
 
-    diagnostic.allTablesExist = diagnostic.missingTables.length === 0;
-    diagnostic.allTablesHaveData = diagnostic.missingTables.length === 0 && diagnostic.emptyTables.length === 0;
-
-    // Log detalhado
     if (import.meta.env.DEV) {
-      console.log('[ChampionshipService] Diagnóstico de tabelas:', {
-        championshipId,
-        allTablesExist: diagnostic.allTablesExist,
-        allTablesHaveData: diagnostic.allTablesHaveData,
-        missingTables: diagnostic.missingTables,
-        emptyTables: diagnostic.emptyTables,
-        details: Object.entries(diagnostic.tables).map(([type, info]) => ({
-          type,
-          exists: info.exists,
-          hasData: info.hasData,
-          rowCount: info.rowCount,
-          squadsFound: homeSquad && awaySquad ? info.squadFound : undefined,
-        })),
-      });
+      logger.log(
+        `[ChampionshipService] ${normalizedTeams.length} time(s) normalizado(s) salvo(s) para campeonato ${championshipId}`
+      );
+    }
+  } catch (error: unknown) {
+    if (import.meta.env.DEV) {
+      logger.error('[ChampionshipService] Erro ao salvar times normalizados:', error);
+    }
+    throw error;
+  }
+};
+
+/**
+ * Atualiza o campo uploaded_at do campeonato
+ */
+export const updateChampionshipUploadedAt = async (championshipId: string): Promise<void> => {
+  try {
+    const supabase = await getSupabaseClient();
+    const { error } = await supabase
+      .from('championships')
+      .update({ uploaded_at: new Date().toISOString() })
+      .eq('id', championshipId);
+
+    if (error) {
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        // Tabela não existe ou coluna não existe ainda
+        return;
+      }
+      if (import.meta.env.DEV) {
+        logger.warn('[ChampionshipService] Erro ao atualizar uploaded_at:', error);
+      }
+    }
+  } catch (error: unknown) {
+    // Ignorar erros silenciosamente
+    if (import.meta.env.DEV) {
+      logger.warn('[ChampionshipService] Erro ao atualizar uploaded_at:', error);
+    }
+  }
+};
+
+/**
+ * Carrega times normalizados de um campeonato
+ */
+export const loadChampionshipTeams = async (
+  championshipId: string
+): Promise<ChampionshipTeam[]> => {
+  try {
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase
+      .from('championship_teams')
+      .select('*')
+      .eq('championship_id', championshipId)
+      .order('rk', { ascending: true });
+
+    if (error) {
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        // Tabela não existe ainda
+        return [];
+      }
+      throw error;
     }
 
-    return diagnostic;
+    if (!data) {
+      return [];
+    }
+
+    return (data as ChampionshipTeamRow[]).map((row) => ({
+      id: row.id,
+      championship_id: row.championship_id,
+      squad: row.squad,
+      table_name: row.table_name,
+      rk: row.rk,
+      
+      // Campos Home
+      home_mp: row.home_mp,
+      home_w: row.home_w,
+      home_d: row.home_d,
+      home_l: row.home_l,
+      home_gf: row.home_gf,
+      home_ga: row.home_ga,
+      home_gd: row.home_gd,
+      home_pts: row.home_pts,
+      home_pts_mp: row.home_pts_mp,
+      home_xg: row.home_xg,
+      home_xga: row.home_xga,
+      home_xgd: row.home_xgd,
+      home_xgd_90: row.home_xgd_90,
+      
+      // Campos Away
+      away_mp: row.away_mp,
+      away_w: row.away_w,
+      away_d: row.away_d,
+      away_l: row.away_l,
+      away_gf: row.away_gf,
+      away_ga: row.away_ga,
+      away_gd: row.away_gd,
+      away_pts: row.away_pts,
+      away_pts_mp: row.away_pts_mp,
+      away_xg: row.away_xg,
+      away_xga: row.away_xga,
+      away_xgd: row.away_xgd,
+      away_xgd_90: row.away_xgd_90,
+      
+      // Campos extras
+      extra_fields: row.extra_fields,
+      
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
   } catch (error: unknown) {
-    logger.error('[ChampionshipService] Erro ao verificar disponibilidade de tabelas:', error);
-    // Retornar diagnóstico vazio em caso de erro
-    return {
-      championshipId,
-      tables: {
-        geral: { tableType: 'geral', exists: false, hasData: false, rowCount: 0 },
-        home_away: { tableType: 'home_away', exists: false, hasData: false, rowCount: 0 },
-        standard_for: { tableType: 'standard_for', exists: false, hasData: false, rowCount: 0 },
-      },
-      allTablesExist: false,
-      allTablesHaveData: false,
-      missingTables: ['geral', 'home_away', 'standard_for'],
-      emptyTables: [],
-    };
+    if (import.meta.env.DEV) {
+      logger.error('[ChampionshipService] Erro ao carregar times normalizados:', error);
+    }
+    return [];
   }
 };
 
@@ -1468,108 +1575,6 @@ function saveChampionshipTablesToLocalStorage(tables: ChampionshipTable[]): void
     logger.error('[ChampionshipService] Erro ao salvar tabelas no localStorage:', error);
   }
 }
-
-/**
- * Exporta apenas as 3 tabelas especificadas (geral, home_away, standard_for) para arquivos JSON
- * @param championshipId - ID do campeonato
- * @param championshipName - Nome do campeonato (para nomear os arquivos)
- * @returns Objeto com os dados das tabelas exportadas
- */
-export const exportChampionshipTables = async (
-  championshipId: string,
-  championshipName?: string
-): Promise<{
-  geral: unknown[] | null;
-  home_away: unknown[] | null;
-  standard_for: unknown[] | null;
-}> => {
-  try {
-    const tables = await loadChampionshipTables(championshipId);
-    
-    // Filtrar apenas as 3 tabelas especificadas
-    const geralTable = tables.find((t) => t.table_type === 'geral');
-    const homeAwayTable = tables.find((t) => t.table_type === 'home_away');
-    const standardForTable = tables.find((t) => t.table_type === 'standard_for');
-    
-    const result = {
-      geral: Array.isArray(geralTable?.table_data) ? geralTable.table_data : null,
-      home_away: Array.isArray(homeAwayTable?.table_data) ? homeAwayTable.table_data : null,
-      standard_for: Array.isArray(standardForTable?.table_data) ? standardForTable.table_data : null,
-    };
-    
-    if (import.meta.env.DEV) {
-      console.log('[ChampionshipService] Exportação de tabelas:', {
-        championshipId,
-        championshipName,
-        geral: result.geral ? `${result.geral.length} registros` : 'não disponível',
-        home_away: result.home_away ? `${result.home_away.length} registros` : 'não disponível',
-        standard_for: result.standard_for ? `${result.standard_for.length} registros` : 'não disponível',
-      });
-    }
-    
-    return result;
-  } catch (error) {
-    logger.error('[ChampionshipService] Erro ao exportar tabelas:', error);
-    return {
-      geral: null,
-      home_away: null,
-      standard_for: null,
-    };
-  }
-};
-
-/**
- * Gera arquivos JSON para download das 3 tabelas especificadas
- * @param championshipId - ID do campeonato
- * @param championshipName - Nome do campeonato (para nomear os arquivos)
- */
-export const downloadChampionshipTables = async (
-  championshipId: string,
-  championshipName?: string
-): Promise<void> => {
-  try {
-    const tables = await exportChampionshipTables(championshipId, championshipName);
-    
-    // Nome base para os arquivos
-    const baseName = championshipName 
-      ? championshipName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-      : `championship_${championshipId}`;
-    
-    // Função helper para criar e baixar arquivo
-    const downloadFile = (data: unknown, filename: string) => {
-      const jsonStr = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    };
-    
-    // Exportar cada tabela se disponível
-    if (tables.geral) {
-      downloadFile(tables.geral, `${baseName}_overall.json`);
-    }
-    
-    if (tables.home_away) {
-      downloadFile(tables.home_away, `${baseName}_home_away.json`);
-    }
-    
-    if (tables.standard_for) {
-      downloadFile(tables.standard_for, `stats_squads_standard_for.json`);
-    }
-    
-    if (import.meta.env.DEV) {
-      console.log('[ChampionshipService] Download de tabelas concluído');
-    }
-  } catch (error) {
-    logger.error('[ChampionshipService] Erro ao fazer download das tabelas:', error);
-    throw error;
-  }
-};
 
 function saveChampionshipTableToLocalStorage(table: ChampionshipTable): ChampionshipTable {
   const tables = loadChampionshipTablesFromLocalStorage(table.championship_id);

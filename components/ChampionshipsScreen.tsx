@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, ExternalLink } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
-import { loadChampionship } from '../services/championshipService';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
@@ -28,7 +27,7 @@ const ChampionshipsScreen: React.FC = () => {
     championship: Championship;
     tables: ChampionshipTable[];
   } | null>(null);
-  const [extractingFromFbref, setExtractingFromFbref] = useState<Championship | null>(null);
+  const [extractingFbref, setExtractingFbref] = useState<Championship | null>(null);
 
   const handleNewChampionship = () => {
     setEditingChampionship(null);
@@ -148,26 +147,31 @@ const ChampionshipsScreen: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{championship.nome}</h3>
-                    <p className="text-sm text-base-content/60">
-                      {championship.updated_at
-                        ? new Date(championship.updated_at).toLocaleDateString('pt-BR')
-                        : championship.created_at
+                    <div className="text-sm text-base-content/60 space-y-0.5">
+                      <p>
+                        Criado em:{' '}
+                        {championship.created_at
                           ? new Date(championship.created_at).toLocaleDateString('pt-BR')
                           : 'Data não disponível'}
-                    </p>
-                    {championship.fbrefUrl && (
-                      <p
-                        className="text-[11px] text-base-content/50 mt-1 truncate max-w-[240px]"
-                        title={championship.fbrefUrl}
-                      >
-                        URL: {championship.fbrefUrl}
                       </p>
-                    )}
+                      {championship.uploaded_at && (
+                        <p className="text-xs">
+                          Último upload:{' '}
+                          {new Date(championship.uploaded_at).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-4 flex-wrap">
+              <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => handleViewTables(championship)}
                   className="btn btn-sm btn-ghost flex-1 gap-1"
@@ -176,27 +180,19 @@ const ChampionshipsScreen: React.FC = () => {
                   <Eye className="w-4 h-4" />
                   Tabelas
                 </button>
-                {championship.fbrefUrl && (
-                  <button
-                    onClick={() => setExtractingFromFbref(championship)}
-                    className="btn btn-sm btn-primary gap-1"
-                    title="Extrair tabelas do FBref.com automaticamente"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Extrair FBref
-                  </button>
-                )}
+                <button
+                  onClick={() => setExtractingFbref(championship)}
+                  className="btn btn-sm btn-ghost gap-1"
+                  title="Extrair Dados do FBref.com"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => handleUpdateTables(championship)}
-                  className="btn btn-sm btn-ghost flex-1 gap-1"
-                  title={
-                    championship.fbrefUrl
-                      ? 'Atualizar (extrair do FBref via URL salva)'
-                      : 'Atualizar (você pode colar a URL do FBref no modal)'
-                  }
+                  className="btn btn-sm btn-ghost gap-1"
+                  title="Atualizar Tabelas (JSON)"
                 >
                   <Upload className="w-4 h-4" />
-                  Atualizar
                 </button>
                 <button
                   onClick={() => handleEditChampionship(championship)}
@@ -333,36 +329,22 @@ const ChampionshipsScreen: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Modal de Extração do FBref */}
-      <AnimatePresence>
-        {extractingFromFbref && (
-          <FbrefExtractionModal
-            championship={extractingFromFbref}
-            onClose={() => setExtractingFromFbref(null)}
-            onTableSaved={async () => {
-              setExtractingFromFbref(null);
-              // Recarregar campeonato para atualizar updated_at
-              const updatedChampionship = await loadChampionship(extractingFromFbref.id);
-              if (updatedChampionship) {
-                // Atualizar campeonato usando a função save do hook
-                await save(updatedChampionship);
-              }
-              // Atualizar tabelas se o modal de visualização estiver aberto
-              if (viewingTables?.championship.id === extractingFromFbref.id) {
-                const tables = await loadTables(extractingFromFbref.id);
-                const currentChampionship = updatedChampionship || extractingFromFbref;
-                setViewingTables({ 
-                  championship: currentChampionship, 
-                  tables 
-                });
-              }
-            }}
-            onError={(message) => {
-              console.error('[ChampionshipsScreen] Erro ao extrair do FBref:', message);
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {/* Modal de Extração FBref */}
+      {extractingFbref && (
+        <FbrefExtractionModal
+          championship={extractingFbref}
+          onClose={() => setExtractingFbref(null)}
+          onTableSaved={async () => {
+            // Recarregar tabelas após salvar
+            if (viewingTables?.championship.id === extractingFbref.id) {
+              const tables = await loadTables(extractingFbref.id);
+              setViewingTables({ championship: extractingFbref, tables });
+            }
+            setExtractingFbref(null);
+          }}
+          onError={handleError}
+        />
+      )}
     </div>
   );
 };

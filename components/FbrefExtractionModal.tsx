@@ -3,11 +3,6 @@ import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
 import { extractFbrefData, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
-import {
-  mapToTableRowsGeral,
-  mapToTableRowsHomeAway,
-  mapToTableRowsStandardFor,
-} from '../utils/fbrefMapper';
 import { Championship, TableType } from '../types';
 import { animations } from '../utils/animations';
 
@@ -24,7 +19,7 @@ export default function FbrefExtractionModal({
   onTableSaved,
   onError,
 }: Props) {
-  const [url, setUrl] = useState(championship.fbrefUrl ?? '');
+  const [url, setUrl] = useState((championship as any).fbrefUrl ?? '');
   const extractTypes: ExtractType[] = ['table'];
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FbrefExtractionResult | null>(null);
@@ -110,22 +105,23 @@ export default function FbrefExtractionModal({
     setSaving(true);
 
     try {
-      const mapped = {
-        geral: mapToTableRowsGeral(previewTables.geral || []),
-        home_away: mapToTableRowsHomeAway(previewTables.home_away || []),
-        standard_for: mapToTableRowsStandardFor(previewTables.standard_for || []),
+      // Passar dados diretamente - saveExtractedTables já faz a normalização
+      const tablesToSave = {
+        geral: previewTables.geral || [],
+        home_away: previewTables.home_away || [],
+        standard_for: previewTables.standard_for || [],
       };
 
       const totalRows =
-        mapped.geral.length +
-        mapped.home_away.length +
-        mapped.standard_for.length;
+        tablesToSave.geral.length +
+        tablesToSave.home_away.length +
+        tablesToSave.standard_for.length;
 
       if (totalRows === 0) {
-        throw new Error('Nenhum dado válido encontrado após mapeamento');
+        throw new Error('Nenhum dado válido encontrado para salvar');
       }
 
-      await saveExtractedTables(championship.id, mapped);
+      await saveExtractedTables(championship.id, tablesToSave);
 
       onTableSaved?.();
       onClose();
@@ -248,7 +244,30 @@ export default function FbrefExtractionModal({
                 <p className="font-bold">
                   {result.success ? 'Extração bem-sucedida!' : 'Erro na extração'}
                 </p>
-                {result.error && <p className="text-sm opacity-90">{result.error}</p>}
+                {result.error && (
+                  <div className="text-sm opacity-90 mt-1">
+                    <p className="whitespace-pre-line">{result.error}</p>
+                    {result.error_details && (
+                      <details className="mt-2 text-xs opacity-75">
+                        <summary className="cursor-pointer hover:opacity-100">
+                          Detalhes técnicos (clique para expandir)
+                        </summary>
+                        <div className="mt-2 p-2 bg-black/20 rounded">
+                          <p><strong>Tipo:</strong> {result.error_details.type || 'N/A'}</p>
+                          {result.error_details.status_code && (
+                            <p><strong>Status Code:</strong> {result.error_details.status_code}</p>
+                          )}
+                          {result.error_details.url && (
+                            <p><strong>URL:</strong> {result.error_details.url}</p>
+                          )}
+                          {result.error_details.message && (
+                            <p><strong>Mensagem:</strong> {result.error_details.message}</p>
+                          )}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                )}
                 {result.success && result.data?.missingTables && result.data.missingTables.length > 0 && (
                   <p className="text-sm opacity-90 mt-1">
                     Tabelas não encontradas: <span className="font-semibold">{result.data.missingTables.join(', ')}</span>

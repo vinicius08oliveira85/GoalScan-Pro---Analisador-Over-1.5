@@ -1,16 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileJson, X, Save, ExternalLink, Download } from 'lucide-react';
+import { Upload, FileJson, X, Save, FileSpreadsheet } from 'lucide-react';
 import type { Championship, ChampionshipTable, TableType } from '../types';
 import { animations } from '../utils/animations';
-import { downloadChampionshipTables } from '../services/championshipService';
-import FbrefExtractionModal from './FbrefExtractionModal';
+import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
 
 type TableMeta = { type: TableType; name: string };
 
 const TABLES: TableMeta[] = [
   { type: 'geral', name: 'Geral' },
-  { type: 'home_away', name: 'Home/Away - Desempenho Casa vs Fora' },
   { type: 'standard_for', name: 'Standard (For) - Complemento' },
 ];
 
@@ -49,17 +47,13 @@ export default function ChampionshipTableUpdateModal({
   const [activeType, setActiveType] = useState<TableType>('geral');
   const [jsonTextByType, setJsonTextByType] = useState<Record<TableType, string>>({
     geral: '',
-    home_away: '',
     standard_for: '',
   });
   const [errorByType, setErrorByType] = useState<Record<TableType, string | null>>({
     geral: null,
-    home_away: null,
     standard_for: null,
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [showFbrefModal, setShowFbrefModal] = useState(false);
 
   const existingByType = useMemo(() => {
     const map = new Map<TableType, ChampionshipTable>();
@@ -71,17 +65,43 @@ export default function ChampionshipTableUpdateModal({
 
   const activeExisting = existingByType.get(activeType) || null;
 
-  const handleFileUpload = (type: TableType, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = (e.target?.result as string) || '';
-      setJsonTextByType((prev) => ({ ...prev, [type]: content }));
+  const handleFileUpload = async (type: TableType, file: File) => {
+    try {
+      let jsonData: unknown;
 
-      const parsed = safeJsonParse(content);
-      const err = validateTableJson(parsed);
+      // Verificar se é arquivo Excel
+      if (isExcelFile(file)) {
+        // Processar Excel
+        const excelData = await parseExcelToJson(file);
+        // Converter para JSON string para exibir no textarea
+        jsonData = excelData;
+        setJsonTextByType((prev) => ({ ...prev, [type]: JSON.stringify(excelData, null, 2) }));
+      } else {
+        // Processar JSON
+        const reader = new FileReader();
+        const content = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => {
+            resolve((e.target?.result as string) || '');
+          };
+          reader.onerror = () => {
+            reject(new Error('Erro ao ler arquivo'));
+          };
+          reader.readAsText(file);
+        });
+
+        setJsonTextByType((prev) => ({ ...prev, [type]: content }));
+        jsonData = safeJsonParse(content);
+      }
+
+      const err = validateTableJson(jsonData);
       setErrorByType((prev) => ({ ...prev, [type]: err }));
-    };
-    reader.readAsText(file);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao processar arquivo. Verifique se o arquivo é válido.';
+      setErrorByType((prev) => ({ ...prev, [type]: errorMessage }));
+    }
   };
 
   const handleUpdate = async () => {
@@ -129,28 +149,13 @@ export default function ChampionshipTableUpdateModal({
     setIsSaving(false);
   };
 
-  const handleExport = async () => {
-    setIsExporting(true);
-    try {
-      await downloadChampionshipTables(championship.id, championship.nome);
-    } catch (error) {
-      console.error('[ChampionshipTableUpdateModal] Erro ao exportar tabelas:', error);
-      setErrorByType((prev) => ({ ...prev, [activeType]: 'Erro ao exportar tabelas. Tente novamente.' }));
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
-      onClick={(e) => {
-        // Fechar apenas quando clicar no backdrop (evita fechar ao interagir com modais internos)
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
@@ -162,7 +167,7 @@ export default function ChampionshipTableUpdateModal({
       >
         <div className="sticky top-0 bg-base-100 border-b border-base-300 p-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
-            <FileJson className="w-5 h-5 text-primary" />
+            <FileSpreadsheet className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-bold">Atualizar Tabelas — {championship.nome}</h2>
           </div>
           <button onClick={onClose} className="btn btn-sm btn-ghost btn-circle">
@@ -201,18 +206,26 @@ export default function ChampionshipTableUpdateModal({
           {/* Upload */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="custom-card p-4 space-y-3">
-              <div className="font-bold">Upload do arquivo JSON</div>
+              <div className="font-bold flex items-center gap-2">
+                Upload de arquivo Excel ou JSON
+                <FileSpreadsheet className="w-4 h-4 text-primary" />
+                <FileJson className="w-4 h-4 text-secondary" />
+              </div>
               <input
                 type="file"
-                accept="application/json,.json"
-                className="file-input file-input-bordered w-full"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/json,.json"
+                className="file-input file-input-bordered w-full file-input-primary"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFileUpload(activeType, file);
                 }}
               />
               <div className="text-xs opacity-70">
-                Requisito: JSON deve ser um array e conter o campo <code>Squad</code>.
+                <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls), CSV (.csv) ou JSON (.json)
+                <br />
+                <strong>Requisito:</strong> Deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team")
+                <br />
+                <strong>Nota:</strong> Arquivos Excel são convertidos automaticamente para JSON
               </div>
             </div>
 
@@ -237,51 +250,6 @@ export default function ChampionshipTableUpdateModal({
             </div>
           </div>
 
-          {/* Extração automática do FBref */}
-          <div className="surface surface-hover p-5 space-y-4 border-2 border-primary/40 rounded-2xl bg-primary/5">
-            <div className="flex items-center justify-between">
-              <div className="font-bold flex items-center gap-2 text-primary">
-                <ExternalLink className="w-6 h-6" />
-                <span className="text-lg">Extração Automática do FBref.com</span>
-              </div>
-            </div>
-            <p className="text-sm opacity-80 leading-relaxed">
-              Extraia automaticamente dados de tabelas do fbref.com sem precisar copiar/colar JSON manualmente.
-            </p>
-            <button
-              onClick={() => setShowFbrefModal(true)}
-              className="btn btn-primary btn-lg w-full gap-2 font-bold shadow-lg hover:shadow-xl transition-all"
-            >
-              <ExternalLink className="w-5 h-5" />
-              Extrair do FBref.com
-            </button>
-          </div>
-
-          {/* Exportação de tabelas */}
-          <div className="surface surface-hover p-5 space-y-4 border-2 border-secondary/40 rounded-2xl bg-secondary/5">
-            <div className="flex items-center justify-between">
-              <div className="font-bold flex items-center gap-2 text-secondary">
-                <Download className="w-6 h-6" />
-                <span className="text-lg">Exportar Tabelas</span>
-              </div>
-            </div>
-            <p className="text-sm opacity-80 leading-relaxed">
-              Exporte apenas as 3 tabelas especificadas (Geral, Home/Away, Standard For) como arquivos JSON.
-            </p>
-            <button
-              onClick={handleExport}
-              disabled={isExporting}
-              className="btn btn-secondary btn-lg w-full gap-2 font-bold shadow-lg hover:shadow-xl transition-all"
-            >
-              {isExporting ? (
-                <span className="loading loading-spinner loading-sm" />
-              ) : (
-                <Download className="w-5 h-5" />
-              )}
-              {isExporting ? 'Exportando...' : 'Exportar Tabelas'}
-            </button>
-          </div>
-
           <div className="flex items-center justify-end gap-2 pt-2">
             <button className="btn btn-ghost" onClick={onClose} disabled={isSaving}>
               Cancelar
@@ -302,24 +270,6 @@ export default function ChampionshipTableUpdateModal({
           </div>
         </div>
       </motion.div>
-
-      {/* Modal de extração do FBref */}
-      {showFbrefModal && (
-        <FbrefExtractionModal
-          championship={championship}
-          onClose={() => {
-            setShowFbrefModal(false);
-            onReloadTables();
-          }}
-          onTableSaved={() => {
-            setShowFbrefModal(false);
-            onReloadTables();
-          }}
-          onError={(message) => {
-            setErrorByType((prev) => ({ ...prev, [activeType]: message }));
-          }}
-        />
-      )}
     </motion.div>
   );
 }
