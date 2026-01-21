@@ -315,8 +315,11 @@ export interface MatchResultAnalysis {
   generatedAt: number; // Timestamp
 }
 
+// Formato da planilha de campeonato
+export type TableFormat = 'completa' | 'basica';
+
 // Tipos de tabela de campeonato
-export type TableType = 'geral' | 'home_away' | 'standard_for' | 'passing_for' | 'gca_for';
+export type TableType = 'geral' | 'home_away' | 'standard_for';
 
 // Interface para linha da tabela "Geral" baseada no CSV Bundesliga.csv
 // Estrutura com estatísticas separadas para Casa (Home) e Fora (Away)
@@ -451,6 +454,7 @@ export interface Championship {
   id: string;
   nome: string;
   fbrefUrl?: string | null;
+  table_format?: TableFormat | null; // Formato da planilha: 'completa' (com xG) ou 'basica' (sem xG)
   created_at?: string;
   updated_at?: string;
   uploaded_at?: string; // Data do último upload/atualização da tabela de dados

@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, FileJson, X, Save, FileSpreadsheet } from 'lucide-react';
-import type { Championship, ChampionshipTable, TableType } from '../types';
+import type { Championship, ChampionshipTable, TableType, TableRowGeral } from '../types';
 import { animations } from '../utils/animations';
 import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
+import { detectTableFormatFromData } from '../utils/tableFormatDetector';
+import { updateChampionshipTableFormat } from '../services/championshipService';
 
 type TableMeta = { type: TableType; name: string };
 
@@ -95,6 +97,15 @@ export default function ChampionshipTableUpdateModal({
 
       const err = validateTableJson(jsonData);
       setErrorByType((prev) => ({ ...prev, [type]: err }));
+
+      // Detectar formato automaticamente se for tabela geral
+      if (type === 'geral' && !err && Array.isArray(jsonData) && jsonData.length > 0) {
+        const detectedFormat = detectTableFormatFromData(jsonData as TableRowGeral[]);
+        // Atualizar formato no campeonato
+        updateChampionshipTableFormat(championship.id, detectedFormat).catch((error) => {
+          console.warn('Erro ao atualizar formato do campeonato:', error);
+        });
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error

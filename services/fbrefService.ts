@@ -160,8 +160,6 @@ const TABLE_NAME_BY_TYPE: Record<TableType, string> = {
   geral: 'Geral',
   home_away: 'Home/Away - Desempenho Casa vs Fora',
   standard_for: 'Standard (For) - Complemento',
-  passing_for: 'Passing (For) - Complemento',
-  gca_for: 'GCA (For) - Complemento',
 };
 
 /**

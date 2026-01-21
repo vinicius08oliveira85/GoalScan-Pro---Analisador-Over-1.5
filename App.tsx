@@ -105,8 +105,6 @@ const App: React.FC = () => {
       console.log('[App] Status das 4 tabelas:', {
         geral: !!(data.homeTableData && data.awayTableData),
         standard_for: !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg),
-        passing_for: !!(data.homePassingForData && data.awayPassingForData && data.competitionPassingForAvg),
-        gca_for: !!(data.homeGcaForData && data.awayGcaForData && data.competitionGcaForAvg),
       });
       
       // Validação explícita antes de análise

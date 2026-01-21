@@ -63,20 +63,39 @@ const ChampionshipsScreen: React.FC = () => {
     championship: Championship,
     tables: ChampionshipTable[]
   ) => {
-    // Salvar campeonato
-    const savedChampionship = await save(championship);
+    try {
+      // Salvar campeonato
+      const savedChampionship = await save(championship);
 
-    if (savedChampionship) {
-      // Salvar tabelas
-      for (const table of tables) {
-        await saveTable({
-          ...table,
-          championship_id: savedChampionship.id,
-        });
+      if (savedChampionship) {
+        // Salvar tabelas
+        if (tables.length > 0) {
+          for (const table of tables) {
+            try {
+              const savedTable = await saveTable({
+                ...table,
+                championship_id: savedChampionship.id,
+              });
+              
+              if (!savedTable) {
+                console.error(`[ChampionshipsScreen] Erro ao salvar tabela ${table.table_type}`);
+                handleError(`Erro ao salvar tabela ${table.table_name || table.table_type}`);
+              }
+            } catch (tableError) {
+              console.error(`[ChampionshipsScreen] Erro ao salvar tabela ${table.table_type}:`, tableError);
+              handleError(`Erro ao salvar tabela ${table.table_name || table.table_type}: ${tableError instanceof Error ? tableError.message : 'Erro desconhecido'}`);
+            }
+          }
+        }
+
+        setShowForm(false);
+        setEditingChampionship(null);
+      } else {
+        handleError('Erro ao salvar campeonato');
       }
-
-      setShowForm(false);
-      setEditingChampionship(null);
+    } catch (error) {
+      console.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
+      handleError(`Erro ao salvar campeonato: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 
@@ -146,7 +165,25 @@ const ChampionshipsScreen: React.FC = () => {
                     <Trophy className="w-6 h-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">{championship.nome}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-lg">{championship.nome}</h3>
+                      {championship.table_format && (
+                        <span
+                          className={`badge badge-sm ${
+                            championship.table_format === 'completa'
+                              ? 'badge-primary'
+                              : 'badge-secondary'
+                          }`}
+                          title={
+                            championship.table_format === 'completa'
+                              ? 'Planilha completa com dados de xG'
+                              : 'Planilha básica sem dados de xG'
+                          }
+                        >
+                          {championship.table_format === 'completa' ? 'Completa' : 'Básica'}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-base-content/60 space-y-0.5">
                       <p>
                         Criado em:{' '}
