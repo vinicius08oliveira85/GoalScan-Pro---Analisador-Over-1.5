@@ -59,6 +59,7 @@ const App: React.FC = () => {
   const [isUpdatingBetStatus, setIsUpdatingBetStatus] = useState<boolean>(false);
   const [showResultAnalysisModal, setShowResultAnalysisModal] = useState<boolean>(false);
   const [matchForAnalysis, setMatchForAnalysis] = useState<SavedAnalysis | null>(null);
+  const [webSearchResults, setWebSearchResults] = useState<Array<{ content?: string; snippet?: string; url?: string }>>([]);
 
   // Funções de Navegação
   const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
@@ -399,48 +400,111 @@ const App: React.FC = () => {
     // Construir query de busca
     const searchQuery = `${homeTeam} vs ${awayTeam} ${matchDate || ''} resultado placar`.trim();
 
-    // Buscar informações na web
-    // Nota: A busca web será feita pelo sistema quando esta função for chamada
-    // Por enquanto, retornamos uma estrutura básica que será preenchida
-    
+    // Fazer busca web usando a função handleWebSearch
     // Esta função será chamada pelo modal que terá acesso à ferramenta web_search
-    // Por isso, vamos criar uma estrutura que será preenchida externamente
-    // O modal usará a ferramenta web_search diretamente
+    const searchResults = await handleWebSearch(searchQuery);
     
+    // Se não houver resultados, retornar análise básica
+    if (!searchResults.results || searchResults.results.length === 0) {
+      // Retornar análise básica sem dados da web
+      const analysisText = generateAnalysisText(match, { homeScore: 0, awayScore: 0, totalGoals: 0 }, '');
+      
+      return {
+        matchResult: {
+          homeScore: 0,
+          awayScore: 0,
+          totalGoals: 0,
+        },
+        betOutcome: betStatus,
+        analysis: analysisText,
+        sources: [],
+        generatedAt: Date.now(),
+      };
+    }
+    
+    // Processar resultados
+    const searchText = searchResults.results?.map((r: { content?: string; snippet?: string; url?: string }) => r.content || r.snippet || '').join('\n\n') || '';
+    const parsed = parseWebSearchResults(searchText);
+    const analysisText = generateAnalysisText(match, parsed, searchText);
+
     return {
       matchResult: {
-        homeScore: 0,
-        awayScore: 0,
-        totalGoals: 0,
+        homeScore: parsed.homeScore,
+        awayScore: parsed.awayScore,
+        totalGoals: parsed.totalGoals,
       },
       betOutcome: betStatus,
-      analysis: '',
-      sources: [],
+      analysis: analysisText,
+      sources: searchResults.results?.map((r: { url?: string }) => r.url || '').filter(Boolean) || [],
       generatedAt: Date.now(),
     };
   };
 
-  const handleOpenResultAnalysis = (match: SavedAnalysis) => {
+  const handleOpenResultAnalysis = async (match: SavedAnalysis) => {
     setMatchForAnalysis(match);
     setShowResultAnalysisModal(true);
+    setWebSearchResults([]); // Limpar resultados anteriores
+    
+    // Fazer busca web automaticamente quando o modal abrir
+    // A busca será feita pelo assistente usando a ferramenta web_search
+    const { homeTeam, awayTeam, matchDate } = match.data;
+    const searchQuery = `${homeTeam} vs ${awayTeam} ${matchDate || ''} resultado placar`.trim();
+    
+    try {
+      // Fazer busca web usando a ferramenta web_search
+      const searchResults = await web_search({ search_term: searchQuery });
+      
+      // Converter os resultados para o formato esperado pelo modal
+      const formattedResults = (searchResults.results || []).map((result: any) => ({
+        content: result.content || result.snippet || result.text || '',
+        snippet: result.snippet || result.content || result.text || '',
+        url: result.url || result.link || '',
+      }));
+      
+      // Armazenar os resultados no estado para que o modal possa usá-los
+      setWebSearchResults(formattedResults);
+      console.log('[App] Resultados da busca armazenados:', formattedResults);
+    } catch (error) {
+      console.error('[App] Erro ao buscar informações:', error);
+      showError(`Erro ao buscar na web: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   const handleCloseResultAnalysis = () => {
     setShowResultAnalysisModal(false);
     setMatchForAnalysis(null);
+    setWebSearchResults([]); // Limpar resultados quando fechar
   };
 
   // Função wrapper para busca web que será passada ao modal
   // Nota: Esta função será chamada pelo modal para fazer busca web
   // A busca será feita usando a ferramenta web_search quando disponível
+  // Como web_search só pode ser chamada pelo assistente, vamos fazer a busca aqui
+  // através de uma chamada que será interceptada pelo assistente
   const handleWebSearch = async (query: string) => {
     try {
-      // Usar web_search tool para buscar informações
-      // Esta função será chamada pelo modal que terá acesso à ferramenta
-      // Por enquanto, retornamos estrutura vazia - a busca será feita pelo sistema
+      console.log('[App] Solicitando busca web:', query);
+      
+      // Se já temos resultados em cache, retornar eles
+      if (webSearchResults.length > 0) {
+        return { results: webSearchResults };
+      }
+      
+      // Nota: A busca web real precisa ser feita pelo assistente usando a ferramenta web_search
+      // Como a ferramenta web_search só pode ser chamada pelo assistente, vamos fazer a busca aqui
+      // através de uma chamada que será interceptada pelo assistente quando o usuário clicar no botão
+      
+      // Por enquanto, vamos retornar um resultado vazio
+      // O assistente será chamado para fazer a busca quando o modal abrir
+      // e o usuário clicar no botão de análise
+      
+      // TODO: Implementar busca web real usando uma API ou backend proxy
+      // Por enquanto, retornamos estrutura vazia - a busca será feita pelo assistente
+      
       return { results: [] };
     } catch (error) {
       console.error('Erro ao buscar informações:', error);
+      showError(`Erro ao buscar na web: ${error instanceof Error ? error.message : String(error)}`);
       return { results: [] };
     }
   };
