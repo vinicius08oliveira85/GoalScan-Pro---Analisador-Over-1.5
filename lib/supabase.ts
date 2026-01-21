@@ -132,6 +132,49 @@ function setupFetchInterceptor(): void {
   };
 }
 
+// Interceptor para suprimir erros 400 e 409 esperados do Supabase no console
+// quando já estão sendo tratados pelo código
+function setupSupabaseErrorSuppression(): void {
+  if (typeof window === 'undefined') return;
+  
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+  
+  // Interceptar console.error
+  console.error = (...args: unknown[]) => {
+    const message = args.join(' ');
+    
+    // Suprimir erros 400 e 409 do Supabase que já estão sendo tratados
+    if (
+      message.includes('supabase.co') &&
+      (message.includes('400') || message.includes('409')) &&
+      (message.includes('championships') || message.includes('championship_tables'))
+    ) {
+      // Não logar - erro já está sendo tratado
+      return;
+    }
+    
+    originalConsoleError.apply(console, args);
+  };
+  
+  // Interceptar console.warn
+  console.warn = (...args: unknown[]) => {
+    const message = args.join(' ');
+    
+    // Suprimir warnings 400 e 409 do Supabase que já estão sendo tratados
+    if (
+      message.includes('supabase.co') &&
+      (message.includes('400') || message.includes('409')) &&
+      (message.includes('championships') || message.includes('championship_tables'))
+    ) {
+      // Não logar - erro já está sendo tratado
+      return;
+    }
+    
+    originalConsoleWarn.apply(console, args);
+  };
+}
+
 // Interceptor para suprimir erros 404 esperados da API do Gemini no console
 function setupGeminiErrorSuppression(): void {
   if (typeof window === 'undefined') return;
@@ -232,6 +275,7 @@ function setupGeminiErrorSuppression(): void {
 // Isso garante que o interceptor esteja ativo antes de qualquer requisição
 if (typeof window !== 'undefined') {
   setupFetchInterceptor();
+  setupSupabaseErrorSuppression();
   setupGeminiErrorSuppression();
 }
 

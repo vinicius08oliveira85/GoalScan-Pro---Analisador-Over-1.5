@@ -139,25 +139,46 @@ function isTemporaryError(error: unknown): boolean {
 }
 
 /**
+ * Extrai o status code de um erro do Supabase
+ */
+function getErrorStatus(error: unknown): number | null {
+  if (!error) return null;
+  
+  const err = error as { 
+    status?: number; 
+    statusCode?: number; 
+    code?: string | number;
+  };
+  
+  // Tentar extrair status de diferentes propriedades
+  if (typeof err.status === 'number') return err.status;
+  if (typeof err.statusCode === 'number') return err.statusCode;
+  if (typeof err.code === 'number') return err.code;
+  
+  // Verificar se code é string com número
+  if (typeof err.code === 'string') {
+    const numericCode = parseInt(err.code, 10);
+    if (!isNaN(numericCode)) return numericCode;
+  }
+  
+  return null;
+}
+
+/**
  * Verifica se um erro é um erro de constraint violation (400)
  * Especificamente para detectar problemas com table_type constraint
  */
 function isConstraintError(error: unknown): boolean {
   if (!error) return false;
   
-  const err = error as { 
-    message?: string; 
-    code?: string | number; 
-    status?: number;
-    statusCode?: number;
-    details?: string;
-  };
-  
-  // Verificar status code 400
-  const statusCode = err.status || err.statusCode || 
-    (typeof err.code === 'number' ? err.code : null);
+  const statusCode = getErrorStatus(error);
   
   if (statusCode === 400) {
+    const err = error as { 
+      message?: string; 
+      details?: string;
+    };
+    
     // Verificar se é erro de constraint
     const message = (err.message || '').toLowerCase();
     const details = (err.details || '').toLowerCase();
@@ -742,18 +763,64 @@ export const saveChampionshipTable = async (
           return saveChampionshipTableToLocalStorage(table);
         }
         
+        const errorStatus = getErrorStatus(error);
+        const errorMessage = (error as { message?: string }).message || '';
+        const errorDetails = (error as { details?: string }).details || '';
+        
         // Erro 409 (Conflict) - pode ser conflito de constraint ou ID duplicado
-        if (error.status === 409 || error.code === '23505' || (error.code && String(error.code).includes('409'))) {
+        if (errorStatus === 409 || error.code === '23505') {
           if (import.meta.env.DEV) {
             logger.warn(
               '[ChampionshipService] Erro 409 (Conflict) ao salvar tabela. ' +
               'Pode ser conflito de constraint ou ID duplicado. ' +
-              'Tentando salvar com novo ID.',
-              error
+              'Tentando resolver conflito.',
+              { error, errorStatus, errorMessage, errorDetails, errorDetailsFull: JSON.stringify(error, null, 2) }
             );
           }
           
-          // Tentar salvar com novo ID baseado em timestamp
+          // Verificar se é conflito de ID (tentar buscar tabela existente primeiro)
+          const isIdConflict = errorMessage.toLowerCase().includes('duplicate') || 
+                               errorMessage.toLowerCase().includes('unique') ||
+                               error.code === '23505';
+          
+          if (isIdConflict) {
+            // Tentar buscar tabela existente com mesmo championship_id e table_type
+            const { data: existingTable } = await supabase
+              .from('championship_tables')
+              .select('*')
+              .eq('championship_id', table.championship_id)
+              .eq('table_type', table.table_type)
+              .maybeSingle();
+            
+            if (existingTable) {
+              // Atualizar tabela existente
+              const { data: updatedTable, error: updateError } = await supabase
+                .from('championship_tables')
+                .update({
+                  table_name: table.table_name,
+                  table_data: table.table_data,
+                  updated_at: now,
+                })
+                .eq('id', existingTable.id)
+                .select()
+                .single();
+              
+              if (updateError) {
+                if (import.meta.env.DEV) {
+                  logger.error('[ChampionshipService] Erro ao atualizar tabela existente:', updateError);
+                }
+                return saveChampionshipTableToLocalStorage(table);
+              }
+              
+              if (import.meta.env.DEV) {
+                logger.log(`[ChampionshipService] Tabela atualizada com sucesso (ID: ${existingTable.id})`);
+              }
+              
+              return updatedTable;
+            }
+          }
+          
+          // Se não encontrou tabela existente ou não é conflito de ID, tentar com novo ID
           const newId = `${table.championship_id}_${table.table_type}_${Date.now()}`;
           const { data: dataWithNewId, error: errorWithNewId } = await supabase
             .from('championship_tables')
@@ -776,7 +843,10 @@ export const saveChampionshipTable = async (
           
           if (errorWithNewId) {
             if (import.meta.env.DEV) {
-              logger.error('[ChampionshipService] Erro ao salvar tabela mesmo com novo ID:', errorWithNewId);
+              logger.error(
+                '[ChampionshipService] Erro ao salvar tabela mesmo com novo ID:',
+                { error: errorWithNewId, errorStatus: getErrorStatus(errorWithNewId) }
+              );
             }
             return saveChampionshipTableToLocalStorage(table);
           }
@@ -795,7 +865,7 @@ export const saveChampionshipTable = async (
               '[ChampionshipService] Erro de constraint ao salvar tabela. ' +
               'A constraint do banco pode não permitir o table_type. ' +
               'Salvando apenas no localStorage. Execute a migração update_championship_tables_constraint.sql no Supabase.',
-              error
+              { error, errorStatus, errorMessage, errorDetails, errorDetailsFull: JSON.stringify(error, null, 2) }
             );
           }
           return saveChampionshipTableToLocalStorage(table);
@@ -807,7 +877,10 @@ export const saveChampionshipTable = async (
         
         // Apenas logar erros não temporários e apenas em modo dev
         if (import.meta.env.DEV) {
-          logger.error('[ChampionshipService] Erro ao salvar tabela:', error);
+          logger.error(
+            '[ChampionshipService] Erro ao salvar tabela:',
+            { error, errorStatus, errorMessage, errorDetails, errorDetailsFull: JSON.stringify(error, null, 2) }
+          );
         }
         throw error;
       }
