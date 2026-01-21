@@ -480,45 +480,111 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
         }
         
         // Erro 400 pode ser campo não existente (ex: table_format)
-        if (error.status === 400 || (error.code && String(error.code).includes('400'))) {
+        const errorStatus = getErrorStatus(error);
+        if (errorStatus === 400) {
+          const errorMessage = (error as { message?: string }).message || '';
+          const errorDetails = (error as { details?: string }).details || '';
+          const isTableFormatError = errorMessage.toLowerCase().includes('table_format') || 
+                                    errorMessage.toLowerCase().includes('column') ||
+                                    errorDetails.toLowerCase().includes('table_format') ||
+                                    errorDetails.toLowerCase().includes('column');
+          
           if (import.meta.env.DEV) {
             logger.warn(
-              '[ChampionshipService] Erro 400 ao salvar campeonato. ' +
-              'O campo table_format pode não existir no banco. ' +
-              'Execute a migração add_table_format_to_championships.sql no Supabase. ' +
-              'Tentando salvar sem table_format.',
-              error
+              '[ChampionshipService] Erro 400 ao salvar campeonato.',
+              { 
+                error, 
+                errorStatus, 
+                errorMessage, 
+                errorDetails,
+                isTableFormatError,
+                errorDetailsFull: JSON.stringify(error, null, 2)
+              }
             );
           }
-          // Tentar salvar sem table_format
-          const { data: dataWithoutFormat, error: errorWithoutFormat } = await supabase
-            .from('championships')
-            .upsert(
-              {
-                id: championship.id,
-                nome: championship.nome,
-                fbref_url: championship.fbrefUrl || null,
-                updated_at: new Date().toISOString(),
-              },
-              {
-                onConflict: 'id',
-              }
-            )
-            .select()
-            .single();
           
-          if (errorWithoutFormat) {
+          // Se for erro de campo não existente (table_format), tentar salvar sem ele
+          if (isTableFormatError || championship.table_format) {
             if (import.meta.env.DEV) {
-              logger.error('[ChampionshipService] Erro ao salvar campeonato mesmo sem table_format:', errorWithoutFormat);
+              logger.log('[ChampionshipService] Tentando salvar sem table_format...');
             }
-            return saveChampionshipToLocalStorage(championship);
+            
+            // Tentar salvar sem table_format
+            const { data: dataWithoutFormat, error: errorWithoutFormat } = await supabase
+              .from('championships')
+              .upsert(
+                {
+                  id: championship.id,
+                  nome: championship.nome,
+                  fbref_url: championship.fbrefUrl || null,
+                  updated_at: new Date().toISOString(),
+                },
+                {
+                  onConflict: 'id',
+                }
+              )
+              .select()
+              .single();
+            
+            if (errorWithoutFormat) {
+              if (import.meta.env.DEV) {
+                logger.error(
+                  '[ChampionshipService] Erro ao salvar campeonato mesmo sem table_format:',
+                  { error: errorWithoutFormat, errorStatus: getErrorStatus(errorWithoutFormat) }
+                );
+              }
+              // Se ainda falhar, pode ser outro problema - tentar apenas com campos básicos
+              const { data: dataBasic, error: errorBasic } = await supabase
+                .from('championships')
+                .upsert(
+                  {
+                    id: championship.id,
+                    nome: championship.nome,
+                    updated_at: new Date().toISOString(),
+                  },
+                  {
+                    onConflict: 'id',
+                  }
+                )
+                .select()
+                .single();
+              
+              if (errorBasic) {
+                if (import.meta.env.DEV) {
+                  logger.error('[ChampionshipService] Erro ao salvar campeonato mesmo com campos básicos:', errorBasic);
+                }
+                return saveChampionshipToLocalStorage(championship);
+              }
+              
+              if (import.meta.env.DEV) {
+                logger.log('[ChampionshipService] Campeonato salvo com campos básicos apenas');
+              }
+              
+              return dataBasic;
+            }
+            
+            if (import.meta.env.DEV) {
+              logger.log('[ChampionshipService] Campeonato salvo sem table_format (campo não existe no banco)');
+            }
+            
+            if (!dataWithoutFormat) {
+              if (import.meta.env.DEV) {
+                logger.error('[ChampionshipService] Nenhum dado retornado após salvar sem table_format');
+              }
+              return saveChampionshipToLocalStorage(championship);
+            }
+            
+            return dataWithoutFormat;
           }
           
+          // Se não for erro de table_format, logar e fazer fallback
           if (import.meta.env.DEV) {
-            logger.log('[ChampionshipService] Campeonato salvo sem table_format (campo não existe no banco)');
+            logger.error(
+              '[ChampionshipService] Erro 400 não relacionado a table_format:',
+              { error, errorMessage, errorDetails }
+            );
           }
-          
-          return dataWithoutFormat;
+          return saveChampionshipToLocalStorage(championship);
         }
         
         if (isTemporaryError(error)) {
@@ -535,6 +601,14 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
       return data;
     }, `Salvamento de campeonato ${championship.id}`);
 
+    // Validar que result contém dados válidos
+    if (!result || !result.id) {
+      if (import.meta.env.DEV) {
+        logger.error('[ChampionshipService] Resultado inválido após salvar campeonato:', result);
+      }
+      return saveChampionshipToLocalStorage(championship);
+    }
+    
     const saved: Championship = {
       id: result.id,
       nome: result.nome,
@@ -544,6 +618,10 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
       updated_at: result.updated_at,
       uploaded_at: (result as { uploaded_at?: string }).uploaded_at,
     };
+    
+    if (import.meta.env.DEV) {
+      logger.log(`[ChampionshipService] Campeonato salvo com sucesso no Supabase (ID: ${saved.id})`);
+    }
 
     // Sincronizar com localStorage
     const championships = await loadChampionships();
@@ -785,15 +863,19 @@ export const saveChampionshipTable = async (
           
           if (isIdConflict) {
             // Tentar buscar tabela existente com mesmo championship_id e table_type
-            const { data: existingTable } = await supabase
+            const { data: existingTable, error: findError } = await supabase
               .from('championship_tables')
               .select('*')
               .eq('championship_id', table.championship_id)
               .eq('table_type', table.table_type)
               .maybeSingle();
             
+            if (findError && import.meta.env.DEV) {
+              logger.warn('[ChampionshipService] Erro ao buscar tabela existente:', findError);
+            }
+            
             if (existingTable) {
-              // Atualizar tabela existente
+              // Tentar atualizar tabela existente
               const { data: updatedTable, error: updateError } = await supabase
                 .from('championship_tables')
                 .update({
@@ -807,13 +889,70 @@ export const saveChampionshipTable = async (
               
               if (updateError) {
                 if (import.meta.env.DEV) {
-                  logger.error('[ChampionshipService] Erro ao atualizar tabela existente:', updateError);
+                  logger.warn(
+                    '[ChampionshipService] Erro ao atualizar tabela existente, tentando DELETE + INSERT:',
+                    updateError
+                  );
                 }
-                return saveChampionshipTableToLocalStorage(table);
+                
+                // Se UPDATE falhar, tentar DELETE + INSERT
+                const { error: deleteError } = await supabase
+                  .from('championship_tables')
+                  .delete()
+                  .eq('id', existingTable.id);
+                
+                if (deleteError) {
+                  if (import.meta.env.DEV) {
+                    logger.error('[ChampionshipService] Erro ao deletar tabela existente:', deleteError);
+                  }
+                  return saveChampionshipTableToLocalStorage(table);
+                }
+                
+                // Inserir nova tabela
+                const { data: insertedTable, error: insertError } = await supabase
+                  .from('championship_tables')
+                  .insert({
+                    id: existingTable.id, // Usar mesmo ID
+                    championship_id: table.championship_id,
+                    table_type: table.table_type,
+                    table_name: table.table_name,
+                    table_data: table.table_data,
+                    created_at: existingTable.created_at || now,
+                    updated_at: now,
+                  })
+                  .select()
+                  .single();
+                
+                if (insertError) {
+                  if (import.meta.env.DEV) {
+                    logger.error('[ChampionshipService] Erro ao inserir tabela após DELETE:', insertError);
+                  }
+                  return saveChampionshipTableToLocalStorage(table);
+                }
+                
+                if (import.meta.env.DEV) {
+                  logger.log(`[ChampionshipService] Tabela salva com DELETE + INSERT (ID: ${existingTable.id})`);
+                }
+                
+                if (!insertedTable) {
+                  if (import.meta.env.DEV) {
+                    logger.error('[ChampionshipService] Nenhum dado retornado após DELETE + INSERT');
+                  }
+                  return saveChampionshipTableToLocalStorage(table);
+                }
+                
+                return insertedTable;
               }
               
               if (import.meta.env.DEV) {
                 logger.log(`[ChampionshipService] Tabela atualizada com sucesso (ID: ${existingTable.id})`);
+              }
+              
+              if (!updatedTable) {
+                if (import.meta.env.DEV) {
+                  logger.error('[ChampionshipService] Nenhum dado retornado após atualização');
+                }
+                return saveChampionshipTableToLocalStorage(table);
               }
               
               return updatedTable;
@@ -848,11 +987,52 @@ export const saveChampionshipTable = async (
                 { error: errorWithNewId, errorStatus: getErrorStatus(errorWithNewId) }
               );
             }
-            return saveChampionshipTableToLocalStorage(table);
+            
+            // Se ainda falhar, pode ser constraint - tentar INSERT direto sem upsert
+            const { data: dataInsert, error: errorInsert } = await supabase
+              .from('championship_tables')
+              .insert({
+                id: newId,
+                championship_id: table.championship_id,
+                table_type: table.table_type,
+                table_name: table.table_name,
+                table_data: table.table_data,
+                created_at: table.created_at || now,
+                updated_at: now,
+              })
+              .select()
+              .single();
+            
+            if (errorInsert) {
+              if (import.meta.env.DEV) {
+                logger.error('[ChampionshipService] Erro ao inserir tabela diretamente:', errorInsert);
+              }
+              return saveChampionshipTableToLocalStorage(table);
+            }
+            
+            if (import.meta.env.DEV) {
+              logger.log(`[ChampionshipService] Tabela salva com INSERT direto (ID: ${newId})`);
+            }
+            
+            if (!dataInsert) {
+              if (import.meta.env.DEV) {
+                logger.error('[ChampionshipService] Nenhum dado retornado após INSERT direto');
+              }
+              return saveChampionshipTableToLocalStorage(table);
+            }
+            
+            return dataInsert;
           }
           
           if (import.meta.env.DEV) {
             logger.log(`[ChampionshipService] Tabela salva com novo ID: ${newId} (ID anterior causava conflito)`);
+          }
+          
+          if (!dataWithNewId) {
+            if (import.meta.env.DEV) {
+              logger.error('[ChampionshipService] Nenhum dado retornado após salvar com novo ID');
+            }
+            return saveChampionshipTableToLocalStorage(table);
           }
           
           return dataWithNewId;
@@ -896,6 +1076,14 @@ export const saveChampionshipTable = async (
       return data;
     }, `Salvamento de tabela ${table.id}`);
 
+    // Validar que result contém dados válidos
+    if (!result || !result.id) {
+      if (import.meta.env.DEV) {
+        logger.error('[ChampionshipService] Resultado inválido após salvar tabela:', result);
+      }
+      return saveChampionshipTableToLocalStorage(table);
+    }
+    
     const saved: ChampionshipTable = {
       id: result.id,
       championship_id: result.championship_id,
@@ -905,6 +1093,10 @@ export const saveChampionshipTable = async (
       created_at: result.created_at,
       updated_at: result.updated_at,
     };
+    
+    if (import.meta.env.DEV) {
+      logger.log(`[ChampionshipService] Tabela salva com sucesso no Supabase (ID: ${saved.id}, Tipo: ${saved.table_type})`);
+    }
 
     // Se for tabela do tipo 'geral', também salvar na tabela normalizada
     if (table.table_type === 'geral' && Array.isArray(table.table_data)) {
