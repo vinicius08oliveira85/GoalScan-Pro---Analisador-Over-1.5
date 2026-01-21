@@ -146,7 +146,25 @@ const ChampionshipsScreen: React.FC = () => {
                     <Trophy className="w-6 h-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">{championship.nome}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-lg">{championship.nome}</h3>
+                      {championship.table_format && (
+                        <span
+                          className={`badge badge-sm ${
+                            championship.table_format === 'completa'
+                              ? 'badge-primary'
+                              : 'badge-secondary'
+                          }`}
+                          title={
+                            championship.table_format === 'completa'
+                              ? 'Planilha completa com dados de xG'
+                              : 'Planilha básica sem dados de xG'
+                          }
+                        >
+                          {championship.table_format === 'completa' ? 'Completa' : 'Básica'}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-base-content/60 space-y-0.5">
                       <p>
                         Criado em:{' '}

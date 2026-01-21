@@ -6,10 +6,12 @@ import {
   TableType,
   TableRowGeral,
   TableRowStandardFor,
+  TableFormat,
 } from '../types';
 import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
+import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 
 export interface ChampionshipRow {
   id: string;
@@ -332,6 +334,8 @@ export const loadChampionships = async (): Promise<Championship[]> => {
     const championships = (result as ChampionshipRow[]).map((row: ChampionshipRow) => ({
       id: row.id,
       nome: row.nome,
+      fbrefUrl: (row as { fbref_url?: string }).fbref_url || null,
+      table_format: (row as { table_format?: string }).table_format as TableFormat | undefined || null,
       created_at: row.created_at,
       updated_at: row.updated_at,
       uploaded_at: row.uploaded_at,
@@ -397,6 +401,8 @@ export const loadChampionship = async (id: string): Promise<Championship | null>
       return {
         id: data.id,
         nome: data.nome,
+        fbrefUrl: (data as { fbref_url?: string }).fbref_url || null,
+        table_format: (data as { table_format?: string }).table_format as TableFormat | undefined || null,
         created_at: data.created_at,
         updated_at: data.updated_at,
         uploaded_at: (data as { uploaded_at?: string }).uploaded_at,
@@ -435,6 +441,8 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
           {
             id: championship.id,
             nome: championship.nome,
+            fbref_url: championship.fbrefUrl || null,
+            table_format: championship.table_format || null,
             updated_at: new Date().toISOString(),
           },
           {
@@ -467,9 +475,11 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
     const saved: Championship = {
       id: result.id,
       nome: result.nome,
+      fbrefUrl: (result as { fbref_url?: string }).fbref_url || null,
+      table_format: (result as { table_format?: string }).table_format as TableFormat | undefined || null,
       created_at: result.created_at,
       updated_at: result.updated_at,
-      uploaded_at: result.uploaded_at,
+      uploaded_at: (result as { uploaded_at?: string }).uploaded_at,
     };
 
     // Sincronizar com localStorage
@@ -1302,8 +1312,70 @@ function normalizeTeamData(
 }
 
 /**
+ * Detecta o formato da planilha baseado nos dados existentes no banco
+ */
+export const detectChampionshipTableFormat = async (
+  championshipId: string
+): Promise<TableFormat | null> => {
+  try {
+    const supabase = await getSupabaseClient();
+    
+    // Chamar função SQL de detecção
+    const { data, error } = await supabase.rpc('detect_championship_table_format', {
+      champ_id: championshipId,
+    });
+
+    if (error) {
+      if (import.meta.env.DEV) {
+        logger.warn('[ChampionshipService] Erro ao detectar formato:', error);
+      }
+      return null;
+    }
+
+    return (data as TableFormat) || null;
+  } catch (error: unknown) {
+    if (import.meta.env.DEV) {
+      logger.error('[ChampionshipService] Erro ao detectar formato:', error);
+    }
+    return null;
+  }
+};
+
+/**
+ * Atualiza o formato da planilha do campeonato
+ */
+export const updateChampionshipTableFormat = async (
+  championshipId: string,
+  tableFormat: TableFormat
+): Promise<void> => {
+  try {
+    const supabase = await getSupabaseClient();
+    const { error } = await supabase
+      .from('championships')
+      .update({ table_format: tableFormat })
+      .eq('id', championshipId);
+
+    if (error) {
+      if (error.code === 'PGRST116' || error.code === '42P01') {
+        // Tabela não existe ou coluna não existe ainda
+        return;
+      }
+      if (import.meta.env.DEV) {
+        logger.warn('[ChampionshipService] Erro ao atualizar table_format:', error);
+      }
+    }
+  } catch (error: unknown) {
+    // Ignorar erros silenciosamente
+    if (import.meta.env.DEV) {
+      logger.error('[ChampionshipService] Erro ao atualizar table_format:', error);
+    }
+  }
+};
+
+/**
  * Salva dados normalizados dos times na tabela championship_teams
  * Substitui dados existentes do campeonato (DELETE + INSERT)
+ * Detecta e atualiza automaticamente o formato da planilha
  */
 export const saveChampionshipTeamsNormalized = async (
   championshipId: string,
@@ -1313,7 +1385,16 @@ export const saveChampionshipTeamsNormalized = async (
   try {
     const supabase = await getSupabaseClient();
 
-    // 1. Deletar dados existentes do campeonato
+    // 1. Detectar formato da planilha automaticamente
+    const detectedFormat = detectTableFormatFromData(teamsData);
+    
+    // 2. Atualizar formato no campeonato (se ainda não estiver definido ou se detectado for diferente)
+    const championship = await loadChampionship(championshipId);
+    if (championship && (!championship.table_format || championship.table_format !== detectedFormat)) {
+      await updateChampionshipTableFormat(championshipId, detectedFormat);
+    }
+
+    // 3. Deletar dados existentes do campeonato
     const { error: deleteError } = await supabase
       .from('championship_teams')
       .delete()
@@ -1326,7 +1407,7 @@ export const saveChampionshipTeamsNormalized = async (
       }
     }
 
-    // 2. Normalizar e inserir novos dados
+    // 4. Normalizar e inserir novos dados
     const normalizedTeams = teamsData.map((row) =>
       normalizeTeamData(championshipId, tableName, row)
     );
@@ -1355,7 +1436,7 @@ export const saveChampionshipTeamsNormalized = async (
 
     if (import.meta.env.DEV) {
       logger.log(
-        `[ChampionshipService] ${normalizedTeams.length} time(s) normalizado(s) salvo(s) para campeonato ${championshipId}`
+        `[ChampionshipService] ${normalizedTeams.length} time(s) normalizado(s) salvo(s) para campeonato ${championshipId} (formato: ${detectedFormat})`
       );
     }
   } catch (error: unknown) {

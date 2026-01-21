@@ -651,17 +651,28 @@ function calculateTableProbability(data: MatchData): {
   // Time visitante: Home GA do time da casa / Home MP do time da casa (gols sofridos pelo time da casa em casa)
   const awayAvgConceded = homeMp > 0 ? homeGa / homeMp : 0;
 
-  // 2. Misturar xG/xGA com GF/GA para reduzir ruído (xG costuma ser mais estável quando disponível)
+  // 2. Verificar se dados xG estão disponíveis (formato completo)
+  // Se não houver xG ou valores forem zero, usar apenas GF/GA (formato básico)
+  const hasXgData = (homeXg > 0 || homeXga > 0 || awayXg > 0 || awayXga > 0);
+  
+  // Misturar xG/xGA com GF/GA para reduzir ruído (xG costuma ser mais estável quando disponível)
+  // Se formato for básico (sem xG), usar apenas GF/GA
   const blendAttack = (xgTotal: number, gfTotal: number, mp: number): number => {
     const gfPer = safeDiv(gfTotal, mp, 0);
+    if (!hasXgData || xgTotal <= 0) {
+      return gfPer; // Formato básico: usar apenas GF
+    }
     const xgPer = safeDiv(xgTotal, mp, 0);
-    if (xgTotal > 0 && xgPer > 0) return 0.7 * xgPer + 0.3 * gfPer;
+    if (xgPer > 0) return 0.7 * xgPer + 0.3 * gfPer;
     return gfPer;
   };
   const blendDefense = (xgaTotal: number, gaTotal: number, mp: number): number => {
     const gaPer = safeDiv(gaTotal, mp, 0);
+    if (!hasXgData || xgaTotal <= 0) {
+      return gaPer; // Formato básico: usar apenas GA
+    }
     const xgaPer = safeDiv(xgaTotal, mp, 0);
-    if (xgaTotal > 0 && xgaPer > 0) return 0.7 * xgaPer + 0.3 * gaPer;
+    if (xgaPer > 0) return 0.7 * xgaPer + 0.3 * gaPer;
     return gaPer;
   };
 
@@ -1383,12 +1394,6 @@ function validateTableDataIntegrity(data: MatchData): {
   if (data.homeStandardForData && data.awayStandardForData && !data.competitionStandardForAvg) {
     warnings.push('Tabela standard_for presente mas competitionStandardForAvg ausente');
   }
-  if (data.homePassingForData && data.awayPassingForData && !data.competitionPassingForAvg) {
-    warnings.push('Tabela passing_for presente mas competitionPassingForAvg ausente');
-  }
-  if (data.homeGcaForData && data.awayGcaForData && !data.competitionGcaForAvg) {
-    warnings.push('Tabela gca_for presente mas competitionGcaForAvg ausente');
-  }
 
   return {
     isValid: issues.length === 0,
@@ -1507,8 +1512,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       tabelas: {
         geral: !!(normalizedData.homeTableData && normalizedData.awayTableData),
         standard_for: !!(normalizedData.homeStandardForData && normalizedData.awayStandardForData && normalizedData.competitionStandardForAvg),
-        passing_for: !!(normalizedData.homePassingForData && normalizedData.awayPassingForData && normalizedData.competitionPassingForAvg),
-        gca_for: !!(normalizedData.homeGcaForData && normalizedData.awayGcaForData && normalizedData.competitionGcaForAvg),
       },
     });
   }
@@ -1981,29 +1984,32 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   awayGoalsScored = awayGoalsScored || 1.0;
   awayGoalsConceded = awayGoalsConceded || 1.0;
   
-  // Usar xG e xGA da tabela para ajustes finos se disponíveis
-  if (normalizedData.homeTableData?.xG && normalizedData.awayTableData?.xGA) {
-    const homeXG = parseFloat(normalizedData.homeTableData.xG || '0');
-    const awayXGA = parseFloat(normalizedData.awayTableData.xGA || '0');
-    if (homeXG > 0 && awayXGA > 0) {
-      // Ajustar lambdaHome considerando xG (mais preciso que GF/MP)
-      const adjustedHomeGoals = (homeGoalsScored + homeXG) / 2;
-      const adjustedAwayConceded = (awayGoalsConceded + awayXGA) / 2;
-      homeGoalsScored = adjustedHomeGoals;
-      awayGoalsConceded = adjustedAwayConceded;
-    }
+  // Usar xG e xGA da tabela para ajustes finos se disponíveis (formato completo)
+  // Verificar se dados xG existem e têm valores válidos
+  const hasHomeXg = normalizedData.homeTableData?.['Home xG'] || normalizedData.homeTableData?.xG;
+  const hasAwayXga = normalizedData.awayTableData?.['Away xGA'] || normalizedData.awayTableData?.['Home xGA'] || normalizedData.awayTableData?.xGA;
+  const homeXgValue = hasHomeXg ? parseFloat(String(hasHomeXg)) : 0;
+  const awayXgaValue = hasAwayXga ? parseFloat(String(hasAwayXga)) : 0;
+  
+  if (homeXgValue > 0 && awayXgaValue > 0) {
+    // Ajustar lambdaHome considerando xG (mais preciso que GF/MP)
+    const adjustedHomeGoals = (homeGoalsScored + homeXgValue) / 2;
+    const adjustedAwayConceded = (awayGoalsConceded + awayXgaValue) / 2;
+    homeGoalsScored = adjustedHomeGoals;
+    awayGoalsConceded = adjustedAwayConceded;
   }
   
-  if (normalizedData.awayTableData?.xG && normalizedData.homeTableData?.xGA) {
-    const awayXG = parseFloat(normalizedData.awayTableData.xG || '0');
-    const homeXGA = parseFloat(normalizedData.homeTableData.xGA || '0');
-    if (awayXG > 0 && homeXGA > 0) {
-      // Ajustar lambdaAway considerando xG
-      const adjustedAwayGoals = (awayGoalsScored + awayXG) / 2;
-      const adjustedHomeConceded = (homeGoalsConceded + homeXGA) / 2;
-      awayGoalsScored = adjustedAwayGoals;
-      homeGoalsConceded = adjustedHomeConceded;
-    }
+  const hasAwayXg = normalizedData.awayTableData?.['Away xG'] || normalizedData.awayTableData?.xG;
+  const hasHomeXga = normalizedData.homeTableData?.['Home xGA'] || normalizedData.homeTableData?.xGA;
+  const awayXgValue = hasAwayXg ? parseFloat(String(hasAwayXg)) : 0;
+  const homeXgaValue = hasHomeXga ? parseFloat(String(hasHomeXga)) : 0;
+  
+  if (awayXgValue > 0 && homeXgaValue > 0) {
+    // Ajustar lambdaAway considerando xG (mais preciso que GF/MP)
+    const adjustedAwayGoals = (awayGoalsScored + awayXgValue) / 2;
+    const adjustedHomeConceded = (homeGoalsConceded + homeXgaValue) / 2;
+    awayGoalsScored = adjustedAwayGoals;
+    homeGoalsConceded = adjustedHomeConceded;
   }
 
   // Calcular lambda base usando dados weighted (já combinam home/away/global)
@@ -2388,8 +2394,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       tabelasDisponiveis: {
         geral: !!(normalizedData.homeTableData && normalizedData.awayTableData),
         standard_for: !!(normalizedData.homeStandardForData && normalizedData.awayStandardForData && normalizedData.competitionStandardForAvg),
-        passing_for: !!(normalizedData.homePassingForData && normalizedData.awayPassingForData && normalizedData.competitionPassingForAvg),
-        gca_for: !!(normalizedData.homeGcaForData && normalizedData.awayGcaForData && normalizedData.competitionGcaForAvg),
       },
     });
   }
@@ -2562,26 +2566,11 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     !!normalizedData.homeStandardForData &&
     !!normalizedData.awayStandardForData &&
     !!normalizedData.competitionStandardForAvg;
-  const finalHasPassingFor =
-    !!normalizedData.homePassingForData &&
-    !!normalizedData.awayPassingForData &&
-    !!normalizedData.competitionPassingForAvg;
-  const finalHasGcaFor =
-    !!normalizedData.homeGcaForData &&
-    !!normalizedData.awayGcaForData &&
-    !!normalizedData.competitionGcaForAvg;
-  
   if (finalHasHomeTableData && finalHasAwayTableData) {
     tablesUsedInAnalysis.push('geral');
   }
   if (finalHasStandardFor) {
     tablesUsedInAnalysis.push('standard_for');
-  }
-  if (finalHasPassingFor) {
-    tablesUsedInAnalysis.push('passing_for');
-  }
-  if (finalHasGcaFor) {
-    tablesUsedInAnalysis.push('gca_for');
   }
 
   if (import.meta.env.DEV) {

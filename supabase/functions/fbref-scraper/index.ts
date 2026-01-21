@@ -7,7 +7,7 @@ interface ExtractRequest {
   extractTypes: ('table' | 'matches' | 'team-stats' | 'all')[];
 }
 
-type FbrefTableType = 'geral' | 'home_away' | 'standard_for' | 'passing_for' | 'gca_for';
+type FbrefTableType = 'geral' | 'home_away' | 'standard_for';
 
 interface ExtractionResult {
   success: boolean;
@@ -90,8 +90,6 @@ const TABLE_ID_CANDIDATES: Record<FbrefTableType, Array<string | RegExp>> = {
   // Home/Away: tabela com desempenho separado por casa/fora
   home_away: [/^stats_results_.*_home_away$/i, /^results.*_home_away$/i, /_home_away$/i],
   standard_for: ['stats_squads_standard_for', /standard_for$/i],
-  passing_for: ['stats_squads_passing_for', /passing_for$/i],
-  gca_for: ['stats_squads_gca_for', /gca_for$/i],
 };
 
 function decodeHtmlEntities(input: string): string {
@@ -325,8 +323,6 @@ async function extractTablesFromUrl(url: string): Promise<{
     geral: [],
     home_away: [],
     standard_for: [],
-    passing_for: [],
-    gca_for: [],
   };
   const missing: FbrefTableType[] = [];
 

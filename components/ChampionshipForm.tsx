@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Championship, ChampionshipTable, TableType, TableRowGeral } from '../types';
+import { Championship, ChampionshipTable, TableType, TableRowGeral, TableFormat } from '../types';
 import { Upload, X, Check, FileJson, FileSpreadsheet } from 'lucide-react';
 import { animations } from '../utils/animations';
 import ChampionshipTableView from './ChampionshipTableView';
 import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
+import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -25,6 +26,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 }) => {
   const [nome, setNome] = useState('');
   const [fbrefUrl, setFbrefUrl] = useState('');
+  const [tableFormat, setTableFormat] = useState<TableFormat | 'auto'>('auto');
   const [tables, setTables] = useState<Map<TableType, ChampionshipTable>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -33,9 +35,11 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
     if (championship) {
       setNome(championship.nome);
       setFbrefUrl(championship.fbrefUrl ?? '');
+      setTableFormat(championship.table_format || 'auto');
     } else {
       setNome('');
       setFbrefUrl('');
+      setTableFormat('auto');
       setTables(new Map());
     }
   }, [championship]);
@@ -82,6 +86,12 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
           }));
           return;
         }
+      }
+
+      // Detectar formato automaticamente se estiver em modo automático
+      if (tableFormat === 'auto' && jsonData.length > 0) {
+        const detectedFormat = detectTableFormatFromData(jsonData);
+        setTableFormat(detectedFormat);
       }
 
       const table: ChampionshipTable = {
@@ -204,10 +214,14 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 
     setIsSaving(true);
     try {
+      // Determinar formato final (se auto, usar o detectado ou null)
+      const finalFormat: TableFormat | null = tableFormat === 'auto' ? null : tableFormat;
+      
       const championshipToSave: Championship = {
         id: championship?.id || Math.random().toString(36).slice(2, 11),
         nome: nome.trim(),
         fbrefUrl: fbrefUrlTrimmed ? fbrefUrlTrimmed : null,
+        table_format: finalFormat,
         updated_at: new Date().toISOString(),
       };
 
@@ -270,6 +284,38 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
             Dica: com essa URL salva, você poderá clicar em <span className="font-semibold">Atualizar</span> e extrair
             todas as tabelas automaticamente.
           </span>
+        )}
+      </div>
+
+      {/* Formato da Planilha */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-bold">Formato da Planilha</span>
+        </label>
+        <select
+          value={tableFormat}
+          onChange={(e) => setTableFormat(e.target.value as TableFormat | 'auto')}
+          className="select select-bordered w-full"
+        >
+          <option value="auto">Automático (detectar ao fazer upload)</option>
+          <option value="completa">Completa (27 campos com xG)</option>
+          <option value="basica">Básica (21 campos sem xG)</option>
+        </select>
+        <label className="label">
+          <span className="label-text-alt opacity-70">
+            {tableFormat === 'completa' && 'Inclui campos de Expected Goals (xG, xGA, xGD, xGD/90) para Home e Away'}
+            {tableFormat === 'basica' && 'Apenas estatísticas básicas (MP, W, D, L, GF, GA, GD, Pts, Pts/MP) para Home e Away'}
+            {tableFormat === 'auto' && 'O formato será detectado automaticamente ao fazer upload da planilha'}
+          </span>
+        </label>
+        {tableFormat !== 'auto' && (
+          <div className="alert alert-info mt-2">
+            <div className="text-xs">
+              <strong>Formato selecionado:</strong> {tableFormat === 'completa' ? 'Completa' : 'Básica'}
+              {tableFormat === 'completa' && ' - Campos xG serão usados na análise quando disponíveis'}
+              {tableFormat === 'basica' && ' - Apenas GF/GA serão usados na análise'}
+            </div>
+          </div>
         )}
       </div>
 
