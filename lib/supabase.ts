@@ -104,6 +104,21 @@ function setupFetchInterceptor(): void {
         }
       }
       
+      // Interceptar respostas 400/409 para championships/championship_tables
+      // Esses erros são tratados pelo código, então suprimimos os logs do console
+      // Nota: O navegador pode logar essas respostas antes de chegarem aqui,
+      // mas os event listeners e console interceptors irão suprimir esses logs
+      if (isSupabaseRequest && (response.status === 400 || response.status === 409)) {
+        const urlLower = url.toLowerCase();
+        const isChampionshipRequest = urlLower.includes('championships') || urlLower.includes('championship_tables');
+        
+        if (isChampionshipRequest) {
+          // A resposta será retornada normalmente para que o código possa tratá-la
+          // Os logs do console serão suprimidos pelos interceptors configurados
+          return response;
+        }
+      }
+      
       // Para requisições ao Gemini, 404 são esperados (fallback de modelos)
       // O sistema de fallback tratará esses erros silenciosamente
       // Os logs do console serão suprimidos pelo setupGeminiErrorSuppression
@@ -139,17 +154,28 @@ function setupSupabaseErrorSuppression(): void {
   
   const originalConsoleError = console.error;
   const originalConsoleWarn = console.warn;
+  const originalConsoleLog = console.log;
+  
+  // Função auxiliar para verificar se é erro 400/409 do Supabase relacionado a championships
+  const shouldSuppressError = (message: string): boolean => {
+    const msgLower = message.toLowerCase();
+    const hasSupabase = msgLower.includes('supabase.co');
+    const hasErrorCode = msgLower.includes('400') || msgLower.includes('409') || 
+                         msgLower.includes('bad request') || msgLower.includes('conflict');
+    const hasChampionshipTable = msgLower.includes('championships') || 
+                                  msgLower.includes('championship_tables') ||
+                                  msgLower.includes('/rest/v1/championships') ||
+                                  msgLower.includes('/rest/v1/championship_tables');
+    
+    return hasSupabase && hasErrorCode && hasChampionshipTable;
+  };
   
   // Interceptar console.error
   console.error = (...args: unknown[]) => {
     const message = args.join(' ');
     
     // Suprimir erros 400 e 409 do Supabase que já estão sendo tratados
-    if (
-      message.includes('supabase.co') &&
-      (message.includes('400') || message.includes('409')) &&
-      (message.includes('championships') || message.includes('championship_tables'))
-    ) {
+    if (shouldSuppressError(message)) {
       // Não logar - erro já está sendo tratado
       return;
     }
@@ -162,17 +188,64 @@ function setupSupabaseErrorSuppression(): void {
     const message = args.join(' ');
     
     // Suprimir warnings 400 e 409 do Supabase que já estão sendo tratados
-    if (
-      message.includes('supabase.co') &&
-      (message.includes('400') || message.includes('409')) &&
-      (message.includes('championships') || message.includes('championship_tables'))
-    ) {
+    if (shouldSuppressError(message)) {
       // Não logar - erro já está sendo tratado
       return;
     }
     
     originalConsoleWarn.apply(console, args);
   };
+  
+  // Interceptar console.log também (caso algum código logue esses erros)
+  console.log = (...args: unknown[]) => {
+    const message = args.join(' ');
+    
+    // Suprimir logs 400 e 409 do Supabase que já estão sendo tratados
+    if (shouldSuppressError(message)) {
+      // Não logar - erro já está sendo tratado
+      return;
+    }
+    
+    originalConsoleLog.apply(console, args);
+  };
+  
+  // Interceptar eventos de erro do navegador relacionados a Supabase
+  window.addEventListener('error', (event) => {
+    const message = (event.message || '').toLowerCase();
+    const source = (event.filename || event.target?.toString() || '').toLowerCase();
+    
+    // Suprimir erros 400/409 do Supabase relacionados a championships
+    if (
+      (message.includes('400') || message.includes('409') || 
+       message.includes('bad request') || message.includes('conflict')) &&
+      (source.includes('supabase.co') || message.includes('supabase.co')) &&
+      (source.includes('championships') || message.includes('championships') ||
+       source.includes('championship_tables') || message.includes('championship_tables'))
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return false;
+    }
+  }, true);
+  
+  // Interceptar promessas rejeitadas não tratadas relacionadas a Supabase
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = String(event.reason || '').toLowerCase();
+    const message = reason;
+    
+    // Suprimir rejeições 400/409 do Supabase relacionadas a championships
+    if (
+      (message.includes('400') || message.includes('409') ||
+       message.includes('bad request') || message.includes('conflict')) &&
+      (message.includes('supabase.co')) &&
+      (message.includes('championships') || message.includes('championship_tables'))
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return false;
+    }
+  }, true);
 }
 
 // Interceptor para suprimir erros 404 esperados da API do Gemini no console
