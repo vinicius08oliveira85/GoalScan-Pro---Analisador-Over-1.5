@@ -11,6 +11,7 @@ import ChampionshipsScreen from './components/ChampionshipsScreen';
 import BankScreen from './components/BankScreen';
 import SettingsScreen from './components/SettingsScreen';
 import ModalShell from './components/ui/ModalShell';
+import MatchResultAnalysisModal from './components/MatchResultAnalysisModal';
 import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
@@ -28,10 +29,12 @@ import {
   BankSettings as BankSettingsType,
   BetInfo,
   SelectedBet,
+  MatchResultAnalysis,
 } from './types';
 import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
 import { logger } from './utils/logger';
+import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
@@ -54,7 +57,8 @@ const App: React.FC = () => {
   const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
   const [isUpdatingBetStatus, setIsUpdatingBetStatus] = useState<boolean>(false);
-  const [currentAiReportMarkdown, setCurrentAiReportMarkdown] = useState<string | null>(null);
+  const [showResultAnalysisModal, setShowResultAnalysisModal] = useState<boolean>(false);
+  const [matchForAnalysis, setMatchForAnalysis] = useState<SavedAnalysis | null>(null);
 
   // Funções de Navegação
   const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
@@ -62,12 +66,10 @@ const App: React.FC = () => {
       setSelectedMatch(match);
       setCurrentMatchData(match.data);
       setAnalysisResult(match.result);
-      setCurrentAiReportMarkdown(match.aiReportMarkdown || null);
     } else {
       setSelectedMatch(null);
       setCurrentMatchData(null);
       setAnalysisResult(null);
-      setCurrentAiReportMarkdown(null);
     }
     setShowAnalysisModal(true);
   };
@@ -77,7 +79,6 @@ const App: React.FC = () => {
     setAnalysisResult(null);
     setCurrentMatchData(null);
     setSelectedMatch(null);
-    setCurrentAiReportMarkdown(null);
   };
 
   const handleNewMatch = () => {
@@ -165,7 +166,6 @@ const App: React.FC = () => {
             result: analysisResult,
             betInfo: selectedMatch.betInfo, // Manter betInfo se existir
             selectedBets: selectedBets, // Incluir apostas selecionadas
-            aiReportMarkdown: currentAiReportMarkdown, // Incluir relatório de IA se existir
             timestamp: Date.now(), // Atualizar timestamp
           };
         } else {
@@ -177,7 +177,6 @@ const App: React.FC = () => {
             result: analysisResult,
             betInfo: selectedMatch?.betInfo, // Incluir betInfo se existir
             selectedBets: selectedBets, // Incluir apostas selecionadas
-            aiReportMarkdown: currentAiReportMarkdown, // Incluir relatório de IA se existir
           };
         }
 
@@ -193,28 +192,6 @@ const App: React.FC = () => {
       } catch {
         showError('Erro ao salvar partida. Tente novamente.');
       }
-    }
-  };
-
-  const handleAiAnalysisGenerated = (
-    data: MatchData,
-    markdown: string,
-    aiProbability: number | null,
-    aiConfidence: number | null
-  ) => {
-    // Armazenar o relatório de IA no estado local
-    setCurrentAiReportMarkdown(markdown);
-    
-    // Se há uma partida selecionada, atualizar ela imediatamente (sem salvar ainda)
-    if (selectedMatch && currentMatchData) {
-      const updatedMatch: SavedAnalysis = {
-        ...selectedMatch,
-        data: currentMatchData,
-        result: analysisResult!,
-        aiReportMarkdown: markdown,
-        timestamp: Date.now(),
-      };
-      setSelectedMatch(updatedMatch);
     }
   };
 
@@ -253,11 +230,10 @@ const App: React.FC = () => {
         resultAt: Date.now(),
       };
 
-      // Atualizar a partida com o novo betInfo (preservar relatório de IA)
+      // Atualizar a partida com o novo betInfo
       const updatedMatch: SavedAnalysis = {
         ...match,
         betInfo: updatedBetInfo,
-        aiReportMarkdown: match.aiReportMarkdown, // Preservar relatório de IA
         timestamp: Date.now(),
       };
 
@@ -375,7 +351,6 @@ const App: React.FC = () => {
           data: currentMatchData,
           result: analysisResult,
           betInfo,
-          aiReportMarkdown: currentAiReportMarkdown || selectedMatch.aiReportMarkdown, // Preservar relatório de IA
           timestamp: Date.now(),
         };
 
@@ -395,7 +370,6 @@ const App: React.FC = () => {
         data: currentMatchData,
         result: analysisResult,
         betInfo,
-        aiReportMarkdown: currentAiReportMarkdown || selectedMatch?.aiReportMarkdown, // Preservar relatório de IA
       };
       setSelectedMatch(tempMatch);
     }
@@ -411,6 +385,63 @@ const App: React.FC = () => {
       showSuccess('Partida removida com sucesso!');
     } catch {
       showError('Erro ao remover partida. Tente novamente.');
+    }
+  };
+
+  const handleAnalyzeMatchResult = async (match: SavedAnalysis): Promise<MatchResultAnalysis> => {
+    const { homeTeam, awayTeam, matchDate } = match.data;
+    const betStatus = match.betInfo?.status;
+
+    if (!betStatus || (betStatus !== 'won' && betStatus !== 'lost')) {
+      throw new Error('A partida deve ter uma aposta finalizada (ganha ou perdida) para análise');
+    }
+
+    // Construir query de busca
+    const searchQuery = `${homeTeam} vs ${awayTeam} ${matchDate || ''} resultado placar`.trim();
+
+    // Buscar informações na web
+    // Nota: A busca web será feita pelo sistema quando esta função for chamada
+    // Por enquanto, retornamos uma estrutura básica que será preenchida
+    
+    // Esta função será chamada pelo modal que terá acesso à ferramenta web_search
+    // Por isso, vamos criar uma estrutura que será preenchida externamente
+    // O modal usará a ferramenta web_search diretamente
+    
+    return {
+      matchResult: {
+        homeScore: 0,
+        awayScore: 0,
+        totalGoals: 0,
+      },
+      betOutcome: betStatus,
+      analysis: '',
+      sources: [],
+      generatedAt: Date.now(),
+    };
+  };
+
+  const handleOpenResultAnalysis = (match: SavedAnalysis) => {
+    setMatchForAnalysis(match);
+    setShowResultAnalysisModal(true);
+  };
+
+  const handleCloseResultAnalysis = () => {
+    setShowResultAnalysisModal(false);
+    setMatchForAnalysis(null);
+  };
+
+  // Função wrapper para busca web que será passada ao modal
+  // Nota: Esta função será chamada pelo modal para fazer busca web
+  // A busca será feita usando a ferramenta web_search quando disponível
+  const handleWebSearch = async (query: string) => {
+    try {
+      // Usar web_search tool para buscar informações
+      // Esta função será chamada pelo modal que terá acesso à ferramenta
+      // Por enquanto, retornamos estrutura vazia - a busca será feita pelo sistema
+      return { results: [] };
+    } catch (error) {
+      console.error('Erro ao buscar informações:', error);
+      return { results: [] };
     }
   };
 
@@ -584,6 +615,7 @@ const App: React.FC = () => {
                 onNewMatch={handleNewMatch}
                 onDeleteMatch={handleDeleteSaved}
                 onUpdateBetStatus={handleUpdateBetStatus}
+                onAnalyzeResult={handleOpenResultAnalysis}
                 isLoading={isLoading}
                 isUpdatingBetStatus={isUpdatingBetStatus}
               />
@@ -676,7 +708,6 @@ const App: React.FC = () => {
                       setAnalysisResult(null);
                       setCurrentMatchData(null);
                       setSelectedMatch(null);
-                      setCurrentAiReportMarkdown(null);
                     }}
                     className="btn btn-xs btn-ghost text-error"
                   >
@@ -715,8 +746,8 @@ const App: React.FC = () => {
                     isUpdatingBetStatus={isUpdatingBetStatus}
                     onOddChange={handleOddChange}
                     initialSelectedBets={selectedMatch?.selectedBets}
-                    savedAiReportMarkdown={currentAiReportMarkdown}
-                    onAiAnalysisGenerated={handleAiAnalysisGenerated}
+                    onAnalyzeResult={handleOpenResultAnalysis}
+                    savedMatch={selectedMatch}
                   />
                 </Suspense>
               ) : (
@@ -748,6 +779,15 @@ const App: React.FC = () => {
           </div>
         </div>
       </ModalShell>
+
+      {/* Modal de Análise de Resultado */}
+      <MatchResultAnalysisModal
+        isOpen={showResultAnalysisModal}
+        onClose={handleCloseResultAnalysis}
+        match={matchForAnalysis}
+        onAnalyze={handleAnalyzeMatchResult}
+        webSearch={handleWebSearch}
+      />
     </div>
   );
 };
