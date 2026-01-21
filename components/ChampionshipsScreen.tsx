@@ -63,20 +63,39 @@ const ChampionshipsScreen: React.FC = () => {
     championship: Championship,
     tables: ChampionshipTable[]
   ) => {
-    // Salvar campeonato
-    const savedChampionship = await save(championship);
+    try {
+      // Salvar campeonato
+      const savedChampionship = await save(championship);
 
-    if (savedChampionship) {
-      // Salvar tabelas
-      for (const table of tables) {
-        await saveTable({
-          ...table,
-          championship_id: savedChampionship.id,
-        });
+      if (savedChampionship) {
+        // Salvar tabelas
+        if (tables.length > 0) {
+          for (const table of tables) {
+            try {
+              const savedTable = await saveTable({
+                ...table,
+                championship_id: savedChampionship.id,
+              });
+              
+              if (!savedTable) {
+                console.error(`[ChampionshipsScreen] Erro ao salvar tabela ${table.table_type}`);
+                handleError(`Erro ao salvar tabela ${table.table_name || table.table_type}`);
+              }
+            } catch (tableError) {
+              console.error(`[ChampionshipsScreen] Erro ao salvar tabela ${table.table_type}:`, tableError);
+              handleError(`Erro ao salvar tabela ${table.table_name || table.table_type}: ${tableError instanceof Error ? tableError.message : 'Erro desconhecido'}`);
+            }
+          }
+        }
+
+        setShowForm(false);
+        setEditingChampionship(null);
+      } else {
+        handleError('Erro ao salvar campeonato');
       }
-
-      setShowForm(false);
-      setEditingChampionship(null);
+    } catch (error) {
+      console.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
+      handleError(`Erro ao salvar campeonato: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 

@@ -640,16 +640,42 @@ export const loadChampionshipTables = async (
 export const saveChampionshipTable = async (
   table: ChampionshipTable
 ): Promise<ChampionshipTable> => {
+  // Validações básicas
+  if (!table.championship_id || table.championship_id.trim() === '') {
+    const errorMsg = 'championship_id é obrigatório para salvar tabela';
+    if (import.meta.env.DEV) {
+      logger.error(`[ChampionshipService] ${errorMsg}`, table);
+    }
+    throw new Error(errorMsg);
+  }
+
+  if (!table.table_data) {
+    const errorMsg = 'table_data é obrigatório para salvar tabela';
+    if (import.meta.env.DEV) {
+      logger.error(`[ChampionshipService] ${errorMsg}`, table);
+    }
+    throw new Error(errorMsg);
+  }
+
   // Verificar cache de status do serviço ANTES de fazer qualquer requisição
   const serviceStatus = getServiceStatus();
   if (serviceStatus?.isUnavailable && Date.now() < serviceStatus.retryAfter) {
     // Serviço está conhecidamente indisponível - salvar apenas no localStorage silenciosamente
+    if (import.meta.env.DEV) {
+      logger.warn('[ChampionshipService] Serviço indisponível, salvando apenas no localStorage');
+    }
     return saveChampionshipTableToLocalStorage(table);
   }
 
   try {
     const result = await withRetry(async () => {
       const supabase = await getSupabaseClient();
+      const now = new Date().toISOString();
+      
+      if (import.meta.env.DEV) {
+        logger.log(`[ChampionshipService] Salvando tabela ${table.table_type} para campeonato ${table.championship_id}`);
+      }
+
       const { data, error } = await supabase
         .from('championship_tables')
         .upsert(
@@ -659,7 +685,8 @@ export const saveChampionshipTable = async (
             table_type: table.table_type,
             table_name: table.table_name,
             table_data: table.table_data,
-            updated_at: new Date().toISOString(),
+            created_at: table.created_at || now,
+            updated_at: now,
           },
           {
             onConflict: 'id',
@@ -695,6 +722,14 @@ export const saveChampionshipTable = async (
           logger.error('[ChampionshipService] Erro ao salvar tabela:', error);
         }
         throw error;
+      }
+
+      if (!data) {
+        throw new Error('Nenhum dado retornado do Supabase após salvar tabela');
+      }
+
+      if (import.meta.env.DEV) {
+        logger.log(`[ChampionshipService] Tabela ${table.table_type} salva com sucesso (ID: ${data.id})`);
       }
 
       return data;

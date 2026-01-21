@@ -214,8 +214,16 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 
     setIsSaving(true);
     try {
-      // Determinar formato final (se auto, usar o detectado ou null)
-      const finalFormat: TableFormat | null = tableFormat === 'auto' ? null : tableFormat;
+      // Detectar formato das tabelas se estiver em modo automático
+      let finalFormat: TableFormat | null = tableFormat === 'auto' ? null : tableFormat;
+      
+      // Se estiver em modo automático e houver tabelas, detectar formato da tabela geral
+      if (finalFormat === null && tables.size > 0) {
+        const geralTable = tables.get('geral');
+        if (geralTable && Array.isArray(geralTable.table_data) && geralTable.table_data.length > 0) {
+          finalFormat = detectTableFormatFromData(geralTable.table_data as TableRowGeral[]);
+        }
+      }
       
       const championshipToSave: Championship = {
         id: championship?.id || Math.random().toString(36).slice(2, 11),
@@ -225,10 +233,18 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
         updated_at: new Date().toISOString(),
       };
 
-      const tablesToSave = Array.from(tables.values()).map((table) => ({
-        ...table,
-        championship_id: championshipToSave.id,
-      }));
+      const tablesToSave = Array.from(tables.values()).map((table) => {
+        // Garantir que o championship_id está correto e atualizar o ID da tabela se necessário
+        const updatedTable = {
+          ...table,
+          championship_id: championshipToSave.id,
+        };
+        // Atualizar ID da tabela se o championship_id mudou
+        if (table.championship_id !== championshipToSave.id) {
+          updatedTable.id = `${championshipToSave.id}_${table.table_type}_${Date.now()}`;
+        }
+        return updatedTable;
+      });
 
       await onSave(championshipToSave, tablesToSave);
     } catch (error) {
