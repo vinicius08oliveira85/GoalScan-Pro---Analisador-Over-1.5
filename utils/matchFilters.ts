@@ -118,7 +118,13 @@ export function sortMatches(
 export function filterMatchesByCategory(matches: SavedAnalysis[], category: string): SavedAnalysis[] {
   switch (category) {
     case 'pendentes':
-      return matches.filter(match => match.betInfo?.status === 'pending');
+      return matches.filter(match => {
+        // Partidas com status pending
+        if (match.betInfo?.status === 'pending') return true;
+        // Partidas sem aposta registrada (sem betInfo ou sem betAmount)
+        if (!match.betInfo || !match.betInfo.betAmount || match.betInfo.betAmount === 0) return true;
+        return false;
+      });
     case 'finalizadas':
       return matches.filter(match => match.betInfo?.status && ['won', 'lost', 'cancelled'].includes(match.betInfo.status));
     case 'todas':
@@ -142,10 +148,13 @@ export function getCategoryCounts(matches: SavedAnalysis[]): {
   };
 
   matches.forEach(match => {
-    if (match.betInfo?.status === 'pending') {
-      counts.pendentes++;
-    } else if (match.betInfo?.status && ['won', 'lost', 'cancelled'].includes(match.betInfo.status)) {
+    // Partidas finalizadas (won, lost, cancelled)
+    if (match.betInfo?.status && ['won', 'lost', 'cancelled'].includes(match.betInfo.status)) {
       counts.finalizadas++;
+    } 
+    // Partidas pendentes: status pending OU sem aposta registrada
+    else if (match.betInfo?.status === 'pending' || !match.betInfo || !match.betInfo.betAmount || match.betInfo.betAmount === 0) {
+      counts.pendentes++;
     }
   });
 
