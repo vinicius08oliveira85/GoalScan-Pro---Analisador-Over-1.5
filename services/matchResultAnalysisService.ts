@@ -111,6 +111,8 @@ export function parseWebSearchResults(searchResults: string): {
     /(\d+)\s*[-x×]\s*(\d+)/i, // "2-1", "2 x 1", "2×1"
     /(\d+)\s+(\d+)/, // "2 1"
     /(\d+):(\d+)/, // "2:1"
+    /placar[:\s]+(\d+)[\s-]+(\d+)/i, // "placar: 2-1"
+    /resultado[:\s]+(\d+)[\s-]+(\d+)/i, // "resultado: 2-1"
   ];
 
   let homeScore = 0;
@@ -122,7 +124,7 @@ export function parseWebSearchResults(searchResults: string): {
     if (match && match[1] && match[2]) {
       const home = parseInt(match[1], 10);
       const away = parseInt(match[2], 10);
-      if (!isNaN(home) && !isNaN(away) && home >= 0 && away >= 0) {
+      if (!isNaN(home) && !isNaN(away) && home >= 0 && away >= 0 && home <= 20 && away <= 20) {
         homeScore = home;
         awayScore = away;
         break;

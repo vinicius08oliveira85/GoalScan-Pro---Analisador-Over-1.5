@@ -37,21 +37,22 @@ const MatchResultAnalysisModal: React.FC<MatchResultAnalysisModalProps> = ({
 
       const performAnalysis = async () => {
         try {
-          if (onAnalyze) {
-            // Se há função onAnalyze fornecida, usar ela
-            const result = await onAnalyze(match);
-            setAnalysis(result);
-            } else if (webSearch) {
-            // Se há função webSearch, fazer busca e análise localmente
-            const { homeTeam, awayTeam, matchDate } = match.data;
-            const betStatus = match.betInfo?.status;
+          const { homeTeam, awayTeam, matchDate } = match.data;
+          const betStatus = match.betInfo?.status;
 
-            if (!betStatus || (betStatus !== 'won' && betStatus !== 'lost')) {
-              throw new Error('A partida deve ter uma aposta finalizada (ganha ou perdida) para análise');
-            }
+          if (!betStatus || (betStatus !== 'won' && betStatus !== 'lost')) {
+            throw new Error('A partida deve ter uma aposta finalizada (ganha ou perdida) para análise');
+          }
 
+          // Se há função webSearch, fazer busca e análise localmente
+          if (webSearch) {
             const searchQuery = `${homeTeam} vs ${awayTeam} ${matchDate || ''} resultado placar`.trim();
             const searchResults = await webSearch(searchQuery);
+            
+            // Se não houver resultados, mostrar mensagem
+            if (!searchResults.results || searchResults.results.length === 0) {
+              throw new Error('Nenhum resultado encontrado na busca web. Por favor, tente novamente ou verifique se a partida foi finalizada.');
+            }
             
             const searchText = searchResults.results?.map((r: { content?: string; snippet?: string; url?: string }) => r.content || r.snippet || '').join('\n\n') || '';
             const parsed = parseWebSearchResults(searchText);
@@ -68,6 +69,10 @@ const MatchResultAnalysisModal: React.FC<MatchResultAnalysisModalProps> = ({
               sources: searchResults.results?.map((r: { url?: string }) => r.url || '').filter(Boolean) || [],
               generatedAt: Date.now(),
             });
+          } else if (onAnalyze) {
+            // Se há função onAnalyze fornecida, usar ela
+            const result = await onAnalyze(match);
+            setAnalysis(result);
           } else {
             throw new Error('Nenhuma função de análise disponível');
           }
@@ -138,6 +143,7 @@ const MatchResultAnalysisModal: React.FC<MatchResultAnalysisModalProps> = ({
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
             <p className="text-sm opacity-70">Buscando informações sobre o resultado...</p>
+            <p className="text-xs opacity-50 mt-2">Isso pode levar alguns segundos</p>
           </div>
         )}
 
@@ -146,6 +152,9 @@ const MatchResultAnalysisModal: React.FC<MatchResultAnalysisModalProps> = ({
             <div>
               <p className="font-bold">Erro ao analisar resultado</p>
               <p className="text-sm opacity-90 mt-1">{error}</p>
+              <p className="text-xs opacity-70 mt-2">
+                Se o erro persistir, verifique se a partida tem uma aposta finalizada (ganha ou perdida).
+              </p>
             </div>
           </div>
         )}
