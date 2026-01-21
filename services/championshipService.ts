@@ -458,6 +458,48 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
           return saveChampionshipToLocalStorage(championship);
         }
         
+        // Erro 400 pode ser campo não existente (ex: table_format)
+        if (error.status === 400 || (error.code && String(error.code).includes('400'))) {
+          if (import.meta.env.DEV) {
+            logger.warn(
+              '[ChampionshipService] Erro 400 ao salvar campeonato. ' +
+              'O campo table_format pode não existir no banco. ' +
+              'Execute a migração add_table_format_to_championships.sql no Supabase. ' +
+              'Tentando salvar sem table_format.',
+              error
+            );
+          }
+          // Tentar salvar sem table_format
+          const { data: dataWithoutFormat, error: errorWithoutFormat } = await supabase
+            .from('championships')
+            .upsert(
+              {
+                id: championship.id,
+                nome: championship.nome,
+                fbref_url: championship.fbrefUrl || null,
+                updated_at: new Date().toISOString(),
+              },
+              {
+                onConflict: 'id',
+              }
+            )
+            .select()
+            .single();
+          
+          if (errorWithoutFormat) {
+            if (import.meta.env.DEV) {
+              logger.error('[ChampionshipService] Erro ao salvar campeonato mesmo sem table_format:', errorWithoutFormat);
+            }
+            return saveChampionshipToLocalStorage(championship);
+          }
+          
+          if (import.meta.env.DEV) {
+            logger.log('[ChampionshipService] Campeonato salvo sem table_format (campo não existe no banco)');
+          }
+          
+          return dataWithoutFormat;
+        }
+        
         if (isTemporaryError(error)) {
           throw error;
         }
@@ -698,6 +740,52 @@ export const saveChampionshipTable = async (
       if (error) {
         if (error.code === 'PGRST116' || error.code === '42P01') {
           return saveChampionshipTableToLocalStorage(table);
+        }
+        
+        // Erro 409 (Conflict) - pode ser conflito de constraint ou ID duplicado
+        if (error.status === 409 || error.code === '23505' || (error.code && String(error.code).includes('409'))) {
+          if (import.meta.env.DEV) {
+            logger.warn(
+              '[ChampionshipService] Erro 409 (Conflict) ao salvar tabela. ' +
+              'Pode ser conflito de constraint ou ID duplicado. ' +
+              'Tentando salvar com novo ID.',
+              error
+            );
+          }
+          
+          // Tentar salvar com novo ID baseado em timestamp
+          const newId = `${table.championship_id}_${table.table_type}_${Date.now()}`;
+          const { data: dataWithNewId, error: errorWithNewId } = await supabase
+            .from('championship_tables')
+            .upsert(
+              {
+                id: newId,
+                championship_id: table.championship_id,
+                table_type: table.table_type,
+                table_name: table.table_name,
+                table_data: table.table_data,
+                created_at: table.created_at || now,
+                updated_at: now,
+              },
+              {
+                onConflict: 'id',
+              }
+            )
+            .select()
+            .single();
+          
+          if (errorWithNewId) {
+            if (import.meta.env.DEV) {
+              logger.error('[ChampionshipService] Erro ao salvar tabela mesmo com novo ID:', errorWithNewId);
+            }
+            return saveChampionshipTableToLocalStorage(table);
+          }
+          
+          if (import.meta.env.DEV) {
+            logger.log(`[ChampionshipService] Tabela salva com novo ID: ${newId} (ID anterior causava conflito)`);
+          }
+          
+          return dataWithNewId;
         }
         
         // Se for erro de constraint (ex: table_type não permitido), fazer fallback para localStorage
