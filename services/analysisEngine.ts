@@ -134,6 +134,226 @@ function combineOverUnderProbabilities(
 }
 
 /**
+ * Combina estatísticas home, away e global com pesos adaptativos baseados no contexto
+ * Home: 50% peso (mais relevante para time da casa jogando em casa)
+ * Away: 50% peso (mais relevante para visitante jogando fora)
+ * Global: 30% peso (validação e contexto geral)
+ * 
+ * @param home - Estatísticas quando joga em casa
+ * @param away - Estatísticas quando joga fora
+ * @param global - Estatísticas globais (todos os jogos)
+ * @param context - Contexto da partida: 'home' para time da casa, 'away' para visitante
+ * @returns Estatísticas combinadas com pesos adaptativos
+ */
+function getWeightedTeamStats(
+  home: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number },
+  away: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number },
+  global: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number },
+  context: 'home' | 'away'
+): { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number } {
+  // Pesos adaptativos baseados no contexto
+  // Para time da casa: home tem mais peso
+  // Para visitante: away tem mais peso
+  const homeWeight = context === 'home' ? 0.5 : 0.3;
+  const awayWeight = context === 'away' ? 0.5 : 0.3;
+  const globalWeight = 0.3;
+  const totalWeight = homeWeight + awayWeight + globalWeight;
+
+  // Verificar se dados estão disponíveis (não são todos zero)
+  const hasHome = home.avgScored > 0 || home.avgConceded > 0;
+  const hasAway = away.avgScored > 0 || away.avgConceded > 0;
+  const hasGlobal = global.avgScored > 0 || global.avgConceded > 0;
+
+  // Ajustar pesos se algum dado não estiver disponível
+  let adjustedHomeWeight = homeWeight;
+  let adjustedAwayWeight = awayWeight;
+  let adjustedGlobalWeight = globalWeight;
+
+  if (!hasHome) {
+    adjustedHomeWeight = 0;
+    // Redistribuir peso
+    const remainingWeight = adjustedAwayWeight + adjustedGlobalWeight;
+    if (remainingWeight > 0) {
+      adjustedAwayWeight = (adjustedAwayWeight / remainingWeight) * (homeWeight + awayWeight + globalWeight);
+      adjustedGlobalWeight = (adjustedGlobalWeight / remainingWeight) * (homeWeight + awayWeight + globalWeight);
+    }
+  }
+  if (!hasAway) {
+    adjustedAwayWeight = 0;
+    const remainingWeight = adjustedHomeWeight + adjustedGlobalWeight;
+    if (remainingWeight > 0) {
+      adjustedHomeWeight = (adjustedHomeWeight / remainingWeight) * (homeWeight + awayWeight + globalWeight);
+      adjustedGlobalWeight = (adjustedGlobalWeight / remainingWeight) * (homeWeight + awayWeight + globalWeight);
+    }
+  }
+  if (!hasGlobal) {
+    adjustedGlobalWeight = 0;
+    const remainingWeight = adjustedHomeWeight + adjustedAwayWeight;
+    if (remainingWeight > 0) {
+      adjustedHomeWeight = (adjustedHomeWeight / remainingWeight) * (homeWeight + awayWeight + globalWeight);
+      adjustedAwayWeight = (adjustedAwayWeight / remainingWeight) * (homeWeight + awayWeight + globalWeight);
+    }
+  }
+
+  const adjustedTotalWeight = adjustedHomeWeight + adjustedAwayWeight + adjustedGlobalWeight;
+
+  // Calcular média ponderada
+  return {
+    avgScored: ((home.avgScored * adjustedHomeWeight + away.avgScored * adjustedAwayWeight + global.avgScored * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    avgConceded: ((home.avgConceded * adjustedHomeWeight + away.avgConceded * adjustedAwayWeight + global.avgConceded * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    avgTotal: ((home.avgTotal * adjustedHomeWeight + away.avgTotal * adjustedAwayWeight + global.avgTotal * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    cleanSheetPct: ((home.cleanSheetPct * adjustedHomeWeight + away.cleanSheetPct * adjustedAwayWeight + global.cleanSheetPct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    noGoalsPct: ((home.noGoalsPct * adjustedHomeWeight + away.noGoalsPct * adjustedAwayWeight + global.noGoalsPct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    over25Pct: ((home.over25Pct * adjustedHomeWeight + away.over25Pct * adjustedAwayWeight + global.over25Pct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    under25Pct: ((home.under25Pct * adjustedHomeWeight + away.under25Pct * adjustedAwayWeight + global.under25Pct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+  };
+}
+
+/**
+ * Calcula força ofensiva e defensiva do oponente para ajustar lambda
+ * 
+ * @param opponentStats - Estatísticas do oponente
+ * @param opponentTableData - Dados da tabela do oponente (opcional)
+ * @returns Força ofensiva e defensiva normalizadas (0-1)
+ */
+function calculateOpponentStrength(
+  opponentStats: { avgScored: number; avgConceded: number; cleanSheetPct: number; over25Pct: number },
+  opponentTableData?: { GF?: string; GA?: string; MP?: string; xG?: string; xGA?: string }
+): { offensiveStrength: number; defensiveStrength: number } {
+  // Calcular força ofensiva baseada em gols marcados e over 2.5%
+  let offensiveStrength = 0;
+  if (opponentStats.avgScored > 0) {
+    // Normalizar: 0 gols = 0, 3+ gols = 1
+    offensiveStrength = Math.min(1, opponentStats.avgScored / 3);
+  }
+  // Ajustar baseado em over 2.5% (times ofensivos têm mais over 2.5)
+  if (opponentStats.over25Pct > 0) {
+    const over25Bonus = Math.min(0.2, opponentStats.over25Pct / 100);
+    offensiveStrength = Math.min(1, offensiveStrength + over25Bonus);
+  }
+
+  // Calcular força defensiva baseada em gols sofridos e clean sheets
+  let defensiveStrength = 0;
+  if (opponentStats.avgConceded > 0) {
+    // Normalizar: 0 gols sofridos = 1 (defesa perfeita), 2+ gols = 0 (defesa fraca)
+    defensiveStrength = Math.max(0, 1 - (opponentStats.avgConceded / 2));
+  }
+  // Ajustar baseado em clean sheet % (defesas boas têm mais clean sheets)
+  if (opponentStats.cleanSheetPct > 0) {
+    const cleanSheetBonus = Math.min(0.2, opponentStats.cleanSheetPct / 100);
+    defensiveStrength = Math.min(1, defensiveStrength + cleanSheetBonus);
+  }
+
+  // Se temos dados da tabela, usar para validar/ajustar
+  if (opponentTableData) {
+    const mp = parseFloat(opponentTableData.MP || '0');
+    const gf = parseFloat(opponentTableData.GF || '0');
+    const ga = parseFloat(opponentTableData.GA || '0');
+    
+    if (mp > 0) {
+      const tableOffensive = Math.min(1, (gf / mp) / 3);
+      const tableDefensive = Math.max(0, 1 - (ga / mp) / 2);
+      
+      // Combinar com peso 70% para estatísticas (mais recentes) e 30% para tabela
+      offensiveStrength = offensiveStrength * 0.7 + tableOffensive * 0.3;
+      defensiveStrength = defensiveStrength * 0.7 + tableDefensive * 0.3;
+    }
+  }
+
+  return {
+    offensiveStrength: Math.max(0, Math.min(1, offensiveStrength)),
+    defensiveStrength: Math.max(0, Math.min(1, defensiveStrength)),
+  };
+}
+
+/**
+ * Calcula momentum (tendência recente) baseado nos últimos jogos
+ * 
+ * @param recentHistory - Últimos jogos do time (homeScore/awayScore são gols do time analisado)
+ * @param avgScored - Média histórica de gols marcados
+ * @param avgConceded - Média histórica de gols sofridos
+ * @param isHomeTeam - Se true, homeScore são gols do time; se false, awayScore são gols do time
+ * @returns Momentum ofensivo e defensivo (-1 a 1, onde positivo = melhorando)
+ */
+function calculateMomentum(
+  recentHistory: Array<{ homeScore: number; awayScore: number }>,
+  avgScored: number,
+  avgConceded: number,
+  isHomeTeam: boolean = true
+): { offensiveMomentum: number; defensiveMomentum: number } {
+  if (!recentHistory || recentHistory.length === 0) {
+    return { offensiveMomentum: 0, defensiveMomentum: 0 };
+  }
+
+  // Analisar últimos 3-5 jogos (priorizar últimos 3, mas considerar até 5)
+  const recentGames = recentHistory.slice(0, Math.min(5, recentHistory.length));
+  const weight = recentGames.length <= 3 ? 1.0 : 0.8; // Mais peso se temos poucos jogos
+
+  // Calcular médias recentes
+  let recentScored = 0;
+  let recentConceded = 0;
+  
+  for (const match of recentGames) {
+    // Para time da casa: homeScore são seus gols, awayScore são gols sofridos
+    // Para visitante: awayScore são seus gols, homeScore são gols sofridos
+    if (isHomeTeam) {
+      recentScored += match.homeScore;
+      recentConceded += match.awayScore;
+    } else {
+      recentScored += match.awayScore;
+      recentConceded += match.homeScore;
+    }
+  }
+  
+  recentScored /= recentGames.length;
+  recentConceded /= recentGames.length;
+
+  // Calcular momentum (diferença entre recente e histórico)
+  // Normalizar para -1 a 1
+  const offensiveMomentum = avgScored > 0 
+    ? Math.max(-1, Math.min(1, ((recentScored - avgScored) / avgScored) * weight))
+    : 0;
+  
+  const defensiveMomentum = avgConceded > 0
+    ? Math.max(-1, Math.min(1, ((avgConceded - recentConceded) / avgConceded) * weight)) // Invertido: menos gols sofridos = melhor
+    : 0;
+
+  return { offensiveMomentum, defensiveMomentum };
+}
+
+/**
+ * Valida consistência entre dados home/away/global
+ * Retorna score de consistência (0-1) e flag indicando se há divergência significativa
+ * 
+ * @param home - Estatísticas home
+ * @param away - Estatísticas away
+ * @param global - Estatísticas global
+ * @returns Score de consistência e flag de divergência
+ */
+function validateStatsConsistency(
+  home: { avgScored: number; avgConceded: number },
+  away: { avgScored: number; avgConceded: number },
+  global: { avgScored: number; avgConceded: number }
+): { consistencyScore: number; hasSignificantDivergence: boolean } {
+  // Calcular médias esperadas
+  const expectedHomeAvg = (home.avgScored + away.avgScored) / 2;
+  const expectedAwayAvg = (home.avgConceded + away.avgConceded) / 2;
+
+  // Comparar com dados global
+  const scoredDiff = Math.abs(global.avgScored - expectedHomeAvg);
+  const concededDiff = Math.abs(global.avgConceded - expectedAwayAvg);
+
+  // Normalizar diferenças (tolerância de 0.3 gols = boa consistência)
+  const scoredConsistency = Math.max(0, 1 - (scoredDiff / 0.3));
+  const concededConsistency = Math.max(0, 1 - (concededDiff / 0.3));
+
+  const consistencyScore = (scoredConsistency + concededConsistency) / 2;
+  const hasSignificantDivergence = scoredDiff > 0.5 || concededDiff > 0.5;
+
+  return { consistencyScore, hasSignificantDivergence };
+}
+
+/**
  * Calcula probabilidade Over 1.5 baseada apenas nas estatísticas dos últimos 10 jogos.
  * Usa homeTeamStats e awayTeamStats para calcular médias de gols e ajustar baseado em
  * clean sheets, no goals, over 2.5% e forma recente.
@@ -156,30 +376,82 @@ function calculateStatisticsProbability(data: MatchData): {
     return null;
   }
 
-  // 1. Extrair médias de gols específicas (home para time da casa, away para visitante)
-  const homeAvgScored = data.homeTeamStats.gols.home.avgScored || 0;
-  const homeAvgConceded = data.homeTeamStats.gols.home.avgConceded || 0;
-  const awayAvgScored = data.awayTeamStats.gols.away.avgScored || 0;
-  const awayAvgConceded = data.awayTeamStats.gols.away.avgConceded || 0;
+  // 1. Usar função weighted para combinar home/away/global com pesos adaptativos
+  const homeWeightedStats = getWeightedTeamStats(
+    data.homeTeamStats.gols.home,
+    data.homeTeamStats.gols.away,
+    data.homeTeamStats.gols.global,
+    'home' // Time da casa jogando em casa
+  );
+
+  const awayWeightedStats = getWeightedTeamStats(
+    data.awayTeamStats.gols.home,
+    data.awayTeamStats.gols.away,
+    data.awayTeamStats.gols.global,
+    'away' // Time visitante jogando fora
+  );
+
+  // Extrair médias de gols combinadas (já ponderadas)
+  const homeAvgScored = homeWeightedStats.avgScored || 0;
+  const homeAvgConceded = homeWeightedStats.avgConceded || 0;
+  const awayAvgScored = awayWeightedStats.avgScored || 0;
+  const awayAvgConceded = awayWeightedStats.avgConceded || 0;
 
   if (homeAvgScored === 0 && homeAvgConceded === 0 && awayAvgScored === 0 && awayAvgConceded === 0) {
     return null;
   }
 
-  // 2. Calcular lambda para Poisson usando médias específicas
+  // 2. Validar consistência entre home/away/global
+  const homeConsistency = validateStatsConsistency(
+    data.homeTeamStats.gols.home,
+    data.homeTeamStats.gols.away,
+    data.homeTeamStats.gols.global
+  );
+  const awayConsistency = validateStatsConsistency(
+    data.awayTeamStats.gols.home,
+    data.awayTeamStats.gols.away,
+    data.awayTeamStats.gols.global
+  );
+
+  // Se há divergência significativa, ser mais conservador (reduzir lambda levemente)
+  const consistencyAdjustment = (homeConsistency.consistencyScore + awayConsistency.consistencyScore) / 2;
+  const divergencePenalty = consistencyAdjustment < 0.7 ? 0.05 : 0; // Penalidade de 5% se inconsistente
+
+  // 3. Calcular lambda base usando médias combinadas
   // Time da casa: média entre gols marcados em casa e gols sofridos pelo visitante fora
   let lambdaHome = (homeAvgScored + awayAvgConceded) / 2;
   // Time visitante: média entre gols marcados fora e gols sofridos pelo time da casa em casa
   let lambdaAway = (awayAvgScored + homeAvgConceded) / 2;
 
+  // Aplicar ajuste de consistência
+  lambdaHome *= (1 - divergencePenalty);
+  lambdaAway *= (1 - divergencePenalty);
+
   // Garantir valores mínimos para evitar divisão por zero
   lambdaHome = lambdaHome || 1.0;
   lambdaAway = lambdaAway || 1.0;
 
-  // 3. Ajustar baseado em cleanSheetPct (defesas muito boas reduzem probabilidade)
-  const homeCleanSheet = data.homeTeamStats.gols.home.cleanSheetPct || 0;
-  const awayCleanSheet = data.awayTeamStats.gols.away.cleanSheetPct || 0;
-  const avgCleanSheet = (homeCleanSheet + awayCleanSheet) / 2;
+  // 4. Calcular força do oponente para ajustar lambda
+  const homeOpponentStrength = calculateOpponentStrength(
+    awayWeightedStats,
+    data.awayTableData
+  );
+  const awayOpponentStrength = calculateOpponentStrength(
+    homeWeightedStats,
+    data.homeTableData
+  );
+
+  // Ajustar lambda baseado na força do oponente
+  // Se oponente tem defesa forte, reduzir lambda ofensivo
+  // Se oponente tem ataque forte, aumentar lambda defensivo esperado
+  lambdaHome *= (1 - homeOpponentStrength.defensiveStrength * 0.1); // Até -10% se defesa muito forte
+  lambdaHome *= (1 + homeOpponentStrength.offensiveStrength * 0.05); // Até +5% se ataque forte (mais gols esperados)
+  
+  lambdaAway *= (1 - awayOpponentStrength.defensiveStrength * 0.1);
+  lambdaAway *= (1 + awayOpponentStrength.offensiveStrength * 0.05);
+
+  // 5. Ajustar baseado em cleanSheetPct usando dados weighted
+  const avgCleanSheet = (homeWeightedStats.cleanSheetPct + awayWeightedStats.cleanSheetPct) / 2;
   
   // Clean sheet alto (>40%) reduz lambda (até -8%)
   if (avgCleanSheet > 40) {
@@ -188,10 +460,8 @@ function calculateStatisticsProbability(data: MatchData): {
     lambdaAway *= (1 - reduction * 0.5);
   }
 
-  // 4. Ajustar baseado em noGoalsPct (ataques fracos reduzem probabilidade)
-  const homeNoGoals = data.homeTeamStats.gols.home.noGoalsPct || 0;
-  const awayNoGoals = data.awayTeamStats.gols.away.noGoalsPct || 0;
-  const avgNoGoals = (homeNoGoals + awayNoGoals) / 2;
+  // 6. Ajustar baseado em noGoalsPct usando dados weighted
+  const avgNoGoals = (homeWeightedStats.noGoalsPct + awayWeightedStats.noGoalsPct) / 2;
   
   // No goals alto (>20%) reduz lambda (até -6%)
   if (avgNoGoals > 20) {
@@ -200,10 +470,8 @@ function calculateStatisticsProbability(data: MatchData): {
     lambdaAway *= (1 - reduction * 0.5);
   }
 
-  // 5. Ajustar baseado em over25Pct (confirma tendência ofensiva)
-  const homeOver25 = data.homeTeamStats.gols.home.over25Pct || 0;
-  const awayOver25 = data.awayTeamStats.gols.away.over25Pct || 0;
-  const avgOver25 = (homeOver25 + awayOver25) / 2;
+  // 7. Ajustar baseado em over25Pct usando dados weighted
+  const avgOver25 = (homeWeightedStats.over25Pct + awayWeightedStats.over25Pct) / 2;
   
   // Over 2.5% alto (>50%) aumenta lambda (até +5%)
   if (avgOver25 > 50) {
@@ -212,7 +480,44 @@ function calculateStatisticsProbability(data: MatchData): {
     lambdaAway *= (1 + increase * 0.5);
   }
 
-  // 6. Considerar forma recente (últimos 3 jogos do histórico)
+  // 8. Calcular momentum (forma recente melhorada)
+  const homeMomentum = calculateMomentum(
+    data.homeHistory || [],
+    homeAvgScored,
+    homeAvgConceded,
+    true // Time da casa
+  );
+  const awayMomentum = calculateMomentum(
+    data.awayHistory || [],
+    awayAvgScored,
+    awayAvgConceded,
+    false // Time visitante
+  );
+
+  // Aplicar momentum ao lambda
+  // Momentum positivo aumenta lambda, negativo reduz
+  const homeMomentumAdjustment = homeMomentum.offensiveMomentum * 0.1 - homeMomentum.defensiveMomentum * 0.05;
+  const awayMomentumAdjustment = awayMomentum.offensiveMomentum * 0.1 - awayMomentum.defensiveMomentum * 0.05;
+  
+  lambdaHome *= (1 + homeMomentumAdjustment);
+  lambdaAway *= (1 + awayMomentumAdjustment);
+
+  // 9. Ajustar baseado em importância da partida e ausências
+  if (data.matchImportance > 0) {
+    // Partidas importantes tendem a ter mais gols (maior intensidade)
+    const importanceBoost = Math.min(0.05, data.matchImportance / 20);
+    lambdaHome *= (1 + importanceBoost);
+    lambdaAway *= (1 + importanceBoost);
+  }
+
+  if (data.keyAbsences && data.keyAbsences !== 'none') {
+    // Ausências reduzem capacidade ofensiva/defensiva
+    const absencePenalty = data.keyAbsences === 'high' ? 0.1 : data.keyAbsences === 'medium' ? 0.05 : 0.02;
+    lambdaHome *= (1 - absencePenalty);
+    lambdaAway *= (1 - absencePenalty);
+  }
+
+  // 10. Considerar forma recente tradicional (compatibilidade)
   let recentFormAdjustment = 0;
   if (data.homeHistory && data.homeHistory.length > 0 && data.awayHistory && data.awayHistory.length > 0) {
     const recentHome = data.homeHistory.slice(0, 3);
@@ -248,17 +553,23 @@ function calculateStatisticsProbability(data: MatchData): {
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] Prob. Estatísticas calculada:', {
+    console.log('[AnalysisEngine] Prob. Estatísticas calculada (com dados Global):', {
       lambdaHome,
       lambdaAway,
       lambdaTotal,
-      homeAvgScored,
-      homeAvgConceded,
-      awayAvgScored,
-      awayAvgConceded,
+      homeAvgScored: homeWeightedStats.avgScored,
+      homeAvgConceded: homeWeightedStats.avgConceded,
+      awayAvgScored: awayWeightedStats.avgScored,
+      awayAvgConceded: awayWeightedStats.avgConceded,
       avgCleanSheet,
       avgNoGoals,
       avgOver25,
+      homeConsistency: homeConsistency.consistencyScore,
+      awayConsistency: awayConsistency.consistencyScore,
+      homeMomentum: homeMomentum.offensiveMomentum,
+      awayMomentum: awayMomentum.offensiveMomentum,
+      homeOpponentStrength,
+      awayOpponentStrength,
       recentFormAdjustment,
       statsProb,
     });
@@ -1580,12 +1891,32 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   prob = smoothClamp(prob, 10, 98);
 
   // Calcular Poisson para visualização (usando médias de gols se disponíveis)
-  // Usar estatísticas específicas: home para time da casa, away para visitante
-  // Se não disponíveis, usar dados da tabela como fallback
-  let homeGoalsScored = normalizedData.homeTeamStats?.gols?.home?.avgScored || 0;
-  let homeGoalsConceded = normalizedData.homeTeamStats?.gols?.home?.avgConceded || 0;
-  let awayGoalsScored = normalizedData.awayTeamStats?.gols?.away?.avgScored || 0;
-  let awayGoalsConceded = normalizedData.awayTeamStats?.gols?.away?.avgConceded || 0;
+  // PRIORIDADE: Usar dados weighted (combinam home/away/global) se disponíveis
+  let homeGoalsScored = 0;
+  let homeGoalsConceded = 0;
+  let awayGoalsScored = 0;
+  let awayGoalsConceded = 0;
+  
+  // Usar dados weighted se temos estatísticas globais
+  if (normalizedData.homeTeamStats && normalizedData.awayTeamStats) {
+    const homeWeighted = getWeightedTeamStats(
+      normalizedData.homeTeamStats.gols.home,
+      normalizedData.homeTeamStats.gols.away,
+      normalizedData.homeTeamStats.gols.global,
+      'home'
+    );
+    const awayWeighted = getWeightedTeamStats(
+      normalizedData.awayTeamStats.gols.home,
+      normalizedData.awayTeamStats.gols.away,
+      normalizedData.awayTeamStats.gols.global,
+      'away'
+    );
+    
+    homeGoalsScored = homeWeighted.avgScored;
+    homeGoalsConceded = homeWeighted.avgConceded;
+    awayGoalsScored = awayWeighted.avgScored;
+    awayGoalsConceded = awayWeighted.avgConceded;
+  }
   
   // Prioridade: usar dados de home_away se disponíveis (mais específicos para casa/fora)
   if (normalizedData.homeHomeAwayData) {
@@ -1675,8 +2006,98 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     }
   }
 
+  // Calcular lambda base usando dados weighted (já combinam home/away/global)
   let lambdaHome = (homeGoalsScored + awayGoalsConceded) / 2;
   let lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;
+  
+  // Aplicar melhorias profissionais ao lambda se temos dados completos
+  if (normalizedData.homeTeamStats && normalizedData.awayTeamStats) {
+    const homeWeighted = getWeightedTeamStats(
+      normalizedData.homeTeamStats.gols.home,
+      normalizedData.homeTeamStats.gols.away,
+      normalizedData.homeTeamStats.gols.global,
+      'home'
+    );
+    const awayWeighted = getWeightedTeamStats(
+      normalizedData.awayTeamStats.gols.home,
+      normalizedData.awayTeamStats.gols.away,
+      normalizedData.awayTeamStats.gols.global,
+      'away'
+    );
+    
+    // 1. Ajustar baseado na força do oponente
+    const homeOpponentStrength = calculateOpponentStrength(awayWeighted, normalizedData.awayTableData);
+    const awayOpponentStrength = calculateOpponentStrength(homeWeighted, normalizedData.homeTableData);
+    
+    lambdaHome *= (1 - homeOpponentStrength.defensiveStrength * 0.08); // Até -8% se defesa muito forte
+    lambdaHome *= (1 + homeOpponentStrength.offensiveStrength * 0.04); // Até +4% se ataque forte
+    
+    lambdaAway *= (1 - awayOpponentStrength.defensiveStrength * 0.08);
+    lambdaAway *= (1 + awayOpponentStrength.offensiveStrength * 0.04);
+    
+    // 2. Ajustar baseado em momentum (forma recente)
+    const homeMomentum = calculateMomentum(
+      normalizedData.homeHistory || [],
+      homeWeighted.avgScored,
+      homeWeighted.avgConceded,
+      true
+    );
+    const awayMomentum = calculateMomentum(
+      normalizedData.awayHistory || [],
+      awayWeighted.avgScored,
+      awayWeighted.avgConceded,
+      false
+    );
+    
+    const homeMomentumAdjustment = homeMomentum.offensiveMomentum * 0.08 - homeMomentum.defensiveMomentum * 0.04;
+    const awayMomentumAdjustment = awayMomentum.offensiveMomentum * 0.08 - awayMomentum.defensiveMomentum * 0.04;
+    
+    lambdaHome *= (1 + homeMomentumAdjustment);
+    lambdaAway *= (1 + awayMomentumAdjustment);
+    
+    // 3. Ajustar baseado em clean sheet e no goals (usando dados weighted)
+    const avgCleanSheet = (homeWeighted.cleanSheetPct + awayWeighted.cleanSheetPct) / 2;
+    const avgNoGoals = (homeWeighted.noGoalsPct + awayWeighted.noGoalsPct) / 2;
+    
+    if (avgCleanSheet > 40) {
+      const reduction = Math.min(0.06, (avgCleanSheet - 40) / 100);
+      lambdaHome *= (1 - reduction * 0.5);
+      lambdaAway *= (1 - reduction * 0.5);
+    }
+    
+    if (avgNoGoals > 20) {
+      const reduction = Math.min(0.05, (avgNoGoals - 20) / 100);
+      lambdaHome *= (1 - reduction * 0.5);
+      lambdaAway *= (1 - reduction * 0.5);
+    }
+    
+    // 4. Ajustar baseado em over 2.5% (confirma tendência ofensiva)
+    const avgOver25 = (homeWeighted.over25Pct + awayWeighted.over25Pct) / 2;
+    if (avgOver25 > 50) {
+      const increase = Math.min(0.04, (avgOver25 - 50) / 100);
+      lambdaHome *= (1 + increase * 0.5);
+      lambdaAway *= (1 + increase * 0.5);
+    }
+    
+    // 5. Validar consistência e aplicar penalidade se necessário
+    const homeConsistency = validateStatsConsistency(
+      normalizedData.homeTeamStats.gols.home,
+      normalizedData.homeTeamStats.gols.away,
+      normalizedData.homeTeamStats.gols.global
+    );
+    const awayConsistency = validateStatsConsistency(
+      normalizedData.awayTeamStats.gols.home,
+      normalizedData.awayTeamStats.gols.away,
+      normalizedData.awayTeamStats.gols.global
+    );
+    
+    const consistencyAdjustment = (homeConsistency.consistencyScore + awayConsistency.consistencyScore) / 2;
+    if (consistencyAdjustment < 0.7) {
+      // Penalidade de 3% se dados inconsistentes
+      lambdaHome *= 0.97;
+      lambdaAway *= 0.97;
+    }
+  }
 
   if (import.meta.env.DEV) {
     console.log('[AnalysisEngine] performAnalysis - Lambdas iniciais (base estatísticas):', {
@@ -1816,48 +2237,100 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     }
   }
 
-  // Verificar consistência entre Estatísticas Globais e dados da tabela
+  // Validação cruzada melhorada: comparar Estatísticas Globais (home/away/global) com dados da tabela
   let consistencyBonus = 0;
+  let crossValidationScore = 0;
+  
   if (hasHomeTeamStats && hasHomeTableData) {
-    const statsAvgScored = normalizedData.homeTeamStats?.gols?.home?.avgScored || 0;
-    const statsAvgConceded = normalizedData.homeTeamStats?.gols?.home?.avgConceded || 0;
+    // Usar dados weighted (já combinam home/away/global)
+    const homeWeighted = getWeightedTeamStats(
+      normalizedData.homeTeamStats.gols.home,
+      normalizedData.homeTeamStats.gols.away,
+      normalizedData.homeTeamStats.gols.global,
+      'home'
+    );
+    
     const mp = parseFloat(normalizedData.homeTableData.MP || '0');
     const gf = parseFloat(normalizedData.homeTableData.GF || '0');
     const ga = parseFloat(normalizedData.homeTableData.GA || '0');
     
-    if (mp > 0 && statsAvgScored > 0) {
+    if (mp > 0 && homeWeighted.avgScored > 0) {
       const tableAvgScored = gf / mp;
       const tableAvgConceded = ga / mp;
-      const scoredDiff = Math.abs(statsAvgScored - tableAvgScored);
-      const concededDiff = Math.abs(statsAvgConceded - tableAvgConceded);
+      const scoredDiff = Math.abs(homeWeighted.avgScored - tableAvgScored);
+      const concededDiff = Math.abs(homeWeighted.avgConceded - tableAvgConceded);
       
       // Se diferença < 0.3 gols, dados são consistentes
       if (scoredDiff < 0.3 && concededDiff < 0.3) {
         consistencyBonus += 3;
+        crossValidationScore += 0.5;
+      } else if (scoredDiff < 0.5 && concededDiff < 0.5) {
+        // Consistência moderada
+        consistencyBonus += 1;
+        crossValidationScore += 0.25;
+      }
+      
+      // Validar também dados Global separadamente
+      const globalScoredDiff = Math.abs(normalizedData.homeTeamStats.gols.global.avgScored - tableAvgScored);
+      const globalConcededDiff = Math.abs(normalizedData.homeTeamStats.gols.global.avgConceded - tableAvgConceded);
+      
+      if (globalScoredDiff < 0.3 && globalConcededDiff < 0.3) {
+        crossValidationScore += 0.3; // Bônus adicional se Global também é consistente
       }
     }
   }
   
   if (hasAwayTeamStats && hasAwayTableData) {
-    const statsAvgScored = normalizedData.awayTeamStats?.gols?.away?.avgScored || 0;
-    const statsAvgConceded = normalizedData.awayTeamStats?.gols?.away?.avgConceded || 0;
+    // Usar dados weighted (já combinam home/away/global)
+    const awayWeighted = getWeightedTeamStats(
+      normalizedData.awayTeamStats.gols.home,
+      normalizedData.awayTeamStats.gols.away,
+      normalizedData.awayTeamStats.gols.global,
+      'away'
+    );
+    
     const mp = parseFloat(normalizedData.awayTableData.MP || '0');
     const gf = parseFloat(normalizedData.awayTableData.GF || '0');
     const ga = parseFloat(normalizedData.awayTableData.GA || '0');
     
-    if (mp > 0 && statsAvgScored > 0) {
+    if (mp > 0 && awayWeighted.avgScored > 0) {
       const tableAvgScored = gf / mp;
       const tableAvgConceded = ga / mp;
-      const scoredDiff = Math.abs(statsAvgScored - tableAvgScored);
-      const concededDiff = Math.abs(statsAvgConceded - tableAvgConceded);
+      const scoredDiff = Math.abs(awayWeighted.avgScored - tableAvgScored);
+      const concededDiff = Math.abs(awayWeighted.avgConceded - tableAvgConceded);
       
       if (scoredDiff < 0.3 && concededDiff < 0.3) {
         consistencyBonus += 3;
+        crossValidationScore += 0.5;
+      } else if (scoredDiff < 0.5 && concededDiff < 0.5) {
+        consistencyBonus += 1;
+        crossValidationScore += 0.25;
+      }
+      
+      // Validar também dados Global separadamente
+      const globalScoredDiff = Math.abs(normalizedData.awayTeamStats.gols.global.avgScored - tableAvgScored);
+      const globalConcededDiff = Math.abs(normalizedData.awayTeamStats.gols.global.avgConceded - tableAvgConceded);
+      
+      if (globalScoredDiff < 0.3 && globalConcededDiff < 0.3) {
+        crossValidationScore += 0.3;
       }
     }
   }
   
   confidence += consistencyBonus;
+  
+  // Aplicar bônus de validação cruzada (até +5 pontos se todos os dados são consistentes)
+  if (crossValidationScore >= 1.0) {
+    confidence += 5;
+    if (import.meta.env.DEV) {
+      console.log('[AnalysisEngine] ✅ Validação cruzada: todos os dados (home/away/global) consistentes com tabela');
+    }
+  } else if (crossValidationScore >= 0.5) {
+    confidence += 2;
+    if (import.meta.env.DEV) {
+      console.log('[AnalysisEngine] ⚠️ Validação cruzada: consistência parcial entre dados');
+    }
+  }
 
   // Verificar qualidade dos dados (se são realistas)
   let qualityBonus = 0;
