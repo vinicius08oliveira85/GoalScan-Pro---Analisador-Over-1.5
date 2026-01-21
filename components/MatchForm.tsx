@@ -289,15 +289,17 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }));
   };
 
-  // Função para atualizar estatísticas de gols (home para time da casa, away para visitante)
+  // Função para atualizar estatísticas de gols
+  // team: 'home' = time da casa, 'away' = time visitante
+  // context: 'home' = jogando em casa, 'away' = jogando fora, 'global' = global
   const updateTeamStats = (
     team: 'home' | 'away',
+    context: 'home' | 'away' | 'global',
     field: keyof GolsStats,
     value: number | undefined
   ) => {
     setFormData((prev) => {
       const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
-      const statsKey = team === 'home' ? 'home' : 'away'; // Usar 'home' para time da casa, 'away' para visitante
       const currentStats = prev[teamKey] || {
         percurso: {
           home: {
@@ -332,8 +334,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
         ...currentStats,
         gols: {
           ...currentStats.gols,
-          [statsKey]: {
-            ...currentStats.gols[statsKey],
+          [context]: {
+            ...currentStats.gols[context],
             [field]: value === '' ? 0 : (value ?? 0),
           },
         },
@@ -781,143 +783,492 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
               Estatísticas Globais - {formData.homeTeam || 'Time Casa'}
             </span>
-            <InfoIcon text="Estatísticas dos 10 últimos jogos do time jogando em Casa. Insira manualmente os dados baseados nos últimos 10 jogos em casa ou importe via Excel." />
+            <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato. Insira manualmente os dados ou importe via Excel. Cada métrica mostra dados para Casa, Fora e Global." />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="form-control">
-            <label className="label py-0">
+        <div className="space-y-4">
+          {/* Média Marcados */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Média Marcados</span>
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.homeTeamStats?.gols.home.avgScored || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'home',
-                  'avgScored',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0.00"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.home.avgScored || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'home',
+                      'avgScored',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.away.avgScored || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'away',
+                      'avgScored',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.global.avgScored || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'global',
+                      'avgScored',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Média Sofridos */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Média Sofridos</span>
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.homeTeamStats?.gols.home.avgConceded || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'home',
-                  'avgConceded',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0.00"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.home.avgConceded || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'home',
+                      'avgConceded',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.away.avgConceded || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'away',
+                      'avgConceded',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.global.avgConceded || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'global',
+                      'avgConceded',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Média Total */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Média Total</span>
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.homeTeamStats?.gols.home.avgTotal || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'home',
-                  'avgTotal',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0.00"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.home.avgTotal || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'home',
+                      'avgTotal',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.away.avgTotal || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'away',
+                      'avgTotal',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.homeTeamStats?.gols.global.avgTotal || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'global',
+                      'avgTotal',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Sem Sofrer % */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Sem Sofrer %</span>
             </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.homeTeamStats?.gols.home.cleanSheetPct || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'home',
-                  'cleanSheetPct',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.home.cleanSheetPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'home',
+                      'cleanSheetPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.away.cleanSheetPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'away',
+                      'cleanSheetPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.global.cleanSheetPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'global',
+                      'cleanSheetPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Sem Marcar % */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Sem Marcar %</span>
             </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.homeTeamStats?.gols.home.noGoalsPct || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'home',
-                  'noGoalsPct',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.home.noGoalsPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'home',
+                      'noGoalsPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.away.noGoalsPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'away',
+                      'noGoalsPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.global.noGoalsPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'global',
+                      'noGoalsPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Over 2.5 % */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Over 2.5 %</span>
             </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.homeTeamStats?.gols.home.over25Pct || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'home',
-                  'over25Pct',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.home.over25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'home',
+                      'over25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.away.over25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'away',
+                      'over25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.global.over25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'global',
+                      'over25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Under 2.5 % */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Under 2.5 %</span>
             </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.homeTeamStats?.gols.home.under25Pct || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'home',
-                  'under25Pct',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.home.under25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'home',
+                      'under25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.away.under25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'away',
+                      'under25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.homeTeamStats?.gols.global.under25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'home',
+                      'global',
+                      'under25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -929,143 +1280,492 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
               Estatísticas Globais - {formData.awayTeam || 'Time Visitante'}
             </span>
-            <InfoIcon text="Estatísticas dos 10 últimos jogos do time jogando Fora. Insira manualmente os dados baseados nos últimos 10 jogos fora de casa ou importe via Excel." />
+            <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato. Insira manualmente os dados ou importe via Excel. Cada métrica mostra dados para Casa, Fora e Global." />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="form-control">
-            <label className="label py-0">
+        <div className="space-y-4">
+          {/* Média Marcados */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Média Marcados</span>
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.awayTeamStats?.gols.away.avgScored || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'away',
-                  'avgScored',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0.00"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.home.avgScored || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'home',
+                      'avgScored',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.away.avgScored || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'away',
+                      'avgScored',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.global.avgScored || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'global',
+                      'avgScored',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Média Sofridos */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Média Sofridos</span>
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.awayTeamStats?.gols.away.avgConceded || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'away',
-                  'avgConceded',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0.00"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.home.avgConceded || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'home',
+                      'avgConceded',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.away.avgConceded || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'away',
+                      'avgConceded',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.global.avgConceded || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'global',
+                      'avgConceded',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Média Total */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Média Total</span>
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.awayTeamStats?.gols.away.avgTotal || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'away',
-                  'avgTotal',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0.00"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.home.avgTotal || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'home',
+                      'avgTotal',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.away.avgTotal || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'away',
+                      'avgTotal',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.awayTeamStats?.gols.global.avgTotal || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'global',
+                      'avgTotal',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Sem Sofrer % */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Sem Sofrer %</span>
             </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.awayTeamStats?.gols.away.cleanSheetPct || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'away',
-                  'cleanSheetPct',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.home.cleanSheetPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'home',
+                      'cleanSheetPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.away.cleanSheetPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'away',
+                      'cleanSheetPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.global.cleanSheetPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'global',
+                      'cleanSheetPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Sem Marcar % */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Sem Marcar %</span>
             </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.awayTeamStats?.gols.away.noGoalsPct || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'away',
-                  'noGoalsPct',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.home.noGoalsPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'home',
+                      'noGoalsPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.away.noGoalsPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'away',
+                      'noGoalsPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.global.noGoalsPct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'global',
+                      'noGoalsPct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Over 2.5 % */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Over 2.5 %</span>
             </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.awayTeamStats?.gols.away.over25Pct || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'away',
-                  'over25Pct',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.home.over25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'home',
+                      'over25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.away.over25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'away',
+                      'over25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.global.over25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'global',
+                      'over25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label py-0">
+
+          {/* Under 2.5 % */}
+          <div>
+            <label className="label py-1">
               <span className="label-text text-[10px] font-bold">Under 2.5 %</span>
             </label>
-            <input
-              type="number"
-              step="1"
-              value={formData.awayTeamStats?.gols.away.under25Pct || ''}
-              onChange={(e) =>
-                updateTeamStats(
-                  'away',
-                  'under25Pct',
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-              className="input input-sm text-center min-h-[44px]"
-              placeholder="0"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Casa</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.home.under25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'home',
+                      'under25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Fora</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.away.under25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'away',
+                      'under25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label py-0">
+                  <span className="label-text text-[9px] opacity-70">Global</span>
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  value={formData.awayTeamStats?.gols.global.under25Pct || ''}
+                  onChange={(e) =>
+                    updateTeamStats(
+                      'away',
+                      'global',
+                      'under25Pct',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className="input input-sm text-center min-h-[44px]"
+                  placeholder="0"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
