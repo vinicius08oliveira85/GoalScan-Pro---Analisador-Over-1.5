@@ -655,6 +655,15 @@ function calculateTableProbability(data: MatchData): {
   // Se não houver xG ou valores forem zero, usar apenas GF/GA (formato básico)
   const hasXgData = (homeXg > 0 || homeXga > 0 || awayXg > 0 || awayXga > 0);
   
+  if (import.meta.env.DEV) {
+    if (hasXgData) {
+      console.log('[AnalysisEngine] ✅ Formato COMPLETO detectado - usando xG + GF/GA para análise');
+    } else {
+      console.log('[AnalysisEngine] ⚠️ Formato BÁSICO detectado - usando apenas GF/GA (sem xG)');
+      console.log('[AnalysisEngine] A análise será baseada em gols reais (GF/GA) em vez de Expected Goals (xG)');
+    }
+  }
+  
   // Misturar xG/xGA com GF/GA para reduzir ruído (xG costuma ser mais estável quando disponível)
   // Se formato for básico (sem xG), usar apenas GF/GA
   const blendAttack = (xgTotal: number, gfTotal: number, mp: number): number => {

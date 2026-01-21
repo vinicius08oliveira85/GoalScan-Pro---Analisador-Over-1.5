@@ -1575,11 +1575,56 @@ export const syncTeamStatsFromTable = async (
     const homeTeam = teams.find((t) => t.squad === homeSquad) || null;
     const awayTeam = teams.find((t) => t.squad === awaySquad) || null;
 
+    // Validação: verificar se times foram encontrados
+    if (!homeTeam) {
+      if (import.meta.env.DEV) {
+        logger.warn(
+          `[ChampionshipService] Time da casa "${homeSquad}" não encontrado no campeonato ${championshipId}`
+        );
+      }
+    }
+    if (!awayTeam) {
+      if (import.meta.env.DEV) {
+        logger.warn(
+          `[ChampionshipService] Time visitante "${awaySquad}" não encontrado no campeonato ${championshipId}`
+        );
+      }
+    }
+
     // Converter ChampionshipTeam para TableRowGeral
     // Para time da casa: usar campos Home do próprio time
     // Para time visitante: usar campos Away do próprio time
     const homeData = homeTeam ? convertChampionshipTeamToTableRowGeral(homeTeam, true) : null;
     const awayData = awayTeam ? convertChampionshipTeamToTableRowGeral(awayTeam, false) : null;
+
+    // Validação: verificar se dados obrigatórios estão presentes
+    if (homeData) {
+      const homeMp = parseFloat(homeData['Home MP'] || homeData.MP || '0');
+      const homeGf = parseFloat(homeData['Home GF'] || homeData.GF || '0');
+      const homeGa = parseFloat(homeData['Home GA'] || homeData.GA || '0');
+      
+      if (homeMp === 0 || (homeGf === 0 && homeGa === 0)) {
+        if (import.meta.env.DEV) {
+          logger.warn(
+            `[ChampionshipService] Dados incompletos para time da casa "${homeSquad}": MP=${homeMp}, GF=${homeGf}, GA=${homeGa}`
+          );
+        }
+      }
+    }
+    
+    if (awayData) {
+      const awayMp = parseFloat(awayData['Away MP'] || awayData.MP || '0');
+      const awayGf = parseFloat(awayData['Away GF'] || awayData.GF || '0');
+      const awayGa = parseFloat(awayData['Away GA'] || awayData.GA || '0');
+      
+      if (awayMp === 0 || (awayGf === 0 && awayGa === 0)) {
+        if (import.meta.env.DEV) {
+          logger.warn(
+            `[ChampionshipService] Dados incompletos para time visitante "${awaySquad}": MP=${awayMp}, GF=${awayGf}, GA=${awayGa}`
+          );
+        }
+      }
+    }
 
     // Calcular média de gols do campeonato usando todos os times
     const competitionAvg = calculateCompetitionAverageGoalsFromTeams(teams);
@@ -1796,11 +1841,35 @@ export const saveChampionshipTeamsNormalized = async (
     }
 
     // 4. Normalizar e inserir novos dados
-    const normalizedTeams = teamsData.map((row) =>
-      normalizeTeamData(championshipId, tableName, row)
-    );
+    const normalizedTeams = teamsData
+      .map((row) => normalizeTeamData(championshipId, tableName, row))
+      .filter((team) => {
+        // Validar campos obrigatórios antes de inserir
+        if (!team.squad || team.squad.trim() === '') {
+          if (import.meta.env.DEV) {
+            logger.warn('[ChampionshipService] Time sem nome (Squad) ignorado:', team);
+          }
+          return false;
+        }
+        
+        // Validar se tem pelo menos MP ou dados básicos
+        const hasHomeMp = team.home_mp && parseFloat(team.home_mp) > 0;
+        const hasAwayMp = team.away_mp && parseFloat(team.away_mp) > 0;
+        
+        if (!hasHomeMp && !hasAwayMp) {
+          if (import.meta.env.DEV) {
+            logger.warn(`[ChampionshipService] Time "${team.squad}" sem dados de MP (Home ou Away) ignorado`);
+          }
+          return false;
+        }
+        
+        return true;
+      });
 
     if (normalizedTeams.length === 0) {
+      if (import.meta.env.DEV) {
+        logger.warn('[ChampionshipService] Nenhum time válido para inserir após validação');
+      }
       return;
     }
 

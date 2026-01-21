@@ -146,12 +146,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
         homeStandardForData,
         awayStandardForData,
         competitionStandardForAvg,
-        homePassingForData,
-        awayPassingForData,
-        competitionPassingForAvg,
-        homeGcaForData,
-        awayGcaForData,
-        competitionGcaForAvg,
         homeHomeAwayData,
         awayHomeAwayData,
       } = await syncTeamStatsFromTable(
@@ -172,12 +166,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
           homeStandardForData: !!homeStandardForData,
           awayStandardForData: !!awayStandardForData,
           competitionStandardForAvg: !!competitionStandardForAvg,
-          homePassingForData: !!homePassingForData,
-          awayPassingForData: !!awayPassingForData,
-          competitionPassingForAvg: !!competitionPassingForAvg,
-          homeGcaForData: !!homeGcaForData,
-          awayGcaForData: !!awayGcaForData,
-          competitionGcaForAvg: !!competitionGcaForAvg,
           homeHomeAwayData: !!homeHomeAwayData,
           awayHomeAwayData: !!awayHomeAwayData,
           hasPreviousHomeStats: !!previousHomeStats,
@@ -197,12 +185,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
           homeStandardForData: homeStandardForData || undefined,
           awayStandardForData: awayStandardForData || undefined,
           competitionStandardForAvg: competitionStandardForAvg || undefined,
-          homePassingForData: homePassingForData || undefined,
-          awayPassingForData: awayPassingForData || undefined,
-          competitionPassingForAvg: competitionPassingForAvg || undefined,
-          homeGcaForData: homeGcaForData || undefined,
-          awayGcaForData: awayGcaForData || undefined,
-          competitionGcaForAvg: competitionGcaForAvg || undefined,
           homeHomeAwayData: homeHomeAwayData || undefined,
           awayHomeAwayData: awayHomeAwayData || undefined,
           // Preencher automaticamente a média da competição calculada da tabela
@@ -226,6 +208,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
       // Verificar se a tabela geral foi carregada
       const hasGeralTable = !!(homeTableData && awayTableData);
 
+      // Detectar formato da tabela (básica vs completa)
+      let tableFormat: 'completa' | 'basica' | null = null;
+      if (hasGeralTable && homeTableData && awayTableData) {
+        const hasXg = !!(homeTableData['Home xG'] || homeTableData['Away xG'] || 
+                        awayTableData['Home xG'] || awayTableData['Away xG']);
+        tableFormat = hasXg ? 'completa' : 'basica';
+      }
+
       // Log detalhado para diagnóstico
       if (import.meta.env.DEV) {
         console.log('[MatchForm] Resultado da sincronização:', {
@@ -234,6 +224,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             away: !!awayTableData,
             loaded: hasGeralTable,
           },
+          tableFormat,
           competitionAvg,
         });
       }
@@ -624,8 +615,28 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   })()}
                 </div>
               </div>
-              <div className="mt-2 p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                ✅ Tabela geral carregada! Análise pronta.
+              <div className="mt-2 space-y-2">
+                <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
+                  ✅ Tabela geral carregada! Análise pronta.
+                </div>
+                {formData.homeTableData && formData.awayTableData && (
+                  (() => {
+                    const hasXg = !!(formData.homeTableData?.['Home xG'] || formData.homeTableData?.['Away xG'] || 
+                                   formData.awayTableData?.['Home xG'] || formData.awayTableData?.['Away xG']);
+                    if (!hasXg) {
+                      return (
+                        <div className="p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs font-medium">
+                          ⚠️ Formato BÁSICO detectado (sem xG). A análise usará apenas gols reais (GF/GA), o que pode reduzir ligeiramente a precisão.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="p-2 bg-info/10 border border-info/30 rounded text-info text-xs font-medium">
+                        ℹ️ Formato COMPLETO detectado (com xG). Análise com máxima precisão.
+                      </div>
+                    );
+                  })()
+                )}
               </div>
             </div>
           )}

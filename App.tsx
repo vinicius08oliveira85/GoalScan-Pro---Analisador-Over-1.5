@@ -102,22 +102,27 @@ const App: React.FC = () => {
         homeTeam: data.homeTeam,
         awayTeam: data.awayTeam,
       });
-      console.log('[App] Status das 4 tabelas:', {
+      console.log('[App] Status das tabelas:', {
         geral: !!(data.homeTableData && data.awayTableData),
+        home_away: !!(data.homeHomeAwayData && data.awayHomeAwayData),
         standard_for: !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg),
       });
       
-      // Validação explícita antes de análise
-      const allTablesPresent =
-        !!(data.homeTableData && data.awayTableData) &&
-        !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg) &&
-        !!(data.homePassingForData && data.awayPassingForData && data.competitionPassingForAvg) &&
-        !!(data.homeGcaForData && data.awayGcaForData && data.competitionGcaForAvg);
+      // Validação explícita antes de análise (apenas tabelas suportadas)
+      const hasGeral = !!(data.homeTableData && data.awayTableData);
+      const hasHomeAway = !!(data.homeHomeAwayData && data.awayHomeAwayData);
+      const hasStandardFor = !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg);
+      
+      const allTablesPresent = hasGeral && hasHomeAway && hasStandardFor;
       
       if (allTablesPresent) {
-        console.log('[App] ✅ Todas as 4 tabelas presentes - análise será completa');
+        console.log('[App] ✅ Todas as 3 tabelas presentes (geral, home_away, standard_for) - análise será completa');
       } else {
-        console.warn('[App] ⚠️ Algumas tabelas estão faltando - análise será parcial');
+        const missingTables = [];
+        if (!hasGeral) missingTables.push('geral');
+        if (!hasHomeAway) missingTables.push('home_away');
+        if (!hasStandardFor) missingTables.push('standard_for');
+        console.warn(`[App] ⚠️ Tabelas faltando: ${missingTables.join(', ')} - análise será parcial`);
       }
     }
     
