@@ -298,10 +298,21 @@ export interface SavedAnalysis {
   timestamp: number;
   data: MatchData;
   result: AnalysisResult;
-  aiAnalysis?: string; // @deprecated Markdown completo da análise da IA (não mais usado)
-  aiReportMarkdown?: string | null; // Relatório de análise de IA (markdown) com sinais externos
   betInfo?: BetInfo; // Informações da aposta (opcional)
   selectedBets?: SelectedBet[]; // Apostas selecionadas quando a partida foi salva (opcional)
+}
+
+// Análise de resultado de partida finalizada
+export interface MatchResultAnalysis {
+  matchResult: {
+    homeScore: number;
+    awayScore: number;
+    totalGoals: number;
+  };
+  betOutcome: 'won' | 'lost';
+  analysis: string; // Resumo da análise
+  sources: string[]; // Fontes consultadas
+  generatedAt: number; // Timestamp
 }
 
 // Tipos de tabela de campeonato

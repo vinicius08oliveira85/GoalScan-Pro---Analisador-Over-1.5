@@ -100,6 +100,7 @@ interface MatchesScreenProps {
   onNewMatch: () => void;
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
   onUpdateBetStatus?: (match: SavedAnalysis, status: 'won' | 'lost') => void;
+  onAnalyzeResult?: (match: SavedAnalysis) => void;
   isLoading?: boolean;
   isUpdatingBetStatus?: boolean;
 }
@@ -110,6 +111,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
   onNewMatch,
   onDeleteMatch,
   onUpdateBetStatus,
+  onAnalyzeResult,
   isLoading = false,
   isUpdatingBetStatus = false,
 }) => {
@@ -328,15 +330,16 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               }
 
               return (
-                <MatchCardList
-                  key={match.id}
-                  match={match}
-                  index={index}
-                  onMatchClick={onMatchClick}
-                  onDeleteMatch={onDeleteMatch}
-                  onUpdateBetStatus={onUpdateBetStatus}
-                  isUpdatingBetStatus={isUpdatingBetStatus}
-                />
+                  <MatchCardList
+                    key={match.id}
+                    match={match}
+                    index={index}
+                    onMatchClick={onMatchClick}
+                    onDeleteMatch={onDeleteMatch}
+                    onUpdateBetStatus={onUpdateBetStatus}
+                    onAnalyzeResult={onAnalyzeResult}
+                    isUpdatingBetStatus={isUpdatingBetStatus}
+                  />
               );
             })}
           </motion.div>

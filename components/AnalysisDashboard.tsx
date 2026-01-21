@@ -14,11 +14,11 @@ import {
   Shield,
   Target,
   Sparkles,
+  Search,
 } from 'lucide-react';
 import BetManager from './BetManager';
 import ProbabilityGauge from './ProbabilityGauge';
 import MetricCard from './MetricCard';
-import AiOver15Insights from './AiOver15Insights';
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
@@ -45,13 +45,6 @@ interface AnalysisDashboardProps {
   isUpdatingBetStatus?: boolean;
   onOddChange?: (odd: number) => void;
   initialSelectedBets?: SelectedBet[]; // Apostas selecionadas salvas (para restaurar ao carregar partida)
-  savedAiReportMarkdown?: string | null; // Relatório de IA salvo (para restaurar)
-  onAiAnalysisGenerated?: (
-    data: MatchData,
-    markdown: string,
-    aiProbability: number | null,
-    aiConfidence: number | null
-  ) => void; // Callback quando análise de IA for gerada
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
@@ -66,8 +59,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   isUpdatingBetStatus = false,
   onOddChange,
   initialSelectedBets,
-  savedAiReportMarkdown,
-  onAiAnalysisGenerated,
+  onAnalyzeResult,
+  savedMatch,
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
   const [selectedBets, setSelectedBets] = useState<SelectedBet[]>(initialSelectedBets || []);
@@ -482,21 +475,6 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
         </motion.div>
       </div>
 
-      {/* Análise de IA com Sinais Externos */}
-      <motion.div
-        className="surface surface-hover p-4 md:p-6"
-        variants={animations.fadeInUp}
-        initial="initial"
-        animate="animate"
-      >
-        <AiOver15Insights
-          data={data}
-          onError={onError}
-          onAiAnalysisGenerated={onAiAnalysisGenerated}
-          savedReportMarkdown={savedAiReportMarkdown}
-        />
-      </motion.div>
-
       {/* Probabilidades Over/Under por Linha */}
       {(result.overUnderProbabilities || result.tableOverUnderProbabilities || result.statsOverUnderProbabilities) && (
         <motion.div
@@ -859,6 +837,22 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                       </p>
                     </div>
                   </div>
+
+                  {/* Botão Analisar Resultado para partidas finalizadas */}
+                  {(betInfo.status === 'won' || betInfo.status === 'lost') && onAnalyzeResult && savedMatch && (
+                    <div className="mt-4">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAnalyzeResult(savedMatch);
+                        }}
+                        className="btn btn-primary btn-md gap-2 w-full shadow-lg"
+                      >
+                        <Search className="w-5 h-5" />
+                        Analisar Resultado
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="surface-muted p-5 text-center">

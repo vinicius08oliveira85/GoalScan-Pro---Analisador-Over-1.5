@@ -11,6 +11,7 @@ import {
   Clock,
   Ban,
   Trophy,
+  Search,
 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
 import { getDisplayProbability, getSelectedProbabilityLabel } from '../utils/probability';
@@ -28,6 +29,7 @@ interface MatchCardListProps {
   onMatchClick: (match: SavedAnalysis) => void;
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
   onUpdateBetStatus?: (match: SavedAnalysis, status: 'won' | 'lost') => void;
+  onAnalyzeResult?: (match: SavedAnalysis) => void;
   isUpdatingBetStatus?: boolean;
 }
 
@@ -37,6 +39,7 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
   onMatchClick,
   onDeleteMatch,
   onUpdateBetStatus,
+  onAnalyzeResult,
   isUpdatingBetStatus = false,
 }) => {
   const getStatusConfig = () => {

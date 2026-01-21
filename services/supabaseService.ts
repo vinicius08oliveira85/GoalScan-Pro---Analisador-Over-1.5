@@ -97,7 +97,6 @@ export interface SavedAnalysisRow {
   timestamp: number;
   match_data: MatchData;
   analysis_result: AnalysisResult;
-  ai_analysis?: string; // Markdown completo da análise da IA
   bet_info?: BetInfo;
   selected_bets?: SelectedBet[]; // Apostas selecionadas quando a partida foi salva
   created_at?: string;
@@ -190,7 +189,6 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
       timestamp: row.timestamp,
       data: row.match_data,
       result: row.analysis_result,
-      aiAnalysis: row.ai_analysis,
       betInfo: row.bet_info,
       selectedBets: row.selected_bets,
     }));
@@ -229,7 +227,6 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
         timestamp: analysis.timestamp,
         match_data: analysis.data,
         analysis_result: analysis.result,
-        ai_analysis: analysis.aiAnalysis,
         bet_info: analysis.betInfo,
         selected_bets: analysis.selectedBets,
       })
@@ -246,7 +243,6 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
       timestamp: data.timestamp,
       data: data.match_data,
       result: data.analysis_result,
-      aiAnalysis: data.ai_analysis,
       betInfo: data.bet_info,
       selectedBets: data.selected_bets,
     };
@@ -268,7 +264,6 @@ export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnal
         timestamp: analysis.timestamp,
         match_data: analysis.data,
         analysis_result: analysis.result,
-        ai_analysis: analysis.aiAnalysis,
         bet_info: analysis.betInfo,
       })
       .eq('id', analysis.id)
@@ -353,7 +348,6 @@ export const saveOrUpdateAnalysis = async (
           timestamp: analysis.timestamp,
           match_data: analysis.data,
           analysis_result: analysis.result,
-          ai_analysis: analysis.aiAnalysis,
           bet_info: analysis.betInfo,
           selected_bets: analysis.selectedBets,
         },
@@ -386,7 +380,6 @@ export const saveOrUpdateAnalysis = async (
       timestamp: data.timestamp,
       data: data.match_data,
       result: data.analysis_result,
-      aiAnalysis: data.ai_analysis,
       betInfo: data.bet_info,
       selectedBets: data.selected_bets,
     };
