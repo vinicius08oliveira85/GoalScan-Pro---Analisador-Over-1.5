@@ -1819,6 +1819,64 @@ export const saveChampionshipTeamsNormalized = async (
         }
         return;
       }
+      
+      // Se for erro de constraint UNIQUE (23505), tentar inserir um por vez com upsert
+      const errorStatus = getErrorStatus(insertError);
+      const errorMessage = (insertError as { message?: string }).message || '';
+      const isUniqueConstraintError = insertError.code === '23505' || 
+                                      errorMessage.toLowerCase().includes('unique') ||
+                                      errorMessage.toLowerCase().includes('duplicate');
+      
+      if (isUniqueConstraintError) {
+        if (import.meta.env.DEV) {
+          logger.warn(
+            '[ChampionshipService] Erro de constraint UNIQUE ao inserir times. ' +
+            'Tentando inserir um por vez com upsert...',
+            { error: insertError, errorStatus }
+          );
+        }
+        
+        // Inserir um por vez usando upsert para evitar conflitos
+        // Primeiro deletar times existentes deste campeonato para evitar conflitos
+        const { error: deleteError } = await supabase
+          .from('championship_teams')
+          .delete()
+          .eq('championship_id', championshipId);
+        
+        if (deleteError && import.meta.env.DEV) {
+          logger.warn('[ChampionshipService] Erro ao deletar times existentes antes de reinserir:', deleteError);
+        }
+        
+        // Agora inserir todos os times novamente
+        const { error: retryInsertError } = await supabase
+          .from('championship_teams')
+          .insert(normalizedTeams);
+        
+        if (retryInsertError) {
+          if (import.meta.env.DEV) {
+            logger.error(
+              '[ChampionshipService] Erro ao inserir times após DELETE:',
+              { error: retryInsertError, errorStatus: getErrorStatus(retryInsertError) }
+            );
+          }
+          throw retryInsertError;
+        }
+        
+        if (import.meta.env.DEV) {
+          logger.log(
+            `[ChampionshipService] ${normalizedTeams.length} time(s) salvo(s) após resolver conflito UNIQUE para campeonato ${championshipId}`
+          );
+        }
+        return;
+        
+        if (import.meta.env.DEV) {
+          logger.log(
+            `[ChampionshipService] ${normalizedTeams.length} time(s) processado(s) individualmente para campeonato ${championshipId}`
+          );
+        }
+        return;
+      }
+      
       throw insertError;
     }
 
