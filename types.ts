@@ -125,24 +125,6 @@ export interface MatchData {
   // Dados completos da tabela do campeonato (temporada completa)
   homeTableData?: TableRowGeral;
   awayTableData?: TableRowGeral;
-
-  // Tabela complementar (Standard - For), unificada por Squad
-  homeStandardForData?: TableRowStandardFor;
-  awayStandardForData?: TableRowStandardFor;
-  competitionStandardForAvg?: CompetitionStandardForAverages;
-
-  // Tabelas complementares adicionais (FBref) - unificadas por Squad
-  homePassingForData?: TableRowPassingFor;
-  awayPassingForData?: TableRowPassingFor;
-  competitionPassingForAvg?: CompetitionPassingForAverages;
-
-  homeGcaForData?: TableRowGcaFor;
-  awayGcaForData?: TableRowGcaFor;
-  competitionGcaForAvg?: CompetitionGcaForAverages;
-
-  // Tabela Home/Away (desempenho em casa vs fora)
-  homeHomeAwayData?: TableRowHomeAway;
-  awayHomeAwayData?: TableRowHomeAway;
   
   // Tabela de Complemento (dados detalhados: Playing Time, Performance, Per 90 Minutes)
   homeComplementData?: TableRowComplement;
@@ -324,7 +306,7 @@ export interface MatchResultAnalysis {
 export type TableFormat = 'completa' | 'basica';
 
 // Tipos de tabela de campeonato
-export type TableType = 'geral' | 'home_away' | 'standard_for';
+export type TableType = 'geral' | 'complement';
 
 // Interface para linha da tabela "Geral" baseada no CSV Bundesliga.csv
 // Estrutura com estatísticas separadas para Casa (Home) e Fora (Away)
@@ -388,72 +370,6 @@ export interface TableRowGeral {
 
 // Interface mínima para linha da tabela complementar (Standard - For)
 // Obs.: Mantemos um shape enxuto; o viewer usa colunas dinâmicas e a análise só precisa de alguns campos-chave.
-export interface TableRowStandardFor {
-  Squad: string; // Equipe
-  Poss?: string; // Posse (%)
-  'Playing Time MP'?: string; // Partidas (para normalizar métricas de volume)
-  'Progression PrgP'?: string; // Progressive Passes (volume)
-  'Progression PrgC'?: string; // Progressive Carries (volume)
-  'Per 90 Minutes npxG+xAG'?: string; // Qualidade ofensiva (non-penalty xG + xAG) por 90
-  'Per 90 Minutes xG+xAG'?: string; // Qualidade ofensiva (xG + xAG) por 90 (fallback)
-  [key: string]: unknown;
-}
-
-export interface CompetitionStandardForAverages {
-  poss: number; // média de posse (%)
-  npxGxAG90: number; // média de npxG+xAG/90 (ou xG+xAG/90)
-  prgPPerMatch: number; // média de PrgP por partida
-  prgCPerMatch: number; // média de PrgC por partida
-}
-
-// Interface mínima para linha da tabela complementar (Passing - For)
-// Obs.: Mantemos flexível (viewer usa colunas dinâmicas e o motor/IA lê poucos campos)
-export interface TableRowPassingFor {
-  Squad: string;
-  [key: string]: unknown;
-}
-
-export interface CompetitionPassingForAverages {
-  // Valores por 90 ou por partida (depende do que estiver disponível na tabela), usados para normalização no motor
-  progPer90: number;
-  kpPer90: number;
-  ppaPer90: number;
-}
-
-// Interface mínima para linha da tabela complementar (GCA - For)
-export interface TableRowGcaFor {
-  Squad: string;
-  [key: string]: unknown;
-}
-
-export interface CompetitionGcaForAverages {
-  scaPer90: number;
-  gcaPer90: number;
-}
-
-// Interface para linha da tabela Home/Away (desempenho em casa vs fora)
-export interface TableRowHomeAway {
-  Rk: string; // Classificação
-  Squad: string; // Equipe
-  'Home MP': string; // Partidas em Casa
-  'Home W': string; // Vitórias em Casa
-  'Home D': string; // Empates em Casa
-  'Home L': string; // Derrotas em Casa
-  'Home GF': string; // Gols a Favor em Casa
-  'Home GA': string; // Gols Contra em Casa
-  'Home GD': string; // Saldo de Gols em Casa
-  Pts?: string; // Pontos (pode estar presente)
-  'Pts/MP'?: string; // Pontos por Partida (pode estar presente)
-  'Away MP': string; // Partidas Fora
-  'Away W': string; // Vitórias Fora
-  'Away D': string; // Empates Fora
-  'Away L': string; // Derrotas Fora
-  'Away GF': string; // Gols a Favor Fora
-  'Away GA': string; // Gols Contra Fora
-  'Away GD': string; // Saldo de Gols Fora
-  [key: string]: unknown; // Permitir campos adicionais
-}
-
 // Interface para linha da tabela de complemento (dados detalhados)
 // Baseado na estrutura do CSV Bundesliga Complemento.csv
 export interface TableRowComplement {

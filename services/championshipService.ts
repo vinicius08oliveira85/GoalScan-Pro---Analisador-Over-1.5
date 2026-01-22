@@ -3,11 +3,9 @@ import {
   ChampionshipTable,
   ChampionshipTeam,
   ChampionshipComplement,
-  CompetitionStandardForAverages,
   CompetitionComplementAverages,
   TableType,
   TableRowGeral,
-  TableRowStandardFor,
   TableRowComplement,
   TableFormat,
 } from '../types';
@@ -1433,68 +1431,6 @@ function calculateCompetitionAverageGoalsFromRows(rows: TableRowGeral[]): number
   return Math.round(averageGoals * 100) / 100;
 }
 
-function calculateCompetitionStandardForAveragesFromRows(
-  rows: TableRowStandardFor[]
-): CompetitionStandardForAverages | null {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-
-  let possSum = 0;
-  let possCount = 0;
-
-  let npxGxAG90Sum = 0;
-  let npxGxAG90Count = 0;
-
-  let prgPSum = 0;
-  let prgPCount = 0;
-
-  let prgCSum = 0;
-  let prgCCount = 0;
-
-  for (const row of rows) {
-    const poss = parseNumberFromUnknown(row.Poss);
-    if (poss > 0) {
-      possSum += poss;
-      possCount += 1;
-    }
-
-    const npx = parseNumberFromUnknown(row['Per 90 Minutes npxG+xAG']);
-    const xg = parseNumberFromUnknown(row['Per 90 Minutes xG+xAG']);
-    const quality = npx > 0 ? npx : xg;
-    if (quality > 0) {
-      npxGxAG90Sum += quality;
-      npxGxAG90Count += 1;
-    }
-
-    const mp = parseNumberFromUnknown(row['Playing Time MP']);
-    const prgP = parseNumberFromUnknown(row['Progression PrgP']);
-    const prgC = parseNumberFromUnknown(row['Progression PrgC']);
-
-    if (mp > 0 && prgP > 0) {
-      prgPSum += prgP / mp;
-      prgPCount += 1;
-    }
-    if (mp > 0 && prgC > 0) {
-      prgCSum += prgC / mp;
-      prgCCount += 1;
-    }
-  }
-
-  const possAvg = possCount > 0 ? possSum / possCount : 0;
-  const npxGxAG90Avg = npxGxAG90Count > 0 ? npxGxAG90Sum / npxGxAG90Count : 0;
-  const prgPPerMatchAvg = prgPCount > 0 ? prgPSum / prgPCount : 0;
-  const prgCPerMatchAvg = prgCCount > 0 ? prgCSum / prgCCount : 0;
-
-  if (possAvg <= 0 && npxGxAG90Avg <= 0 && prgPPerMatchAvg <= 0 && prgCPerMatchAvg <= 0) {
-    return null;
-  }
-
-  return {
-    poss: Math.round(possAvg * 100) / 100,
-    npxGxAG90: Math.round(npxGxAG90Avg * 100) / 100,
-    prgPPerMatch: Math.round(prgPPerMatchAvg * 100) / 100,
-    prgCPerMatch: Math.round(prgCPerMatchAvg * 100) / 100,
-  };
-}
 
 /**
  * Converte ChampionshipTeam para TableRowGeral com campos Home/Away
@@ -1567,9 +1503,6 @@ export const syncTeamStatsFromTable = async (
   homeTableData: TableRowGeral | null;
   awayTableData: TableRowGeral | null;
   competitionAvg?: number; // Média de gols do campeonato calculada automaticamente
-  homeStandardForData?: TableRowStandardFor | null;
-  awayStandardForData?: TableRowStandardFor | null;
-  competitionStandardForAvg?: CompetitionStandardForAverages | null;
   homeComplementData?: TableRowComplement | null;
   awayComplementData?: TableRowComplement | null;
   competitionComplementAvg?: CompetitionComplementAverages | null;
@@ -1635,20 +1568,6 @@ export const syncTeamStatsFromTable = async (
     // Calcular média de gols do campeonato usando todos os times
     const competitionAvg = calculateCompetitionAverageGoalsFromTeams(teams);
 
-    // Complemento (standard_for) - opcional (ainda usa championship_tables)
-    const tables = await loadChampionshipTables(championshipId);
-    const standardForTable = tables.find((t) => t.table_type === 'standard_for');
-    const standardForRows = Array.isArray(standardForTable?.table_data)
-      ? (standardForTable?.table_data as TableRowStandardFor[])
-      : [];
-
-    const homeStandardForData =
-      standardForRows.find((row) => row.Squad === homeSquad) || null;
-    const awayStandardForData =
-      standardForRows.find((row) => row.Squad === awaySquad) || null;
-
-    const competitionStandardForAvg = calculateCompetitionStandardForAveragesFromRows(standardForRows);
-
     // Complemento (championship_complement) - opcional
     const complementData = await loadChampionshipComplement(championshipId);
     const homeComplement = complementData.find((c) => c.squad === homeSquad) || null;
@@ -1661,15 +1580,28 @@ export const syncTeamStatsFromTable = async (
       ? convertChampionshipComplementToTableRow(awayComplement)
       : null;
     
-    const competitionComplementAvg = calculateCompetitionComplementAverages(complementData);
+    // Sempre calcular média se houver dados de complemento (mesmo que parcial)
+    // Isso garante que a análise possa usar a tabela complemento mesmo quando não há média completa
+    let competitionComplementAvg = calculateCompetitionComplementAverages(complementData);
+    
+    // Se não houver média calculada mas houver dados parciais dos times, calcular média básica
+    if (!competitionComplementAvg && (homeComplement || awayComplement)) {
+      const partialData: ChampionshipComplement[] = [];
+      if (homeComplement) partialData.push(homeComplement);
+      if (awayComplement) partialData.push(awayComplement);
+      
+      // Calcular média apenas com os dados disponíveis dos times da partida
+      competitionComplementAvg = calculateCompetitionComplementAverages(partialData);
+      
+      if (import.meta.env.DEV && competitionComplementAvg) {
+        console.log('[ChampionshipService] Média de complemento calculada a partir de dados parciais dos times da partida');
+      }
+    }
 
     return {
       homeTableData: homeData,
       awayTableData: awayData,
       competitionAvg: competitionAvg || undefined,
-      homeStandardForData,
-      awayStandardForData,
-      competitionStandardForAvg,
       homeComplementData,
       awayComplementData,
       competitionComplementAvg: competitionComplementAvg || undefined,
@@ -1679,9 +1611,6 @@ export const syncTeamStatsFromTable = async (
     return {
       homeTableData: null,
       awayTableData: null,
-      homeStandardForData: null,
-      awayStandardForData: null,
-      competitionStandardForAvg: null,
       homeComplementData: null,
       awayComplementData: null,
       competitionComplementAvg: null,
@@ -2142,13 +2071,6 @@ export const checkChampionshipTablesAvailability = async (
                      geralRows.some((r) => r.Squad === awaySquad);
     }
     
-    // Verificar tabela standard_for
-    const standardForTable = tables.find((t) => t.table_type === 'standard_for');
-    const standardForRows = Array.isArray(standardForTable?.table_data)
-      ? (standardForTable.table_data as unknown[])
-      : [];
-    const hasStandardForData = standardForRows.length > 0;
-    
     // Verificar tabela de complemento (championship_complement)
     const complementData = await loadChampionshipComplement(championshipId);
     const hasComplementData = complementData.length > 0;
@@ -2163,7 +2085,7 @@ export const checkChampionshipTablesAvailability = async (
     
     // Construir diagnóstico
     const diagnostic: ChampionshipTablesDiagnostic = {
-      allTablesExist: hasGeralData && hasStandardForData,
+      allTablesExist: hasGeralData && hasComplementData,
       missingTables: [],
       emptyTables: [],
       tables: {
@@ -2172,16 +2094,11 @@ export const checkChampionshipTablesAvailability = async (
           hasData: hasGeralData && (hasHomeSquad && hasAwaySquad),
           rowCount: teams.length || geralRows.length,
         },
-        standard_for: {
-          exists: !!standardForTable,
-          hasData: hasStandardForData,
-          rowCount: standardForRows.length,
+        complement: {
+          exists: hasComplementData,
+          hasData: hasComplementData && (hasHomeComplement && hasAwayComplement),
+          rowCount: complementData.length,
         },
-      },
-      complement: {
-        exists: hasComplementData,
-        hasData: hasComplementData && (hasHomeComplement && hasAwayComplement),
-        rowCount: complementData.length,
       },
     };
     
@@ -2192,10 +2109,10 @@ export const checkChampionshipTablesAvailability = async (
       diagnostic.emptyTables.push('geral');
     }
     
-    if (!standardForTable) {
-      diagnostic.missingTables.push('standard_for');
-    } else if (!hasStandardForData) {
-      diagnostic.emptyTables.push('standard_for');
+    if (!hasComplementData) {
+      diagnostic.missingTables.push('complement');
+    } else if (!hasHomeComplement || !hasAwayComplement) {
+      diagnostic.emptyTables.push('complement');
     }
     
     return diagnostic;
@@ -2207,11 +2124,11 @@ export const checkChampionshipTablesAvailability = async (
     // Retornar diagnóstico vazio em caso de erro
     return {
       allTablesExist: false,
-      missingTables: ['geral', 'standard_for'],
+      missingTables: ['geral', 'complement'],
       emptyTables: [],
       tables: {
         geral: { exists: false, hasData: false },
-        standard_for: { exists: false, hasData: false },
+        complement: { exists: false, hasData: false },
       },
     };
   }

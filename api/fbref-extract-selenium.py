@@ -42,19 +42,6 @@ class FBrefSeleniumScraper:
             r'stats_results_.*_overall',
             r'results.*_overall',
         ],
-        'home_away': [
-            'stats_results_2025-2026_111_home_away',
-            'results_2025-2026_111_home_away',
-            'stats_results_2025-2026111_home_away',
-            'results2025-2026111_home_away',
-            # Padrões genéricos
-            r'stats_results_.*_home_away',
-            r'results.*_home_away',
-        ],
-        'standard_for': [
-            'stats_squads_standard_for',
-            'standard_for'
-        ]
     }
 
     def __init__(self, headless: bool = True):
@@ -302,7 +289,7 @@ class FBrefSeleniumScraper:
                             if not last_header.strip():
                                 combined_header = first_header.strip() if first_header.strip() else f'col_{col_idx}'
                             elif first_header.strip() and first_header != last_header and len(unique_headers) == 2:
-                                if table_name == 'standard_for' and first_header.strip() in known_categories and last_header.strip():
+                                if first_header.strip() in known_categories and last_header.strip():
                                     combined_header = f"{first_header.strip()}_{last_header.strip()}"
                                 elif '/' in last_header or last_header in ['xG', 'xGA', 'xGD', 'xGD/90', 'Last 5']:
                                     combined_header = last_header.strip()
@@ -429,10 +416,6 @@ class FBrefSeleniumScraper:
             table_id = table.get('id', '')
             if table_type == 'geral' and '_overall' in table_id.lower() and 'home_away' not in table_id.lower():
                 return table
-            elif table_type == 'home_away' and '_home_away' in table_id.lower():
-                return table
-            elif table_type == 'standard_for' and 'standard_for' in table_id.lower():
-                return table
 
         return None
 
@@ -458,7 +441,7 @@ class FBrefSeleniumScraper:
         }
         
         # Mapear tabelas por tipo
-        table_types = ['geral', 'home_away', 'standard_for']
+        table_types = ['geral']
         
         for table_type in table_types:
             table = self.find_table_by_type(soup, table_type)
@@ -537,14 +520,12 @@ class handler(BaseHTTPRequestHandler):
             # Mapear tabelas para formato esperado
             tables = result.get('tables', {})
             mapped_tables = {
-                'geral': tables.get('geral', []),
-                'home_away': tables.get('home_away', []),
-                'standard_for': tables.get('standard_for', [])
+                'geral': tables.get('geral', [])
             }
             
             # Identificar tabelas faltantes
             missing_tables = []
-            for table_type in ['geral', 'home_away', 'standard_for']:
+            for table_type in ['geral']:
                 if not mapped_tables[table_type] or len(mapped_tables[table_type]) == 0:
                     missing_tables.append(table_type)
             
