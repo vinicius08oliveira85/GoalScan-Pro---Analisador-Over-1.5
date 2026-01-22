@@ -74,7 +74,7 @@ Após o deploy:
 
 ## Importante
 
-⚠️ **As variáveis DEVE começar com `VITE_`** para serem expostas ao cliente no Vite.
+⚠️ **As variáveis DEVEM começar com `VITE_`** para serem expostas ao cliente no Vite.
 
 ❌ **NÃO use:**
 

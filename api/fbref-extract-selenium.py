@@ -39,8 +39,8 @@ class FBrefSeleniumScraper:
             'stats_results_2025-2026111_overall',
             'results2025-2026111_overall',
             # Padrões genéricos
-            r'stats_results_.*_overall',
-            r'results.*_overall',
+            re.compile(r'stats_results_.*_overall'),
+            re.compile(r'results.*_overall'),
         ],
     }
 
@@ -51,6 +51,9 @@ class FBrefSeleniumScraper:
         Args:
             headless: Se True, executa o navegador em modo headless
         """
+        if 'webdriver' not in globals():
+            raise ImportError("Selenium webdriver não encontrado. Verifique as dependências.")
+
         chrome_options = Options()
         if headless:
             chrome_options.add_argument('--headless')
@@ -74,11 +77,7 @@ class FBrefSeleniumScraper:
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
         else:
             # Em ambiente serverless ou sem webdriver-manager, tenta usar ChromeDriver do PATH
-            try:
-                self.driver = webdriver.Chrome(options=chrome_options)
-            except Exception as e:
-                # Fallback: tenta sem service
-                self.driver = webdriver.Chrome(options=chrome_options)
+            self.driver = webdriver.Chrome(options=chrome_options)
         
         self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
@@ -388,18 +387,14 @@ class FBrefSeleniumScraper:
         possible_ids = self.TABLE_MAPPING.get(table_type, [])
         
         for table_id_pattern in possible_ids:
-            if isinstance(table_id_pattern, str) and not table_id_pattern.startswith('r'):
+            if isinstance(table_id_pattern, str):
                 # String literal
                 table = soup.find('table', {'id': table_id_pattern})
                 if table:
                     return table
-            else:
-                # Regex pattern
-                pattern = table_id_pattern if isinstance(table_id_pattern, str) else table_id_pattern.pattern
-                if isinstance(table_id_pattern, str) and table_id_pattern.startswith('r'):
-                    pattern = table_id_pattern[1:]  # Remove 'r' prefix
-                regex = re.compile(pattern, re.IGNORECASE)
-                tables = soup.find_all('table', {'id': regex})
+            elif hasattr(table_id_pattern, 'pattern'):
+                # Regex pattern (compiled)
+                tables = soup.find_all('table', {'id': table_id_pattern})
                 if tables:
                     # Para 'geral', evitar home_away
                     if table_type == 'geral':
@@ -565,4 +560,3 @@ class handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         """Suprime logs padrão"""
         pass
-
