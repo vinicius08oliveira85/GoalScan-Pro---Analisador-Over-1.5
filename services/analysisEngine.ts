@@ -147,8 +147,7 @@ function combineOverUnderProbabilities(
     } else {
       // Fallback: valores padrão
       combined[lineKey] = { over: 50, under: 50   };
-    }
-  }
+}
 
   return combined;
 }
@@ -1251,91 +1250,6 @@ function combineStatisticsAndTable(
 }
 
 /**
- * Combina probabilidade estatística com probabilidade da IA usando Bayesian averaging melhorado.
- * O peso da IA é baseado na confiança da IA, consistência entre valores e histórico de precisão.
- *
- * MELHORIA: Usa abordagem Bayesian para combinar fontes com diferentes níveis de confiança.
- * Considera variância implícita de cada fonte e ajusta pesos dinamicamente.
- *
- * @deprecated Esta função será removida. Use combineStatisticsAndTable em vez disso.
- * @param statisticalProb - Probabilidade calculada pelas estatísticas (0-100)
- * @param aiProb - Probabilidade calculada pela IA (0-100) ou null
- * @param aiConfidence - Confiança da IA (0-100) ou null
- * @returns Probabilidade combinada (0-100)
- */
-function combineProbabilities(
-  statisticalProb: number,
-  aiProb: number | null,
-  aiConfidence: number | null
-): number {
-  // Validação de inputs
-  if (!Number.isFinite(statisticalProb) || statisticalProb < 0 || statisticalProb > 100) {
-    throw new Error(`Probabilidade estatística inválida: ${statisticalProb}`);
-  }
-
-  // Se não há probabilidade da IA, retornar apenas estatística
-  if (aiProb === null || aiProb === undefined) {
-    return statisticalProb;
-  }
-
-  // Validação da probabilidade da IA
-  if (!Number.isFinite(aiProb) || aiProb < 0 || aiProb > 100) {
-    // Se a IA retornou valor inválido, usar apenas estatística
-    return statisticalProb;
-  }
-
-  // Detectar divergência extrema (valores muito diferentes podem indicar problema)
-  const divergence = Math.abs(statisticalProb - aiProb);
-  const maxDivergence = 30; // Se diferença > 30%, reduzir peso da IA
-
-  // Se não há confiança da IA, usar média simples com ajuste por divergência
-  if (aiConfidence === null || aiConfidence === undefined || aiConfidence <= 0) {
-    // Se divergência muito alta, dar mais peso à estatística
-    if (divergence > maxDivergence) {
-      const statWeight = 0.7; // 70% estatística, 30% IA
-      return statisticalProb * statWeight + aiProb * (1 - statWeight);
-    }
-    return (statisticalProb + aiProb) / 2;
-  }
-
-  // Validação da confiança
-  if (!Number.isFinite(aiConfidence) || aiConfidence < 0 || aiConfidence > 100) {
-    return (statisticalProb + aiProb) / 2;
-  }
-
-  // MELHORIA: Bayesian Averaging com variância implícita
-  // Assumir que estatísticas têm confiança base de 75% (mais estável)
-  // IA tem confiança variável baseada em aiConfidence
-  const statBaseConfidence = 75;
-  const aiNormalizedConfidence = Math.min(Math.max(aiConfidence / 100, 0), 1);
-  
-  // Calcular "precisão" (inverso da variância) para cada fonte
-  // Maior confiança = menor variância = maior precisão
-  const statPrecision = statBaseConfidence / 100; // 0.75
-  const aiPrecision = aiNormalizedConfidence * 0.9; // Máximo 0.9 para IA (sempre um pouco menos precisa que estatística pura)
-  
-  // Ajustar precisão da IA baseado em divergência
-  // Se valores muito diferentes, reduzir precisão da IA (aumentar variância)
-  let adjustedAiPrecision = aiPrecision;
-  if (divergence > maxDivergence) {
-    const divergencePenalty = Math.min(divergence / maxDivergence, 1);
-    adjustedAiPrecision = aiPrecision * (1 - divergencePenalty * 0.4); // Reduzir até 40% da precisão
-  }
-  
-  // Calcular pesos usando Bayesian averaging
-  // Peso = precisão / (precisão_total)
-  const totalPrecision = statPrecision + adjustedAiPrecision;
-  const statWeight = statPrecision / totalPrecision;
-  const aiWeight = adjustedAiPrecision / totalPrecision;
-  
-  // Calcular média ponderada Bayesian
-  const combined = statisticalProb * statWeight + aiProb * aiWeight;
-  
-  // Suavizar limites usando sigmoid em vez de clamp rígido (10-98% mais realista)
-  return smoothClamp(combined, 10, 98);
-}
-
-/**
  * Calcula pesos adaptativos baseados na qualidade e disponibilidade dos dados
  */
 function calculateAdaptiveWeights(
@@ -1377,20 +1291,6 @@ function calculateAdaptiveWeights(
  * Normaliza dados de MatchData garantindo valores padrão seguros para campos opcionais
  * Previne erros com dados antigos ou incompletos
  */
-/**
- * Calcula score de criação ofensiva (removido - não usa mais passing_for e gca_for)
- * Retorna score neutro já que essas tabelas não são mais usadas
- */
-function calculateOffensiveCreationScore(data: MatchData): {
-  homeScore: number;
-  awayScore: number;
-  hasData: boolean;
-} {
-  // Retorna score neutro já que passing_for e gca_for não são mais usadas
-  return { homeScore: 1.0, awayScore: 1.0, hasData: false };
-}
-
-/**
  * Calcula score de completude das tabelas (0-1)
  */
 function calculateTableCompletenessScore(data: MatchData): {
@@ -1430,37 +1330,6 @@ function calculateTableCompletenessScore(data: MatchData): {
   const score = availableTables.length / 2; // 0.0 a 1.0 (geral e complement)
 
   return { score, availableTables, missingTables };
-}
-
-/**
- * Aplica ajustes avançados baseados nas 3 tabelas disponíveis
- */
-function applyAdvancedTableAdjustments(
-  data: MatchData,
-  lambdaHome: number,
-  lambdaAway: number
-): {
-  adjustedLambdaHome: number;
-  adjustedLambdaAway: number;
-  impactSummary: {
-    creationScore: { home: number; away: number };
-  };
-} {
-  let adjustedLambdaHome = lambdaHome;
-  let adjustedLambdaAway = lambdaAway;
-
-  const impactSummary = {
-    creationScore: { home: 1.0, away: 1.0 },
-  };
-
-  // Score de criação ofensiva não é mais usado (passing_for e gca_for removidas)
-  // Retorna lambdas sem ajustes adicionais
-
-  return {
-    adjustedLambdaHome,
-    adjustedLambdaAway,
-    impactSummary,
-  };
 }
 
 /**
@@ -2213,38 +2082,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       homeGoalsConceded,
     });
   }
-
-  // Aplicar ajustes avançados baseados nas 2 tabelas
-  // NOTA: Este ajuste é aplicado nos lambdas básicos, mas os lambdas finais vêm de calculateTableProbability
-  // que já inclui ajustes de complement
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] performAnalysis - Antes de aplicar ajustes avançados (applyAdvancedTableAdjustments):', {
-      lambdaHome,
-      lambdaAway,
-      tabelasDisponiveis: {
-        complement: !!(normalizedData.homeComplementData && normalizedData.awayComplementData && normalizedData.competitionComplementAvg),
-      },
-    });
-  }
-
-  const advancedAdjustments = applyAdvancedTableAdjustments(
-    normalizedData,
-    lambdaHome,
-    lambdaAway
-  );
-  lambdaHome = advancedAdjustments.adjustedLambdaHome;
-  lambdaAway = advancedAdjustments.adjustedLambdaAway;
-  
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] performAnalysis - Após aplicar ajustes avançados:', {
-      lambdaHome,
-      lambdaAway,
-      creationScore: advancedAdjustments.impactSummary.creationScore,
-    });
-  }
-  
-  // Armazenar para uso no log final
-  let finalAdvancedAdjustments = advancedAdjustments;
 
   const lambdaTotal = lambdaHome + lambdaAway; // Média total de gols esperados no jogo (para Poisson combinado)
 
