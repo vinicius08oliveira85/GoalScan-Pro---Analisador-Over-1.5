@@ -104,24 +104,21 @@ const App: React.FC = () => {
       });
       console.log('[App] Status das tabelas:', {
         geral: !!(data.homeTableData && data.awayTableData),
-        home_away: !!(data.homeHomeAwayData && data.awayHomeAwayData),
-        standard_for: !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg),
+        complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
       });
       
       // Validação explícita antes de análise (apenas tabelas suportadas)
       const hasGeral = !!(data.homeTableData && data.awayTableData);
-      const hasHomeAway = !!(data.homeHomeAwayData && data.awayHomeAwayData);
-      const hasStandardFor = !!(data.homeStandardForData && data.awayStandardForData && data.competitionStandardForAvg);
+      const hasComplement = !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg);
       
-      const allTablesPresent = hasGeral && hasHomeAway && hasStandardFor;
+      const allTablesPresent = hasGeral && hasComplement;
       
       if (allTablesPresent) {
-        console.log('[App] ✅ Todas as 3 tabelas presentes (geral, home_away, standard_for) - análise será completa');
+        console.log('[App] ✅ Todas as 2 tabelas presentes (geral, complement) - análise será completa');
       } else {
         const missingTables = [];
         if (!hasGeral) missingTables.push('geral');
-        if (!hasHomeAway) missingTables.push('home_away');
-        if (!hasStandardFor) missingTables.push('standard_for');
+        if (!hasComplement) missingTables.push('complement');
         console.warn(`[App] ⚠️ Tabelas faltando: ${missingTables.join(', ')} - análise será parcial`);
       }
     }
@@ -604,17 +601,17 @@ const App: React.FC = () => {
       </div>
 
       {/* Header */}
-      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-50 shadow-sm">
+      <header className="bg-base-100/95 backdrop-blur-md border-b-2 border-base-300 sticky top-0 z-50 shadow-md">
         <div className="container mx-auto px-3 md:px-4 py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3 mb-4">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-md flex-shrink-0 border border-primary/20">
               G
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg md:text-xl font-black tracking-tighter leading-none truncate">
+              <h1 className="text-lg md:text-xl font-black tracking-tighter leading-none truncate text-base-content">
                 GOALSCAN PRO
               </h1>
-              <span className="text-xs md:text-sm uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline leading-tight">
+              <span className="text-xs md:text-sm uppercase font-bold tracking-widest text-primary/90 hidden sm:inline leading-tight">
                 AI Goal Analysis Engine
               </span>
             </div>

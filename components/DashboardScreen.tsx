@@ -531,26 +531,26 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-base-300/50">
-                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                <tr className="border-b-2 border-base-300 bg-base-200/50">
+                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-base-content/80 uppercase tracking-wide leading-tight">
                     Partida
                   </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-base-content/80 uppercase tracking-wide leading-tight">
                     Odd
                   </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-base-content/80 uppercase tracking-wide leading-tight">
                     EV
                   </th>
-                  <th className="text-center py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                  <th className="text-center py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-base-content/80 uppercase tracking-wide leading-tight">
                     Status
                   </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold text-base-content/80 uppercase tracking-wide leading-tight">
                     Lucro/Prejuízo
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {recentMatches.map((match) => {
+                {recentMatches.map((match, index) => {
                   const hasBet = match.betInfo && match.betInfo.betAmount > 0;
                   const profit =
                     hasBet && match.betInfo?.status === 'won'
@@ -569,7 +569,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <tr
                       key={match.id}
                       onClick={() => onMatchClick?.(match)}
-                      className="border-b border-base-300/50 hover:bg-base-200/50 transition-colors duration-200 cursor-pointer"
+                      className={`border-b border-base-300/60 transition-colors duration-200 cursor-pointer ${
+                        index % 2 === 0 ? 'bg-base-100/30' : 'bg-base-100'
+                      } hover:bg-base-200/70`}
                     >
                       <td className="py-3 px-3 md:px-4">
                         <div className="text-sm font-semibold leading-relaxed">
@@ -597,12 +599,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       <td className="py-3 px-3 md:px-4 text-center">
                         {hasBet ? (
                           <span
-                            className={`badge badge-sm ${
+                            className={`badge badge-sm font-bold px-3 py-1 ${
                               match.betInfo?.status === 'won'
-                                ? 'badge-success'
+                                ? 'bg-success text-success-content border border-success/30'
                                 : match.betInfo?.status === 'lost'
-                                  ? 'badge-error'
-                                  : 'badge-warning'
+                                  ? 'bg-error text-error-content border border-error/30'
+                                  : 'bg-warning text-warning-content border border-warning/30'
                             }`}
                           >
                             {match.betInfo?.status === 'won'
@@ -612,7 +614,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                                 : 'Pendente'}
                           </span>
                         ) : (
-                          <span className="badge badge-sm badge-ghost">Sem aposta</span>
+                          <span className="badge badge-sm badge-ghost font-semibold px-3 py-1 bg-base-300/60 text-base-content/70 border border-base-300">
+                            Sem aposta
+                          </span>
                         )}
                       </td>
                       <td
