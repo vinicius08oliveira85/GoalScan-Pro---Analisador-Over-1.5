@@ -17,8 +17,8 @@ export interface FbrefExtractionRequest {
 export interface FbrefExtractionResult {
   success: boolean;
   data?: {
-    tables?: Record<'geral' | 'home_away' | 'standard_for', unknown[]>;
-    missingTables?: Array<'geral' | 'home_away' | 'standard_for'>;
+    tables?: Record<'geral', unknown[]>;
+    missingTables?: Array<'geral'>;
     matches?: unknown[];
     teamStats?: unknown[];
   };
@@ -158,8 +158,6 @@ export const extractFbrefData = async (
 
 const TABLE_NAME_BY_TYPE: Record<TableType, string> = {
   geral: 'Geral',
-  home_away: 'Home/Away - Desempenho Casa vs Fora',
-  standard_for: 'Standard (For) - Complemento',
 };
 
 /**
@@ -219,7 +217,7 @@ export const saveExtractedTable = async (
  */
 export const saveExtractedTables = async (
   championshipId: string,
-  tablesByType: Record<'geral' | 'home_away' | 'standard_for', unknown[]>
+  tablesByType: Record<'geral', unknown[]>
 ): Promise<ChampionshipTable[]> => {
   const saved: ChampionshipTable[] = [];
 
