@@ -1,4 +1,4 @@
-import { MatchData, AnalysisResult } from '../types';
+import { MatchData, AnalysisResult, CompetitionComplementAverages } from '../types';
 
 /**
  * Função sigmoid suavizada para ajustes progressivos
@@ -126,9 +126,8 @@ function combineOverUnderProbabilities(
       combined[lineKey] = { ...tableProb };
     } else {
       // Fallback: valores padrão
-      combined[lineKey] = { over: 50, under: 50 };
-    }
-  }
+      combined[lineKey] = { over: 50, under: 50   };
+}
 
   return combined;
 }
@@ -859,107 +858,107 @@ function calculateTableProbability(data: MatchData): {
     }
 
     // SEMPRE aplicar ajustes quando houver dados parciais (não depende mais de avg ser não-nulo)
-    if (hasPartialComplement) {
-      const parseNum = (value: unknown): number => {
-        if (value == null) return 0;
-        const raw = String(value).trim();
-        if (!raw) return 0;
-        const normalized = raw.replace(/,/g, '');
-        const n = Number.parseFloat(normalized);
-        return Number.isFinite(n) ? n : 0;
-      };
+    // Este código está dentro do if (hasPartialComplement) da linha 779
+    const parseNum = (value: unknown): number => {
+      if (value == null) return 0;
+      const raw = String(value).trim();
+      if (!raw) return 0;
+      const normalized = raw.replace(/,/g, '');
+      const n = Number.parseFloat(normalized);
+      return Number.isFinite(n) ? n : 0;
+    };
 
-      // Usar dados parciais - se não houver um dos times, usar valores neutros
-      const homeRow = hasHomeComplement 
-        ? (data.homeComplementData as unknown as Record<string, unknown>)
-        : ({} as Record<string, unknown>);
-      const awayRow = hasAwayComplement
-        ? (data.awayComplementData as unknown as Record<string, unknown>)
-        : ({} as Record<string, unknown>);
+    // Usar dados parciais - se não houver um dos times, usar valores neutros
+    const homeRow = hasHomeComplement 
+      ? (data.homeComplementData as unknown as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
+    const awayRow = hasAwayComplement
+      ? (data.awayComplementData as unknown as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
 
-      // 1. Ajuste por Possession (posse de bola) - times com mais posse tendem a ter mais oportunidades
-      const homePoss = hasHomeComplement ? parseNum(homeRow.Poss) : avgToUse.poss;
-      const awayPoss = hasAwayComplement ? parseNum(awayRow.Poss) : avgToUse.poss;
-      const homePossRatio = avgToUse.poss > 0 && homePoss > 0 ? homePoss / avgToUse.poss : 1;
-      const awayPossRatio = avgToUse.poss > 0 && awayPoss > 0 ? awayPoss / avgToUse.poss : 1;
-      
-      // Posse maior aumenta probabilidade de gols (até ±5%)
-      const homePossFactor = clamp(1 + (homePossRatio - 1) * 0.1, 0.95, 1.05);
-      const awayPossFactor = clamp(1 + (awayPossRatio - 1) * 0.1, 0.95, 1.05);
+    // 1. Ajuste por Possession (posse de bola) - times com mais posse tendem a ter mais oportunidades
+    const homePoss = hasHomeComplement ? parseNum(homeRow.Poss) : avgToUse.poss;
+    const awayPoss = hasAwayComplement ? parseNum(awayRow.Poss) : avgToUse.poss;
+    const homePossRatio = avgToUse.poss > 0 && homePoss > 0 ? homePoss / avgToUse.poss : 1;
+    const awayPossRatio = avgToUse.poss > 0 && awayPoss > 0 ? awayPoss / avgToUse.poss : 1;
+    
+    // Posse maior aumenta probabilidade de gols (até ±5%)
+    const homePossFactor = clamp(1 + (homePossRatio - 1) * 0.1, 0.95, 1.05);
+    const awayPossFactor = clamp(1 + (awayPossRatio - 1) * 0.1, 0.95, 1.05);
 
-      // 2. Ajuste por Performance metrics (Gls, Ast, G+A por 90)
-      const homePer90Gls = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
-      const homePer90GA = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
-      const awayPer90Gls = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
-      const awayPer90GA = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
-      
-      const homePer90Ratio = avgToUse.per90Gls > 0 && homePer90Gls > 0 ? homePer90Gls / avgToUse.per90Gls : 1;
-      const awayPer90Ratio = avgToUse.per90Gls > 0 && awayPer90Gls > 0 ? awayPer90Gls / avgToUse.per90Gls : 1;
-      
-      // Performance por 90 aumenta ataque (até ±6%)
-      const homePer90Factor = clamp(1 + (homePer90Ratio - 1) * 0.12, 0.94, 1.06);
-      const awayPer90Factor = clamp(1 + (awayPer90Ratio - 1) * 0.12, 0.94, 1.06);
+    // 2. Ajuste por Performance metrics (Gls, Ast, G+A por 90)
+    const homePer90Gls = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
+    const homePer90GA = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
+    const awayPer90Gls = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
+    const awayPer90GA = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
+    
+    const homePer90Ratio = avgToUse.per90Gls > 0 && homePer90Gls > 0 ? homePer90Gls / avgToUse.per90Gls : 1;
+    const awayPer90Ratio = avgToUse.per90Gls > 0 && awayPer90Gls > 0 ? awayPer90Gls / avgToUse.per90Gls : 1;
+    
+    // Performance por 90 aumenta ataque (até ±6%)
+    const homePer90Factor = clamp(1 + (homePer90Ratio - 1) * 0.12, 0.94, 1.06);
+    const awayPer90Factor = clamp(1 + (awayPer90Ratio - 1) * 0.12, 0.94, 1.06);
 
-      // 3. Ajuste por Age (idade média) - times mais jovens podem ser mais ofensivos
-      const homeAge = hasHomeComplement ? parseNum(homeRow.Age) : avgToUse.age;
-      const awayAge = hasAwayComplement ? parseNum(awayRow.Age) : avgToUse.age;
-      const avgAge = avgToUse.age;
-      
-      // Times mais jovens (até 2 anos abaixo da média) têm pequeno bônus ofensivo (até +2%)
-      const homeAgeFactor = avgAge > 0 && homeAge > 0 && homeAge < avgAge
-        ? clamp(1 + ((avgAge - homeAge) / avgAge) * 0.04, 1.0, 1.02)
-        : 1;
-      const awayAgeFactor = avgAge > 0 && awayAge > 0 && awayAge < avgAge
-        ? clamp(1 + ((avgAge - awayAge) / avgAge) * 0.04, 1.0, 1.02)
-        : 1;
+    // 3. Ajuste por Age (idade média) - times mais jovens podem ser mais ofensivos
+    const homeAge = hasHomeComplement ? parseNum(homeRow.Age) : avgToUse.age;
+    const awayAge = hasAwayComplement ? parseNum(awayRow.Age) : avgToUse.age;
+    const avgAge = avgToUse.age;
+    
+    // Times mais jovens (até 2 anos abaixo da média) têm pequeno bônus ofensivo (até +2%)
+    const homeAgeFactor = avgAge > 0 && homeAge > 0 && homeAge < avgAge
+      ? clamp(1 + ((avgAge - homeAge) / avgAge) * 0.04, 1.0, 1.02)
+      : 1;
+    const awayAgeFactor = avgAge > 0 && awayAge > 0 && awayAge < avgAge
+      ? clamp(1 + ((avgAge - awayAge) / avgAge) * 0.04, 1.0, 1.02)
+      : 1;
 
-      // 4. Ajuste por Playing Time (normalização por minutos jogados)
-      // Times com mais minutos jogados podem ter mais consistência
-      const home90s = hasHomeComplement ? parseNum(homeRow['Playing Time 90s']) : avgToUse.playingTime90s;
-      const away90s = hasAwayComplement ? parseNum(awayRow['Playing Time 90s']) : avgToUse.playingTime90s;
-      const avg90s = avgToUse.playingTime90s;
-      
-      // Mais minutos = mais consistência (até +1%)
-      const home90sFactor = avg90s > 0 && home90s > 0 && home90s > avg90s
-        ? clamp(1 + ((home90s - avg90s) / avg90s) * 0.02, 1.0, 1.01)
-        : 1;
-      const away90sFactor = avg90s > 0 && away90s > 0 && away90s > avg90s
-        ? clamp(1 + ((away90s - avg90s) / avg90s) * 0.02, 1.0, 1.01)
-        : 1;
+    // 4. Ajuste por Playing Time (normalização por minutos jogados)
+    // Times com mais minutos jogados podem ter mais consistência
+    const home90s = hasHomeComplement ? parseNum(homeRow['Playing Time 90s']) : avgToUse.playingTime90s;
+    const away90s = hasAwayComplement ? parseNum(awayRow['Playing Time 90s']) : avgToUse.playingTime90s;
+    const avg90s = avgToUse.playingTime90s;
+    
+    // Mais minutos = mais consistência (até +1%)
+    const home90sFactor = avg90s > 0 && home90s > 0 && home90s > avg90s
+      ? clamp(1 + ((home90s - avg90s) / avg90s) * 0.02, 1.0, 1.01)
+      : 1;
+    const away90sFactor = avg90s > 0 && away90s > 0 && away90s > avg90s
+      ? clamp(1 + ((away90s - avg90s) / avg90s) * 0.02, 1.0, 1.01)
+      : 1;
 
-      // Aplicar todos os fatores de complemento
-      const homeComplementFactor = homePossFactor * homePer90Factor * homeAgeFactor * home90sFactor;
-      const awayComplementFactor = awayPossFactor * awayPer90Factor * awayAgeFactor * away90sFactor;
+    // Aplicar todos os fatores de complemento
+    const homeComplementFactor = homePossFactor * homePer90Factor * homeAgeFactor * home90sFactor;
+    const awayComplementFactor = awayPossFactor * awayPer90Factor * awayAgeFactor * away90sFactor;
 
-      lambdaHome *= homeComplementFactor;
-      lambdaAway *= awayComplementFactor;
+    lambdaHome *= homeComplementFactor;
+    lambdaAway *= awayComplementFactor;
 
-      if (import.meta.env.DEV) {
-        console.log('[AnalysisEngine] ✅ Ajuste complemento aplicado (TABELA COMPLEMENTO SENDO USADA):', {
-          hasFullComplement,
-          hasPartialComplement,
-          usandoValoresPadrao: !avg,
-          homePossFactor,
-          awayPossFactor,
-          homePer90Factor,
-          awayPer90Factor,
-          homeAgeFactor,
-          awayAgeFactor,
-          home90sFactor,
-          away90sFactor,
-          homeComplementFactor,
-          awayComplementFactor,
-          lambdaHomeAntes: lambdaHome / homeComplementFactor,
-          lambdaAwayAntes: lambdaAway / awayComplementFactor,
-          lambdaHomeApos: lambdaHome,
-          lambdaAwayApos: lambdaAway,
+    if (import.meta.env.DEV) {
+      console.log('[AnalysisEngine] ✅ Ajuste complemento aplicado (TABELA COMPLEMENTO SENDO USADA):', {
+        hasFullComplement,
+        hasPartialComplement,
+        usandoValoresPadrao: !avg,
+        homePossFactor,
+        awayPossFactor,
+        homePer90Factor,
+        awayPer90Factor,
+        homeAgeFactor,
+        awayAgeFactor,
+        home90sFactor,
+        away90sFactor,
+        homeComplementFactor,
+        awayComplementFactor,
+        lambdaHomeAntes: lambdaHome / homeComplementFactor,
+        lambdaAwayAntes: lambdaAway / awayComplementFactor,
+        lambdaHomeApos: lambdaHome,
+        lambdaAwayApos: lambdaAway,
         });
       }
     } else {
-    if (import.meta.env.DEV) {
-      console.warn('[AnalysisEngine] ⚠️ Tabela complemento não disponível - ajustes adicionais não aplicados');
+      if (import.meta.env.DEV) {
+        console.warn('[AnalysisEngine] ⚠️ Tabela complemento não disponível - ajustes adicionais não aplicados');
+      }
     }
-  }
 
   // 4. Ajustar baseado em posição na tabela (times no topo são mais ofensivos)
   // Assumir que há 20 times (ajustar se necessário)
@@ -1237,7 +1236,7 @@ function combineStatisticsAndTable(
  * @param aiConfidence - Confiança da IA (0-100) ou null
  * @returns Probabilidade combinada (0-100)
  */
-export function combineProbabilities(
+function combineProbabilities(
   statisticalProb: number,
   aiProb: number | null,
   aiConfidence: number | null
@@ -1456,7 +1455,11 @@ function getTableImpactSummary(data: MatchData): {
       available: hasGeral,
       impact: hasGeral ? 'Alto (base para cálculo de lambda)' : 'Não disponível',
     },
-    complement: {
+    homeAway: {
+      available: false,
+      impact: 'Não disponível',
+    },
+    standardFor: {
       available: hasComplement,
       impact: hasComplement ? 'Médio-Alto (ajuste de posse, performance e idade)' : 'Não disponível',
     },
@@ -2564,7 +2567,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let lambdaCombined = lambdaHomeCombined + lambdaAwayCombined;
 
   // Shrinkage calibrado para a média do campeonato (estabiliza extremos)
-  // hasStandardFor já foi declarado anteriormente na função
+  const hasStandardFor = false; // Não implementado no momento
   const minMp =
     hasHomeTableData && hasAwayTableData
       ? Math.min(
@@ -2739,4 +2742,5 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     // Probabilidades Over/Under baseadas apenas nas estatísticas
     statsOverUnderProbabilities,
   };
+}
 }
