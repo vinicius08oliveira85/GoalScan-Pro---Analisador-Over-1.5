@@ -47,18 +47,18 @@ body {
   background-color: var(--color-base-100);
   color: var(--color-base-content);
   font-family: 'Inter', sans-serif;
-  /* Background com gradientes sutis para tema claro */
+  /* Background mais sutil para tema claro Nord */
   background-image:
-    radial-gradient(1200px circle at 10% 10%, oklch(59.435% 0.077 254.027 / 0.08) 0%, transparent 55%),
-    radial-gradient(900px circle at 90% 20%, oklch(69.651% 0.059 248.687 / 0.06) 0%, transparent 50%);
+    radial-gradient(1200px circle at 10% 10%, oklch(59.435% 0.077 254.027 / 0.04) 0%, transparent 55%),
+    radial-gradient(900px circle at 90% 20%, oklch(69.651% 0.059 248.687 / 0.03) 0%, transparent 50%);
   background-attachment: fixed;
   min-height: 100vh;
   line-height: 1.6;
 }
 
-/* Ajustar noise overlay para tema claro (menos opaco) */
+/* Remover noise overlay para tema claro Nord - está atrapalhando a visualização */
 [data-theme="nord"] body::before {
-  opacity: 0.04;
+  display: none;
 }
 
 /* Noise overlay (controlado por token) */
@@ -130,30 +130,52 @@ a:focus-visible {
   /* Card padrão (compatível com o uso atual de custom-card) */
   .custom-card {
     border-radius: var(--radius-box);
-    box-shadow: var(--shadow-elev-1);
-    @apply bg-base-200/90 border border-base-300/50 transition-all duration-200;
+    @apply bg-base-100 border border-base-300/80 transition-all duration-200;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  [data-theme="nord"] .custom-card {
+    @apply bg-white border-base-300;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
   }
 
   .custom-card:hover {
-    box-shadow: var(--shadow-elev-2);
-    @apply border-base-300/80;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    @apply border-base-300;
+  }
+
+  [data-theme="nord"] .custom-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
   }
 
   .surface {
-    box-shadow: var(--shadow-elev-1);
-    @apply bg-base-200/95 border border-base-300/50 rounded-2xl;
+    @apply bg-base-100 border border-base-300/80 rounded-2xl;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  [data-theme="nord"] .surface {
+    @apply bg-white border-base-300;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
   }
 
   .surface-muted {
-    @apply bg-base-300/40 border border-base-300/50 rounded-2xl;
+    @apply bg-base-200/60 border border-base-300/60 rounded-2xl;
+  }
+
+  [data-theme="nord"] .surface-muted {
+    @apply bg-base-200 border-base-300/80;
   }
 
   .surface-hover {
-    @apply transition-all duration-200 hover:border-base-300/90;
+    @apply transition-all duration-200 hover:border-base-300;
   }
 
   .surface-hover:hover {
-    box-shadow: var(--shadow-elev-2);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  }
+
+  [data-theme="nord"] .surface-hover:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
   }
 
   .kpi-label {
@@ -295,4 +317,62 @@ a:focus-visible {
   text-align: left !important;
   padding: 8px 12px !important;
   line-height: 1.4 !important;
+}
+
+/* Melhorias para tema Nord - Badges e elementos */
+[data-theme="nord"] .badge {
+  font-weight: 600;
+  border-width: 1px;
+}
+
+[data-theme="nord"] .badge-success {
+  background-color: oklch(76.827% 0.074 131.063);
+  color: oklch(15.365% 0.014 131.063);
+  border-color: oklch(76.827% 0.074 131.063 / 0.4);
+}
+
+[data-theme="nord"] .badge-error {
+  background-color: oklch(60.61% 0.12 15.341);
+  color: oklch(12.122% 0.024 15.341);
+  border-color: oklch(60.61% 0.12 15.341 / 0.4);
+}
+
+[data-theme="nord"] .badge-warning {
+  background-color: oklch(85.486% 0.089 84.093);
+  color: oklch(17.097% 0.017 84.093);
+  border-color: oklch(85.486% 0.089 84.093 / 0.4);
+}
+
+[data-theme="nord"] .badge-ghost {
+  background-color: oklch(89.925% 0.016 262.749 / 0.6);
+  color: oklch(32.437% 0.022 264.182 / 0.8);
+  border-color: oklch(89.925% 0.016 262.749);
+}
+
+/* Melhorar contraste de texto para tema Nord */
+[data-theme="nord"] {
+  --color-base-content: oklch(32.437% 0.022 264.182);
+}
+
+[data-theme="nord"] .text-base-content {
+  color: oklch(32.437% 0.022 264.182);
+}
+
+[data-theme="nord"] .text-base-content\/70,
+[data-theme="nord"] .text-base-content\/80 {
+  color: oklch(32.437% 0.022 264.182 / 0.8);
+}
+
+/* Melhorar inputs para tema Nord */
+[data-theme="nord"] .input,
+[data-theme="nord"] .select {
+  background-color: oklch(100% 0 0);
+  border-color: oklch(89.925% 0.016 262.749);
+  color: oklch(32.437% 0.022 264.182);
+}
+
+[data-theme="nord"] .input:focus,
+[data-theme="nord"] .select:focus {
+  border-color: oklch(59.435% 0.077 254.027);
+  box-shadow: 0 0 0 3px oklch(59.435% 0.077 254.027 / 0.1);
 }
