@@ -1,5 +1,5 @@
 // Service Worker para GoalScan Pro
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `goalscan-pro-${CACHE_VERSION}`;
 const RUNTIME_CACHE = 'goalscan-pro-runtime';
 const STATIC_CACHE = 'goalscan-pro-static';
