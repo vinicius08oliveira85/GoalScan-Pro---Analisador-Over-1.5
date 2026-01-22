@@ -47,13 +47,18 @@ body {
   background-color: var(--color-base-100);
   color: var(--color-base-content);
   font-family: 'Inter', sans-serif;
-  /* Background com gradientes sutis + noise (Glass Modern controlado) */
+  /* Background com gradientes sutis para tema claro */
   background-image:
-    radial-gradient(1200px circle at 10% 10%, oklch(44% 0.043 257.281 / 0.18) 0%, transparent 55%),
-    radial-gradient(900px circle at 90% 20%, oklch(55% 0.288 302.321 / 0.12) 0%, transparent 50%);
+    radial-gradient(1200px circle at 10% 10%, oklch(59.435% 0.077 254.027 / 0.08) 0%, transparent 55%),
+    radial-gradient(900px circle at 90% 20%, oklch(69.651% 0.059 248.687 / 0.06) 0%, transparent 50%);
   background-attachment: fixed;
   min-height: 100vh;
   line-height: 1.6;
+}
+
+/* Ajustar noise overlay para tema claro (menos opaco) */
+[data-theme="nord"] body::before {
+  opacity: 0.04;
 }
 
 /* Noise overlay (controlado por token) */
