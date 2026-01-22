@@ -59,6 +59,26 @@ function poissonCumulative(k: number, lambda: number): number {
 }
 
 /**
+ * Calcula a probabilidade de Under 1.5 (0 ou 1 gol) usando o ajuste de Dixon-Coles.
+ * Corrige a interdependência entre gols em placares baixos (0-0, 1-0, 0-1).
+ * @param lambdaHome Média de gols esperados para o time da casa
+ * @param lambdaAway Média de gols esperados para o time visitante
+ * @param rho Fator de correlação (padrão -0.13 para futebol, ajusta a subestimação de empates 0-0)
+ */
+function calculateDixonColesUnder15(lambdaHome: number, lambdaAway: number, rho: number = -0.1): number {
+  // P(0,0) com correção: aumenta probabilidade de 0-0 (comum em jogos travados)
+  const p00 = poissonProbability(0, lambdaHome) * poissonProbability(0, lambdaAway) * (1 - lambdaHome * lambdaAway * rho);
+  
+  // P(1,0) com correção
+  const p10 = poissonProbability(1, lambdaHome) * poissonProbability(0, lambdaAway) * (1 + lambdaHome * rho);
+  
+  // P(0,1) com correção
+  const p01 = poissonProbability(0, lambdaHome) * poissonProbability(1, lambdaAway) * (1 + lambdaAway * rho);
+  
+  return Math.max(0, Math.min(1, p00 + p10 + p01));
+}
+
+/**
  * Calcula probabilidades Over/Under para múltiplas linhas usando distribuição Poisson
  * @param lambdaTotal - Média total de gols esperados no jogo (lambdaHome + lambdaAway)
  * @returns Objeto com probabilidades Over/Under para linhas 0.5, 1.5, 2.5, 3.5, 4.5, 5.5
@@ -696,7 +716,10 @@ function calculateTableProbability(data: MatchData): {
       return gfPer; // Formato básico: usar apenas GF
     }
     const xgPer = safeDiv(xgTotal, mp, 0);
-    if (xgPer > 0) return 0.7 * xgPer + 0.3 * gfPer;
+    
+    // Peso dinâmico: xG vale mais no início (estabiliza rápido), Gols ganham peso com o tempo
+    const xgWeight = mp < 10 ? 0.8 : (mp > 25 ? 0.6 : 0.7);
+    if (xgPer > 0) return xgWeight * xgPer + (1 - xgWeight) * gfPer;
     return gfPer;
   };
   const blendDefense = (xgaTotal: number, gaTotal: number, mp: number): number => {
@@ -705,7 +728,10 @@ function calculateTableProbability(data: MatchData): {
       return gaPer; // Formato básico: usar apenas GA
     }
     const xgaPer = safeDiv(xgaTotal, mp, 0);
-    if (xgaPer > 0) return 0.7 * xgaPer + 0.3 * gaPer;
+    
+    // Peso dinâmico para defesa também
+    const xgaWeight = mp < 10 ? 0.8 : (mp > 25 ? 0.6 : 0.7);
+    if (xgaPer > 0) return xgaWeight * xgaPer + (1 - xgaWeight) * gaPer;
     return gaPer;
   };
 
@@ -2624,9 +2650,16 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   // Calcular probabilidades Over/Under combinadas via Poisson usando λ final
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaFinal);
 
-  // Calcular Prob. Final (Over 1.5) diretamente do λ final para garantir 100% consistência
-  // com a linha 1.5 Over da tabela combinada
-  const finalProb = overUnderProbabilities['1.5']?.over ?? (1 - poissonCumulative(1, lambdaFinal)) * 100;
+  // Calcular Prob. Final (Over 1.5) usando Dixon-Coles para maior precisão nos placares baixos
+  // Isso corrige a suposição de independência do Poisson padrão para 0-0, 1-0 e 0-1
+  const under15ProbDC = calculateDixonColesUnder15(lambdaHomeFinal, lambdaAwayFinal);
+  const finalProb = (1 - under15ProbDC) * 100;
+  
+  // Atualizar a linha 1.5 no objeto de probabilidades para refletir o cálculo mais preciso
+  if (overUnderProbabilities['1.5']) {
+    overUnderProbabilities['1.5'].over = finalProb;
+    overUnderProbabilities['1.5'].under = under15ProbDC * 100;
+  }
 
   if (import.meta.env.DEV) {
     console.log('[AnalysisEngine] Over/Under combinada via λ:', {
