@@ -127,7 +127,8 @@ function combineOverUnderProbabilities(
     } else {
       // Fallback: valores padrão
       combined[lineKey] = { over: 50, under: 50   };
-}
+    }
+  }
 
   return combined;
 }
