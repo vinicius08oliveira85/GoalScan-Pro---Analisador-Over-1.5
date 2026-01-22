@@ -148,6 +148,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
         competitionStandardForAvg,
         homeHomeAwayData,
         awayHomeAwayData,
+        homeComplementData,
+        awayComplementData,
+        competitionComplementAvg,
       } = await syncTeamStatsFromTable(
         selectedChampionshipId,
         selectedHomeSquad,
@@ -168,6 +171,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
           competitionStandardForAvg: !!competitionStandardForAvg,
           homeHomeAwayData: !!homeHomeAwayData,
           awayHomeAwayData: !!awayHomeAwayData,
+          homeComplementData: !!homeComplementData,
+          awayComplementData: !!awayComplementData,
+          competitionComplementAvg: !!competitionComplementAvg,
           hasPreviousHomeStats: !!previousHomeStats,
           hasPreviousAwayStats: !!previousAwayStats,
           // Nota: homeTeamStats/awayTeamStats não são afetados pela sincronização
@@ -187,6 +193,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
           competitionStandardForAvg: competitionStandardForAvg || undefined,
           homeHomeAwayData: homeHomeAwayData || undefined,
           awayHomeAwayData: awayHomeAwayData || undefined,
+          homeComplementData: homeComplementData || undefined,
+          awayComplementData: awayComplementData || undefined,
+          competitionComplementAvg: competitionComplementAvg || undefined,
           // Preencher automaticamente a média da competição calculada da tabela
           competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
           // homeTeamStats e awayTeamStats permanecem inalterados (inseridos manualmente)
@@ -585,40 +594,63 @@ const MatchForm: React.FC<MatchFormProps> = ({
           )}
 
           {/* Status da Tabela Sincronizada: Mostrar após sincronização */}
-          {formData.homeTableData && formData.awayTableData && (
+          {(formData.homeTableData && formData.awayTableData) || (formData.homeComplementData && formData.awayComplementData) ? (
             <div className="mt-4 p-4 bg-base-300/50 rounded-lg border border-base-content/10 space-y-3">
               <div className="font-semibold text-sm mb-2">Status da Tabela Sincronizada:</div>
-              <div className="flex items-center gap-2 text-xs">
-                <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-medium">Geral</span>
-                  <span className="opacity-60 ml-1">(Alto impacto - base para cálculo)</span>
-                  {(() => {
-                    const tableInfo = tablesDiagnostic?.tables.geral;
-                    const squadIssue = tableInfo?.squadFound && (!tableInfo.squadFound.home || !tableInfo.squadFound.away);
-                    if (squadIssue) {
-                      return (
-                        <div className="text-warning text-xs mt-1">
-                          {!tableInfo.squadFound?.home && `Time da casa não encontrado`}
-                          {!tableInfo.squadFound?.home && !tableInfo.squadFound?.away && ' e '}
-                          {!tableInfo.squadFound?.away && `Time visitante não encontrado`}
-                          {tableInfo.availableSquads && tableInfo.availableSquads.length > 0 && (
-                            <div className="opacity-70 mt-1">
-                              Squads disponíveis: {tableInfo.availableSquads.slice(0, 3).join(', ')}
-                              {tableInfo.availableSquads.length > 3 && '...'}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+              
+              {/* Tabela Geral */}
+              {formData.homeTableData && formData.awayTableData && (
+                <div className="flex items-center gap-2 text-xs">
+                  <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium">Geral</span>
+                    <span className="opacity-60 ml-1">(Alto impacto - base para cálculo)</span>
+                    {(() => {
+                      const tableInfo = tablesDiagnostic?.tables.geral;
+                      const squadIssue = tableInfo?.squadFound && (!tableInfo.squadFound.home || !tableInfo.squadFound.away);
+                      if (squadIssue) {
+                        return (
+                          <div className="text-warning text-xs mt-1">
+                            {!tableInfo.squadFound?.home && `Time da casa não encontrado`}
+                            {!tableInfo.squadFound?.home && !tableInfo.squadFound?.away && ' e '}
+                            {!tableInfo.squadFound?.away && `Time visitante não encontrado`}
+                            {tableInfo.availableSquads && tableInfo.availableSquads.length > 0 && (
+                              <div className="opacity-70 mt-1">
+                                Squads disponíveis: {tableInfo.availableSquads.slice(0, 3).join(', ')}
+                                {tableInfo.availableSquads.length > 3 && '...'}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Tabela de Complemento */}
+              {formData.homeComplementData && formData.awayComplementData && (
+                <div className="flex items-center gap-2 text-xs">
+                  <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium">Complemento</span>
+                    <span className="opacity-60 ml-1">(Playing Time, Performance, Per 90 Minutes)</span>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-2 space-y-2">
-                <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                  ✅ Tabela geral carregada! Análise pronta.
-                </div>
+                {formData.homeTableData && formData.awayTableData && (
+                  <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
+                    ✅ Tabela geral carregada! Análise pronta.
+                  </div>
+                )}
+                {formData.homeComplementData && formData.awayComplementData && (
+                  <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
+                    ✅ Tabela de complemento carregada! Dados detalhados disponíveis para análise.
+                  </div>
+                )}
                 {formData.homeTableData && formData.awayTableData && (
                   (() => {
                     const hasXg = !!(formData.homeTableData?.['Home xG'] || formData.homeTableData?.['Away xG'] || 
@@ -639,7 +671,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                 )}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
