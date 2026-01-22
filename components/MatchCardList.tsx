@@ -102,7 +102,7 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
       whileHover="hover"
       whileTap="tap"
       variants={cardHover}
-      className={`group custom-card ${statusConfig.bg} ${statusConfig.border} p-5 hover:shadow-lg cursor-pointer transition-all duration-300 flex flex-col md:flex-row md:items-center gap-4 md:gap-6`}
+      className={`group custom-card ${statusConfig.bg} ${statusConfig.border} p-4 hover:shadow-xl cursor-pointer transition-all duration-300 flex flex-col md:flex-row md:items-center gap-4 md:gap-6`}
     >
       {/* Times e Data - Lado Esquerdo */}
       <div className="flex-1 min-w-0">
@@ -213,14 +213,14 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
       <div className="flex items-center gap-3">
         {match.betInfo && match.betInfo.betAmount > 0 && (
           <div
-            className={`badge gap-1 px-3 py-1.5 text-xs font-bold flex-shrink-0 border ${
+            className={`badge gap-1 px-3 py-1.5 text-xs font-bold flex-shrink-0 ${
               match.betInfo.status === 'won'
-                ? 'bg-success text-success-content border-success/30'
+                ? 'bg-success/20 text-success border-success/50'
                 : match.betInfo.status === 'lost'
-                  ? 'bg-error text-error-content border-error/30'
+                  ? 'bg-error/20 text-error border-error/50'
                   : match.betInfo.status === 'pending'
-                    ? 'bg-warning text-warning-content border-warning/30 animate-pulse'
-                    : 'bg-base-300/60 text-base-content/80 border-base-300'
+                    ? 'bg-warning/20 text-warning border-warning/50 animate-pulse'
+                    : 'bg-base-300/20 text-base-content/60 border-base-300/30'
             }`}
           >
             {match.betInfo.status === 'won' && <CheckCircle className="w-3 h-3" />}
