@@ -71,7 +71,7 @@ Após adicionar as variáveis:
 
 ### As variáveis não aparecem
 
-- ✅ Certifique-se de que começam com `VITE_`
+- ✅ Certifique-se de que começam com `VITE_` (As variáveis DEVEM começar com VITE_)
 - ✅ Verifique se selecionou todos os ambientes
 - ✅ Faça um novo deploy após adicionar
 

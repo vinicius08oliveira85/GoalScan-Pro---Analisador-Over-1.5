@@ -206,12 +206,12 @@ const updatedBank = bankSettings.totalBank + bankDifference;
 
 **Solução atual:** Há proteção com `isUpdatingBetStatus`, mas não é 100% garantida em cenários de concorrência.
 
-### 2. ⚠️ Falta de Transação Atômica
+### 3. ⚠️ Falta de Transação Atômica
 **Problema:** A atualização da banca e o salvamento da aposta não são atômicos. Se um falhar, o outro pode ter sido executado, causando inconsistência.
 
 **Impacto:** Se `saveSettings` falhar mas `saveMatch` suceder, a aposta será salva mas a banca não será atualizada.
 
-### 3. ✅ Validação de Banca Negativa
+### 4. ✅ Validação de Banca Negativa
 **Localização:** `App.tsx:343`
 ```typescript
 totalBank: Math.max(0, Number(updatedBank.toFixed(2)))
@@ -280,4 +280,3 @@ O sistema de salvamento da banca está **funcionalmente correto**, mas possui al
 5. ✅ **Validação:** Implementada para evitar banca negativa
 
 **Status Geral:** ✅ Funcional, mas com melhorias recomendadas para produção em escala.
-
