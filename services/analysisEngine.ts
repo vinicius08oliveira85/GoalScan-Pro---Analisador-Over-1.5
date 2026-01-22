@@ -869,6 +869,110 @@ function calculateTableProbability(data: MatchData): {
     }
   }
 
+  // 3c. Complemento (championship_complement): ajustar baseado em Playing Time, Performance e Per 90 Minutes
+  const hasComplement =
+    !!data.homeComplementData &&
+    !!data.awayComplementData &&
+    !!data.competitionComplementAvg;
+
+  if (import.meta.env.DEV) {
+    console.log('[AnalysisEngine] calculateTableProbability - Verificando complemento:', {
+      hasComplement,
+      lambdaHomeAntes: lambdaHome,
+      lambdaAwayAntes: lambdaAway,
+    });
+  }
+
+  if (hasComplement) {
+    const parseNum = (value: unknown): number => {
+      if (value == null) return 0;
+      const raw = String(value).trim();
+      if (!raw) return 0;
+      const normalized = raw.replace(/,/g, '');
+      const n = Number.parseFloat(normalized);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const avg = data.competitionComplementAvg!;
+    const homeRow = data.homeComplementData as unknown as Record<string, unknown>;
+    const awayRow = data.awayComplementData as unknown as Record<string, unknown>;
+
+    // 1. Ajuste por Possession (posse de bola) - times com mais posse tendem a ter mais oportunidades
+    const homePoss = parseNum(homeRow.Poss);
+    const awayPoss = parseNum(awayRow.Poss);
+    const homePossRatio = avg.poss > 0 && homePoss > 0 ? homePoss / avg.poss : 1;
+    const awayPossRatio = avg.poss > 0 && awayPoss > 0 ? awayPoss / avg.poss : 1;
+    
+    // Posse maior aumenta probabilidade de gols (até ±5%)
+    const homePossFactor = clamp(1 + (homePossRatio - 1) * 0.1, 0.95, 1.05);
+    const awayPossFactor = clamp(1 + (awayPossRatio - 1) * 0.1, 0.95, 1.05);
+
+    // 2. Ajuste por Performance metrics (Gls, Ast, G+A por 90)
+    const homePer90Gls = parseNum(homeRow['Per 90 Minutes Gls']);
+    const homePer90GA = parseNum(homeRow['Per 90 Minutes G+A']);
+    const awayPer90Gls = parseNum(awayRow['Per 90 Minutes Gls']);
+    const awayPer90GA = parseNum(awayRow['Per 90 Minutes G+A']);
+    
+    const homePer90Ratio = avg.per90Gls > 0 && homePer90Gls > 0 ? homePer90Gls / avg.per90Gls : 1;
+    const awayPer90Ratio = avg.per90Gls > 0 && awayPer90Gls > 0 ? awayPer90Gls / avg.per90Gls : 1;
+    
+    // Performance por 90 aumenta ataque (até ±6%)
+    const homePer90Factor = clamp(1 + (homePer90Ratio - 1) * 0.12, 0.94, 1.06);
+    const awayPer90Factor = clamp(1 + (awayPer90Ratio - 1) * 0.12, 0.94, 1.06);
+
+    // 3. Ajuste por Age (idade média) - times mais jovens podem ser mais ofensivos
+    const homeAge = parseNum(homeRow.Age);
+    const awayAge = parseNum(awayRow.Age);
+    const avgAge = avg.age;
+    
+    // Times mais jovens (até 2 anos abaixo da média) têm pequeno bônus ofensivo (até +2%)
+    const homeAgeFactor = avgAge > 0 && homeAge > 0 && homeAge < avgAge
+      ? clamp(1 + ((avgAge - homeAge) / avgAge) * 0.04, 1.0, 1.02)
+      : 1;
+    const awayAgeFactor = avgAge > 0 && awayAge > 0 && awayAge < avgAge
+      ? clamp(1 + ((avgAge - awayAge) / avgAge) * 0.04, 1.0, 1.02)
+      : 1;
+
+    // 4. Ajuste por Playing Time (normalização por minutos jogados)
+    // Times com mais minutos jogados podem ter mais consistência
+    const home90s = parseNum(homeRow['Playing Time 90s']);
+    const away90s = parseNum(awayRow['Playing Time 90s']);
+    const avg90s = avg.playingTime90s;
+    
+    // Mais minutos = mais consistência (até +1%)
+    const home90sFactor = avg90s > 0 && home90s > 0 && home90s > avg90s
+      ? clamp(1 + ((home90s - avg90s) / avg90s) * 0.02, 1.0, 1.01)
+      : 1;
+    const away90sFactor = avg90s > 0 && away90s > 0 && away90s > avg90s
+      ? clamp(1 + ((away90s - avg90s) / avg90s) * 0.02, 1.0, 1.01)
+      : 1;
+
+    // Aplicar todos os fatores de complemento
+    const homeComplementFactor = homePossFactor * homePer90Factor * homeAgeFactor * home90sFactor;
+    const awayComplementFactor = awayPossFactor * awayPer90Factor * awayAgeFactor * away90sFactor;
+
+    lambdaHome *= homeComplementFactor;
+    lambdaAway *= awayComplementFactor;
+
+    if (import.meta.env.DEV) {
+      console.log('[AnalysisEngine] ✅ Ajuste complemento aplicado:', {
+        homePossFactor,
+        awayPossFactor,
+        homePer90Factor,
+        awayPer90Factor,
+        homeAgeFactor,
+        awayAgeFactor,
+        home90sFactor,
+        away90sFactor,
+        homeComplementFactor,
+        awayComplementFactor,
+      });
+    }
+  } else {
+    if (import.meta.env.DEV) {
+      console.warn('[AnalysisEngine] ⚠️ Tabela complemento não disponível - ajustes adicionais não aplicados');
+    }
+  }
 
   // 4. Ajustar baseado em posição na tabela (times no topo são mais ofensivos)
   // Assumir que há 20 times (ajustar se necessário)
@@ -962,11 +1066,12 @@ function calculateTableProbability(data: MatchData): {
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] ===== Prob. Tabela calculada (com as 3 tabelas) =====');
+    console.log('[AnalysisEngine] ===== Prob. Tabela calculada (com todas as tabelas) =====');
     console.log('[AnalysisEngine] Tabelas aplicadas:', {
       geral: true, // Sempre aplicada (base para cálculo)
       home_away: hasHomeAway,
       standard_for: hasStandardFor,
+      complement: hasComplement,
     });
     console.log('[AnalysisEngine] Resultados:', {
       lambdaHome,
@@ -983,13 +1088,14 @@ function calculateTableProbability(data: MatchData): {
       finalProb,
     });
     
-    if (!hasHomeAway || !hasStandardFor) {
+    if (!hasHomeAway || !hasStandardFor || !hasComplement) {
       console.warn('[AnalysisEngine] ⚠️ Algumas tabelas complementares não foram aplicadas:', {
         home_away: hasHomeAway ? '✅' : '❌',
         standard_for: hasStandardFor ? '✅' : '❌',
+        complement: hasComplement ? '✅' : '❌',
       });
     } else {
-      console.log('[AnalysisEngine] ✅ Todas as 3 tabelas foram aplicadas no cálculo da probabilidade da tabela!');
+      console.log('[AnalysisEngine] ✅ Todas as tabelas (geral, home_away, standard_for, complement) foram aplicadas no cálculo da probabilidade da tabela!');
     }
   }
 

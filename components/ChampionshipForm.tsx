@@ -6,6 +6,9 @@ import { animations } from '../utils/animations';
 import ChampionshipTableView from './ChampionshipTableView';
 import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
+import { parseComplementToJson, isComplementFile, validateComplementData } from '../utils/complementParser';
+import { saveChampionshipComplement } from '../services/championshipService';
+import { TableRowComplement } from '../types';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -28,6 +31,8 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   const [fbrefUrl, setFbrefUrl] = useState('');
   const [tableFormat, setTableFormat] = useState<TableFormat | 'auto'>('auto');
   const [tables, setTables] = useState<Map<TableType, ChampionshipTable>>(new Map());
+  const [complementData, setComplementData] = useState<TableRowComplement[] | null>(null);
+  const [complementFileName, setComplementFileName] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -193,6 +198,48 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
     }));
   };
 
+  const handleComplementUpload = async (file: File) => {
+    try {
+      if (!isComplementFile(file)) {
+        setErrors((prev) => ({
+          ...prev,
+          complement: 'Arquivo inválido. Use Excel (.xlsx, .xls) ou CSV (.csv).',
+        }));
+        return;
+      }
+
+      const jsonData = await parseComplementToJson(file);
+      validateComplementData(jsonData);
+
+      setComplementData(jsonData);
+      setComplementFileName(file.name);
+      setErrors((prev => {
+        const newErrors = { ...prev };
+        delete newErrors.complement;
+        return newErrors;
+      }));
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao processar arquivo. Verifique se o arquivo é válido.';
+      setErrors((prev) => ({
+        ...prev,
+        complement: errorMessage,
+      }));
+    }
+  };
+
+  const removeComplement = () => {
+    setComplementData(null);
+    setComplementFileName('');
+    setErrors((prev => {
+      const newErrors = { ...prev };
+      delete newErrors.complement;
+      return newErrors;
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -247,6 +294,15 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
       });
 
       await onSave(championshipToSave, tablesToSave);
+
+      // Salvar tabela de complemento separadamente (não faz parte de ChampionshipTable)
+      if (complementData && complementData.length > 0) {
+        await saveChampionshipComplement(
+          championshipToSave.id,
+          complementFileName || 'complemento',
+          complementData
+        );
+      }
     } catch (error) {
       console.error('Erro ao salvar campeonato:', error);
     } finally {
@@ -430,6 +486,75 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
           );
         })}
 
+      </div>
+
+      {/* Upload de Tabela de Complemento */}
+      <div className="space-y-6">
+        <h3 className="text-xl font-bold">Tabela de Complemento</h3>
+        <div className="border border-base-300 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="font-bold">Complemento (Playing Time, Performance, Per 90 Minutes)</span>
+              {complementData && (
+                <span className="badge badge-success gap-1">
+                  <Check className="w-3 h-3" />
+                  Carregada ({complementData.length} times)
+                </span>
+              )}
+            </div>
+            {complementData && (
+              <button
+                type="button"
+                onClick={removeComplement}
+                className="btn btn-sm btn-ghost"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {!complementData ? (
+            <div className="form-control">
+              <label className="label cursor-pointer">
+                <span className="label-text font-bold flex items-center gap-2">
+                  Upload de arquivo Excel ou CSV
+                  <FileSpreadsheet className="w-4 h-4 text-primary" />
+                </span>
+              </label>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleComplementUpload(file);
+                  }
+                }}
+                className="file-input file-input-bordered w-full file-input-primary"
+              />
+              <label className="label">
+                <span className="label-text-alt text-xs opacity-70">
+                  <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls) ou CSV (.csv)
+                  <br />
+                  <strong>Requisito:</strong> A planilha deve conter uma coluna "Squad" e campos de Playing Time, Performance e Per 90 Minutes
+                  <br />
+                  <strong>Exemplo:</strong> Pl, Age, Poss, Playing Time MP, Performance Gls, Per 90 Minutes Gls, etc.
+                </span>
+              </label>
+              {errors.complement && <span className="text-error text-sm mt-1">{errors.complement}</span>}
+            </div>
+          ) : (
+            <div className="mt-3">
+              <div className="alert alert-info">
+                <div className="text-sm">
+                  <strong>Tabela de complemento carregada:</strong> {complementFileName}
+                  <br />
+                  <strong>Times:</strong> {complementData.length}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Botões */}

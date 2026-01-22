@@ -148,6 +148,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
         competitionStandardForAvg,
         homeHomeAwayData,
         awayHomeAwayData,
+        homeComplementData,
+        awayComplementData,
+        competitionComplementAvg,
       } = await syncTeamStatsFromTable(
         selectedChampionshipId,
         selectedHomeSquad,
@@ -168,6 +171,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
           competitionStandardForAvg: !!competitionStandardForAvg,
           homeHomeAwayData: !!homeHomeAwayData,
           awayHomeAwayData: !!awayHomeAwayData,
+          homeComplementData: !!homeComplementData,
+          awayComplementData: !!awayComplementData,
+          competitionComplementAvg: !!competitionComplementAvg,
           hasPreviousHomeStats: !!previousHomeStats,
           hasPreviousAwayStats: !!previousAwayStats,
           // Nota: homeTeamStats/awayTeamStats não são afetados pela sincronização
@@ -187,6 +193,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
           competitionStandardForAvg: competitionStandardForAvg || undefined,
           homeHomeAwayData: homeHomeAwayData || undefined,
           awayHomeAwayData: awayHomeAwayData || undefined,
+          homeComplementData: homeComplementData || undefined,
+          awayComplementData: awayComplementData || undefined,
+          competitionComplementAvg: competitionComplementAvg || undefined,
           // Preencher automaticamente a média da competição calculada da tabela
           competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
           // homeTeamStats e awayTeamStats permanecem inalterados (inseridos manualmente)

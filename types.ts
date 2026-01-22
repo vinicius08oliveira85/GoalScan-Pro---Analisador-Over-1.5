@@ -143,6 +143,11 @@ export interface MatchData {
   // Tabela Home/Away (desempenho em casa vs fora)
   homeHomeAwayData?: TableRowHomeAway;
   awayHomeAwayData?: TableRowHomeAway;
+  
+  // Tabela de Complemento (dados detalhados: Playing Time, Performance, Per 90 Minutes)
+  homeComplementData?: TableRowComplement;
+  awayComplementData?: TableRowComplement;
+  competitionComplementAvg?: CompetitionComplementAverages;
 }
 
 export interface AnalysisResult {
@@ -447,6 +452,98 @@ export interface TableRowHomeAway {
   'Away GA': string; // Gols Contra Fora
   'Away GD': string; // Saldo de Gols Fora
   [key: string]: unknown; // Permitir campos adicionais
+}
+
+// Interface para linha da tabela de complemento (dados detalhados)
+// Baseado na estrutura do CSV Bundesliga Complemento.csv
+export interface TableRowComplement {
+  Squad: string; // Equipe (chave primária)
+  Pl?: string; // # of Players (Number of Players used in Games)
+  Age?: string; // Average Age (weighted by minutes played)
+  Poss?: string; // Possession (percentage of passes attempted)
+  
+  // Playing Time
+  'Playing Time MP'?: string; // Matches Played
+  'Playing Time Starts'?: string; // Game or games started
+  'Playing Time Min'?: string; // Minutes
+  'Playing Time 90s'?: string; // 90s Played (Minutes played divided by 90)
+  
+  // Performance
+  'Performance Gls'?: string; // Goals scored or allowed
+  'Performance Ast'?: string; // Assists
+  'Performance G+A'?: string; // Goals + Assists
+  'Performance G-PK'?: string; // Non-Penalty Goals
+  'Performance PK'?: string; // Penalty Kicks Made
+  'Performance PKatt'?: string; // Penalty Kicks Attempted
+  'Performance CrdY'?: string; // Yellow Cards
+  'Performance CrdR'?: string; // Red Cards
+  
+  // Per 90 Minutes
+  'Per 90 Minutes Gls'?: string; // Goals/90 (Goals Scored per 90 minutes)
+  'Per 90 Minutes Ast'?: string; // Assists/90 (Assists per 90 minutes)
+  'Per 90 Minutes G+A'?: string; // Goals + Assists/90
+  'Per 90 Minutes G-PK'?: string; // Non-Penalty Goals/90
+  'Per 90 Minutes G+A-PK'?: string; // Non-Penalty Goals + Assists/90
+  
+  // Permitir campos extras dinâmicos
+  [key: string]: unknown;
+}
+
+// Dados normalizados de complemento de um time do campeonato
+// Armazenado na tabela championship_complement
+export interface ChampionshipComplement {
+  squad: string; // Nome do time (chave primária junto com championship_id)
+  championship_id: string;
+  table_name: string; // Nome da tabela original (ex: Bundesliga Complemento.csv)
+  
+  // Campos básicos
+  pl?: string; // # of Players
+  age?: string; // Average Age
+  poss?: string; // Possession
+  
+  // Playing Time
+  playing_time_mp?: string;
+  playing_time_starts?: string;
+  playing_time_min?: string;
+  playing_time_90s?: string;
+  
+  // Performance
+  performance_gls?: string;
+  performance_ast?: string;
+  performance_g_a?: string;
+  performance_g_pk?: string;
+  performance_pk?: string;
+  performance_pkatt?: string;
+  performance_crdy?: string;
+  performance_crdr?: string;
+  
+  // Per 90 Minutes
+  per_90_gls?: string;
+  per_90_ast?: string;
+  per_90_g_a?: string;
+  per_90_g_pk?: string;
+  per_90_g_a_pk?: string;
+  
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Médias da competição calculadas a partir dos dados de complemento
+export interface CompetitionComplementAverages {
+  pl: number; // média de # of Players
+  age: number; // média de Average Age
+  poss: number; // média de Possession (%)
+  playingTimeMp: number; // média de Matches Played
+  playingTime90s: number; // média de 90s Played
+  performanceGls: number; // média de Goals
+  performanceAst: number; // média de Assists
+  performanceGA: number; // média de Goals + Assists
+  performanceGPK: number; // média de Non-Penalty Goals
+  per90Gls: number; // média de Goals/90
+  per90Ast: number; // média de Assists/90
+  per90GA: number; // média de Goals + Assists/90
+  per90GPK: number; // média de Non-Penalty Goals/90
+  per90GAPK: number; // média de Non-Penalty Goals + Assists/90
 }
 
 // Dados do campeonato
