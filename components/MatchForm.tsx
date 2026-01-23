@@ -7,6 +7,7 @@ import { animations } from '../utils/animations';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, ChampionshipTablesDiagnostic } from '../services/championshipService';
 import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet, Clipboard } from 'lucide-react';
 import FbrefExtractionModal from './FbrefExtractionModal';
 import { parseGlobalStatsExcel, isGlobalStatsFile } from '../utils/globalStatsParser';
 
@@ -64,6 +65,10 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const [showFbrefModal, setShowFbrefModal] = useState(false);
   const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [showPasteHome, setShowPasteHome] = useState(false);
+  const [showPasteAway, setShowPasteAway] = useState(false);
+  const [pasteTextHome, setPasteTextHome] = useState('');
+  const [pasteTextAway, setPasteTextAway] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -331,6 +336,75 @@ const MatchForm: React.FC<MatchFormProps> = ({
         [teamKey]: newStats,
       };
     });
+  };
+
+  const processPastedStats = (text: string, team: 'home' | 'away') => {
+    const lines = text.trim().split('\n');
+    if (lines.length < 1) return;
+
+    const newStats = {
+      home: createEmptyGols(),
+      away: createEmptyGols(),
+      global: createEmptyGols()
+    };
+    
+    let found = false;
+
+    const parseVal = (v: string) => {
+      if (!v) return 0;
+      return parseFloat(v.replace('%', '').replace(',', '.').trim()) || 0;
+    };
+
+    lines.forEach(line => {
+      // Tenta dividir por tabulação primeiro
+      let cols = line.trim().split(/\t/);
+      // Se não tiver colunas suficientes, tenta por múltiplos espaços
+      if (cols.length < 4) {
+        cols = line.trim().split(/\s{2,}/);
+      }
+      
+      if (cols.length >= 4) {
+        const label = cols[0].toLowerCase();
+        let field: keyof GolsStats | null = null;
+
+        if (label.includes('marcados por jogo')) field = 'avgScored';
+        else if (label.includes('sofridos por jogo')) field = 'avgConceded';
+        else if (label.includes('marcados+sofridos') || label.includes('marcados + sofridos')) field = 'avgTotal';
+        else if (label.includes('sem sofrer')) field = 'cleanSheetPct';
+        else if (label.includes('sem marcar')) field = 'noGoalsPct';
+        else if (label.includes('mais de 2,5')) field = 'over25Pct';
+        else if (label.includes('menos de 2,5')) field = 'under25Pct';
+
+        if (field) {
+          found = true;
+          // Index 1: Casa, Index 2: Fora, Index 3: Global
+          newStats.home[field] = parseVal(cols[1]);
+          newStats.away[field] = parseVal(cols[2]);
+          newStats.global[field] = parseVal(cols[3]);
+        }
+      }
+    });
+
+    if (found) {
+      setFormData(prev => {
+        const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
+        const emptyPercurso = {
+          winStreak: 0, drawStreak: 0, lossStreak: 0,
+          withoutWin: 0, withoutDraw: 0, withoutLoss: 0,
+        };
+        const currentStats = prev[teamKey] || { 
+          percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso }, 
+          gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() } 
+        };
+        
+        return { ...prev, [teamKey]: { ...currentStats, gols: newStats } };
+      });
+      
+      if (team === 'home') { setShowPasteHome(false); setPasteTextHome(''); }
+      else { setShowPasteAway(false); setPasteTextAway(''); }
+    } else {
+      alert('Nenhum dado reconhecido. Verifique o formato.');
+    }
   };
 
   // Handler para importar Estatísticas Globais do Excel
@@ -834,13 +908,38 @@ const MatchForm: React.FC<MatchFormProps> = ({
       {/* Estatísticas Globais - Time Casa */}
       <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10">
         <div className="flex items-center mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
               Estatísticas Globais - {formData.homeTeam || 'Time Casa'}
             </span>
             <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato. Insira manualmente os dados ou importe via Excel. Cada métrica mostra dados para Casa, Fora e Global." />
           </div>
+          <button
+            type="button"
+            onClick={() => setShowPasteHome(!showPasteHome)}
+            className="btn btn-xs btn-ghost gap-1 text-teal-600"
+          >
+            <Clipboard className="w-3 h-3" />
+            Colar Dados
+          </button>
         </div>
+
+        {showPasteHome && (
+          <div className="mb-4 p-3 bg-base-200 rounded-lg border border-base-300">
+            <p className="text-xs opacity-60 mb-2">Cole as estatísticas (Casa, Fora, Global) abaixo:</p>
+            <textarea
+              className="textarea textarea-bordered w-full text-xs font-mono min-h-[100px]"
+              placeholder={`Exemplo:\nMédia de gols marcados por jogo\t0.67\t1.1\t0.89\n...`}
+              value={pasteTextHome}
+              onChange={(e) => setPasteTextHome(e.target.value)}
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <button type="button" className="btn btn-xs" onClick={() => setShowPasteHome(false)}>Cancelar</button>
+              <button type="button" className="btn btn-xs btn-primary" onClick={() => processPastedStats(pasteTextHome, 'home')}>Processar</button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* Média Marcados */}
@@ -1337,7 +1436,31 @@ const MatchForm: React.FC<MatchFormProps> = ({
             </span>
             <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato. Insira manualmente os dados ou importe via Excel. Cada métrica mostra dados para Casa, Fora e Global." />
           </div>
+          <button
+            type="button"
+            onClick={() => setShowPasteAway(!showPasteAway)}
+            className="btn btn-xs btn-ghost gap-1 text-teal-600"
+          >
+            <Clipboard className="w-3 h-3" />
+            Colar Dados
+          </button>
         </div>
+
+        {showPasteAway && (
+          <div className="mb-4 p-3 bg-base-200 rounded-lg border border-base-300">
+            <p className="text-xs opacity-60 mb-2">Cole as estatísticas (Casa, Fora, Global) abaixo:</p>
+            <textarea
+              className="textarea textarea-bordered w-full text-xs font-mono min-h-[100px]"
+              placeholder={`Exemplo:\nMédia de gols marcados por jogo\t0.67\t1.1\t0.89\n...`}
+              value={pasteTextAway}
+              onChange={(e) => setPasteTextAway(e.target.value)}
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <button type="button" className="btn btn-xs" onClick={() => setShowPasteAway(false)}>Cancelar</button>
+              <button type="button" className="btn btn-xs btn-primary" onClick={() => processPastedStats(pasteTextAway, 'away')}>Processar</button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* Média Marcados */}
