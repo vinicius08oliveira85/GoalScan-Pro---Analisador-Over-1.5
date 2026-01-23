@@ -6,7 +6,6 @@ import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, ChampionshipTablesDiagnostic } from '../services/championshipService';
-import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet } from 'lucide-react';
 import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet, Clipboard } from 'lucide-react';
 import FbrefExtractionModal from './FbrefExtractionModal';
 import { parseGlobalStatsExcel, isGlobalStatsFile } from '../utils/globalStatsParser';
@@ -907,7 +906,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
       {/* Estatísticas Globais - Time Casa */}
       <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10">
-        <div className="flex items-center mb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
