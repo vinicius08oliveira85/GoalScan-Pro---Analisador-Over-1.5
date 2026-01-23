@@ -9,6 +9,7 @@ import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 import { parseComplementToJson, isComplementFile, validateComplementData } from '../utils/complementParser';
 import { saveChampionshipComplement } from '../services/championshipService';
 import { TableRowComplement } from '../types';
+import { ChampionshipTablePasteArea } from './ChampionshipTablePasteArea';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -130,6 +131,37 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
         [tableType]: errorMessage,
       }));
     }
+  };
+
+  const handleTableImport = (data: TableRowGeral[]) => {
+    const tableType: TableType = 'geral';
+    
+    if (tableFormat === 'auto' && data.length > 0) {
+      const detectedFormat = detectTableFormatFromData(data);
+      setTableFormat(detectedFormat);
+    }
+
+    const table: ChampionshipTable = {
+      id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
+      championship_id: championship?.id || '',
+      table_type: tableType,
+      table_name: 'Geral',
+      table_data: data,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    setTables((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(tableType, table);
+      return newMap;
+    });
+
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[tableType];
+      return newErrors;
+    });
   };
 
   const handleJsonPaste = (tableType: TableType, jsonText: string) => {
@@ -453,6 +485,13 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                     </label>
                   </div>
 
+                  {type === 'geral' && (
+                    <>
+                      <div className="divider">OU</div>
+                      <ChampionshipTablePasteArea onImport={handleTableImport} />
+                    </>
+                  )}
+
                   <div className="divider">OU</div>
 
                   <div className="form-control">
@@ -571,4 +610,3 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 };
 
 export default ChampionshipForm;
-
