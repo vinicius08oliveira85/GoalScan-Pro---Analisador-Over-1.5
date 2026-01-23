@@ -1288,10 +1288,9 @@ function calculateAdaptiveWeights(
 }
 
 /**
- * Normaliza dados de MatchData garantindo valores padrão seguros para campos opcionais
- * Previne erros com dados antigos ou incompletos
- */
- * Calcula score de completude das tabelas (0-1)
+ * Calcula score de completude das tabelas (0-1).
+ * Normaliza dados de MatchData garantindo valores padrão seguros para campos opcionais.
+ * Previne erros com dados antigos ou incompletos.
  */
 function calculateTableCompletenessScore(data: MatchData): {
   score: number;
