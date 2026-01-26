@@ -1,27 +1,27 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import MatchForm from './components/MatchForm';
-import StatusBadge from './components/StatusBadge.tsx';
-import BetConfirmationModal from './components/BetConfirmationModal.tsx';
+import StatusBadge from './components/StatusBadge';
+import BetConfirmationModal from './BetConfirmationModal';
 import InAppNotification from './components/InAppNotification';
-import ToastContainer from './components/ToastContainer.tsx';
+import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
 import TabNavigation, { TabType } from './components/TabNavigation';
 import DashboardScreen from './components/DashboardScreen';
-import MatchesScreen from './components/MatchesScreen.tsx';
+import MatchesScreen from './components/MatchesScreen';
 import ChampionshipsScreen from './components/ChampionshipsScreen';
 import BankScreen from './components/BankScreen';
 import SettingsScreen from './components/SettingsScreen';
 import ModalShell from './components/ui/ModalShell';
 import MatchResultAnalysisModal from './components/MatchResultAnalysisModal';
-import { useToast } from './hooks/useToast.tsx'; // Importar o hook useToast
+import { useToast } from './hooks/useToast'; // Importar o hook useToast
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
 import { Loader, Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
 
 // Lazy loading de componentes pesados para code splitting
-const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard.tsx'));
+const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 
 import { performAnalysis } from './services/analysisEngine';
 import {
