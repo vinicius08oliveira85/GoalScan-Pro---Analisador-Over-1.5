@@ -2,7 +2,7 @@ import React, { useState, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import MatchForm from './components/MatchForm';
 import StatusBadge from './components/StatusBadge';
-import BetConfirmationModal from './components/BetConfirmationModal';
+import BetConfirmationModal from './BetConfirmationModal';
 import InAppNotification from './components/InAppNotification';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
