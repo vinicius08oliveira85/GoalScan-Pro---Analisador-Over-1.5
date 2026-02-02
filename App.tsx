@@ -398,7 +398,8 @@ const App: React.FC = () => {
 
         // Salvar usando o hook
         const savedMatch = await saveMatch(updatedMatch);
-        setSelectedMatch(savedMatch);
+        // Garantir que o betInfo seja preservado no estado local mesmo se o retorno do banco for incompleto
+        setSelectedMatch({ ...savedMatch, betInfo });
         showSuccess('Aposta atualizada com sucesso!');
       } catch {
         showError('Erro ao salvar aposta. Tente novamente.');
@@ -415,7 +416,8 @@ const App: React.FC = () => {
         };
 
         const saved = await saveMatch(newMatch);
-        setSelectedMatch(saved); // Atualiza o estado para que a partida seja considerada "existente"
+        // Garantir que o betInfo seja preservado no estado local mesmo se o retorno do banco for incompleto
+        setSelectedMatch({ ...saved, betInfo });
         showSuccess('Aposta registrada e análise salva!');
       } catch {
         showError('Erro ao salvar aposta e análise. Tente novamente.');
