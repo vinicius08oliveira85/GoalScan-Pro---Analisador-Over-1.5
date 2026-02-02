@@ -243,8 +243,8 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
       timestamp: data.timestamp,
       data: data.match_data,
       result: data.analysis_result,
-      betInfo: data.bet_info || analysis.betInfo,
-      selectedBets: data.selected_bets || analysis.selectedBets,
+      betInfo: data.bet_info,
+      selectedBets: data.selected_bets,
     };
   } catch (error) {
     logger.error('Erro ao salvar análise:', error);
@@ -281,7 +281,7 @@ export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnal
       data: data.match_data,
       result: data.analysis_result,
       aiAnalysis: data.ai_analysis,
-      betInfo: data.bet_info || analysis.betInfo,
+      betInfo: data.bet_info,
     };
   } catch (error) {
     logger.error('Erro ao atualizar análise:', error);
@@ -380,8 +380,8 @@ export const saveOrUpdateAnalysis = async (
       timestamp: data.timestamp,
       data: data.match_data,
       result: data.analysis_result,
-      betInfo: data.bet_info || analysis.betInfo,
-      selectedBets: data.selected_bets || analysis.selectedBets,
+      betInfo: data.bet_info,
+      selectedBets: data.selected_bets,
     };
   } catch (error) {
     // Se é erro temporário, retornar análise mesmo sem salvar no Supabase
