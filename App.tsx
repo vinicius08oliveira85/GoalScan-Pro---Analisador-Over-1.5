@@ -379,18 +379,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSaveBetInfo = async (betInfo: BetInfo, providedOldBetInfo?: BetInfo) => {
+  const handleSaveBetInfo = async (betInfo: BetInfo) => {
     // Proteção contra múltiplos cliques simultâneos
-    if (isUpdatingBetStatus && !providedOldBetInfo) {
+    if (isUpdatingBetStatus) {
       return;
     }
 
-    // Atualizar banca usando a nova função dedicada
-    // Usa providedOldBetInfo se existir, senão usa o da partida selecionada
-    await updateBankFromBetChange(betInfo, providedOldBetInfo || selectedMatch?.betInfo);
+    setIsUpdatingBetStatus(true);
+    try {
+      // Atualizar banca usando a nova função dedicada
+      await updateBankFromBetChange(betInfo, selectedMatch?.betInfo);
 
-    if (selectedMatch && currentMatchData && analysisResult) {
-      try {
+      if (selectedMatch && currentMatchData && analysisResult) {
         const updatedMatch: SavedAnalysis = {
           ...selectedMatch,
           data: currentMatchData,
@@ -404,12 +404,8 @@ const App: React.FC = () => {
         // Garantir que o betInfo seja preservado no estado local mesmo se o retorno do banco for incompleto
         setSelectedMatch({ ...savedMatch, betInfo });
         showSuccess('Aposta atualizada com sucesso!');
-      } catch {
-        showError('Erro ao salvar aposta. Tente novamente.');
-      }
-    } else if (currentMatchData && analysisResult) {
-      // Se não há partida salva ainda, cria uma nova e salva a aposta para garantir consistência com a banca.
-      try {
+      } else if (currentMatchData && analysisResult) {
+        // Se não há partida salva ainda, cria uma nova e salva a aposta para garantir consistência com a banca.
         const newMatch: SavedAnalysis = {
           id: Math.random().toString(36).slice(2, 11),
           timestamp: Date.now(),
@@ -422,9 +418,14 @@ const App: React.FC = () => {
         // Garantir que o betInfo seja preservado no estado local mesmo se o retorno do banco for incompleto
         setSelectedMatch({ ...saved, betInfo });
         showSuccess('Aposta registrada e análise salva!');
-      } catch {
-        showError('Erro ao salvar aposta e análise. Tente novamente.');
       }
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        logger.error('Erro em handleSaveBetInfo:', err);
+      }
+      showError('Erro ao salvar aposta. Tente novamente.');
+    } finally {
+      setIsUpdatingBetStatus(false);
     }
   };
 
