@@ -1,8 +1,6 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import MatchForm from './components/MatchForm';
-import StatusBadge from './components/StatusBadge';
-import BetConfirmationModal from './BetConfirmationModal';
 import InAppNotification from './components/InAppNotification';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
@@ -14,7 +12,7 @@ import BankScreen from './components/BankScreen';
 import SettingsScreen from './components/SettingsScreen';
 import ModalShell from './components/ui/ModalShell';
 import MatchResultAnalysisModal from './components/MatchResultAnalysisModal';
-import { useToast } from './hooks/useToast'; // Importar o hook useToast
+import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
@@ -39,7 +37,7 @@ import { logger } from './utils/logger';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
 
 const App: React.FC = () => {
-  const { toasts, removeToast, error: showError, success: showSuccess, addToast } = useToast(); // Usar o hook useToast
+  const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
   const {
     savedMatches,
     isLoading,
@@ -62,9 +60,6 @@ const App: React.FC = () => {
   const [showResultAnalysisModal, setShowResultAnalysisModal] = useState<boolean>(false);
   const [matchForAnalysis, setMatchForAnalysis] = useState<SavedAnalysis | null>(null);
   const [webSearchResults, setWebSearchResults] = useState<Array<{ content?: string; snippet?: string; url?: string }>>([]);
-
-  const [showBetConfirmModal, setShowBetConfirmModal] = useState<boolean>(false);
-  const [betInfoToConfirm, setBetInfoToConfirm] = useState<BetInfo | null>(null);
 
   // Funções de Navegação
   const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
@@ -210,7 +205,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateBetStatus = async (match: SavedAnalysis, status: 'won' | 'lost' | 'pending', isUndo: boolean = false) => {
+  const handleUpdateBetStatus = async (match: SavedAnalysis, status: 'won' | 'lost') => {
     if (!match.betInfo || match.betInfo.betAmount === 0) {
       showError('Esta partida não possui aposta registrada.');
       return;
@@ -229,7 +224,7 @@ const App: React.FC = () => {
     try {
       setIsUpdatingBetStatus(true);
 
-      const oldBetInfo = { ...match.betInfo }; // Criar uma cópia para garantir a imutabilidade
+      const oldBetInfo = match.betInfo;
       const updatedBetInfo: BetInfo = {
         ...oldBetInfo,
         status,
@@ -251,54 +246,18 @@ const App: React.FC = () => {
         if (!analysisResult) setAnalysisResult(match.result);
       }
 
-      // A lógica da banca e salvamento da aposta é tratada aqui
+      // Passar o oldBetInfo correto para handleSaveBetInfo
       await handleSaveBetInfo(updatedBetInfo, oldBetInfo);
 
       // Salvar a partida atualizada
       await saveMatch(updatedMatch);
 
-      if (isUndo) {
-        showSuccess('Ação desfeita!');
-      } else {
-        const originalStatus = oldBetInfo.status;
-        showSuccess(`Aposta marcada como ${status === 'won' ? 'ganha' : 'perdida'}!`, {
-          label: 'Desfazer',
-          onClick: () => {
-            // Ao clicar em desfazer, reverter para o status original
-            handleUpdateBetStatus(updatedMatch, originalStatus, true);
-          },
-        });
-      }
+      showSuccess(`Aposta marcada como ${status === 'won' ? 'ganha' : 'perdida'}!`);
     } catch {
-      // O erro já é tratado pelo hook useToast, não precisa de ação de desfazer aqui
-      // pois a operação falhou e nada foi alterado.
       showError('Erro ao atualizar status da aposta. Tente novamente.');
     } finally {
       setIsUpdatingBetStatus(false);
     }
-  };
-
-  const handleRequestBetSave = (betInfo: BetInfo) => {
-    // Para apostas de valor 0 (remover aposta), não mostrar modal
-    if (betInfo.betAmount > 0) {
-      setBetInfoToConfirm(betInfo);
-      setShowBetConfirmModal(true);
-    } else {
-      handleSaveBetInfo(betInfo);
-    }
-  };
-
-  const handleConfirmBetSave = async () => {
-    if (betInfoToConfirm) {
-      await handleSaveBetInfo(betInfoToConfirm);
-    }
-    setShowBetConfirmModal(false);
-    setBetInfoToConfirm(null);
-  };
-
-  const handleCancelBetSave = () => {
-    setShowBetConfirmModal(false);
-    setBetInfoToConfirm(null);
   };
 
   const handleSaveBetInfo = async (betInfo: BetInfo, providedOldBetInfo?: BetInfo) => {
@@ -398,30 +357,22 @@ const App: React.FC = () => {
 
         // Salvar usando o hook
         const savedMatch = await saveMatch(updatedMatch);
-        // Garantir que o betInfo seja preservado no estado local mesmo se o retorno do banco for incompleto
-        setSelectedMatch({ ...savedMatch, betInfo });
+        setSelectedMatch(savedMatch);
         showSuccess('Aposta atualizada com sucesso!');
       } catch {
         showError('Erro ao salvar aposta. Tente novamente.');
       }
     } else if (currentMatchData && analysisResult) {
-      // Se não há partida salva ainda, cria uma nova e salva a aposta para garantir consistência com a banca.
-      try {
-        const newMatch: SavedAnalysis = {
-          id: Math.random().toString(36).slice(2, 11),
-          timestamp: Date.now(),
-          data: currentMatchData,
-          result: analysisResult,
-          betInfo,
-        };
-
-        const saved = await saveMatch(newMatch);
-        // Garantir que o betInfo seja preservado no estado local mesmo se o retorno do banco for incompleto
-        setSelectedMatch({ ...saved, betInfo });
-        showSuccess('Aposta registrada e análise salva!');
-      } catch {
-        showError('Erro ao salvar aposta e análise. Tente novamente.');
-      }
+      // Se não há partida salva ainda, apenas atualizar o estado local
+      // A aposta será salva quando o usuário salvar a partida
+      const tempMatch: SavedAnalysis = {
+        id: selectedMatch?.id || Math.random().toString(36).slice(2, 11),
+        timestamp: selectedMatch?.timestamp || Date.now(),
+        data: currentMatchData,
+        result: analysisResult,
+        betInfo,
+      };
+      setSelectedMatch(tempMatch);
     }
   };
 
@@ -634,7 +585,7 @@ const App: React.FC = () => {
       />
 
       {/* Toast Notifications */}
-      <ToastContainer toasts={toasts} removeToast={removeToast} /> {/* Renderizar ToastContainer */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
 
       {/* Notificações In-App */}
       <div className="fixed top-20 left-4 right-4 md:left-auto md:right-4 md:w-96 z-[100] space-y-3 pointer-events-none">
@@ -731,7 +682,6 @@ const App: React.FC = () => {
                 onAnalyzeResult={handleOpenResultAnalysis}
                 isLoading={isLoading}
                 isUpdatingBetStatus={isUpdatingBetStatus}
-                bankSettings={bankSettings}
               />
             </motion.div>
           )}
@@ -855,7 +805,7 @@ const App: React.FC = () => {
                     betInfo={selectedMatch?.betInfo}
                     bankSettings={bankSettings}
                     savedMatches={savedMatches}
-                    onBetSave={handleRequestBetSave}
+                    onBetSave={handleSaveBetInfo}
                     onError={showError}
                     isUpdatingBetStatus={isUpdatingBetStatus}
                     onOddChange={handleOddChange}
@@ -902,19 +852,6 @@ const App: React.FC = () => {
         onAnalyze={handleAnalyzeMatchResult}
         webSearch={handleWebSearch}
       />
-
-      {/* Modal de Confirmação de Aposta */}
-      {currentMatchData && (
-        <BetConfirmationModal
-          isOpen={showBetConfirmModal}
-          onClose={handleCancelBetSave}
-          onConfirm={handleConfirmBetSave}
-          matchTitle={`${currentMatchData.homeTeam} vs ${currentMatchData.awayTeam}`}
-          betAmount={betInfoToConfirm?.betAmount || 0}
-          odd={betInfoToConfirm?.odd || 0}
-          currency={bankSettings?.currency}
-        />
-      )}
     </div>
   );
 };
