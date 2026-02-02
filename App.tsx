@@ -404,16 +404,22 @@ const App: React.FC = () => {
         showError('Erro ao salvar aposta. Tente novamente.');
       }
     } else if (currentMatchData && analysisResult) {
-      // Se não há partida salva ainda, apenas atualizar o estado local
-      // A aposta será salva quando o usuário salvar a partida
-      const tempMatch: SavedAnalysis = {
-        id: selectedMatch?.id || Math.random().toString(36).slice(2, 11),
-        timestamp: selectedMatch?.timestamp || Date.now(),
-        data: currentMatchData,
-        result: analysisResult,
-        betInfo,
-      };
-      setSelectedMatch(tempMatch);
+      // Se não há partida salva ainda, cria uma nova e salva a aposta para garantir consistência com a banca.
+      try {
+        const newMatch: SavedAnalysis = {
+          id: Math.random().toString(36).slice(2, 11),
+          timestamp: Date.now(),
+          data: currentMatchData,
+          result: analysisResult,
+          betInfo,
+        };
+
+        const saved = await saveMatch(newMatch);
+        setSelectedMatch(saved); // Atualiza o estado para que a partida seja considerada "existente"
+        showSuccess('Aposta registrada e análise salva!');
+      } catch {
+        showError('Erro ao salvar aposta e análise. Tente novamente.');
+      }
     }
   };
 
