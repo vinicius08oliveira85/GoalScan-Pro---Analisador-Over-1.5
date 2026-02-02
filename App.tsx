@@ -251,10 +251,8 @@ const App: React.FC = () => {
         if (!analysisResult) setAnalysisResult(match.result);
       }
 
-      // A lógica da banca e salvamento da aposta é tratada aqui
-      await handleSaveBetInfo(updatedBetInfo, oldBetInfo);
-
-      // Salvar a partida atualizada
+      // Atualizar banca e salvar partida diretamente para evitar conflitos
+      await updateBankFromBetChange(updatedBetInfo, oldBetInfo);
       await saveMatch(updatedMatch);
 
       if (isUndo) {
@@ -301,17 +299,11 @@ const App: React.FC = () => {
     setBetInfoToConfirm(null);
   };
 
-  const handleSaveBetInfo = async (betInfo: BetInfo, providedOldBetInfo?: BetInfo) => {
-    // Proteção contra múltiplos cliques simultâneos (apenas se não veio de handleUpdateBetStatus)
-    // Se veio de handleUpdateBetStatus, a proteção já está lá
-    if (isUpdatingBetStatus && !providedOldBetInfo) {
-      return; // Já está processando outra atualização e não veio de handleUpdateBetStatus
-    }
-
+  const updateBankFromBetChange = async (betInfo: BetInfo, oldBetInfo?: BetInfo) => {
     // Atualizar banca se há banca configurada
     if (bankSettings) {
-      // Usar oldBetInfo fornecido (de handleUpdateBetStatus) ou do selectedMatch
-      const oldBetInfo = providedOldBetInfo || selectedMatch?.betInfo;
+      // Usar oldBetInfo fornecido ou undefined (nova aposta)
+      // const oldBetInfo = providedOldBetInfo || selectedMatch?.betInfo; // Removido pois oldBetInfo já vem como argumento
       const isNewBet = !oldBetInfo || oldBetInfo.betAmount === 0;
       const isRemovingBet = betInfo.betAmount === 0 || betInfo.status === 'cancelled';
 
@@ -385,6 +377,17 @@ const App: React.FC = () => {
         betInfo.resultAt = Date.now();
       }
     }
+  };
+
+  const handleSaveBetInfo = async (betInfo: BetInfo, providedOldBetInfo?: BetInfo) => {
+    // Proteção contra múltiplos cliques simultâneos
+    if (isUpdatingBetStatus && !providedOldBetInfo) {
+      return;
+    }
+
+    // Atualizar banca usando a nova função dedicada
+    // Usa providedOldBetInfo se existir, senão usa o da partida selecionada
+    await updateBankFromBetChange(betInfo, providedOldBetInfo || selectedMatch?.betInfo);
 
     if (selectedMatch && currentMatchData && analysisResult) {
       try {
