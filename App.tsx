@@ -917,6 +917,7 @@ const App: React.FC = () => {
           betAmount={betInfoToConfirm?.betAmount || 0}
           odd={betInfoToConfirm?.odd || 0}
           currency={bankSettings?.currency}
+          isSaving={isUpdatingBetStatus}
         />
       )}
     </div>
