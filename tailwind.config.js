@@ -20,10 +20,10 @@ export default {
           "primary": "#6366f1",
           "secondary": "#a78bfa",
           "accent": "#ec4899",
-          "neutral": "#e5e7eb",
+          "neutral": "#1f2937",
           "base-100": "#ffffff",
-          "base-200": "#f9fafb",
-          "base-300": "#f3f4f6",
+          "base-200": "#f3f4f6",
+          "base-300": "#e5e7eb",
           "info": "#3abff8",
           "success": "#36d399",
           "warning": "#fbbd23",
@@ -87,4 +87,4 @@ export default {
     logs: true,
     themeRoot: ':root',
   },
-};
+}
