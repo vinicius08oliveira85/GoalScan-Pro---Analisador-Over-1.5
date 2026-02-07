@@ -17,38 +17,38 @@ export default {
     themes: [
       {
         goalscan_glass: {
-          // Base surfaces (Glass Modern controlado)
-          'base-100': 'oklch(18% 0.03 229.695)',
-          'base-200': 'oklch(22% 0.035 227.392)',
-          'base-300': 'oklch(28% 0.04 224.283)',
-          'base-content': 'oklch(95% 0.045 203.388)',
+          // Base surfaces: A bit lighter and less saturated for reduced eye strain
+          'base-100': 'oklch(25% 0.02 230)',
+          'base-200': 'oklch(30% 0.025 230)',
+          'base-300': 'oklch(35% 0.03 230)',
+          'base-content': 'oklch(90% 0.02 230)', // Softer text color
 
-          // Brand
-          primary: 'oklch(44% 0.043 257.281)',
-          'primary-content': 'oklch(98% 0.003 247.858)',
-          secondary: 'oklch(55% 0.288 302.321)',
-          'secondary-content': 'oklch(97% 0.014 308.299)',
-          accent: 'oklch(55% 0.288 302.321)',
-          'accent-content': 'oklch(97% 0.014 308.299)',
+          // Brand: Adjusted for better harmony
+          primary: 'oklch(50% 0.15 260)', // A solid, pleasing purple
+          'primary-content': 'oklch(98% 0.01 260)',
+          secondary: 'oklch(65% 0.15 190)', // A calming teal instead of magenta
+          'secondary-content': 'oklch(98% 0.01 190)',
+          accent: 'oklch(70% 0.15 80)', // A soft, warm gold for accents
+          'accent-content': 'oklch(98% 0.01 80)',
 
-          // Neutral
-          neutral: 'oklch(24% 0.03 229.695)',
-          'neutral-content': 'oklch(98% 0.019 200.873)',
+          // Neutral: Aligned with the new base colors
+          neutral: 'oklch(30% 0.02 230)',
+          'neutral-content': 'oklch(90% 0.02 230)',
 
-          // Semantic
-          info: 'oklch(68% 0.169 237.323)',
-          'info-content': 'oklch(97% 0.013 236.62)',
-          success: 'oklch(70% 0.14 182.503)',
-          'success-content': 'oklch(98% 0.014 180.72)',
-          warning: 'oklch(70% 0.213 47.604)',
-          'warning-content': 'oklch(98% 0.016 73.684)',
-          error: 'oklch(64% 0.246 16.439)',
-          'error-content': 'oklch(96% 0.015 12.422)',
+          // Semantic: Toned down for less glare
+          info: 'oklch(70% 0.15 240)',
+          'info-content': 'oklch(98% 0.01 240)',
+          success: 'oklch(65% 0.18 160)',
+          'success-content': 'oklch(98% 0.01 160)',
+          warning: 'oklch(75% 0.2 90)',
+          'warning-content': 'oklch(98% 0.01 90)',
+          error: 'oklch(65% 0.25 25)',
+          'error-content': 'oklch(98% 0.01 25)',
 
           // Shape & borders
-          '--rounded-box': '2rem',
-          '--rounded-btn': '2rem',
-          '--rounded-badge': '2rem',
+          '--rounded-box': '1rem', // Slightly reduced rounding for a cleaner look
+          '--rounded-btn': '0.5rem',
+          '--rounded-badge': '1.9rem',
           '--border-btn': '1px',
           '--tab-border': '1px',
         },

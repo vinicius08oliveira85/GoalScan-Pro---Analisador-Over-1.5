@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -48,19 +49,23 @@ import {
   getChartAxisTick,
 } from '../utils/chartTheme';
 import SectionHeader from './ui/SectionHeader';
+import DashboardLoadingSkeleton from './DashboardLoadingSkeleton';
 
 interface DashboardScreenProps {
   savedMatches: SavedAnalysis[];
   bankSettings?: BankSettings;
   onMatchClick?: (match: SavedAnalysis) => void;
+  isLoading: boolean; // Adicionado para controlar o estado de carregamento
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({
   savedMatches,
   bankSettings,
   onMatchClick,
+  isLoading,
 }) => {
   const windowSize = useWindowSize();
+
   const stats = useMemo(
     () => calculateDashboardStats(savedMatches, bankSettings),
     [savedMatches, bankSettings]
@@ -74,26 +79,27 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     [savedMatches]
   );
 
-  // Partidas recentes (últimas 10)
   const recentMatches = useMemo(() => {
     return [...savedMatches].sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
   }, [savedMatches]);
 
-  // Cores consistentes (alinhadas ao design system)
+  if (isLoading) {
+    return <DashboardLoadingSkeleton />;
+  }
+
+  // Cores consistentes
   const CHART_COLORS = {
     won: chartColors.won,
     lost: chartColors.lost,
     pending: chartColors.pending,
   };
 
-  // Mapear dados para cores
   const getColorForCategory = (name: string): string => {
     if (name.toLowerCase().includes('ganha')) return CHART_COLORS.won;
     if (name.toLowerCase().includes('perdida')) return CHART_COLORS.lost;
     return CHART_COLORS.pending;
   };
 
-  // Calcular total para percentuais
   const totalBets = resultDistributionData.reduce((sum, item) => sum + item.value, 0);
 
   const statCards = [
@@ -165,482 +171,480 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   return (
     <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
-      {/* Grid de Estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
-        {statCards.map((card, index) => {
-          const Icon = card.icon;
-          const tone = getTone(card.color);
-          const toneClass = toneClasses[tone];
-          return (
+      {savedMatches.length > 0 ? (
+        <>
+          {/* Grid de Estatísticas */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
+            {statCards.map((card, index) => {
+              const Icon = card.icon;
+              const tone = getTone(card.color);
+              const toneClass = toneClasses[tone];
+              return (
+                <motion.div
+                  key={card.title}
+                  variants={animations.fadeInUp}
+                  initial="initial"
+                  animate="animate"
+                  custom={index}
+                  className="custom-card p-4 md:p-6"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div
+                      className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}
+                    >
+                      <Icon className={cn('w-5 h-5 md:w-6 md:h-6', toneClass.text)} />
+                    </div>
+                    {card.title === 'Lucro Total' && (
+                      <div>
+                        {stats.totalProfit > 0 ? (
+                          <ArrowUpRight className="w-4 h-4 text-success" />
+                        ) : stats.totalProfit < 0 ? (
+                          <ArrowDownRight className="w-4 h-4 text-error" />
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs md:text-sm font-semibold opacity-70 uppercase tracking-wide mb-1.5 leading-tight">
+                      {card.title}
+                    </p>
+                    <p
+                      className={`text-2xl md:text-3xl font-black leading-none ${
+                        card.color === 'success'
+                          ? 'text-success'
+                          : card.color === 'error'
+                            ? 'text-error'
+                            : 'text-primary'
+                      }`}
+                    >
+                      {card.value}
+                    </p>
+                    <p className="text-xs opacity-60 mt-1.5 leading-relaxed">{card.subtitle}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+            {bankEvolutionData.length > 0 && (
+              <motion.div
+                variants={animations.fadeInUp}
+                initial="initial"
+                animate="animate"
+                className="custom-card p-4 md:p-6"
+              >
+                <SectionHeader
+                  className="mb-4"
+                  title="Evolução da Banca"
+                  subtitle="Cash (disponível) e Equity (cash + pendentes) ao longo do tempo"
+                />
+                <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
+                  <AreaChart
+                    data={bankEvolutionData}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+                  >
+                    <defs>
+                      <linearGradient id="bankEquityGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={chartColors.equity} stopOpacity={0.18} />
+                        <stop offset="95%" stopColor={chartColors.equity} stopOpacity={0} />
+                      </linearGradient>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                        <feMerge>
+                          <feMergeNode in="coloredBlur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                    </defs>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis
+                      dataKey="date"
+                      tick={getChartAxisTick(windowSize.isMobile)}
+                      tickLine={chartAxisTickLine}
+                    />
+                    <YAxis
+                      tick={getChartAxisTick(windowSize.isMobile)}
+                      tickLine={chartAxisTickLine}
+                      tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const p = payload[0].payload as {
+                            date: string;
+                            timestamp: number;
+                            cash: number;
+                            equity: number;
+                          };
+                          const currentIndex = bankEvolutionData.findIndex(
+                            (d) => d.timestamp === p.timestamp
+                          );
+                          const previousValue =
+                            currentIndex > 0 ? bankEvolutionData[currentIndex - 1] : null;
+
+                          const cashChange =
+                            previousValue !== null ? p.cash - previousValue.cash : null;
+                          const equityChange =
+                            previousValue !== null ? p.equity - previousValue.equity : null;
+
+                          return (
+                            <div className={chartTooltipClassName}>
+                              <div className="mb-2">
+                                <p className="text-xs opacity-70 mb-1">{p.date}</p>
+                                <div className="flex items-baseline gap-2">
+                                  <p className="text-2xl font-black text-primary">R$ {p.cash.toFixed(2)}</p>
+                                  {cashChange !== null && (
+                                    <span
+                                      className={`text-sm font-bold flex items-center gap-1 ${
+                                        cashChange > 0
+                                          ? 'text-success'
+                                          : cashChange < 0
+                                            ? 'text-error'
+                                            : ''
+                                      }`}
+                                    >
+                                      {cashChange > 0 ? (
+                                        <TrendingUp className="w-3 h-3" />
+                                      ) : cashChange < 0 ? (
+                                        <ArrowDownRight className="w-3 h-3" />
+                                      ) : null}
+                                      {cashChange > 0 ? '+' : ''}
+                                      {cashChange.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs opacity-80">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="opacity-70">Equity</span>
+                                    <span className="font-bold">R$ {p.equity.toFixed(2)}</span>
+                                  </div>
+                                  {equityChange !== null && (
+                                    <div className="flex items-center justify-between gap-3 mt-1">
+                                      <span className="opacity-70">Δ</span>
+                                      <span
+                                        className={`font-bold ${
+                                          equityChange > 0
+                                            ? 'text-success'
+                                            : equityChange < 0
+                                              ? 'text-error'
+                                              : ''
+                                        }`}
+                                      >
+                                        {equityChange > 0 ? '+' : ''}
+                                        {equityChange.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="equity"
+                      stroke={chartColors.equity}
+                      strokeWidth={2}
+                      fill="url(#bankEquityGradient)"
+                      fillOpacity={1}
+                      animationBegin={0}
+                      animationDuration={1000}
+                      animationEasing="ease-in-out"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="cash"
+                      stroke={chartColors.cash}
+                      strokeWidth={3}
+                      dot={{
+                        fill: chartColors.cash,
+                        strokeWidth: 2,
+                        stroke: chartColors.text,
+                        r: windowSize.isMobile ? 4 : 5,
+                        filter: 'url(#glow)',
+                      }}
+                      activeDot={{
+                        r: windowSize.isMobile ? 7 : 8,
+                        stroke: chartColors.text,
+                        strokeWidth: 2,
+                        filter: 'url(#glow)',
+                      }}
+                      animationBegin={0}
+                      animationDuration={1000}
+                      animationEasing="ease-in-out"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </motion.div>
+            )}
+
+            {resultDistributionData.some((d) => d.value > 0) && (
+              <motion.div
+                variants={animations.fadeInUp}
+                initial="initial"
+                animate="animate"
+                className="custom-card p-4 md:p-6"
+              >
+                <SectionHeader
+                  className="mb-4"
+                  title="Distribuição de Resultados"
+                  subtitle="Breakdown das apostas"
+                />
+                <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
+                  <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 300}>
+                    <PieChart>
+                      <defs>
+                        <filter id="shadow">
+                          <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
+                        </filter>
+                      </defs>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0];
+                            const percentage =
+                              totalBets > 0
+                                ? (((data.value as number) / totalBets) * 100).toFixed(1)
+                                : '0';
+                            const color = getColorForCategory(data.name as string);
+                            const icon =
+                              data.name === 'Ganhas'
+                                ? CheckCircle
+                                : data.name === 'Perdidas'
+                                  ? XCircle
+                                  : Clock;
+                            const Icon = icon;
+
+                            return (
+                              <div className={chartTooltipCompactClassName}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div
+                                    className="w-4 h-4 rounded-full"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span className="font-bold text-sm">{data.name}</span>
+                                </div>
+                                <div className="space-y-1">
+                                  <div className="flex items-baseline gap-2">
+                                    <Icon className="w-4 h-4" style={{ color }} />
+                                    <p className="text-2xl font-black" style={{ color }}>
+                                      {data.value}
+                                    </p>
+                                  </div>
+                                  <p className="text-xs opacity-70">{percentage}% do total</p>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Pie
+                        data={resultDistributionData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={windowSize.isMobile ? 50 : 70}
+                        outerRadius={windowSize.isMobile ? 90 : 110}
+                        paddingAngle={6}
+                        dataKey="value"
+                        animationBegin={0}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      >
+                        {resultDistributionData.map((entry, index) => {
+                          const color = getColorForCategory(entry.name);
+                          return (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={color}
+                              style={{
+                                filter: 'url(#shadow)',
+                                transition: 'opacity 0.2s',
+                                cursor: 'pointer',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.opacity = '0.8';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.opacity = '1';
+                              }}
+                            />
+                          );
+                        })}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-4 w-full md:w-auto">
+                    {resultDistributionData.map((item) => {
+                      const color = getColorForCategory(item.name);
+                      const percentage =
+                        totalBets > 0 ? ((item.value / totalBets) * 100).toFixed(1) : '0';
+                      const icon =
+                        item.name === 'Ganhas'
+                          ? CheckCircle
+                          : item.name === 'Perdidas'
+                            ? XCircle
+                            : Clock;
+                      const Icon = icon;
+
+                      return (
+                        <div
+                          key={item.name}
+                          className="flex items-center gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors"
+                        >
+                          <div
+                            className="w-5 h-5 rounded-full shadow-md flex-shrink-0"
+                            style={{ backgroundColor: color }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-4 h-4" style={{ color }} />
+                              <span className="text-sm md:text-base font-bold">{item.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-lg font-black" style={{ color }}>
+                                {item.value}
+                              </span>
+                              <span className="text-xs opacity-60">({percentage}%)</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Tabela de Partidas Recentes */}
+          {recentMatches.length > 0 && (
             <motion.div
-              key={card.title}
               variants={animations.fadeInUp}
               initial="initial"
               animate="animate"
-              custom={index}
               className="custom-card p-4 md:p-6"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}
-                >
-                  <Icon className={cn('w-5 h-5 md:w-6 md:h-6', toneClass.text)} />
-                </div>
-                {card.title === 'Lucro Total' && (
-                  <div>
-                    {stats.totalProfit > 0 ? (
-                      <ArrowUpRight className="w-4 h-4 text-success" />
-                    ) : stats.totalProfit < 0 ? (
-                      <ArrowDownRight className="w-4 h-4 text-error" />
-                    ) : null}
-                  </div>
-                )}
+              <div className="mb-4">
+                <h3 className="text-lg md:text-xl font-black mb-1">Partidas Recentes</h3>
+                <p className="text-xs md:text-sm opacity-60">Suas últimas análises</p>
               </div>
-              <div>
-                <p className="text-xs md:text-sm font-semibold opacity-70 uppercase tracking-wide mb-1.5 leading-tight">
-                  {card.title}
-                </p>
-                <p
-                  className={`text-2xl md:text-3xl font-black leading-none ${
-                    card.color === 'success'
-                      ? 'text-success'
-                      : card.color === 'error'
-                        ? 'text-error'
-                        : 'text-primary'
-                  }`}
-                >
-                  {card.value}
-                </p>
-                <p className="text-xs opacity-60 mt-1.5 leading-relaxed">{card.subtitle}</p>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-base-300/50">
+                      <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                        Partida
+                      </th>
+                      <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                        Odd
+                      </th>
+                      <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                        EV
+                      </th>
+                      <th className="text-center py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                        Status
+                      </th>
+                      <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                        Lucro/Prejuízo
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentMatches.map((match) => {
+                      const hasBet = match.betInfo && match.betInfo.betAmount > 0;
+                      const profit =
+                        hasBet && match.betInfo?.status === 'won'
+                          ? match.betInfo.potentialProfit
+                          : hasBet && match.betInfo?.status === 'lost'
+                            ? -match.betInfo.betAmount
+                            : 0;
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-        {/* Evolução da Banca */}
-        {bankEvolutionData.length > 0 && (
-          <motion.div
-            variants={animations.fadeInUp}
-            initial="initial"
-            animate="animate"
-            className="custom-card p-4 md:p-6"
-          >
-            <SectionHeader
-              className="mb-4"
-              title="Evolução da Banca"
-              subtitle="Cash (disponível) e Equity (cash + pendentes) ao longo do tempo"
-            />
-            <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
-              <AreaChart
-                data={bankEvolutionData}
-                margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
-              >
-                <defs>
-                  <linearGradient id="bankEquityGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={chartColors.equity} stopOpacity={0.18} />
-                    <stop offset="95%" stopColor={chartColors.equity} stopOpacity={0} />
-                  </linearGradient>
-                  <filter id="glow">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                    <feMerge>
-                      <feMergeNode in="coloredBlur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
-                </defs>
-                <CartesianGrid {...chartGridProps} />
-                <XAxis
-                  dataKey="date"
-                  tick={getChartAxisTick(windowSize.isMobile)}
-                  tickLine={chartAxisTickLine}
-                />
-                <YAxis
-                  tick={getChartAxisTick(windowSize.isMobile)}
-                  tickLine={chartAxisTickLine}
-                  tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const p = payload[0].payload as {
-                        date: string;
-                        timestamp: number;
-                        cash: number;
-                        equity: number;
-                      };
-                      const currentIndex = bankEvolutionData.findIndex(
-                        (d) => d.timestamp === p.timestamp
-                      );
-                      const previousValue =
-                        currentIndex > 0 ? bankEvolutionData[currentIndex - 1] : null;
-
-                      const cashChange =
-                        previousValue !== null ? p.cash - previousValue.cash : null;
-                      const equityChange =
-                        previousValue !== null ? p.equity - previousValue.equity : null;
+                      const probability = getDisplayProbability(match);
+                      const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
+                        ? ((probability / 100) * match.data.oddOver15 - 1) * 100
+                        : match.result.ev;
 
                       return (
-                        <div className={chartTooltipClassName}>
-                          <div className="mb-2">
-                            <p className="text-xs opacity-70 mb-1">{p.date}</p>
-                            <div className="flex items-baseline gap-2">
-                              <p className="text-2xl font-black text-primary">R$ {p.cash.toFixed(2)}</p>
-                              {cashChange !== null && (
-                                <span
-                                  className={`text-sm font-bold flex items-center gap-1 ${
-                                    cashChange > 0
-                                      ? 'text-success'
-                                      : cashChange < 0
-                                        ? 'text-error'
-                                        : ''
-                                  }`}
-                                >
-                                  {cashChange > 0 ? (
-                                    <TrendingUp className="w-3 h-3" />
-                                  ) : cashChange < 0 ? (
-                                    <ArrowDownRight className="w-3 h-3" />
-                                  ) : null}
-                                  {cashChange > 0 ? '+' : ''}
-                                  {cashChange.toFixed(2)}
-                                </span>
-                              )}
+                        <tr
+                          key={match.id}
+                          onClick={() => onMatchClick?.(match)}
+                          className="border-b border-base-300/50 hover:bg-base-200/50 transition-colors duration-200 cursor-pointer"
+                        >
+                          <td className="py-3 px-3 md:px-4">
+                            <div className="text-sm font-semibold leading-relaxed">
+                              {match.data.homeTeam} vs {match.data.awayTeam}
                             </div>
-                            <div className="mt-2 text-xs opacity-80">
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="opacity-70">Equity</span>
-                                <span className="font-bold">R$ {p.equity.toFixed(2)}</span>
-                              </div>
-                              {equityChange !== null && (
-                                <div className="flex items-center justify-between gap-3 mt-1">
-                                  <span className="opacity-70">Δ</span>
-                                  <span
-                                    className={`font-bold ${
-                                      equityChange > 0
-                                        ? 'text-success'
-                                        : equityChange < 0
-                                          ? 'text-error'
-                                          : ''
-                                    }`}
-                                  >
-                                    {equityChange > 0 ? '+' : ''}
-                                    {equityChange.toFixed(2)}
-                                  </span>
-                                </div>
-                              )}
+                            <div className="text-xs opacity-70 mt-0.5 leading-relaxed">
+                              {formatTimestampInBrasilia(match.timestamp)}
                             </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="equity"
-                  stroke={chartColors.equity}
-                  strokeWidth={2}
-                  fill="url(#bankEquityGradient)"
-                  fillOpacity={1}
-                  animationBegin={0}
-                  animationDuration={1000}
-                  animationEasing="ease-in-out"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="cash"
-                  stroke={chartColors.cash}
-                  strokeWidth={3}
-                  dot={{
-                    fill: chartColors.cash,
-                    strokeWidth: 2,
-                    stroke: chartColors.text,
-                    r: windowSize.isMobile ? 4 : 5,
-                    filter: 'url(#glow)',
-                  }}
-                  activeDot={{
-                    r: windowSize.isMobile ? 7 : 8,
-                    stroke: chartColors.text,
-                    strokeWidth: 2,
-                    filter: 'url(#glow)',
-                  }}
-                  animationBegin={0}
-                  animationDuration={1000}
-                  animationEasing="ease-in-out"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </motion.div>
-        )}
-
-        {/* Distribuição de Resultados */}
-        {resultDistributionData.some((d) => d.value > 0) && (
-          <motion.div
-            variants={animations.fadeInUp}
-            initial="initial"
-            animate="animate"
-            className="custom-card p-4 md:p-6"
-          >
-            <SectionHeader
-              className="mb-4"
-              title="Distribuição de Resultados"
-              subtitle="Breakdown das apostas"
-            />
-            <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
-              <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 300}>
-                <PieChart>
-                  <defs>
-                    <filter id="shadow">
-                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
-                    </filter>
-                  </defs>
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0];
-                        const percentage =
-                          totalBets > 0
-                            ? (((data.value as number) / totalBets) * 100).toFixed(1)
-                            : '0';
-                        const color = getColorForCategory(data.name as string);
-                        const icon =
-                          data.name === 'Ganhas'
-                            ? CheckCircle
-                            : data.name === 'Perdidas'
-                              ? XCircle
-                              : Clock;
-                        const Icon = icon;
-
-                        return (
-                          <div className={chartTooltipCompactClassName}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <div
-                                className="w-4 h-4 rounded-full"
-                                style={{ backgroundColor: color }}
-                              />
-                              <span className="font-bold text-sm">{data.name}</span>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex items-baseline gap-2">
-                                <Icon className="w-4 h-4" style={{ color }} />
-                                <p className="text-2xl font-black" style={{ color }}>
-                                  {data.value}
-                                </p>
-                              </div>
-                              <p className="text-xs opacity-70">{percentage}% do total</p>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Pie
-                    data={resultDistributionData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={windowSize.isMobile ? 50 : 70}
-                    outerRadius={windowSize.isMobile ? 90 : 110}
-                    paddingAngle={6}
-                    dataKey="value"
-                    animationBegin={0}
-                    animationDuration={800}
-                    animationEasing="ease-out"
-                  >
-                    {resultDistributionData.map((entry, index) => {
-                      const color = getColorForCategory(entry.name);
-                      return (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={color}
-                          style={{
-                            filter: 'url(#shadow)',
-                            transition: 'opacity 0.2s',
-                            cursor: 'pointer',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.opacity = '0.8';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                          }}
-                        />
-                      );
-                    })}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-4 w-full md:w-auto">
-                {resultDistributionData.map((item) => {
-                  const color = getColorForCategory(item.name);
-                  const percentage =
-                    totalBets > 0 ? ((item.value / totalBets) * 100).toFixed(1) : '0';
-                  const icon =
-                    item.name === 'Ganhas'
-                      ? CheckCircle
-                      : item.name === 'Perdidas'
-                        ? XCircle
-                        : Clock;
-                  const Icon = icon;
-
-                  return (
-                    <div
-                      key={item.name}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors"
-                    >
-                      <div
-                        className="w-5 h-5 rounded-full shadow-md flex-shrink-0"
-                        style={{ backgroundColor: color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4" style={{ color }} />
-                          <span className="text-sm md:text-base font-bold">{item.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-lg font-black" style={{ color }}>
-                            {item.value}
-                          </span>
-                          <span className="text-xs opacity-60">({percentage}%)</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Tabela de Partidas Recentes */}
-      {recentMatches.length > 0 && (
-        <motion.div
-          variants={animations.fadeInUp}
-          initial="initial"
-          animate="animate"
-          className="custom-card p-4 md:p-6"
-        >
-          <div className="mb-4">
-            <h3 className="text-lg md:text-xl font-black mb-1">Partidas Recentes</h3>
-            <p className="text-xs md:text-sm opacity-60">Suas últimas análises</p>
-          </div>
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-base-300/50">
-                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                    Partida
-                  </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                    Odd
-                  </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                    EV
-                  </th>
-                  <th className="text-center py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                    Status
-                  </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                    Lucro/Prejuízo
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentMatches.map((match) => {
-                  const hasBet = match.betInfo && match.betInfo.betAmount > 0;
-                  const profit =
-                    hasBet && match.betInfo?.status === 'won'
-                      ? match.betInfo.potentialProfit
-                      : hasBet && match.betInfo?.status === 'lost'
-                        ? -match.betInfo.betAmount
-                        : 0;
-
-                  // Calcular EV usando a mesma lógica dos cards (considera probabilidade selecionada/combinada)
-                  const probability = getDisplayProbability(match);
-                  const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
-                    ? ((probability / 100) * match.data.oddOver15 - 1) * 100
-                    : match.result.ev;
-
-                  return (
-                    <tr
-                      key={match.id}
-                      onClick={() => onMatchClick?.(match)}
-                      className="border-b border-base-300/50 hover:bg-base-200/50 transition-colors duration-200 cursor-pointer"
-                    >
-                      <td className="py-3 px-3 md:px-4">
-                        <div className="text-sm font-semibold leading-relaxed">
-                          {match.data.homeTeam} vs {match.data.awayTeam}
-                        </div>
-                        <div className="text-xs opacity-70 mt-0.5 leading-relaxed">
-                          {formatTimestampInBrasilia(match.timestamp)}
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed">
-                        {match.data.oddOver15?.toFixed(2) || '-'}
-                      </td>
-                      <td
-                        className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
-                          displayEv > 0
-                            ? 'text-success'
-                            : displayEv < 0
-                              ? 'text-error'
-                              : ''
-                        }`}
-                      >
-                        {displayEv > 0 ? '+' : ''}
-                        {displayEv.toFixed(1)}%
-                      </td>
-                      <td className="py-3 px-3 md:px-4 text-center">
-                        {hasBet ? (
-                          <span
-                            className={`badge badge-sm ${
-                              match.betInfo?.status === 'won'
-                                ? 'badge-success'
-                                : match.betInfo?.status === 'lost'
-                                  ? 'badge-error'
-                                  : 'badge-warning'
+                          </td>
+                          <td className="py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed">
+                            {match.data.oddOver15?.toFixed(2) || '-'}
+                          </td>
+                          <td
+                            className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
+                              displayEv > 0
+                                ? 'text-success'
+                                : displayEv < 0
+                                  ? 'text-error'
+                                  : ''
                             }`}
                           >
-                            {match.betInfo?.status === 'won'
-                              ? 'Ganhou'
-                              : match.betInfo?.status === 'lost'
-                                ? 'Perdeu'
-                                : 'Pendente'}
-                          </span>
-                        ) : (
-                          <span className="badge badge-sm badge-ghost">Sem aposta</span>
-                        )}
-                      </td>
-                      <td
-                        className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
-                          profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''
-                        }`}
-                      >
-                        {profit !== 0 ? (
-                          <>
-                            {profit > 0 ? '+' : ''}
-                            {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                            {Math.abs(profit).toFixed(2)}
-                          </>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Empty State */}
-      {savedMatches.length === 0 && (
+                            {displayEv > 0 ? '+' : ''}
+                            {displayEv.toFixed(1)}%
+                          </td>
+                          <td className="py-3 px-3 md:px-4 text-center">
+                            {hasBet ? (
+                              <span
+                                className={`badge badge-sm ${
+                                  match.betInfo?.status === 'won'
+                                    ? 'badge-success'
+                                    : match.betInfo?.status === 'lost'
+                                      ? 'badge-error'
+                                      : 'badge-warning'
+                                }`}
+                              >
+                                {match.betInfo?.status === 'won'
+                                  ? 'Ganhou'
+                                  : match.betInfo?.status === 'lost'
+                                    ? 'Perdeu'
+                                    : 'Pendente'}
+                              </span>
+                            ) : (
+                              <span className="badge badge-sm badge-ghost">Sem aposta</span>
+                            )}
+                          </td>
+                          <td
+                            className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
+                              profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''
+                            }`}
+                          >
+                            {profit !== 0 ? (
+                              <>
+                                {profit > 0 ? '+' : ''}
+                                {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                                {Math.abs(profit).toFixed(2)}
+                              </>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
+        </>
+      ) : (
         <motion.div
           variants={animations.fadeInUp}
           initial="initial"
