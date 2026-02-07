@@ -17,17 +17,17 @@ export default {
     themes: [
       {
         light: {
-          "primary": "#6366f1",
-          "secondary": "#a78bfa",
-          "accent": "#ec4899",
-          "neutral": "#1f2937",
-          "base-100": "#ffffff",
-          "base-200": "#f3f4f6",
-          "base-300": "#e5e7eb",
-          "info": "#3abff8",
-          "success": "#36d399",
-          "warning": "#fbbd23",
-          "error": "#f87272",
+          "primary": "#5D5FEF",
+          "secondary": "#A0A0FA",
+          "accent": "#F472B6",
+          "neutral": "#374151",
+          "base-100": "#FFFFFF",
+          "base-200": "#F9FAFB",
+          "base-300": "#F3F4F6",
+          "info": "#3B82F6",
+          "success": "#10B981",
+          "warning": "#F59E0B",
+          "error": "#EF4444",
           // custom
           '--btn-text-case': 'none',
         },
