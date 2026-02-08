@@ -16,46 +16,70 @@ export default {
   daisyui: {
     themes: [
       {
+        light: {
+          "primary": "#5D5FEF",
+          "secondary": "#7C7EE8",
+          "accent": "#F472B6",
+          "neutral": "#1F2937",
+          "base-100": "#FFFFFF",
+          "base-200": "#F3F4F6",
+          "base-300": "#E5E7EB",
+          "info": "#3B82F6",
+          "success": "#10B981",
+          "warning": "#F59E0B",
+          "error": "#EF4444",
+          // custom
+          '--btn-text-case': 'none',
+        },
+        dark: {
+          "primary": "#6366f1",
+          "secondary": "#a78bfa",
+          "accent": "#ec4899",
+          "neutral": "#1e293b",
+          "base-100": "#0f172a",
+          "info": "#3abff8",
+          "success": "#36d399",
+          "warning": "#fbbd23",
+          "error": "#f87272",
+          // custom
+          '--btn-text-case': 'none',
+        },
         goalscan_glass: {
-          // Base surfaces: A bit lighter and less saturated for reduced eye strain
-          'base-100': 'oklch(25% 0.02 230)',
-          'base-200': 'oklch(30% 0.025 230)',
-          'base-300': 'oklch(35% 0.03 230)',
-          'base-content': 'oklch(90% 0.02 230)', // Softer text color
+          primary: '#6366f1' /* Indigo 500 */,
+          secondary: '#a78bfa' /* Violet 400 */,
+          accent: '#ec4899' /* Pink 500 */,
+          neutral: '#1a1b26' /* Cor de base escura para texto e elementos neutros */,
+          'base-100':
+            'rgba(10, 10, 10, 0.3)' /* Fundo semi-transparente escuro */,
+          'base-200':
+            'rgba(30, 30, 30, 0.4)' /* Fundo de card semi-transparente */,
+          'base-300':
+            'rgba(50, 50, 50, 0.5)' /* Fundo de card hover/ativo */,
+          info: '#3abff8' /* Azul claro para informações */,
+          success: '#36d399' /* Verde para sucesso */,
+          warning: '#fbbd23' /* Amarelo para avisos */,
+          error: '#f87272' /* Vermelho para erros */,
 
-          // Brand: Adjusted for better harmony
-          primary: 'oklch(50% 0.15 260)', // A solid, pleasing purple
-          'primary-content': 'oklch(98% 0.01 260)',
-          secondary: 'oklch(65% 0.15 190)', // A calming teal instead of magenta
-          'secondary-content': 'oklch(98% 0.01 190)',
-          accent: 'oklch(70% 0.15 80)', // A soft, warm gold for accents
-          'accent-content': 'oklch(98% 0.01 80)',
+          /* Ajustes para Contraste e Efeito Glass */
+          '--rounded-box': '1rem' /* Bordas mais arredondadas */,
+          '--rounded-btn': '0.5rem' /* Bordas de botão arredondadas */,
+          '--glass-opacity': '10%' /* Opacidade do efeito glass */,
+          '--glass-blur': '10px' /* Desfoque do efeito glass */,
+          '--glass-border-opacity': '10%' /* Opacidade da borda do glass */,
+          '--glass-text-opacity': '80%' /* Opacidade do texto em fundos glass */,
 
-          // Neutral: Aligned with the new base colors
-          neutral: 'oklch(30% 0.02 230)',
-          'neutral-content': 'oklch(90% 0.02 230)',
-
-          // Semantic: Toned down for less glare
-          info: 'oklch(70% 0.15 240)',
-          'info-content': 'oklch(98% 0.01 240)',
-          success: 'oklch(65% 0.18 160)',
-          'success-content': 'oklch(98% 0.01 160)',
-          warning: 'oklch(75% 0.2 90)',
-          'warning-content': 'oklch(98% 0.01 90)',
-          error: 'oklch(65% 0.25 25)',
-          'error-content': 'oklch(98% 0.01 25)',
-
-          // Shape & borders
-          '--rounded-box': '1rem', // Slightly reduced rounding for a cleaner look
-          '--rounded-btn': '0.5rem',
-          '--rounded-badge': '1.9rem',
-          '--border-btn': '1px',
-          '--tab-border': '1px',
+          /* Cores de Texto */
+          '--tw-prose-body': '#d1d5db' /* Cinza claro para texto do corpo */,
+          '--tw-prose-headings': '#ffffff' /* Branco para cabeçalhos */,
+          '--tw-prose-lead': '#d1d5db' /* Cinza claro para lead text */,
+          '--tw-prose-links': '#a78bfa' /* Violeta para links */,
+          '--tw-prose-bold': '#ffffff' /* Branco para texto em negrito */,
+          '--tw-prose-counters': '#d1d5db' /* Cinza claro para contadores */,
+          '--tw-prose-bullets': '#a78bfa' /* Violeta para marcadores */,
+          '--btn-text-case': 'none',
         },
       },
-      'dark',
     ],
-    darkTheme: 'goalscan_glass',
     base: true,
     styled: true,
     utils: true,
@@ -63,4 +87,4 @@ export default {
     logs: true,
     themeRoot: ':root',
   },
-};
+}

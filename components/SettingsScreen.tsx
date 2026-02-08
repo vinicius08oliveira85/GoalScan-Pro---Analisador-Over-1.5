@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Settings, Bell, Moon, Sun, Info, Shield, Database, Sparkles } from 'lucide-react';
 import { animations } from '../utils/animations';
@@ -6,6 +6,18 @@ import { animations } from '../utils/animations';
 const SettingsScreen: React.FC = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>('auto');
+
+  // Efeito para aplicar o tema na tag <html>
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'auto') {
+      // Lógica para tema automático (baseado no sistema)
+      const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.setAttribute('data-theme', prefersDarkMode ? 'dark' : 'light');
+    } else {
+      root.setAttribute('data-theme', theme);
+    }
+  }, [theme]);
 
   const settingsSections = [
     {

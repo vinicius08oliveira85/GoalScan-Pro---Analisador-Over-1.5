@@ -56,7 +56,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
       className="space-y-6"
     >
       {/* Card Principal com o Gauge */}
-      <div className="custom-card p-6">
+      <div className="card bg-base-100 shadow-sm border border-base-300/50 p-6">
         <div className="flex flex-col md:flex-row items-center justify-around gap-6 text-center md:text-left">
           {/* Lado Esquerdo: Gauge de Probabilidade */}
           <div className="flex flex-col items-center gap-2">
@@ -119,7 +119,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
       )}
 
       {/* Seção de Aposta e Ações */}
-      <div className="custom-card p-6">
+      <div className="card bg-base-100 shadow-sm border border-base-300/50 p-6">
         <h3 className="text-lg font-bold mb-4">Gestão da Aposta</h3>
         {/* Aqui entraria o seu componente BetForm. Como não o tenho, vou simular. */}
         <div className="mock-bet-form bg-base-200 p-4 rounded-lg">
