@@ -1,3 +1,7 @@
+
+import { SavedAnalysis } from '../types';
+import { getDisplayProbability } from './probability';
+
 /**
  * Calcula a probabilidade implícita de uma odd decimal.
  * Ex: Odd 2.0 -> 50%
@@ -8,6 +12,45 @@ export function getImpliedProbabilityFromOdd(odd: number): number | null {
   
   return 100 / odd;
 }
+
+/**
+ * Calcula o Valor Esperado (EV) de uma aposta.
+ * @param probability - A probabilidade estimada do evento (0-100).
+ * @param odd - A odd decimal oferecida pela casa de apostas.
+ * @returns O EV como uma porcentagem. Retorna 0 se os inputs forem inválidos.
+ */
+export function calculateEV(probability: number, odd: number): number {
+  if (!probability || !odd || odd <= 1 || probability < 0 || probability > 100) {
+    return 0;
+  }
+  // Fórmula do EV: (Probabilidade de Ganhar * Lucro por Aposta) - (Probabilidade de Perder * Valor da Aposta)
+  // Simplificado: ((probability / 100) * odd - 1) * 100
+  const ev = (probability / 100) * odd - 1;
+  return ev * 100;
+}
+
+/**
+ * Calcula o Valor Esperado (EV) para uma partida salva, considerando as apostas selecionadas.
+ * Se nenhuma aposta específica foi selecionada, usa o EV padrão da análise (Over 1.5).
+ * @param match - O objeto da partida salva.
+ * @returns O EV calculado para a aposta selecionada ou o EV padrão.
+ */
+export function getDisplayEV(match: SavedAnalysis): number {
+    const displayProb = getDisplayProbability(match);
+    
+    // Prioriza a odd da aposta registrada pelo usuário.
+    // Essa é a odd REAL da aposta que ele fez.
+    const displayOdd = match.betInfo?.odd || match.data.oddOver15;
+
+    // Se a odd for válida, calcula o EV dinamicamente
+    if (displayOdd && displayOdd > 1) {
+        return calculateEV(displayProb, displayOdd);
+    }
+
+    // Como fallback, retorna o EV pré-calculado da análise (baseado no Over 1.5)
+    return match.result.ev;
+}
+
 
 /**
  * Calcula a Vantagem (Edge) em pontos percentuais (pp).

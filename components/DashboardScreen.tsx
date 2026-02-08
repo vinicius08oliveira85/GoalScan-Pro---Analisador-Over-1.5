@@ -39,6 +39,7 @@ import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
 import { getDisplayProbability } from '../utils/probability';
+import { getDisplayEV } from '../utils/betMetrics';
 import { cn } from '../utils/cn';
 import {
   chartAxisTickLine,
@@ -344,7 +345,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     {recentMatches.map((match) => {
                       const hasBet = match.betInfo && match.betInfo.betAmount > 0;
                       const profit = hasBet && match.betInfo?.status === 'won' ? match.betInfo.potentialProfit : hasBet && match.betInfo?.status === 'lost' ? -match.betInfo.betAmount : 0;
-                      const displayEv = match.result.ev;
+                      const displayEv = getDisplayEV(match);
 
                       return (
                         <tr key={match.id} onClick={() => onMatchClick?.(match)} className="hover cursor-pointer">

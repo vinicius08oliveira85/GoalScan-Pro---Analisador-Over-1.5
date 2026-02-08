@@ -1,0 +1,8 @@
+# Arquivo de configuração do Supabase
+
+[functions]
+  # Define a função "update-bet-and-bank" e especifica o seu ponto de entrada.
+  # O Supabase CLI usará esta informação para servir a função localmente.
+  [functions.update-bet-and-bank]
+    # Caminho para o arquivo principal da Edge Function.
+    main = "./supabase/functions/update-bet-and-bank/index.ts"
