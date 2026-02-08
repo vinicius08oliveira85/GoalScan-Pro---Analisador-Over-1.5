@@ -1,77 +1,65 @@
-import { BankSettings } from '../types';
-import { supabase } from './supabaseService';
+import { supabase } from './supabaseClient';
 
-const SAVE_ERROR_MESSAGE = 'Erro ao salvar configurações da banca.';
+// Definição do tipo para os dados da aposta, alinhado com a Edge Function
+interface BetUpdatePayload {
+  analysis_id: number;
+  bet_status: 'pending' | 'won' | 'lost' | 'cancelled';
+  bet_amount: number; // O valor ainda é recebido como float do formulário
+  bet_odd: number;
+}
 
 /**
- * Salva as configurações da banca no Supabase.
- * Futuramente, esta função será substituída por uma chamada à Edge Function.
- * @param settings As configurações a serem salvas.
- * @returns As configurações salvas.
+ * Orquestra a atualização de uma aposta e o saldo da banca de forma transacional,
+ * invocando a Edge Function "update-bet-and-bank".
+ * 
+ * @param payload Os dados da aposta a serem atualizados.
+ * @returns O resultado da operação da Edge Function.
  */
-export const saveBankSettings = async (settings: BankSettings): Promise<BankSettings> => {
-  try {
-    // A lógica atual de UPSERT será movida para a Edge Function
-    // Por enquanto, mantemos a chamada direta para garantir a funcionalidade.
-    const { data, error } = await supabase
-      .from('bank_settings')
-      .upsert({
-        id: settings.id, // Supondo que as configurações tenham um ID fixo ou de usuário
-        total_bank: settings.totalBank,
-        currency: settings.currency,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+const updateBetAndBank = async (payload: BetUpdatePayload) => {
+  // 1. Converter o valor da aposta para centavos antes de enviar para o backend.
+  // Isso garante que todos os cálculos no backend sejam feitos com inteiros.
+  const betAmountCents = Math.round(payload.bet_amount * 100);
 
-    if (error) {
-      console.error('Supabase error saving bank settings:', error);
-      throw new Error(SAVE_ERROR_MESSAGE);
-    }
+  // 2. Chamar a Edge Function.
+  const { data, error } = await supabase.functions.invoke('update-bet-and-bank', {
+    body: {
+      analysis_id: payload.analysis_id,
+      bet_status: payload.bet_status,
+      bet_amount_cents: betAmountCents,
+      bet_odd: payload.bet_odd,
+    },
+  });
 
-    // Mapear de volta para o tipo BankSettings
-    return {
-      id: data.id,
-      totalBank: data.total_bank,
-      currency: data.currency,
-      updatedAt: new Date(data.updated_at).getTime(),
-    };
-  } catch (e) {
-    // Fallback para localStorage em caso de erro na API
-    console.warn('Could not save bank settings to Supabase, falling back to localStorage.');
-    localStorage.setItem('goalscan_bank_settings', JSON.stringify(settings));
-    return settings;
+  if (error) {
+    console.error("Erro ao invocar a Edge Function:", error.message);
+    // Propaga o erro para que o componente React possa tratá-lo (ex: mostrar notificação)
+    throw new Error(`Falha ao atualizar a aposta: ${error.message}`);
   }
+
+  // 3. Opcional: O backend já atualizou a banca. O frontend pode precisar re-sincronizar
+  // os dados ou usar a resposta para atualizar o estado localmente.
+  console.log("Edge Function invocada com sucesso:", data);
+  return data;
 };
 
-/**
- * Carrega as configurações da banca.
- * @returns As configurações da banca do Supabase ou do localStorage como fallback.
- */
-export const loadBankSettings = async (): Promise<BankSettings | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('bank_settings')
-      .select('*')
-      .single();
+// A função para buscar as configurações da banca permanece a mesma, mas agora
+// o valor retornado (`total_bank_cents`) estará em centavos.
+const getBankSettings = async () => {
+  const { data, error } = await supabase
+    .from('bank_settings')
+    .select('*, user:users(*)') // Incluindo dados do usuário se necessário
+    .single();
 
-    if (error) {
-      // Não logar o erro se for "No rows found", pois é um estado esperado.
-      if (error.code !== 'PGRST116') {
-        console.error('Supabase error loading bank settings:', error);
-      }
-      throw new Error('No settings in Supabase');
-    }
-
-    return {
-      id: data.id,
-      totalBank: data.total_bank,
-      currency: data.currency,
-      updatedAt: new Date(data.updated_at).getTime(),
-    };
-  } catch (e) {
-    console.warn('Could not load bank settings from Supabase, trying localStorage.');
-    const localSettings = localStorage.getItem('goalscan_bank_settings');
-    return localSettings ? JSON.parse(localSettings) : null;
+  if (error && error.code !== 'PGRST116') { // PGRST116: "exact-one-row-not-found"
+    console.error('Erro ao buscar configurações da banca:', error);
+    throw error;
   }
+
+  return data;
+};
+
+// Exporta as funções para serem usadas nos componentes React.
+export const bankService = {
+  updateBetAndBank,
+  getBankSettings,
 };
