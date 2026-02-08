@@ -1,97 +1,11 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <!-- Gradiente principal (primary) -->
-    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1" />
-      <stop offset="100%" stop-color="#4f46e5" />
-    </linearGradient>
-    
-    <!-- Gradiente secundário (secondary) -->
-    <linearGradient id="secondaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ec4899" />
-      <stop offset="100%" stop-color="#be185d" />
-    </linearGradient>
-    
-    <!-- Gradiente de fundo glass -->
-    <radialGradient id="glassBg" cx="50%" cy="50%">
-      <stop offset="0%" stop-color="rgba(99, 102, 241, 0.25)" />
-      <stop offset="100%" stop-color="rgba(79, 70, 229, 0.15)" />
-    </radialGradient>
-    
-    <!-- Sombra interna (glass effect) -->
-    <filter id="glassShadow">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="8"/>
-      <feOffset dx="0" dy="4" result="offsetblur"/>
-      <feComponentTransfer>
-        <feFuncA type="linear" slope="0.3"/>
-      </feComponentTransfer>
-      <feMerge>
-        <feMergeNode/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    
-    <!-- Glow effect -->
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  
-  <!-- Background com glass effect -->
-  <rect width="512" height="512" rx="120" fill="url(#glassBg)"/>
-  
-  <!-- Borda sutil (glass border) -->
-  <rect width="512" height="512" rx="120" fill="none" stroke="rgba(255, 255, 255, 0.12)" stroke-width="2"/>
-  
-  <!-- Círculo principal (bola de futebol estilizada) -->
-  <circle cx="256" cy="256" r="180" fill="url(#primaryGradient)" filter="url(#glassShadow)" opacity="0.95"/>
-  
-  <!-- Padrão de hexágonos (estilo bola de futebol moderna) -->
-  <g transform="translate(256, 256)">
-    <!-- Hexágono central -->
-    <path d="M 0,-80 L 69.28,-40 L 69.28,40 L 0,80 L -69.28,40 L -69.28,-40 Z" 
-          fill="rgba(255, 255, 255, 0.15)" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2"/>
-    
-    <!-- Hexágonos laterais -->
-    <path d="M 120,-20 L 150,10 L 120,40 L 90,40 L 60,10 L 90,-20 Z" 
-          fill="rgba(255, 255, 255, 0.1)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5" opacity="0.8"/>
-    <path d="M -120,-20 L -90,10 L -120,40 L -150,40 L -180,10 L -150,-20 Z" 
-          fill="rgba(255, 255, 255, 0.1)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5" opacity="0.8"/>
-    
-    <!-- Linhas decorativas (estilo alvo/gol) -->
-    <circle cx="0" cy="0" r="100" fill="none" stroke="rgba(255, 255, 255, 0.2)" stroke-width="2" opacity="0.6"/>
-    <circle cx="0" cy="0" r="130" fill="none" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1.5" opacity="0.5"/>
-  </g>
-  
-  <!-- Símbolo "1.5" ou ">" estilizado (Over 1.5) -->
-  <g transform="translate(256, 256)">
-    <!-- Número "1" -->
-    <text x="-40" y="20" font-family="Arial, sans-serif" font-size="100" font-weight="900" 
-          fill="white" text-anchor="middle" dominant-baseline="middle" opacity="0.95">1</text>
-    
-    <!-- Ponto -->
-    <circle cx="-10" cy="-20" r="8" fill="white" opacity="0.95"/>
-    
-    <!-- Número "5" -->
-    <text x="40" y="20" font-family="Arial, sans-serif" font-size="100" font-weight="900" 
-          fill="white" text-anchor="middle" dominant-baseline="middle" opacity="0.95">5</text>
-    
-    <!-- Seta ">" (Over) -->
-    <path d="M 100,-30 L 130,0 L 100,30" fill="none" stroke="url(#secondaryGradient)" 
-          stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" filter="url(#glow)"/>
-  </g>
-  
-  <!-- Efeitos de brilho (glass highlights) -->
-  <ellipse cx="200" cy="180" rx="60" ry="40" fill="rgba(255, 255, 255, 0.2)" opacity="0.4"/>
-  <ellipse cx="320" cy="320" rx="50" ry="30" fill="rgba(236, 72, 153, 0.15)" opacity="0.3"/>
-  
-  <!-- Decorative dots (glass effect) -->
-  <circle cx="100" cy="100" r="12" fill="rgba(255, 255, 255, 0.15)" opacity="0.6"/>
-  <circle cx="412" cy="100" r="12" fill="rgba(255, 255, 255, 0.15)" opacity="0.6"/>
-  <circle cx="100" cy="412" r="12" fill="rgba(255, 255, 255, 0.15)" opacity="0.6"/>
-  <circle cx="412" cy="412" r="12" fill="rgba(255, 255, 255, 0.15)" opacity="0.6"/>
+    <defs>
+        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    <path d="M64 256C64 151.314 151.314 64 256 64C360.686 64 448 151.314 448 256C448 360.686 360.686 448 256 448C151.314 448 64 360.686 64 256Z" fill="url(#grad1)"/>
+    <path d="M192 320L256 256L320 320" stroke="white" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M256 192V256" stroke="white" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
