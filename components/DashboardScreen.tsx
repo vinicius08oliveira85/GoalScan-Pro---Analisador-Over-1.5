@@ -55,7 +55,7 @@ interface DashboardScreenProps {
   savedMatches: SavedAnalysis[];
   bankSettings?: BankSettings;
   onMatchClick?: (match: SavedAnalysis) => void;
-  isLoading: boolean; // Adicionado para controlar o estado de carregamento
+  isLoading: boolean;
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({
@@ -87,7 +87,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return <DashboardLoadingSkeleton />;
   }
 
-  // Cores consistentes
   const CHART_COLORS = {
     won: chartColors.won,
     lost: chartColors.lost,
@@ -107,7 +106,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       title: 'Total de Partidas',
       value: stats.totalMatches,
       icon: Activity,
-      color: 'primary',
+      color: 'neutral',
       subtitle: 'Análises realizadas',
     },
     {
@@ -128,9 +127,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       title: 'Lucro Total',
       value: `${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${stats.totalProfit.toFixed(2)}`,
       icon: DollarSign,
-      color: stats.totalProfit > 0 ? 'success' : stats.totalProfit < 0 ? 'error' : 'primary',
-      subtitle:
-        stats.totalProfit > 0 ? 'Lucro positivo' : stats.totalProfit < 0 ? 'Prejuízo' : 'Sem lucro',
+      color: stats.totalProfit > 0 ? 'success' : stats.totalProfit < 0 ? 'error' : 'neutral',
     },
     {
       title: 'ROI',
@@ -150,12 +147,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       title: 'Média das Odds',
       value: stats.averageOdd > 0 ? stats.averageOdd.toFixed(2) : '-',
       icon: Hash,
-      color: 'primary',
+      color: 'info',
       subtitle: 'Odd média das partidas',
     },
   ];
 
-  type StatCardTone = 'primary' | 'success' | 'error' | 'warning' | 'info';
+  type StatCardTone = 'primary' | 'success' | 'error' | 'warning' | 'info' | 'neutral';
 
   const toneClasses: Record<StatCardTone, { bg: string; border: string; text: string }> = {
     primary: { bg: 'bg-primary/10', border: 'border-primary/20', text: 'text-primary' },
@@ -163,6 +160,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     error: { bg: 'bg-error/10', border: 'border-error/20', text: 'text-error' },
     warning: { bg: 'bg-warning/10', border: 'border-warning/20', text: 'text-warning' },
     info: { bg: 'bg-info/10', border: 'border-info/20', text: 'text-info' },
+    neutral: { bg: 'bg-neutral-content/10', border: 'border-neutral-content/20', text: 'text-neutral' }
   };
 
   const getTone = (tone: string): StatCardTone => {
@@ -173,12 +171,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
       {savedMatches.length > 0 ? (
         <>
-          {/* Grid de Estatísticas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
             {statCards.map((card, index) => {
               const Icon = card.icon;
               const tone = getTone(card.color);
               const toneClass = toneClasses[tone];
+              const valueColor = 
+                card.color === 'success' ? 'text-success' 
+                : card.color === 'error' ? 'text-error' 
+                : card.color === 'primary' ? 'text-primary'
+                : card.color === 'info' ? 'text-info'
+                : 'text-neutral';
+
               return (
                 <motion.div
                   key={card.title}
@@ -186,12 +190,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   initial="initial"
                   animate="animate"
                   custom={index}
-                  className="custom-card p-4 md:p-6"
+                  className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div
-                      className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}
-                    >
+                    <div className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}>
                       <Icon className={cn('w-5 h-5 md:w-6 md:h-6', toneClass.text)} />
                     </div>
                     {card.title === 'Lucro Total' && (
@@ -205,35 +207,26 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     )}
                   </div>
                   <div>
-                    <p className="text-xs md:text-sm font-semibold opacity-70 uppercase tracking-wide mb-1.5 leading-tight">
+                    <p className="text-xs md:text-sm font-semibold text-base-content/70 uppercase tracking-wide mb-1.5 leading-tight">
                       {card.title}
                     </p>
-                    <p
-                      className={`text-2xl md:text-3xl font-black leading-none ${
-                        card.color === 'success'
-                          ? 'text-success'
-                          : card.color === 'error'
-                            ? 'text-error'
-                            : 'text-primary'
-                      }`}
-                    >
+                    <p className={`text-2xl md:text-3xl font-black leading-none ${valueColor}`}>
                       {card.value}
                     </p>
-                    <p className="text-xs opacity-60 mt-1.5 leading-relaxed">{card.subtitle}</p>
+                    <p className="text-xs text-base-content/60 mt-1.5 leading-relaxed">{card.subtitle}</p>
                   </div>
                 </motion.div>
               );
             })}
           </div>
 
-          {/* Gráficos */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
             {bankEvolutionData.length > 0 && (
               <motion.div
                 variants={animations.fadeInUp}
                 initial="initial"
                 animate="animate"
-                className="custom-card p-4 md:p-6"
+                className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
               >
                 <SectionHeader
                   className="mb-4"
@@ -241,143 +234,39 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   subtitle="Cash (disponível) e Equity (cash + pendentes) ao longo do tempo"
                 />
                 <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
-                  <AreaChart
-                    data={bankEvolutionData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
-                  >
+                  <AreaChart data={bankEvolutionData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                     <defs>
                       <linearGradient id="bankEquityGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={chartColors.equity} stopOpacity={0.18} />
                         <stop offset="95%" stopColor={chartColors.equity} stopOpacity={0} />
                       </linearGradient>
-                      <filter id="glow">
-                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                        <feMerge>
-                          <feMergeNode in="coloredBlur" />
-                          <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                      </filter>
                     </defs>
                     <CartesianGrid {...chartGridProps} />
-                    <XAxis
-                      dataKey="date"
-                      tick={getChartAxisTick(windowSize.isMobile)}
-                      tickLine={chartAxisTickLine}
-                    />
-                    <YAxis
-                      tick={getChartAxisTick(windowSize.isMobile)}
-                      tickLine={chartAxisTickLine}
-                      tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
-                    />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const p = payload[0].payload as {
-                            date: string;
-                            timestamp: number;
-                            cash: number;
-                            equity: number;
-                          };
-                          const currentIndex = bankEvolutionData.findIndex(
-                            (d) => d.timestamp === p.timestamp
-                          );
-                          const previousValue =
-                            currentIndex > 0 ? bankEvolutionData[currentIndex - 1] : null;
-
-                          const cashChange =
-                            previousValue !== null ? p.cash - previousValue.cash : null;
-                          const equityChange =
-                            previousValue !== null ? p.equity - previousValue.equity : null;
-
+                    <XAxis dataKey="date" tick={getChartAxisTick(windowSize.isMobile)} tickLine={chartAxisTickLine} />
+                    <YAxis tick={getChartAxisTick(windowSize.isMobile)} tickLine={chartAxisTickLine} tickFormatter={(value) => `R$ ${value.toFixed(0)}`} />
+                    <Tooltip content={({ active, payload }) => {
+                       if (active && payload && payload.length) {
+                          const p = payload[0].payload as { date: string; timestamp: number; cash: number; equity: number; };
                           return (
                             <div className={chartTooltipClassName}>
-                              <div className="mb-2">
-                                <p className="text-xs opacity-70 mb-1">{p.date}</p>
-                                <div className="flex items-baseline gap-2">
-                                  <p className="text-2xl font-black text-primary">R$ {p.cash.toFixed(2)}</p>
-                                  {cashChange !== null && (
-                                    <span
-                                      className={`text-sm font-bold flex items-center gap-1 ${
-                                        cashChange > 0
-                                          ? 'text-success'
-                                          : cashChange < 0
-                                            ? 'text-error'
-                                            : ''
-                                      }`}
-                                    >
-                                      {cashChange > 0 ? (
-                                        <TrendingUp className="w-3 h-3" />
-                                      ) : cashChange < 0 ? (
-                                        <ArrowDownRight className="w-3 h-3" />
-                                      ) : null}
-                                      {cashChange > 0 ? '+' : ''}
-                                      {cashChange.toFixed(2)}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="mt-2 text-xs opacity-80">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <span className="opacity-70">Equity</span>
-                                    <span className="font-bold">R$ {p.equity.toFixed(2)}</span>
-                                  </div>
-                                  {equityChange !== null && (
-                                    <div className="flex items-center justify-between gap-3 mt-1">
-                                      <span className="opacity-70">Δ</span>
-                                      <span
-                                        className={`font-bold ${
-                                          equityChange > 0
-                                            ? 'text-success'
-                                            : equityChange < 0
-                                              ? 'text-error'
-                                              : ''
-                                        }`}
-                                      >
-                                        {equityChange > 0 ? '+' : ''}
-                                        {equityChange.toFixed(2)}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
+                              <p className="text-sm font-bold mb-2">{p.date}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: chartColors.cash }}></span>
+                                <span>Cash:</span>
+                                <span className="font-bold ml-auto">R$ {p.cash.toFixed(2)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: chartColors.equity }}></span>
+                                <span>Equity:</span>
+                                <span className="font-bold ml-auto">R$ {p.equity.toFixed(2)}</span>
                               </div>
                             </div>
                           );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="equity"
-                      stroke={chartColors.equity}
-                      strokeWidth={2}
-                      fill="url(#bankEquityGradient)"
-                      fillOpacity={1}
-                      animationBegin={0}
-                      animationDuration={1000}
-                      animationEasing="ease-in-out"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="cash"
-                      stroke={chartColors.cash}
-                      strokeWidth={3}
-                      dot={{
-                        fill: chartColors.cash,
-                        strokeWidth: 2,
-                        stroke: chartColors.text,
-                        r: windowSize.isMobile ? 4 : 5,
-                        filter: 'url(#glow)',
-                      }}
-                      activeDot={{
-                        r: windowSize.isMobile ? 7 : 8,
-                        stroke: chartColors.text,
-                        strokeWidth: 2,
-                        filter: 'url(#glow)',
-                      }}
-                      animationBegin={0}
-                      animationDuration={1000}
-                      animationEasing="ease-in-out"
-                    />
+                       }
+                       return null;
+                    }} />
+                    <Area type="monotone" dataKey="equity" stroke={chartColors.equity} strokeWidth={2} fill="url(#bankEquityGradient)" fillOpacity={1} />
+                    <Line type="monotone" dataKey="cash" stroke={chartColors.cash} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 7 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </motion.div>
@@ -388,131 +277,41 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 variants={animations.fadeInUp}
                 initial="initial"
                 animate="animate"
-                className="custom-card p-4 md:p-6"
+                className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
               >
-                <SectionHeader
-                  className="mb-4"
-                  title="Distribuição de Resultados"
-                  subtitle="Breakdown das apostas"
-                />
+                <SectionHeader className="mb-4" title="Distribuição de Resultados" subtitle="Breakdown das apostas" />
                 <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
                   <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 300}>
                     <PieChart>
-                      <defs>
-                        <filter id="shadow">
-                          <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
-                        </filter>
-                      </defs>
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
+                      <Tooltip content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
                             const data = payload[0];
-                            const percentage =
-                              totalBets > 0
-                                ? (((data.value as number) / totalBets) * 100).toFixed(1)
-                                : '0';
-                            const color = getColorForCategory(data.name as string);
-                            const icon =
-                              data.name === 'Ganhas'
-                                ? CheckCircle
-                                : data.name === 'Perdidas'
-                                  ? XCircle
-                                  : Clock;
-                            const Icon = icon;
-
+                            const percentage = totalBets > 0 ? (((data.value as number) / totalBets) * 100).toFixed(1) : '0';
                             return (
-                              <div className={chartTooltipCompactClassName}>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div
-                                    className="w-4 h-4 rounded-full"
-                                    style={{ backgroundColor: color }}
-                                  />
-                                  <span className="font-bold text-sm">{data.name}</span>
+                                <div className={chartTooltipCompactClassName}>
+                                    <span className="font-bold text-sm">{data.name}</span>: <span className="font-bold">{data.value}</span> ({percentage}%)
                                 </div>
-                                <div className="space-y-1">
-                                  <div className="flex items-baseline gap-2">
-                                    <Icon className="w-4 h-4" style={{ color }} />
-                                    <p className="text-2xl font-black" style={{ color }}>
-                                      {data.value}
-                                    </p>
-                                  </div>
-                                  <p className="text-xs opacity-70">{percentage}% do total</p>
-                                </div>
-                              </div>
                             );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Pie
-                        data={resultDistributionData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={windowSize.isMobile ? 50 : 70}
-                        outerRadius={windowSize.isMobile ? 90 : 110}
-                        paddingAngle={6}
-                        dataKey="value"
-                        animationBegin={0}
-                        animationDuration={800}
-                        animationEasing="ease-out"
-                      >
-                        {resultDistributionData.map((entry, index) => {
-                          const color = getColorForCategory(entry.name);
-                          return (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={color}
-                              style={{
-                                filter: 'url(#shadow)',
-                                transition: 'opacity 0.2s',
-                                cursor: 'pointer',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.opacity = '0.8';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.opacity = '1';
-                              }}
-                            />
-                          );
-                        })}
+                        }
+                        return null;
+                      }} />
+                      <Pie data={resultDistributionData} cx="50%" cy="50%" innerRadius={windowSize.isMobile ? 50 : 70} outerRadius={windowSize.isMobile ? 90 : 110} paddingAngle={5} dataKey="value">
+                        {resultDistributionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={getColorForCategory(entry.name)} />
+                        ))}
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="space-y-4 w-full md:w-auto">
+                  <div className="space-y-3 w-full md:w-auto">
                     {resultDistributionData.map((item) => {
                       const color = getColorForCategory(item.name);
-                      const percentage =
-                        totalBets > 0 ? ((item.value / totalBets) * 100).toFixed(1) : '0';
-                      const icon =
-                        item.name === 'Ganhas'
-                          ? CheckCircle
-                          : item.name === 'Perdidas'
-                            ? XCircle
-                            : Clock;
-                      const Icon = icon;
-
+                      const percentage = totalBets > 0 ? ((item.value / totalBets) * 100).toFixed(1) : '0';
                       return (
-                        <div
-                          key={item.name}
-                          className="flex items-center gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors"
-                        >
-                          <div
-                            className="w-5 h-5 rounded-full shadow-md flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <Icon className="w-4 h-4" style={{ color }} />
-                              <span className="text-sm md:text-base font-bold">{item.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-lg font-black" style={{ color }}>
-                                {item.value}
-                              </span>
-                              <span className="text-xs opacity-60">({percentage}%)</span>
-                            </div>
-                          </div>
+                        <div key={item.name} className="flex items-center gap-3 text-sm">
+                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                          <span className="font-bold">{item.name}</span>
+                          <span className="text-base-content/70 ml-auto">{item.value}</span>
+                          <span className="text-xs text-base-content/50">({percentage}%)</span>
                         </div>
                       );
                     })}
@@ -522,118 +321,52 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             )}
           </div>
 
-          {/* Tabela de Partidas Recentes */}
           {recentMatches.length > 0 && (
             <motion.div
               variants={animations.fadeInUp}
               initial="initial"
               animate="animate"
-              className="custom-card p-4 md:p-6"
+              className="card bg-base-100 shadow-sm border border-base-300/50"
             >
-              <div className="mb-4">
-                <h3 className="text-lg md:text-xl font-black mb-1">Partidas Recentes</h3>
-                <p className="text-xs md:text-sm opacity-60">Suas últimas análises</p>
-              </div>
-              <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full">
+              <SectionHeader className="p-4 md:p-6 border-b border-base-300/50" title="Partidas Recentes" subtitle="Suas últimas 10 análises" />
+              <div className="overflow-x-auto">
+                <table className="table w-full">
                   <thead>
-                    <tr className="border-b border-base-300/50">
-                      <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                        Partida
-                      </th>
-                      <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                        Odd
-                      </th>
-                      <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                        EV
-                      </th>
-                      <th className="text-center py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                        Status
-                      </th>
-                      <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
-                        Lucro/Prejuízo
-                      </th>
+                    <tr>
+                      <th>Partida</th>
+                      <th className="text-right">Odd</th>
+                      <th className="text-right">EV</th>
+                      <th className="text-center">Status</th>
+                      <th className="text-right">Lucro/Prejuízo</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentMatches.map((match) => {
                       const hasBet = match.betInfo && match.betInfo.betAmount > 0;
-                      const profit =
-                        hasBet && match.betInfo?.status === 'won'
-                          ? match.betInfo.potentialProfit
-                          : hasBet && match.betInfo?.status === 'lost'
-                            ? -match.betInfo.betAmount
-                            : 0;
-
-                      const probability = getDisplayProbability(match);
-                      const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
-                        ? ((probability / 100) * match.data.oddOver15 - 1) * 100
-                        : match.result.ev;
+                      const profit = hasBet && match.betInfo?.status === 'won' ? match.betInfo.potentialProfit : hasBet && match.betInfo?.status === 'lost' ? -match.betInfo.betAmount : 0;
+                      const displayEv = match.result.ev;
 
                       return (
-                        <tr
-                          key={match.id}
-                          onClick={() => onMatchClick?.(match)}
-                          className="border-b border-base-300/50 hover:bg-base-200/50 transition-colors duration-200 cursor-pointer"
-                        >
-                          <td className="py-3 px-3 md:px-4">
-                            <div className="text-sm font-semibold leading-relaxed">
-                              {match.data.homeTeam} vs {match.data.awayTeam}
-                            </div>
-                            <div className="text-xs opacity-70 mt-0.5 leading-relaxed">
-                              {formatTimestampInBrasilia(match.timestamp)}
-                            </div>
+                        <tr key={match.id} onClick={() => onMatchClick?.(match)} className="hover cursor-pointer">
+                          <td>
+                            <div className="font-bold">{match.data.homeTeam} vs {match.data.awayTeam}</div>
+                            <div className="text-xs opacity-60">{formatTimestampInBrasilia(match.timestamp)}</div>
                           </td>
-                          <td className="py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed">
-                            {match.data.oddOver15?.toFixed(2) || '-'}
+                          <td className="text-right font-semibold">{match.data.oddOver15?.toFixed(2) || '-'}</td>
+                          <td className={`text-right font-semibold ${displayEv > 0 ? 'text-success' : displayEv < 0 ? 'text-error' : ''}`}>
+                            {displayEv > 0 ? '+' : ''}{displayEv.toFixed(1)}%
                           </td>
-                          <td
-                            className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
-                              displayEv > 0
-                                ? 'text-success'
-                                : displayEv < 0
-                                  ? 'text-error'
-                                  : ''
-                            }`}
-                          >
-                            {displayEv > 0 ? '+' : ''}
-                            {displayEv.toFixed(1)}%
-                          </td>
-                          <td className="py-3 px-3 md:px-4 text-center">
+                          <td className="text-center">
                             {hasBet ? (
-                              <span
-                                className={`badge badge-sm ${
-                                  match.betInfo?.status === 'won'
-                                    ? 'badge-success'
-                                    : match.betInfo?.status === 'lost'
-                                      ? 'badge-error'
-                                      : 'badge-warning'
-                                }`}
-                              >
-                                {match.betInfo?.status === 'won'
-                                  ? 'Ganhou'
-                                  : match.betInfo?.status === 'lost'
-                                    ? 'Perdeu'
-                                    : 'Pendente'}
+                              <span className={`badge badge-sm ${match.betInfo?.status === 'won' ? 'badge-success' : match.betInfo?.status === 'lost' ? 'badge-error' : 'badge-warning'}`}>
+                                {match.betInfo?.status === 'won' ? 'Ganhou' : match.betInfo?.status === 'lost' ? 'Perdeu' : 'Pendente'}
                               </span>
                             ) : (
                               <span className="badge badge-sm badge-ghost">Sem aposta</span>
                             )}
                           </td>
-                          <td
-                            className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
-                              profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''
-                            }`}
-                          >
-                            {profit !== 0 ? (
-                              <>
-                                {profit > 0 ? '+' : ''}
-                                {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                                {Math.abs(profit).toFixed(2)}
-                              </>
-                            ) : (
-                              '-'
-                            )}
+                          <td className={`text-right font-semibold ${profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''}`}>
+                            {profit !== 0 ? `${profit > 0 ? '+' : ''}${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${Math.abs(profit).toFixed(2)}` : '-'}
                           </td>
                         </tr>
                       );
@@ -649,13 +382,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2"
+          className="card bg-base-100 border-2 border-dashed border-base-300 p-12 md:p-16 flex flex-col items-center justify-center text-center"
         >
           <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center mb-6">
             <Activity className="w-12 h-12 md:w-16 md:h-16 text-primary opacity-60" />
           </div>
-          <h3 className="text-2xl md:text-3xl font-black mb-3">Nenhuma Partida Ainda</h3>
-          <p className="text-sm md:text-base opacity-70 max-w-md">
+          <h3 className="text-2xl md:text-3xl font-black mb-3 text-base-content">Nenhuma Partida Ainda</h3>
+          <p className="text-sm md:text-base text-base-content/70 max-w-md">
             Comece criando análises de partidas para ver estatísticas e gráficos aqui.
           </p>
         </motion.div>
