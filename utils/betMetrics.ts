@@ -36,16 +36,19 @@ export function calculateEV(probability: number, odd: number): number {
  * @returns O EV calculado para a aposta selecionada ou o EV padrão.
  */
 export function getDisplayEV(match: SavedAnalysis): number {
-  const displayProb = getDisplayProbability(match);
-  const displayOdd = match.data.oddOver15; // A odd inserida pelo usuário reflete a aposta feita
+    const displayProb = getDisplayProbability(match);
+    
+    // Prioriza a odd da aposta registrada pelo usuário.
+    // Essa é a odd REAL da aposta que ele fez.
+    const displayOdd = match.betInfo?.odd || match.data.oddOver15;
 
-  // Se a odd for válida, calcula o EV dinamicamente
-  if (displayOdd && displayOdd > 1) {
-    return calculateEV(displayProb, displayOdd);
-  }
+    // Se a odd for válida, calcula o EV dinamicamente
+    if (displayOdd && displayOdd > 1) {
+        return calculateEV(displayProb, displayOdd);
+    }
 
-  // Como fallback, retorna o EV pré-calculado da análise (baseado no Over 1.5)
-  return match.result.ev;
+    // Como fallback, retorna o EV pré-calculado da análise (baseado no Over 1.5)
+    return match.result.ev;
 }
 
 
