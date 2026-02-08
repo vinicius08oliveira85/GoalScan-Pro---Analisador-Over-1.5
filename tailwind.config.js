@@ -18,12 +18,12 @@ export default {
       {
         light: {
           "primary": "#5D5FEF",
-          "secondary": "#A0A0FA",
+          "secondary": "#7C7EE8",
           "accent": "#F472B6",
-          "neutral": "#374151",
+          "neutral": "#1F2937",
           "base-100": "#FFFFFF",
-          "base-200": "#F9FAFB",
-          "base-300": "#F3F4F6",
+          "base-200": "#F3F4F6",
+          "base-300": "#E5E7EB",
           "info": "#3B82F6",
           "success": "#10B981",
           "warning": "#F59E0B",
