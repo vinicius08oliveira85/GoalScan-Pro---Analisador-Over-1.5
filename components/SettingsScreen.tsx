@@ -5,18 +5,20 @@ import { animations } from '../utils/animations';
 
 const SettingsScreen: React.FC = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>('auto');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(
+    () => (localStorage.getItem('theme') as 'light' | 'dark' | 'auto') || 'auto'
+  );
 
-  // Efeito para aplicar o tema na tag <html>
+  // Efeito para aplicar o tema na tag <html> e salvar no localStorage
   useEffect(() => {
     const root = document.documentElement;
     if (theme === 'auto') {
-      // Lógica para tema automático (baseado no sistema)
       const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
       root.setAttribute('data-theme', prefersDarkMode ? 'dark' : 'light');
     } else {
       root.setAttribute('data-theme', theme);
     }
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
   const settingsSections = [
