@@ -1,28 +1,15 @@
-export interface MatchData {
-  homeTeam: string;
-  awayTeam: string;
-  homeStats: {
-    avgGols: number;
-    last5: number[];
-  };
-  awayStats: {
-    avgGols: number;
-    last5: number[];
-  };
-  h2h: {
-    results: string[];
-  };
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './src/index.css';
+
+const rootEl = document.getElementById('root');
+if (!rootEl) {
+  throw new Error('Elemento #root não encontrado');
 }
 
-export interface AnalysisResult {
-  probabilities: {
-    over05HT: number;
-    over15: number;
-    over25: number;
-    under35: number; // Novo mercado
-    btts: number;
-  };
-  justification: string;
-  confidenceScore: number;
-  expectedValue?: number; // Para gestão de banca
-}
+createRoot(rootEl).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
