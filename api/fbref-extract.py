@@ -8,7 +8,7 @@ import re
 import time
 from http.server import BaseHTTPRequestHandler
 from typing import Dict, List, Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 try:
     import requests
@@ -42,25 +42,16 @@ class FBrefScraper:
     def __init__(self, base_url: str = "https://fbref.com"):
         self.base_url = base_url
         self.session = requests.Session()
-        # Headers mais completos para evitar bloqueio 403
-        # User-Agent atualizado para versão mais recente do Chrome
+        # Sessão tipo navegador real (sem Origin falso — costuma levantar flags em WAF/CDN)
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.85,pt;q=0.8',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0',
             'DNT': '1',
-            'Referer': 'https://www.google.com/',
-            'Origin': 'https://www.google.com',
-            'Viewport-Width': '1920',
-            'Width': '1920',
         })
 
     def get_page(self, url: str, retries: int = 3) -> tuple[Optional[BeautifulSoup], Optional[Dict]]:
@@ -94,8 +85,28 @@ class FBrefScraper:
                     time.sleep(delay)
 
                 print(f"[FBrefScraper] Tentativa {attempt + 1}/{retries} - Acessando: {url}")
-                # Timeout aumentado para 45s para dar mais tempo em conexões lentas
-                response = self.session.get(url, timeout=45, allow_redirects=True)
+                parsed = urlparse(url)
+                base = f"{parsed.scheme}://{parsed.netloc}/"
+                # 1ª tentativa: parece clique vindo de busca; retentativas: navegação interna no FBref
+                if attempt == 0:
+                    per_req_headers = {
+                        'Referer': 'https://www.google.com/',
+                        'Sec-Fetch-Site': 'cross-site',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-User': '?1',
+                    }
+                else:
+                    per_req_headers = {
+                        'Referer': base.rstrip('/') + '/' if 'fbref' in base else 'https://fbref.com/',
+                        'Sec-Fetch-Site': 'same-origin',
+                        'Sec-Fetch-Mode': 'navigate',
+                        'Sec-Fetch-Dest': 'document',
+                        'Sec-Fetch-User': '?1',
+                    }
+                response = self.session.get(
+                    url, timeout=45, allow_redirects=True, headers=per_req_headers
+                )
                 print(f"[FBrefScraper] Status code: {response.status_code}, URL final: {response.url}")
 
                 # Verifica status code
@@ -114,9 +125,6 @@ class FBrefScraper:
                     last_error = error_info
                     
                     if attempt < retries - 1:
-                        # Tenta com headers diferentes e estratégias anti-detecção
-                        self.session.headers['Referer'] = 'https://fbref.com/'
-                        # Adiciona delay variável antes de tentar novamente
                         retry_delay = random.uniform(2.0, 4.0)
                         print(f"[FBrefScraper] Aguardando {retry_delay:.2f}s antes de nova tentativa...")
                         time.sleep(retry_delay)
@@ -572,7 +580,12 @@ class FBrefScraper:
                 status_code = error_info.get("status_code")
                 
                 if error_type == "403":
-                    error_message = f"Erro 403: Acesso negado. O site está bloqueando requisições automatizadas.\nURL: {url}"
+                    error_message = (
+                        f"Erro 403 (acesso negado) ao contactar o FBref. "
+                        f"Verifique se a URL está correta (página Stats da competição). "
+                        f"Se o problema continuar, pode ser rate limit ou bloqueio temporário — aguarde alguns minutos e tente de novo. "
+                        f"URL: {url}"
+                    )
                 elif error_type == "http_error":
                     if status_code == 404:
                         error_message = f"Erro 404: A URL está incorreta ou a página não existe.\nURL: {url}"

@@ -1,4 +1,7 @@
 """
+DEPRECATED — não usado em produção. A extração unificou-se em api/fbref-extract.py (requests + BeautifulSoup).
+Mantido apenas como referência; removido do vercel.json para evitar 500/timeouts com Chrome headless.
+
 API route Python para extrair dados de tabelas do fbref.com usando Selenium
 Baseado no repositório app-scraper/scraper_selenium.py
 """

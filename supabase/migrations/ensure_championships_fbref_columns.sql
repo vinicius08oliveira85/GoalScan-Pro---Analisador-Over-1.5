@@ -1,5 +1,6 @@
 -- Idempotente: garante colunas de sincronização FBref em championships
 -- (útil se migrações anteriores não foram aplicadas na ordem esperada)
+-- Colunas no Postgres: fbref_url, fbref_table_type — o app mapeia para fbrefUrl / fbref_table_type no cliente.
 
 ALTER TABLE championships ADD COLUMN IF NOT EXISTS fbref_url TEXT;
 COMMENT ON COLUMN championships.fbref_url IS

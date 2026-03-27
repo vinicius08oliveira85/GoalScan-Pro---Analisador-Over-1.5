@@ -20,7 +20,6 @@ export interface SyncChampionshipFromFbrefResult {
 }
 
 export interface SyncAllChampionshipsOptions {
-  useSelenium?: boolean;
   skipCache?: boolean;
   /** Pausa entre um campeonato e o próximo (ms). Padrão: FBREF_SYNC_DELAY_MS. */
   delayBetweenMs?: number;
@@ -57,9 +56,8 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 
 export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
 
-// API route Python no Vercel
+// API Python no Vercel (requests + BeautifulSoup; tabelas também em comentários HTML)
 const FBREF_SCRAPER_API_URL = '/api/fbref-extract';
-const FBREF_SELENIUM_SCRAPER_API_URL = '/api/fbref-extract-selenium';
 
 export interface FbrefExtractionRequest {
   championshipUrl: string;
@@ -132,8 +130,32 @@ function setCachedResult(key: string, result: FbrefExtractionResult): void {
   }
 }
 
+/** Mensagem amigável para 403 / rate limit (UI e sync). */
+export function enrichFbrefUserFacingError(
+  message: string,
+  details?: FbrefExtractionResult['error_details']
+): string {
+  const sc = details?.status_code;
+  const typ = String(details?.type ?? '');
+  const is403 =
+    sc === 403 ||
+    typ === '403' ||
+    /\b403\b/i.test(message) ||
+    /forbidden|negado|bloque(io|ando)/i.test(message);
+  if (!is403) return message;
+  const hint =
+    ' Verifique a URL da página do campeonato no FBref. Se o erro persistir, pode ser limite de pedidos: aguarde alguns minutos e tente novamente.';
+  return message.includes('aguarde alguns minutos') ? message : `${message.trim()}${hint}`;
+}
+
+function withFbrefErrorHints(result: FbrefExtractionResult): FbrefExtractionResult {
+  if (result.success) return result;
+  const err = enrichFbrefUserFacingError(result.error ?? '', result.error_details);
+  return { ...result, error: err };
+}
+
 /**
- * Extrai dados do fbref.com via API de scraping (Vercel / requests + BeautifulSoup)
+ * Extrai dados do fbref.com via API (raw fetch no servidor + BeautifulSoup + comentários HTML).
  */
 export const extractFbrefData = async (
   request: FbrefExtractionRequest,
@@ -197,21 +219,21 @@ export const extractFbrefData = async (
         details: errorDetails,
       });
       
-      return {
+      return withFbrefErrorHints({
         success: false,
         error: errorMessage,
         error_details: errorDetails,
-      };
+      });
     }
 
     const result = (await response.json()) as FbrefExtractionResult;
+    const hinted = withFbrefErrorHints(result);
 
-    // Salvar no cache se bem-sucedido
-    if (result.success && !callOptions?.skipCache) {
-      setCachedResult(cacheKey, result);
+    if (hinted.success && !callOptions?.skipCache) {
+      setCachedResult(cacheKey, hinted);
     }
 
-    return result;
+    return hinted;
   } catch (error) {
     if (isAbortError(error)) {
       return { success: false, error: 'Cancelado' };
@@ -304,11 +326,12 @@ export const saveExtractedTables = async (
 
 /**
  * Sincroniza um campeonato: extrai via API de scraping, aplica mapToTableRowsGeral e persiste.
- * `saveExtractedTable` → `saveChampionshipTable` atualiza `championship_teams` para tabela geral.
+ * `saveExtractedTable` → `saveChampionshipTable` persiste JSON e, para tipo `geral`,
+ * normaliza em `championship_teams` (dispensa Excel quando a URL está correta).
  */
 export async function syncChampionshipFromFbref(
   championship: Championship,
-  options?: FbrefExtractCallOptions & { useSelenium?: boolean }
+  options?: FbrefExtractCallOptions
 ): Promise<{ success: boolean; error?: string; cancelled?: boolean }> {
   if (options?.signal?.aborted) {
     return { success: false, error: 'Cancelado', cancelled: true };
@@ -324,10 +347,9 @@ export async function syncChampionshipFromFbref(
 
   const tableKind = championship.fbref_table_type ?? 'geral';
 
-  const extractFn = options?.useSelenium ? extractFbrefDataWithSelenium : extractFbrefData;
   let result: FbrefExtractionResult;
   try {
-    result = await extractFn(
+    result = await extractFbrefData(
       {
         championshipUrl: url,
         championshipId: championship.id,
@@ -348,7 +370,14 @@ export async function syncChampionshipFromFbref(
 
   if (!result.success) {
     const cancelled = result.error === 'Cancelado';
-    return { success: false, error: result.error || 'Falha na extração do FBref', cancelled };
+    return {
+      success: false,
+      error: enrichFbrefUserFacingError(
+        result.error || 'Falha na extração do FBref',
+        result.error_details
+      ),
+      cancelled,
+    };
   }
 
   const raw =
@@ -438,7 +467,6 @@ export async function syncAllChampionships(
 
     options?.onBeforeEach?.(c, i);
     const r = await syncChampionshipFromFbref(c, {
-      useSelenium: options?.useSelenium,
       skipCache: options?.skipCache ?? true,
       signal,
     });
@@ -460,107 +488,6 @@ export async function syncAllChampionships(
 
   return results;
 }
-
-/**
- * Extrai dados do fbref.com via Selenium (para páginas com JavaScript dinâmico)
- */
-export const extractFbrefDataWithSelenium = async (
-  request: FbrefExtractionRequest,
-  callOptions?: FbrefExtractCallOptions
-): Promise<FbrefExtractionResult> => {
-  try {
-    // Validar URL
-    if (!request.championshipUrl || !request.championshipUrl.includes('fbref.com')) {
-      return {
-        success: false,
-        error: 'URL inválida. Apenas URLs do fbref.com são permitidas.',
-      };
-    }
-
-    const sk = request.fbrefTableType ?? 'geral';
-    const cacheKey = `${getCacheKey(request.championshipUrl, request.extractTypes, sk)}_selenium`;
-    if (!callOptions?.skipCache) {
-      const cached = getCachedResult(cacheKey);
-      if (cached) {
-        logger.log('[FBrefService] Usando dados do cache (Selenium)');
-        return cached;
-      }
-    }
-
-    // Chamar API Python com Selenium no Vercel
-    const response = await fetch(FBREF_SELENIUM_SCRAPER_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        championshipUrl: request.championshipUrl,
-        championshipId: request.championshipId,
-        extractTypes: request.extractTypes,
-        fbrefTableType: sk,
-      }),
-      signal: callOptions?.signal,
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Erro HTTP ${response.status}: ${response.statusText}`;
-      let errorDetails: FbrefExtractionResult['error_details'] | undefined;
-      
-      try {
-        const errorData = (await response.json()) as { error?: string; error_details?: FbrefExtractionResult['error_details'] };
-        if (errorData?.error) {
-          errorMessage = errorData.error;
-        }
-        if (errorData?.error_details) {
-          errorDetails = errorData.error_details;
-        }
-      } catch {
-        // Ignora erro ao parsear JSON
-      }
-      
-      logger.error('[FBrefService] Erro ao chamar API Selenium:', {
-        status: response.status,
-        statusText: response.statusText,
-        message: errorMessage,
-        details: errorDetails,
-      });
-      
-      return {
-        success: false,
-        error: errorMessage,
-        error_details: errorDetails,
-      };
-    }
-
-    const result = (await response.json()) as FbrefExtractionResult;
-
-    // Log detalhado de erros
-    if (!result.success && result.error_details) {
-      logger.error('[FBrefService] Detalhes do erro (Selenium):', {
-        type: result.error_details.type,
-        status_code: result.error_details.status_code,
-        message: result.error_details.message,
-        url: result.error_details.url,
-      });
-    }
-
-    // Salvar no cache se bem-sucedido
-    if (result.success && !callOptions?.skipCache) {
-      setCachedResult(cacheKey, result);
-    }
-
-    return result;
-  } catch (error) {
-    if (isAbortError(error)) {
-      return { success: false, error: 'Cancelado' };
-    }
-    logger.error('[FBrefService] Erro inesperado (Selenium):', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido ao extrair dados com Selenium',
-    };
-  }
-};
 
 /**
  * Limpa cache de extrações

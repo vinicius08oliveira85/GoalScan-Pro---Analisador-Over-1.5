@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
-import { extractFbrefData, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
+import { extractFbrefData, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
 import { Championship, TableType } from '../types';
 import { animations } from '../utils/animations';
 
@@ -26,8 +26,6 @@ export default function FbrefExtractionModal({
   const [previewTables, setPreviewTables] = useState<Record<string, unknown[]> | null>(null);
   const [activePreviewTable, setActivePreviewTable] = useState<TableType>('geral');
   const [saving, setSaving] = useState(false);
-  const [useSelenium, setUseSelenium] = useState(false);
-
   const handleExtract = async () => {
     if (!url.trim()) {
       onError?.('Por favor, insira a URL do campeonato no fbref.com');
@@ -44,21 +42,13 @@ export default function FbrefExtractionModal({
     setPreviewTables(null);
 
     try {
-      // Usa Selenium se marcado, senão usa a API padrão
       const fbrefTableType = championship.fbref_table_type ?? 'geral';
-      const extractionResult = useSelenium
-        ? await extractFbrefDataWithSelenium({
-            championshipUrl: url.trim(),
-            championshipId: championship.id,
-            extractTypes,
-            fbrefTableType,
-          })
-        : await extractFbrefData({
-            championshipUrl: url.trim(),
-            championshipId: championship.id,
-            extractTypes,
-            fbrefTableType,
-          });
+      const extractionResult = await extractFbrefData({
+        championshipUrl: url.trim(),
+        championshipId: championship.id,
+        extractTypes,
+        fbrefTableType,
+      });
 
       setResult(extractionResult);
 
@@ -179,27 +169,10 @@ export default function FbrefExtractionModal({
           </div>
 
           <div className="text-sm opacity-70">
-            A API atual extrai principalmente a tabela <span className="font-semibold">geral</span> (classificação).
-            Complemento pode ser adicionado via upload na atualização de tabelas.
-          </div>
-
-          {/* Selenium Toggle */}
-          <div className="form-control">
-            <label className="label cursor-pointer justify-start gap-3">
-              <input
-                type="checkbox"
-                checked={useSelenium}
-                onChange={(e) => setUseSelenium(e.target.checked)}
-                className="checkbox checkbox-primary"
-                disabled={loading || saving}
-              />
-              <div className="label-text">
-                <div className="font-bold">Usar Selenium</div>
-                <div className="text-xs opacity-70">
-                  Use quando a página tiver JavaScript dinâmico ou proteções anti-scraping. Pode ser mais lento.
-                </div>
-              </div>
-            </label>
+            Extração via servidor (rápida): usa a tabela configurada no cadastro do campeonato —{' '}
+            <span className="font-semibold">Geral</span> (classificação) ou{' '}
+            <span className="font-semibold">Complemento</span> (Standard). Os dados vêm do HTML bruto,
+            incluindo tabelas guardadas em comentários pelo FBref.
           </div>
 
           {/* Extract Button */}
@@ -211,12 +184,12 @@ export default function FbrefExtractionModal({
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                {useSelenium ? 'Extraindo com Selenium...' : 'Extraindo dados...'}
+                Extraindo dados...
               </>
             ) : (
               <>
                 <ExternalLink className="w-5 h-5" />
-                Extrair Dados {useSelenium && '(Selenium)'}
+                Extrair dados
               </>
             )}
           </button>
