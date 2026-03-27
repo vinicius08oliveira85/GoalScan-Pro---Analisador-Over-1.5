@@ -8,12 +8,20 @@ import ChampionshipTableView from './ChampionshipTableView';
 import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
 import FbrefExtractionModal from './FbrefExtractionModal';
 import BatchExtractionProgressModal, { ChampionshipProgress } from './BatchExtractionProgressModal';
-import { syncAllChampionships } from '../services/fbrefService';
+import { syncAllChampionships, syncChampionshipFromFbref } from '../services/fbrefService';
 
-const ChampionshipsScreen: React.FC = () => {
+export interface ChampionshipsScreenProps {
+  onNotifyError?: (message: string) => void;
+  onNotifySuccess?: (message: string) => void;
+}
+
+const ChampionshipsScreen: React.FC<ChampionshipsScreenProps> = ({
+  onNotifyError,
+  onNotifySuccess,
+}) => {
   const handleError = (message: string) => {
     console.error('[ChampionshipsScreen]', message);
-    // Você pode adicionar um toast aqui se necessário
+    onNotifyError?.(message);
   };
 
   const { championships, isLoading, isSaving, save, remove, loadTables, saveTable, load } =
@@ -35,6 +43,7 @@ const ChampionshipsScreen: React.FC = () => {
   const [fbrefBatchProcessing, setFbrefBatchProcessing] = useState(false);
   const [fbrefSyncAllLoading, setFbrefSyncAllLoading] = useState(false);
   const fbrefBatchAbortRef = useRef<AbortController | null>(null);
+  const [syncingChampionshipId, setSyncingChampionshipId] = useState<string | null>(null);
 
   const handleNewChampionship = () => {
     setEditingChampionship(null);
@@ -125,7 +134,7 @@ const ChampionshipsScreen: React.FC = () => {
     fbrefBatchAbortRef.current = new AbortController();
     const signal = fbrefBatchAbortRef.current.signal;
     try {
-      await syncAllChampionships(championships, {
+      const batchResults = await syncAllChampionships(championships, {
         skipCache: true,
         signal,
         onBeforeEach: (_c, i) => {
@@ -149,6 +158,13 @@ const ChampionshipsScreen: React.FC = () => {
         },
       });
       await load();
+      const ok = batchResults.filter((r) => r.success).length;
+      const fail = batchResults.length - ok;
+      if (fail === 0) {
+        onNotifySuccess?.(`Sincronização em lote: ${ok} campeonato(s) atualizado(s).`);
+      } else {
+        onNotifySuccess?.(`Lote concluído: ${ok} sucesso(s), ${fail} com erro. Veja o modal para detalhes.`);
+      }
     } catch (e) {
       handleError(e instanceof Error ? e.message : 'Erro na sincronização em lote do FBref');
     } finally {
@@ -160,6 +176,28 @@ const ChampionshipsScreen: React.FC = () => {
 
   const handleCancelFbrefBatch = () => {
     fbrefBatchAbortRef.current?.abort();
+  };
+
+  const handleSyncOneFbref = async (championship: Championship) => {
+    const url = championship.fbrefUrl?.trim();
+    if (!url) {
+      handleError('Configure a URL do FBref editando o campeonato.');
+      return;
+    }
+    setSyncingChampionshipId(championship.id);
+    try {
+      const r = await syncChampionshipFromFbref(championship, { skipCache: true });
+      if (r.success) {
+        await load();
+        onNotifySuccess?.(`"${championship.nome}" sincronizado com o FBref.`);
+      } else if (!r.cancelled && r.error !== 'Cancelado') {
+        handleError(r.error || 'Falha ao sincronizar com o FBref');
+      }
+    } catch (e) {
+      handleError(e instanceof Error ? e.message : 'Erro ao sincronizar');
+    } finally {
+      setSyncingChampionshipId(null);
+    }
   };
 
   if (isLoading) {
@@ -287,19 +325,37 @@ const ChampionshipsScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-4">
+              <div className="flex gap-2 mt-4 flex-wrap">
                 <button
                   onClick={() => handleViewTables(championship)}
-                  className="btn btn-sm btn-ghost flex-1 gap-1"
+                  className="btn btn-sm btn-ghost flex-1 gap-1 min-w-[5rem]"
                   title="Visualizar Tabelas"
                 >
                   <Eye className="w-4 h-4" />
                   Tabelas
                 </button>
                 <button
+                  type="button"
+                  onClick={() => void handleSyncOneFbref(championship)}
+                  className="btn btn-sm btn-primary gap-1"
+                  title="Sincronizar dados do FBref (usa URL e tipo salvos no cadastro)"
+                  disabled={
+                    syncingChampionshipId !== null ||
+                    !championship.fbrefUrl ||
+                    String(championship.fbrefUrl).trim() === ''
+                  }
+                >
+                  {syncingChampionshipId === championship.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Sincronizar
+                </button>
+                <button
                   onClick={() => setExtractingFbref(championship)}
                   className="btn btn-sm btn-ghost gap-1"
-                  title="Extrair Dados do FBref.com"
+                  title="Abrir extração manual / preview FBref"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </button>

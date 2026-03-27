@@ -374,7 +374,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
       {/* URL do FBref */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-bold">URL do FBref (opcional)</span>
+          <span className="label-text font-bold">URL do FBref</span>
         </label>
         <input
           type="url"
@@ -394,7 +394,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-bold">Tipo de tabela no FBref (sincronização)</span>
+          <span className="label-text font-bold">Tipo de tabela (sincronização automática)</span>
         </label>
         <select
           value={fbrefTableType}

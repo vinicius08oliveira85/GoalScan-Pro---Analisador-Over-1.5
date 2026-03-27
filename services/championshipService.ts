@@ -1147,13 +1147,25 @@ export const saveChampionshipTable = async (
           table.table_name,
           table.table_data as TableRowGeral[]
         );
-        
-        // Atualizar uploaded_at no campeonato
+
         await updateChampionshipUploadedAt(table.championship_id);
       } catch (error) {
-        // Log mas não falhar o salvamento da tabela JSONB
         if (import.meta.env.DEV) {
           logger.warn('[ChampionshipService] Erro ao salvar dados normalizados:', error);
+        }
+      }
+    }
+
+    if (table.table_type === 'complement' && Array.isArray(table.table_data)) {
+      try {
+        await saveChampionshipComplement(
+          table.championship_id,
+          table.table_name || 'Complemento',
+          table.table_data as TableRowComplement[]
+        );
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          logger.warn('[ChampionshipService] Erro ao salvar complemento normalizado:', error);
         }
       }
     }

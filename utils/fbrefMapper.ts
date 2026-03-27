@@ -1,4 +1,11 @@
-import { TableRowGcaFor, TableRowGeral, TableRowHomeAway, TableRowPassingFor, TableRowStandardFor } from '../types';
+import {
+  TableRowComplement,
+  TableRowGcaFor,
+  TableRowGeral,
+  TableRowHomeAway,
+  TableRowPassingFor,
+  TableRowStandardFor,
+} from '../types';
 
 /**
  * Normaliza nome de cabeçalho do fbref.com para formato esperado
@@ -201,6 +208,28 @@ export function mapToTableRowsGeral(rawData: unknown[]): TableRowGeral[] {
       return mapToTableRowGeral(row as Record<string, unknown>);
     })
     .filter((row): row is TableRowGeral => row !== null);
+}
+
+/** Linha da tabela Standard/Complemento do FBref → formato TableRowComplement (preserva colunas dinâmicas). */
+export function mapToTableRowComplement(rawRow: Record<string, unknown>): TableRowComplement | null {
+  const squad = String(rawRow.Squad || rawRow.squad || '').trim();
+  if (!squad) return null;
+
+  const row: TableRowComplement = { Squad: squad };
+  for (const key of Object.keys(rawRow)) {
+    if (key.toLowerCase() === 'squad') continue;
+    row[key] = rawRow[key];
+  }
+  return row;
+}
+
+export function mapToTableRowsComplement(rawData: unknown[]): TableRowComplement[] {
+  return rawData
+    .map((row) => {
+      if (typeof row !== 'object' || row === null) return null;
+      return mapToTableRowComplement(row as Record<string, unknown>);
+    })
+    .filter((row): row is TableRowComplement => row !== null);
 }
 
 /**

@@ -1,6 +1,6 @@
 import { Championship, ChampionshipTable, TableType } from '../types';
 import { logger } from '../utils/logger';
-import { mapToTableRowsGeral } from '../utils/fbrefMapper';
+import { mapToTableRowsComplement, mapToTableRowsGeral } from '../utils/fbrefMapper';
 
 /** Intervalo mínimo entre requisições ao scraper (respeito ao FBref / rate limit). */
 export const FBREF_SYNC_DELAY_MS = 3000;
@@ -65,13 +65,15 @@ export interface FbrefExtractionRequest {
   championshipUrl: string;
   championshipId: string;
   extractTypes: ExtractType[];
+  /** Qual tabela extrair no FBref (enviado à API Python). */
+  fbrefTableType?: 'geral' | 'complement';
 }
 
 export interface FbrefExtractionResult {
   success: boolean;
   data?: {
     tables?: Record<string, unknown[] | undefined>;
-    missingTables?: Array<'geral'>;
+    missingTables?: Array<'geral' | 'complement'>;
     matches?: unknown[];
     teamStats?: unknown[];
   };
@@ -89,8 +91,12 @@ const CACHE_KEY_PREFIX = 'fbref_extraction_';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora
 
 // Cache helper
-function getCacheKey(url: string, extractTypes: ExtractType[]): string {
-  return `${CACHE_KEY_PREFIX}${url}_${extractTypes.join('_')}`;
+function getCacheKey(
+  url: string,
+  extractTypes: ExtractType[],
+  fbrefTableType: 'geral' | 'complement' = 'geral'
+): string {
+  return `${CACHE_KEY_PREFIX}${url}_${extractTypes.join('_')}_${fbrefTableType}`;
 }
 
 function getCachedResult(key: string): FbrefExtractionResult | null {
@@ -143,7 +149,8 @@ export const extractFbrefData = async (
     }
 
     // Verificar cache
-    const cacheKey = getCacheKey(request.championshipUrl, request.extractTypes);
+    const tableKind = request.fbrefTableType ?? 'geral';
+    const cacheKey = getCacheKey(request.championshipUrl, request.extractTypes, tableKind);
     if (!callOptions?.skipCache) {
       const cached = getCachedResult(cacheKey);
       if (cached) {
@@ -162,6 +169,7 @@ export const extractFbrefData = async (
         championshipUrl: request.championshipUrl,
         championshipId: request.championshipId,
         extractTypes: request.extractTypes,
+        fbrefTableType: tableKind,
       }),
       signal: callOptions?.signal,
     });
@@ -315,13 +323,6 @@ export async function syncChampionshipFromFbref(
   }
 
   const tableKind = championship.fbref_table_type ?? 'geral';
-  if (tableKind === 'complement') {
-    return {
-      success: false,
-      error:
-        'Tipo "complement" não é suportado na API de extração atual (apenas tabela geral). Altere para Geral ou use upload manual.',
-    };
-  }
 
   const extractFn = options?.useSelenium ? extractFbrefDataWithSelenium : extractFbrefData;
   let result: FbrefExtractionResult;
@@ -331,6 +332,7 @@ export async function syncChampionshipFromFbref(
         championshipUrl: url,
         championshipId: championship.id,
         extractTypes: ['table'],
+        fbrefTableType: tableKind === 'complement' ? 'complement' : 'geral',
       },
       { skipCache: options?.skipCache ?? true, signal: options?.signal }
     );
@@ -349,12 +351,22 @@ export async function syncChampionshipFromFbref(
     return { success: false, error: result.error || 'Falha na extração do FBref', cancelled };
   }
 
-  const raw = result.data?.tables?.geral;
+  const raw =
+    tableKind === 'complement'
+      ? result.data?.tables?.complement
+      : result.data?.tables?.geral;
   if (!Array.isArray(raw) || raw.length === 0) {
-    return { success: false, error: 'Nenhuma linha retornada na tabela geral do FBref' };
+    return {
+      success: false,
+      error:
+        tableKind === 'complement'
+          ? 'Nenhuma linha retornada na tabela de complemento (Standard) do FBref'
+          : 'Nenhuma linha retornada na tabela geral do FBref',
+    };
   }
 
-  const mapped = mapToTableRowsGeral(raw);
+  const mapped =
+    tableKind === 'complement' ? mapToTableRowsComplement(raw) : mapToTableRowsGeral(raw);
   if (mapped.length === 0) {
     return {
       success: false,
@@ -363,7 +375,11 @@ export async function syncChampionshipFromFbref(
   }
 
   try {
-    await saveExtractedTable(championship.id, 'geral', mapped as unknown[]);
+    await saveExtractedTable(
+      championship.id,
+      tableKind === 'complement' ? 'complement' : 'geral',
+      mapped as unknown[]
+    );
     return { success: true };
   } catch (e) {
     return {
@@ -461,8 +477,8 @@ export const extractFbrefDataWithSelenium = async (
       };
     }
 
-    // Cache com sufixo diferente para Selenium
-    const cacheKey = `${getCacheKey(request.championshipUrl, request.extractTypes)}_selenium`;
+    const sk = request.fbrefTableType ?? 'geral';
+    const cacheKey = `${getCacheKey(request.championshipUrl, request.extractTypes, sk)}_selenium`;
     if (!callOptions?.skipCache) {
       const cached = getCachedResult(cacheKey);
       if (cached) {
@@ -481,6 +497,7 @@ export const extractFbrefDataWithSelenium = async (
         championshipUrl: request.championshipUrl,
         championshipId: request.championshipId,
         extractTypes: request.extractTypes,
+        fbrefTableType: sk,
       }),
       signal: callOptions?.signal,
     });

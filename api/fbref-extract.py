@@ -4,6 +4,7 @@ Baseado no repositório app-scraper/scraper.py
 """
 import json
 import random
+import re
 import time
 from http.server import BaseHTTPRequestHandler
 from typing import Dict, List, Optional
@@ -11,7 +12,7 @@ from urllib.parse import urljoin
 
 try:
     import requests
-    from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup, Comment
 except ImportError:
     # Fallback para desenvolvimento local
     pass
@@ -27,9 +28,14 @@ class FBrefScraper:
             'results_2025-2026_111_overall',
             'stats_results_2025-2026111_overall',
             'results2025-2026111_overall',
-            # Padrões genéricos
-            r'stats_results_.*_overall',
-            r'results.*_overall',
+            re.compile(r'stats_results_.*_overall$', re.I),
+            re.compile(r'results.*_overall$', re.I),
+        ],
+        'complement': [
+            'stats_squads_standard_for',
+            re.compile(r'stats_squads_standard', re.I),
+            re.compile(r'squads_standard_for', re.I),
+            re.compile(r'standard_for$', re.I),
         ],
     }
 
@@ -39,7 +45,7 @@ class FBrefScraper:
         # Headers mais completos para evitar bloqueio 403
         # User-Agent atualizado para versão mais recente do Chrome
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -483,44 +489,77 @@ class FBrefScraper:
 
         return data
 
-    def find_table_by_type(self, soup: BeautifulSoup, table_type: str) -> Optional[BeautifulSoup]:
-        """Encontra uma tabela pelo tipo (geral, standard_for, etc.)"""
-        possible_ids = self.TABLE_MAPPING.get(table_type, [])
-        import re
+    def collect_stats_tables(self, soup: BeautifulSoup):
+        """
+        Lista tabelas `stats_table` no HTML visível e dentro de comentários `<!-- ... -->`.
+        O FBref coloca muitas tabelas só em comentários para bloquear scrapers ingênuos.
+        """
+        from bs4 import Comment as BSComment
 
-        for table_id_pattern in possible_ids:
-            if isinstance(table_id_pattern, str) and not table_id_pattern.startswith('r'):
-                # String literal
-                table = soup.find('table', {'id': table_id_pattern})
-                if table:
+        out = []
+        seen = set()
+
+        def add_table(t):
+            tid = t.get('id')
+            key = tid if tid else id(t)
+            if key in seen:
+                return
+            seen.add(key)
+            out.append(t)
+
+        for t in soup.find_all('table', class_=lambda c: c and 'stats_table' in c):
+            add_table(t)
+
+        for c in soup.find_all(string=lambda text: isinstance(text, BSComment)):
+            fragment = str(c)
+            if '<table' not in fragment.lower():
+                continue
+            try:
+                inner = BeautifulSoup(fragment, 'lxml')
+                for t in inner.find_all('table', class_=lambda cl: cl and 'stats_table' in cl):
+                    add_table(t)
+            except Exception:
+                continue
+
+        return out
+
+    def find_table_by_type(self, soup: BeautifulSoup, table_type: str) -> Optional[BeautifulSoup]:
+        """Encontra uma tabela pelo tipo (geral, complement, etc.) no DOM e em comentários."""
+        possible_ids = self.TABLE_MAPPING.get(table_type, [])
+        all_tables = self.collect_stats_tables(soup)
+
+        for pat in possible_ids:
+            if isinstance(pat, re.Pattern):
+                for table in all_tables:
+                    table_id = table.get('id', '') or ''
+                    if not pat.search(table_id):
+                        continue
+                    if table_type == 'geral' and 'home_away' in table_id.lower():
+                        continue
                     return table
             else:
-                # Regex pattern
-                pattern = table_id_pattern if isinstance(table_id_pattern, str) else table_id_pattern.pattern
-                if isinstance(table_id_pattern, str) and table_id_pattern.startswith('r'):
-                    pattern = table_id_pattern[1:]  # Remove 'r' prefix
-                regex = re.compile(pattern, re.IGNORECASE)
-                tables = soup.find_all('table', {'id': regex})
-                if tables:
-                    # Para 'geral', evitar home_away
-                    if table_type == 'geral':
-                        for t in tables:
-                            table_id = t.get('id', '')
-                            if 'home_away' not in table_id.lower():
-                                return t
-                    else:
-                        return tables[0]
+                for table in all_tables:
+                    if table.get('id') == pat:
+                        tid = table.get('id', '') or ''
+                        if table_type == 'geral' and 'home_away' in tid.lower():
+                            continue
+                        return table
 
-        # Fallback: busca por classe stats_table e verifica ID
-        all_tables = soup.find_all('table', {'class': 'stats_table'})
         for table in all_tables:
-            table_id = table.get('id', '')
+            table_id = table.get('id', '') or ''
             if table_type == 'geral' and '_overall' in table_id.lower() and 'home_away' not in table_id.lower():
+                return table
+            if table_type == 'complement' and 'standard_for' in table_id.lower() and 'home_away' not in table_id.lower():
                 return table
 
         return None
 
-    def scrape_any_page(self, url: str, extract_all_tables: bool = True) -> Dict:
+    def scrape_any_page(
+        self,
+        url: str,
+        extract_all_tables: bool = True,
+        table_types: Optional[List[str]] = None,
+    ) -> Dict:
         """
         Extrai todas as tabelas de qualquer página web (FBref)
         """
@@ -562,17 +601,17 @@ class FBrefScraper:
             "tables": {}
         }
 
-        # Mapear tabelas por tipo
-        table_types = ['geral']
+        types_to_fetch = table_types if table_types else ['geral']
 
-        for table_type in table_types:
+        for table_type in types_to_fetch:
             table = self.find_table_by_type(soup, table_type)
             if table:
                 table_id = table.get('id', f'table_{table_type}')
-                data = self.extract_table_data(soup, table_id=table_id, table_name=table_type)
+                # Cabeçalhos compostos da tabela Standard batem com a lógica `standard_for`
+                extract_name = 'standard_for' if table_type == 'complement' else table_type
+                data = self.extract_table_data(soup, table_id=table_id, table_name=extract_name)
 
                 if data:
-                    # Remove campos que terminam com _link
                     for row in data:
                         keys_to_remove = [key for key in row.keys() if key.endswith('_link')]
                         for key in keys_to_remove:
@@ -612,6 +651,9 @@ class handler(BaseHTTPRequestHandler):
             championship_url = request_data.get('championshipUrl', '')
             championship_id = request_data.get('championshipId', '')
             extract_types = request_data.get('extractTypes', ['table'])
+            fbref_table_type = request_data.get('fbrefTableType') or 'geral'
+            if fbref_table_type not in ('geral', 'complement'):
+                fbref_table_type = 'geral'
 
             if not championship_url or 'fbref.com' not in championship_url:
                 self._send_error(400, 'URL inválida. Apenas URLs do fbref.com são permitidas.')
@@ -620,8 +662,11 @@ class handler(BaseHTTPRequestHandler):
             # Inicializar scraper
             scraper = FBrefScraper()
 
-            # Extrair tabelas
-            result = scraper.scrape_any_page(championship_url, extract_all_tables=True)
+            result = scraper.scrape_any_page(
+                championship_url,
+                extract_all_tables=True,
+                table_types=[fbref_table_type],
+            )
 
             if 'error' in result:
                 response_data = {
@@ -634,19 +679,20 @@ class handler(BaseHTTPRequestHandler):
                 self._send_response(response_data)
                 return
 
-            # Mapear tabelas para formato esperado
             tables = result.get('tables', {})
             mapped_tables = {
-                'geral': tables.get('geral', [])
+                'geral': tables.get('geral', []),
+                'complement': tables.get('complement', []),
             }
 
-            # Identificar tabelas faltantes
             missing_tables = []
-            for table_type in ['geral']:
-                if not mapped_tables[table_type] or len(mapped_tables[table_type]) == 0:
-                    missing_tables.append(table_type)
+            if fbref_table_type == 'complement':
+                if not mapped_tables['complement']:
+                    missing_tables.append('complement')
+            else:
+                if not mapped_tables['geral']:
+                    missing_tables.append('geral')
 
-            # Retornar resposta
             self._send_response({
                 'success': True,
                 'data': {

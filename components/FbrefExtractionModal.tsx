@@ -45,16 +45,19 @@ export default function FbrefExtractionModal({
 
     try {
       // Usa Selenium se marcado, senão usa a API padrão
+      const fbrefTableType = championship.fbref_table_type ?? 'geral';
       const extractionResult = useSelenium
         ? await extractFbrefDataWithSelenium({
             championshipUrl: url.trim(),
             championshipId: championship.id,
             extractTypes,
+            fbrefTableType,
           })
         : await extractFbrefData({
             championshipUrl: url.trim(),
             championshipId: championship.id,
             extractTypes,
+            fbrefTableType,
           });
 
       setResult(extractionResult);

@@ -32,7 +32,7 @@ const SAFE_HEADERS = {
 const UA_HEADERS = {
   ...SAFE_HEADERS,
   'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
 };
 
 // Delay entre requisições (respeitar rate limit)
@@ -119,10 +119,20 @@ function normalizeHeaderKey(header: string): string {
 function collectTablesById(html: string): Map<string, string> {
   const map = new Map<string, string>();
   const tableRegex = /<table[^>]*id="([^"]+)"[^>]*>[\s\S]*?<\/table>/gi;
-  for (const match of html.matchAll(tableRegex)) {
-    const id = match[1];
-    const tableHtml = match[0];
-    if (id && tableHtml) map.set(id, tableHtml);
+
+  const ingest = (source: string) => {
+    for (const match of source.matchAll(tableRegex)) {
+      const id = match[1];
+      const tableHtml = match[0];
+      if (id && tableHtml && !map.has(id)) map.set(id, tableHtml);
+    }
+  };
+
+  ingest(html);
+  // FBref esconde várias tabelas dentro de comentários HTML
+  const commentRegex = /<!--([\s\S]*?)-->/g;
+  for (const cm of html.matchAll(commentRegex)) {
+    ingest(cm[1] ?? '');
   }
   return map;
 }
