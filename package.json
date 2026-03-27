@@ -26,6 +26,7 @@
     "@capacitor/android": "^8.0.0",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
+    "@radix-ui/react-menubar": "^1.1.16",
     "@supabase/supabase-js": "^2.39.0",
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.562.0",

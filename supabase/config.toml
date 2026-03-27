@@ -1,4 +1,8 @@
-# GoalScan Pro — ID do projeto (Supabase CLI: supabase link --project-ref abjzfxucwcvumkuqapkr)
+# GoalScan Pro — projeto Supabase
 # Dashboard: https://supabase.com/dashboard/project/abjzfxucwcvumkuqapkr
 
 project_id = "abjzfxucwcvumkuqapkr"
+
+[functions]
+  [functions.update-bet-and-bank]
+    main = "./supabase/functions/update-bet-and-bank/index.ts"

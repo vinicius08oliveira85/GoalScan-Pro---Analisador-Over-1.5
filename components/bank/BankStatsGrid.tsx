@@ -24,12 +24,7 @@ const BankStatsGrid: React.FC<BankStatsGridProps> = ({ bankStats, startCustomInd
       value: `R$ ${bankStats.totalProfit.toFixed(2)}`,
       icon: DollarSign,
       color: bankStats.totalProfit > 0 ? 'success' : bankStats.totalProfit < 0 ? 'error' : 'primary',
-      subtitle:
-        bankStats.totalProfit > 0
-          ? 'Ganhos acumulados'
-          : bankStats.totalProfit < 0
-            ? 'Prejuízo acumulado'
-            : 'Sem movimentação',
+      subtitle: bankStats.totalProfit > 0 ? 'Ganhos acumulados' : bankStats.totalProfit < 0 ? 'Prejuízo acumulado' : 'Sem movimentação',
     },
     {
       title: 'ROI',
@@ -80,19 +75,19 @@ const BankStatsGrid: React.FC<BankStatsGridProps> = ({ bankStats, startCustomInd
             initial="initial"
             animate="animate"
             custom={index + startCustomIndex}
-            className="custom-card p-4 md:p-6"
+            className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
           >
             <div className="flex items-start justify-between mb-3">
-              <div className={`p-2 md:p-3 rounded-xl ${styles.bg} border ${styles.border}`}>
-                <Icon className={`w-5 h-5 md:w-6 md:h-6 ${styles.text}`} />
+              <div className={`p-3 rounded-xl ${styles.bg} border ${styles.border}`}>
+                <Icon className={`w-6 h-6 ${styles.text}`} />
               </div>
             </div>
             <div>
-              <p className="text-xs md:text-sm font-semibold opacity-60 uppercase tracking-wide mb-1">
+              <p className="text-sm font-semibold text-base-content/70 uppercase tracking-wide mb-1">
                 {card.title}
               </p>
-              <p className={`text-2xl md:text-3xl font-black ${styles.text}`}>{card.value}</p>
-              <p className="text-xs opacity-50 mt-1">{card.subtitle}</p>
+              <p className={`text-3xl font-black ${styles.text}`}>{card.value}</p>
+              <p className="text-xs text-base-content/60 mt-1">{card.subtitle}</p>
             </div>
           </motion.div>
         );
@@ -102,5 +97,3 @@ const BankStatsGrid: React.FC<BankStatsGridProps> = ({ bankStats, startCustomInd
 };
 
 export default BankStatsGrid;
-
-

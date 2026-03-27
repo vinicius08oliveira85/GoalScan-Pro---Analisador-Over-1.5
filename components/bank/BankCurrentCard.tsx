@@ -14,7 +14,6 @@ interface BankCurrentCardProps {
 const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
   totalBank,
   pendingExposure,
-  totalBets,
   updatedAt,
   formatMoney,
 }) => {
@@ -25,42 +24,33 @@ const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
-      className="custom-card p-6 md:p-8 bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 border border-primary/20 backdrop-blur-sm relative overflow-hidden"
+      className="card bg-base-100 shadow-sm border border-base-300/50 p-6 md:p-8"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-50" />
-      <div className="relative space-y-4">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-3 rounded-xl bg-primary/20 border border-primary/30">
-            <Wallet className="w-6 h-6 md:w-8 md:h-8 text-primary" />
+      <div className="space-y-4">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+            <Wallet className="w-7 h-7 text-primary" />
           </div>
           <div>
-            <h2 className="text-xl md:text-2xl font-black">Banca Atual</h2>
-            <p className="text-xs md:text-sm opacity-70 leading-relaxed">Capital disponível para apostas</p>
+            <h2 className="text-xl md:text-2xl font-black text-base-content">Banca Atual</h2>
+            <p className="text-sm text-base-content/70">Capital disponível para apostas</p>
           </div>
         </div>
 
-        <div className="flex items-baseline gap-2">
-          <span className="text-4xl md:text-5xl font-black tracking-tight tabular-nums">
-            R$ {formatMoney(totalBank)}
-          </span>
-        </div>
+        <p className="text-4xl md:text-5xl font-black tracking-tight text-primary tabular-nums">
+          {formatMoney(totalBank)}
+        </p>
 
-        {(pendingExposure > 0 || totalBets > 0) && (
-          <div className="text-xs md:text-sm opacity-70">
-            <span className="font-semibold">Equity:</span>{' '}
-            <span className="tabular-nums">R$ {formatMoney(equity)}</span>
-            {pendingExposure > 0 && (
-              <>
-                <span className="opacity-50"> • </span>
-                <span className="opacity-70">Pendentes:</span>{' '}
-                <span className="tabular-nums">R$ {formatMoney(pendingExposure)}</span>
-              </>
-            )}
+        {pendingExposure > 0 && (
+          <div className="text-sm text-base-content/80">
+            <span className="font-semibold">Equity:</span> {formatMoney(equity)}
+            <span className="opacity-50 mx-2">•</span>
+            <span className="font-semibold">Pendente:</span> {formatMoney(pendingExposure)}
           </div>
         )}
 
         {updatedAt && (
-          <p className="text-xs opacity-70 leading-relaxed">
+          <p className="text-xs text-base-content/60 mt-4">
             Última atualização: {new Date(updatedAt).toLocaleString('pt-BR')}
           </p>
         )}
@@ -70,5 +60,3 @@ const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
 };
 
 export default BankCurrentCard;
-
-
