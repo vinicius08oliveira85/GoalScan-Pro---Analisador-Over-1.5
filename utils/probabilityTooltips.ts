@@ -64,8 +64,8 @@ export function getTableProbabilityTooltip(
 
   const hasTableData = !!(data.homeTableData && data.awayTableData);
   const hasStandardFor = !!(
-    data.homeStandardForData &&
-    data.awayStandardForData &&
+    data.homeComplementData &&
+    data.awayComplementData &&
     data.competitionStandardForAvg
   );
   const homeRk = data.homeTableData?.Rk ? parseFloat(data.homeTableData.Rk) : 0;
@@ -214,8 +214,8 @@ export function calculateDataQuality(data: MatchData): number {
 
   // Tabela Complementar (standard_for) (peso baixo/médio)
   maxScore += 10;
-  if (data.homeStandardForData) score += 4;
-  if (data.awayStandardForData) score += 4;
+  if (data.homeComplementData) score += 4;
+  if (data.awayComplementData) score += 4;
   if (data.competitionStandardForAvg) score += 2;
 
   // Média da Competição (peso médio)

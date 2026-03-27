@@ -1,6 +1,30 @@
-import { getSupabaseClient } from '../lib/supabase';
-import { ChampionshipTable, TableType } from '../types';
+import { Championship, ChampionshipTable, TableType } from '../types';
 import { logger } from '../utils/logger';
+import { mapToTableRowsGeral } from '../utils/fbrefMapper';
+
+/** Intervalo mínimo entre requisições ao scraper (respeito ao FBref / rate limit). */
+export const FBREF_SYNC_DELAY_MS = 3000;
+
+export interface FbrefExtractCallOptions {
+  /** Não usar cache local (recomendado na sincronização em lote). */
+  skipCache?: boolean;
+}
+
+export interface SyncChampionshipFromFbrefResult {
+  championshipId: string;
+  nome: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface SyncAllChampionshipsOptions {
+  useSelenium?: boolean;
+  skipCache?: boolean;
+  /** Pausa entre um campeonato e o próximo (ms). Padrão: FBREF_SYNC_DELAY_MS. */
+  delayBetweenMs?: number;
+  onBeforeEach?: (championship: Championship, index: number) => void;
+  onAfterEach?: (result: SyncChampionshipFromFbrefResult, index: number) => void;
+}
 
 export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
 
@@ -17,8 +41,8 @@ export interface FbrefExtractionRequest {
 export interface FbrefExtractionResult {
   success: boolean;
   data?: {
-    tables?: Record<'geral' | 'home_away' | 'standard_for', unknown[]>;
-    missingTables?: Array<'geral' | 'home_away' | 'standard_for'>;
+    tables?: Record<string, unknown[] | undefined>;
+    missingTables?: Array<'geral'>;
     matches?: unknown[];
     teamStats?: unknown[];
   };
@@ -74,10 +98,11 @@ function setCachedResult(key: string, result: FbrefExtractionResult): void {
 }
 
 /**
- * Extrai dados do fbref.com via Edge Function (requests + BeautifulSoup)
+ * Extrai dados do fbref.com via API de scraping (Vercel / requests + BeautifulSoup)
  */
 export const extractFbrefData = async (
-  request: FbrefExtractionRequest
+  request: FbrefExtractionRequest,
+  callOptions?: FbrefExtractCallOptions
 ): Promise<FbrefExtractionResult> => {
   try {
     // Validar URL
@@ -90,10 +115,12 @@ export const extractFbrefData = async (
 
     // Verificar cache
     const cacheKey = getCacheKey(request.championshipUrl, request.extractTypes);
-    const cached = getCachedResult(cacheKey);
-    if (cached) {
-      logger.log('[FBrefService] Usando dados do cache');
-      return cached;
+    if (!callOptions?.skipCache) {
+      const cached = getCachedResult(cacheKey);
+      if (cached) {
+        logger.log('[FBrefService] Usando dados do cache');
+        return cached;
+      }
     }
 
     // Chamar API Python no Vercel
@@ -142,7 +169,7 @@ export const extractFbrefData = async (
     const result = (await response.json()) as FbrefExtractionResult;
 
     // Salvar no cache se bem-sucedido
-    if (result.success) {
+    if (result.success && !callOptions?.skipCache) {
       setCachedResult(cacheKey, result);
     }
 
@@ -158,8 +185,7 @@ export const extractFbrefData = async (
 
 const TABLE_NAME_BY_TYPE: Record<TableType, string> = {
   geral: 'Geral',
-  home_away: 'Home/Away - Desempenho Casa vs Fora',
-  standard_for: 'Standard (For) - Complemento',
+  complement: 'Complemento',
 };
 
 /**
@@ -219,26 +245,137 @@ export const saveExtractedTable = async (
  */
 export const saveExtractedTables = async (
   championshipId: string,
-  tablesByType: Record<'geral' | 'home_away' | 'standard_for', unknown[]>
+  tablesByType: Record<string, unknown[]>
 ): Promise<ChampionshipTable[]> => {
   const saved: ChampionshipTable[] = [];
+  const allowed: TableType[] = ['geral', 'complement'];
 
-  for (const tableType of Object.keys(tablesByType) as Array<keyof typeof tablesByType>) {
+  for (const tableType of allowed) {
     const rows = tablesByType[tableType];
     if (!Array.isArray(rows) || rows.length === 0) continue;
 
-    const res = await saveExtractedTable(championshipId, tableType as TableType, rows);
+    const res = await saveExtractedTable(championshipId, tableType, rows);
     if (res) saved.push(res);
   }
 
   return saved;
 };
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Sincroniza um campeonato: extrai via API de scraping, aplica mapToTableRowsGeral e persiste.
+ * `saveExtractedTable` → `saveChampionshipTable` atualiza `championship_teams` para tabela geral.
+ */
+export async function syncChampionshipFromFbref(
+  championship: Championship,
+  options?: FbrefExtractCallOptions & { useSelenium?: boolean }
+): Promise<{ success: boolean; error?: string }> {
+  const url = championship.fbrefUrl?.trim();
+  if (!url) {
+    return { success: false, error: 'URL do FBref não configurada' };
+  }
+  if (!url.includes('fbref.com')) {
+    return { success: false, error: 'URL inválida (deve ser do fbref.com)' };
+  }
+
+  const tableKind = championship.fbref_table_type ?? 'geral';
+  if (tableKind === 'complement') {
+    return {
+      success: false,
+      error:
+        'Tipo "complement" não é suportado na API de extração atual (apenas tabela geral). Altere para Geral ou use upload manual.',
+    };
+  }
+
+  const extractFn = options?.useSelenium ? extractFbrefDataWithSelenium : extractFbrefData;
+  let result: FbrefExtractionResult;
+  try {
+    result = await extractFn(
+      {
+        championshipUrl: url,
+        championshipId: championship.id,
+        extractTypes: ['table'],
+      },
+      { skipCache: options?.skipCache ?? true }
+    );
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Falha de conexão com o serviço de extração',
+    };
+  }
+
+  if (!result.success) {
+    return { success: false, error: result.error || 'Falha na extração do FBref' };
+  }
+
+  const raw = result.data?.tables?.geral;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return { success: false, error: 'Nenhuma linha retornada na tabela geral do FBref' };
+  }
+
+  const mapped = mapToTableRowsGeral(raw);
+  if (mapped.length === 0) {
+    return {
+      success: false,
+      error: 'Nenhuma linha válida após o mapeamento (campo Squad obrigatório)',
+    };
+  }
+
+  try {
+    await saveExtractedTable(championship.id, 'geral', mapped as unknown[]);
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Erro ao salvar tabela no banco',
+    };
+  }
+}
+
+/**
+ * Percorre campeonatos com `fbrefUrl` preenchida e sincroniza um a um (erros não interrompem o lote).
+ */
+export async function syncAllChampionships(
+  championships: Championship[],
+  options?: SyncAllChampionshipsOptions
+): Promise<SyncChampionshipFromFbrefResult[]> {
+  const delay = options?.delayBetweenMs ?? FBREF_SYNC_DELAY_MS;
+  const targets = championships.filter((c) => c.fbrefUrl && String(c.fbrefUrl).trim() !== '');
+  const results: SyncChampionshipFromFbrefResult[] = [];
+
+  for (let i = 0; i < targets.length; i++) {
+    const c = targets[i];
+    if (i > 0 && delay > 0) {
+      await sleep(delay);
+    }
+    options?.onBeforeEach?.(c, i);
+    const r = await syncChampionshipFromFbref(c, {
+      useSelenium: options?.useSelenium,
+      skipCache: options?.skipCache ?? true,
+    });
+    const entry: SyncChampionshipFromFbrefResult = {
+      championshipId: c.id,
+      nome: c.nome,
+      success: r.success,
+      error: r.error,
+    };
+    results.push(entry);
+    options?.onAfterEach?.(entry, i);
+  }
+
+  return results;
+}
+
 /**
  * Extrai dados do fbref.com via Selenium (para páginas com JavaScript dinâmico)
  */
 export const extractFbrefDataWithSelenium = async (
-  request: FbrefExtractionRequest
+  request: FbrefExtractionRequest,
+  callOptions?: FbrefExtractCallOptions
 ): Promise<FbrefExtractionResult> => {
   try {
     // Validar URL
@@ -251,10 +388,12 @@ export const extractFbrefDataWithSelenium = async (
 
     // Cache com sufixo diferente para Selenium
     const cacheKey = `${getCacheKey(request.championshipUrl, request.extractTypes)}_selenium`;
-    const cached = getCachedResult(cacheKey);
-    if (cached) {
-      logger.log('[FBrefService] Usando dados do cache (Selenium)');
-      return cached;
+    if (!callOptions?.skipCache) {
+      const cached = getCachedResult(cacheKey);
+      if (cached) {
+        logger.log('[FBrefService] Usando dados do cache (Selenium)');
+        return cached;
+      }
     }
 
     // Chamar API Python com Selenium no Vercel
@@ -313,7 +452,7 @@ export const extractFbrefDataWithSelenium = async (
     }
 
     // Salvar no cache se bem-sucedido
-    if (result.success) {
+    if (result.success && !callOptions?.skipCache) {
       setCachedResult(cacheKey, result);
     }
 

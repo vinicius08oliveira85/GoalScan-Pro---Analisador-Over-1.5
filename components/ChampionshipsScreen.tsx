@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, ExternalLink } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
 import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
 import FbrefExtractionModal from './FbrefExtractionModal';
-import { animations } from '../utils/animations';
+import BatchExtractionProgressModal, { ChampionshipProgress } from './BatchExtractionProgressModal';
+import { syncAllChampionships } from '../services/fbrefService';
 
 const ChampionshipsScreen: React.FC = () => {
   const handleError = (message: string) => {
@@ -15,7 +16,7 @@ const ChampionshipsScreen: React.FC = () => {
     // Você pode adicionar um toast aqui se necessário
   };
 
-  const { championships, isLoading, isSaving, save, remove, loadTables, saveTable } =
+  const { championships, isLoading, isSaving, save, remove, loadTables, saveTable, load } =
     useChampionships(handleError);
   const [showForm, setShowForm] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<Championship | null>(null);
@@ -28,6 +29,11 @@ const ChampionshipsScreen: React.FC = () => {
     tables: ChampionshipTable[];
   } | null>(null);
   const [extractingFbref, setExtractingFbref] = useState<Championship | null>(null);
+  const [fbrefBatchOpen, setFbrefBatchOpen] = useState(false);
+  const [fbrefBatchItems, setFbrefBatchItems] = useState<ChampionshipProgress[]>([]);
+  const [fbrefBatchCompleted, setFbrefBatchCompleted] = useState(0);
+  const [fbrefBatchProcessing, setFbrefBatchProcessing] = useState(false);
+  const [fbrefSyncAllLoading, setFbrefSyncAllLoading] = useState(false);
 
   const handleNewChampionship = () => {
     setEditingChampionship(null);
@@ -99,6 +105,54 @@ const ChampionshipsScreen: React.FC = () => {
     }
   };
 
+  const handleSyncAllFbref = async () => {
+    const targets = championships.filter((c) => c.fbrefUrl && String(c.fbrefUrl).trim() !== '');
+    if (targets.length === 0) {
+      handleError('Nenhum campeonato com URL do FBref configurada. Edite um campeonato e informe a URL.');
+      return;
+    }
+    setFbrefBatchItems(
+      targets.map((c) => ({
+        championship: c,
+        status: 'pending' as const,
+      }))
+    );
+    setFbrefBatchCompleted(0);
+    setFbrefBatchOpen(true);
+    setFbrefBatchProcessing(true);
+    setFbrefSyncAllLoading(true);
+    try {
+      await syncAllChampionships(championships, {
+        skipCache: true,
+        onBeforeEach: (_c, i) => {
+          setFbrefBatchItems((prev) =>
+            prev.map((p, j) => (j === i ? { ...p, status: 'processing' as const } : p))
+          );
+        },
+        onAfterEach: (res, i) => {
+          setFbrefBatchItems((prev) =>
+            prev.map((p, j) =>
+              j === i
+                ? {
+                    ...p,
+                    status: res.success ? ('success' as const) : ('error' as const),
+                    error: res.error,
+                  }
+                : p
+            )
+          );
+          setFbrefBatchCompleted(i + 1);
+        },
+      });
+      await load();
+    } catch (e) {
+      handleError(e instanceof Error ? e.message : 'Erro na sincronização em lote do FBref');
+    } finally {
+      setFbrefBatchProcessing(false);
+      setFbrefSyncAllLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -125,10 +179,26 @@ const ChampionshipsScreen: React.FC = () => {
             Gerencie seus campeonatos e tabelas de classificação
           </p>
         </div>
-        <button onClick={handleNewChampionship} className="btn btn-primary gap-2">
-          <Plus className="w-5 h-5" />
-          Novo Campeonato
-        </button>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => void handleSyncAllFbref()}
+            className="btn btn-outline btn-primary gap-2"
+            disabled={fbrefSyncAllLoading || championships.length === 0}
+            title="Atualiza tabelas de todos os campeonatos que têm URL do FBref"
+          >
+            {fbrefSyncAllLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-5 h-5" />
+            )}
+            Sincronizar Todos do FBref
+          </button>
+          <button onClick={handleNewChampionship} className="btn btn-primary gap-2">
+            <Plus className="w-5 h-5" />
+            Novo Campeonato
+          </button>
+        </div>
       </div>
 
       {/* Lista de Campeonatos */}
@@ -382,6 +452,16 @@ const ChampionshipsScreen: React.FC = () => {
           onError={handleError}
         />
       )}
+
+      <BatchExtractionProgressModal
+        isOpen={fbrefBatchOpen}
+        onClose={() => setFbrefBatchOpen(false)}
+        championships={fbrefBatchItems}
+        currentIndex={fbrefBatchCompleted}
+        total={fbrefBatchItems.length}
+        isProcessing={fbrefBatchProcessing}
+        title="Sincronizar todos do FBref"
+      />
     </div>
   );
 };

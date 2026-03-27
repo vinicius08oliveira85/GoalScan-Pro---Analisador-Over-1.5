@@ -19,13 +19,11 @@ export default function FbrefExtractionModal({
   onTableSaved,
   onError,
 }: Props) {
-  const [url, setUrl] = useState((championship as any).fbrefUrl ?? '');
+  const [url, setUrl] = useState(championship.fbrefUrl ?? '');
   const extractTypes: ExtractType[] = ['table'];
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FbrefExtractionResult | null>(null);
-  const [previewTables, setPreviewTables] = useState<
-    Record<'geral' | 'home_away' | 'standard_for', unknown[]> | null
-  >(null);
+  const [previewTables, setPreviewTables] = useState<Record<string, unknown[]> | null>(null);
   const [activePreviewTable, setActivePreviewTable] = useState<TableType>('geral');
   const [saving, setSaving] = useState(false);
   const [useSelenium, setUseSelenium] = useState(false);
@@ -64,8 +62,7 @@ export default function FbrefExtractionModal({
       if (extractionResult.success && extractionResult.data?.tables) {
         setPreviewTables(extractionResult.data.tables);
 
-        // Selecionar a primeira tabela com dados para preview
-        const order: Array<TableType> = ['geral', 'home_away', 'standard_for'];
+        const order: TableType[] = ['geral', 'complement'];
         const firstWithData =
           order.find((t) => (extractionResult.data?.tables?.[t]?.length ?? 0) > 0) || 'geral';
         setActivePreviewTable(firstWithData);
@@ -106,16 +103,12 @@ export default function FbrefExtractionModal({
 
     try {
       // Passar dados diretamente - saveExtractedTables já faz a normalização
-      const tablesToSave = {
+      const tablesToSave: Record<string, unknown[]> = {
         geral: previewTables.geral || [],
-        home_away: previewTables.home_away || [],
-        standard_for: previewTables.standard_for || [],
+        complement: previewTables.complement || [],
       };
 
-      const totalRows =
-        tablesToSave.geral.length +
-        tablesToSave.home_away.length +
-        tablesToSave.standard_for.length;
+      const totalRows = tablesToSave.geral.length + tablesToSave.complement.length;
 
       if (totalRows === 0) {
         throw new Error('Nenhum dado válido encontrado para salvar');
@@ -183,10 +176,8 @@ export default function FbrefExtractionModal({
           </div>
 
           <div className="text-sm opacity-70">
-            Este modo extrai automaticamente as tabelas:{' '}
-            <span className="font-semibold">geral</span>,{' '}
-            <span className="font-semibold">home_away</span> e{' '}
-            <span className="font-semibold">standard_for</span>.
+            A API atual extrai principalmente a tabela <span className="font-semibold">geral</span> (classificação).
+            Complemento pode ser adicionado via upload na atualização de tabelas.
           </div>
 
           {/* Selenium Toggle */}
@@ -296,7 +287,7 @@ export default function FbrefExtractionModal({
               </div>
 
               <div role="tablist" className="tabs tabs-boxed tabs-sm mb-3">
-                {(['geral', 'home_away', 'standard_for'] as TableType[]).map((t) => (
+                {(['geral', 'complement'] as TableType[]).map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -304,13 +295,13 @@ export default function FbrefExtractionModal({
                     className={`tab ${activePreviewTable === t ? 'tab-active' : ''}`}
                     onClick={() => setActivePreviewTable(t)}
                   >
-                    {t} ({(previewTables as any)[t]?.length ?? 0})
+                    {t} ({previewTables[t]?.length ?? 0})
                   </button>
                 ))}
               </div>
 
               {(() => {
-                const current = (previewTables as any)[activePreviewTable] as unknown[] | undefined;
+                const current = previewTables[activePreviewTable] as unknown[] | undefined;
                 const currentRows = Array.isArray(current) ? current : [];
                 if (currentRows.length === 0) {
                   return <div className="text-sm opacity-70">Sem dados para esta tabela.</div>;

@@ -101,13 +101,9 @@ export const matchDataSchema = z.object({
   championshipId: z.string().optional(),
   homeTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
   awayTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
-  homeStandardForData: z.any().optional(), // Tabela complementar (TableRowStandardFor)
-  awayStandardForData: z.any().optional(), // Tabela complementar (TableRowStandardFor)
-  competitionStandardForAvg: z.any().optional(), // Médias do campeonato para normalização (CompetitionStandardForAverages)
-  // Tabelas complementares adicionais (FBref) - todas as 4 tabelas devem estar presentes no schema
-  // Tabela Home/Away (desempenho em casa vs fora)
-  homeHomeAwayData: z.any().optional(), // Tabela home_away (TableRowHomeAway)
-  awayHomeAwayData: z.any().optional(), // Tabela home_away (TableRowHomeAway)
+  homeComplementData: z.any().optional(), // Tabela complemento (TableRowComplement)
+  awayComplementData: z.any().optional(), // Tabela complemento (TableRowComplement)
+  competitionComplementAvg: z.any().optional(), // Médias do campeonato para normalização (CompetitionComplementAverages)
 });
 
 // Schema para validação de BetInfo

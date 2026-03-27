@@ -9,6 +9,7 @@ import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 import { parseComplementToJson, isComplementFile, validateComplementData } from '../utils/complementParser';
 import { saveChampionshipComplement } from '../services/championshipService';
 import { TableRowComplement } from '../types';
+import { ChampionshipTablePasteArea } from './ChampionshipTablePasteArea';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -18,8 +19,7 @@ interface ChampionshipFormProps {
 
 const TABLE_TYPES: Array<{ type: TableType; name: string; required: boolean }> = [
   { type: 'geral', name: 'Geral', required: false },
-  { type: 'home_away', name: 'Home/Away - Desempenho Casa vs Fora', required: false },
-  { type: 'standard_for', name: 'Standard (For) - Complemento', required: false },
+  { type: 'complement', name: 'Complemento', required: false },
 ];
 
 const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
@@ -29,6 +29,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 }) => {
   const [nome, setNome] = useState('');
   const [fbrefUrl, setFbrefUrl] = useState('');
+  const [fbrefTableType, setFbrefTableType] = useState<TableType>('geral');
   const [tableFormat, setTableFormat] = useState<TableFormat | 'auto'>('auto');
   const [tables, setTables] = useState<Map<TableType, ChampionshipTable>>(new Map());
   const [complementData, setComplementData] = useState<TableRowComplement[] | null>(null);
@@ -40,10 +41,12 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
     if (championship) {
       setNome(championship.nome);
       setFbrefUrl(championship.fbrefUrl ?? '');
+      setFbrefTableType(championship.fbref_table_type ?? 'geral');
       setTableFormat(championship.table_format || 'auto');
     } else {
       setNome('');
       setFbrefUrl('');
+      setFbrefTableType('geral');
       setTableFormat('auto');
       setTables(new Map());
     }
@@ -130,6 +133,37 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
         [tableType]: errorMessage,
       }));
     }
+  };
+
+  const handleTableImport = (data: TableRowGeral[]) => {
+    const tableType: TableType = 'geral';
+    
+    if (tableFormat === 'auto' && data.length > 0) {
+      const detectedFormat = detectTableFormatFromData(data);
+      setTableFormat(detectedFormat);
+    }
+
+    const table: ChampionshipTable = {
+      id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
+      championship_id: championship?.id || '',
+      table_type: tableType,
+      table_name: 'Geral',
+      table_data: data,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    setTables((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(tableType, table);
+      return newMap;
+    });
+
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[tableType];
+      return newErrors;
+    });
   };
 
   const handleJsonPaste = (tableType: TableType, jsonText: string) => {
@@ -276,17 +310,16 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
         id: championship?.id || Math.random().toString(36).slice(2, 11),
         nome: nome.trim(),
         fbrefUrl: fbrefUrlTrimmed ? fbrefUrlTrimmed : null,
+        fbref_table_type: fbrefTableType,
         table_format: finalFormat,
         updated_at: new Date().toISOString(),
       };
 
-      const tablesToSave = Array.from(tables.values()).map((table) => {
-        // Garantir que o championship_id está correto e atualizar o ID da tabela se necessário
-        const updatedTable = {
+      const tablesToSave = Array.from(tables.values()).map((table: ChampionshipTable) => {
+        const updatedTable: ChampionshipTable = {
           ...table,
           championship_id: championshipToSave.id,
         };
-        // Atualizar ID da tabela se o championship_id mudou
         if (table.championship_id !== championshipToSave.id) {
           updatedTable.id = `${championshipToSave.id}_${table.table_type}_${Date.now()}`;
         }
@@ -353,10 +386,29 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
         {errors.fbrefUrl && <span className="text-error text-sm mt-1">{errors.fbrefUrl}</span>}
         {!errors.fbrefUrl && (
           <span className="text-xs opacity-70 mt-1">
-            Dica: com essa URL salva, você poderá clicar em <span className="font-semibold">Atualizar</span> e extrair
-            todas as tabelas automaticamente.
+            Salve a URL uma vez; use <span className="font-semibold">Sincronizar Todos do FBref</span> na lista de
+            campeonatos ou extraia por campeonato no ícone de link.
           </span>
         )}
+      </div>
+
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-bold">Tipo de tabela no FBref (sincronização)</span>
+        </label>
+        <select
+          value={fbrefTableType}
+          onChange={(e) => setFbrefTableType(e.target.value as TableType)}
+          className="select select-bordered w-full"
+        >
+          <option value="geral">Geral — classificação (suportado na sincronização em lote)</option>
+          <option value="complement">Complemento — uso futuro; em lote use upload manual</option>
+        </select>
+        <label className="label">
+          <span className="label-text-alt opacity-70">
+            Define qual tabela a automação tenta atualizar. Hoje a API retorna apenas a tabela geral.
+          </span>
+        </label>
       </div>
 
       {/* Formato da Planilha */}
@@ -452,6 +504,13 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                       </span>
                     </label>
                   </div>
+
+                  {type === 'geral' && (
+                    <>
+                      <div className="divider">OU</div>
+                      <ChampionshipTablePasteArea onImport={handleTableImport} />
+                    </>
+                  )}
 
                   <div className="divider">OU</div>
 
@@ -571,4 +630,3 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 };
 
 export default ChampionshipForm;
-

@@ -11,7 +11,7 @@ type TableMeta = { type: TableType; name: string };
 
 const TABLES: TableMeta[] = [
   { type: 'geral', name: 'Geral' },
-  { type: 'standard_for', name: 'Standard (For) - Complemento' },
+  { type: 'complement', name: 'Complemento' },
 ];
 
 interface Props {
@@ -49,11 +49,11 @@ export default function ChampionshipTableUpdateModal({
   const [activeType, setActiveType] = useState<TableType>('geral');
   const [jsonTextByType, setJsonTextByType] = useState<Record<TableType, string>>({
     geral: '',
-    standard_for: '',
+    complement: '',
   });
   const [errorByType, setErrorByType] = useState<Record<TableType, string | null>>({
     geral: null,
-    standard_for: null,
+    complement: null,
   });
   const [isSaving, setIsSaving] = useState(false);
 

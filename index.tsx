@@ -1,20 +1,28 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import './src/index.css';
-import App from './App';
-import ErrorBoundary from './components/ErrorBoundary';
+export interface MatchData {
+  homeTeam: string;
+  awayTeam: string;
+  homeStats: {
+    avgGols: number;
+    last5: number[];
+  };
+  awayStats: {
+    avgGols: number;
+    last5: number[];
+  };
+  h2h: {
+    results: string[];
+  };
+}
 
-// Analytics (opcional - requer consentimento do usuário)
-// import { analyticsService } from './services/analyticsService';
-
-const container = document.getElementById('root');
-if (container) {
-  const root = createRoot(container);
-  root.render(
-    <React.StrictMode>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </React.StrictMode>
-  );
+export interface AnalysisResult {
+  probabilities: {
+    over05HT: number;
+    over15: number;
+    over25: number;
+    under35: number; // Novo mercado
+    btts: number;
+  };
+  justification: string;
+  confidenceScore: number;
+  expectedValue?: number; // Para gestão de banca
 }

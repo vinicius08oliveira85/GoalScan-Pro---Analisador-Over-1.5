@@ -1,4 +1,6 @@
 {
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "GoalScan-Pro---Analisador-Over-1.5"],
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,

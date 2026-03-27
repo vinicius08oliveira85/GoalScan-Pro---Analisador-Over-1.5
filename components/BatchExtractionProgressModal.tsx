@@ -21,6 +21,8 @@ interface Props {
   total: number;
   onCancel?: () => void;
   isProcessing: boolean;
+  /** Título do modal (padrão: sincronização em lote FBref) */
+  title?: string;
 }
 
 export default function BatchExtractionProgressModal({
@@ -31,6 +33,7 @@ export default function BatchExtractionProgressModal({
   total,
   onCancel,
   isProcessing,
+  title = 'Sincronizar tabelas do FBref',
 }: Props) {
   const successCount = championships.filter((c) => c.status === 'success').length;
   const errorCount = championships.filter((c) => c.status === 'error').length;
@@ -78,7 +81,7 @@ export default function BatchExtractionProgressModal({
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <AlertCircle className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-black">Extrair Todas as Tabelas</h2>
+            <h2 className="text-xl font-black">{title}</h2>
           </div>
         </div>
 

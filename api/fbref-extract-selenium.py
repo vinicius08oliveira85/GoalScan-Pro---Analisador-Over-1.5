@@ -39,22 +39,9 @@ class FBrefSeleniumScraper:
             'stats_results_2025-2026111_overall',
             'results2025-2026111_overall',
             # Padrões genéricos
-            r'stats_results_.*_overall',
-            r'results.*_overall',
+            re.compile(r'stats_results_.*_overall'),
+            re.compile(r'results.*_overall'),
         ],
-        'home_away': [
-            'stats_results_2025-2026_111_home_away',
-            'results_2025-2026_111_home_away',
-            'stats_results_2025-2026111_home_away',
-            'results2025-2026111_home_away',
-            # Padrões genéricos
-            r'stats_results_.*_home_away',
-            r'results.*_home_away',
-        ],
-        'standard_for': [
-            'stats_squads_standard_for',
-            'standard_for'
-        ]
     }
 
     def __init__(self, headless: bool = True):
@@ -64,6 +51,9 @@ class FBrefSeleniumScraper:
         Args:
             headless: Se True, executa o navegador em modo headless
         """
+        if 'webdriver' not in globals():
+            raise ImportError("Selenium webdriver não encontrado. Verifique as dependências.")
+
         chrome_options = Options()
         if headless:
             chrome_options.add_argument('--headless')
@@ -87,11 +77,7 @@ class FBrefSeleniumScraper:
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
         else:
             # Em ambiente serverless ou sem webdriver-manager, tenta usar ChromeDriver do PATH
-            try:
-                self.driver = webdriver.Chrome(options=chrome_options)
-            except Exception as e:
-                # Fallback: tenta sem service
-                self.driver = webdriver.Chrome(options=chrome_options)
+            self.driver = webdriver.Chrome(options=chrome_options)
         
         self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
@@ -394,7 +380,7 @@ class FBrefSeleniumScraper:
                             if not last_header.strip():
                                 combined_header = first_header.strip() if first_header.strip() else f'col_{col_idx}'
                             elif first_header.strip() and first_header != last_header and len(unique_headers) == 2:
-                                if table_name == 'standard_for' and first_header.strip() in known_categories and last_header.strip():
+                                if first_header.strip() in known_categories and last_header.strip():
                                     combined_header = f"{first_header.strip()}_{last_header.strip()}"
                                 elif '/' in last_header or last_header in ['xG', 'xGA', 'xGD', 'xGD/90', 'Last 5']:
                                     combined_header = last_header.strip()
@@ -493,18 +479,14 @@ class FBrefSeleniumScraper:
         possible_ids = self.TABLE_MAPPING.get(table_type, [])
         
         for table_id_pattern in possible_ids:
-            if isinstance(table_id_pattern, str) and not table_id_pattern.startswith('r'):
+            if isinstance(table_id_pattern, str):
                 # String literal
                 table = soup.find('table', {'id': table_id_pattern})
                 if table:
                     return table
-            else:
-                # Regex pattern
-                pattern = table_id_pattern if isinstance(table_id_pattern, str) else table_id_pattern.pattern
-                if isinstance(table_id_pattern, str) and table_id_pattern.startswith('r'):
-                    pattern = table_id_pattern[1:]  # Remove 'r' prefix
-                regex = re.compile(pattern, re.IGNORECASE)
-                tables = soup.find_all('table', {'id': regex})
+            elif hasattr(table_id_pattern, 'pattern'):
+                # Regex pattern (compiled)
+                tables = soup.find_all('table', {'id': table_id_pattern})
                 if tables:
                     # Para 'geral', evitar home_away
                     if table_type == 'geral':
@@ -520,10 +502,6 @@ class FBrefSeleniumScraper:
         for table in all_tables:
             table_id = table.get('id', '')
             if table_type == 'geral' and '_overall' in table_id.lower() and 'home_away' not in table_id.lower():
-                return table
-            elif table_type == 'home_away' and '_home_away' in table_id.lower():
-                return table
-            elif table_type == 'standard_for' and 'standard_for' in table_id.lower():
                 return table
 
         return None
@@ -569,7 +547,7 @@ class FBrefSeleniumScraper:
         }
         
         # Mapear tabelas por tipo
-        table_types = ['geral', 'home_away', 'standard_for']
+        table_types = ['geral']
         
         for table_type in table_types:
             table = self.find_table_by_type(soup, table_type)
@@ -652,14 +630,12 @@ class handler(BaseHTTPRequestHandler):
             # Mapear tabelas para formato esperado
             tables = result.get('tables', {})
             mapped_tables = {
-                'geral': tables.get('geral', []),
-                'home_away': tables.get('home_away', []),
-                'standard_for': tables.get('standard_for', [])
+                'geral': tables.get('geral', [])
             }
             
             # Identificar tabelas faltantes
             missing_tables = []
-            for table_type in ['geral', 'home_away', 'standard_for']:
+            for table_type in ['geral']:
                 if not mapped_tables[table_type] or len(mapped_tables[table_type]) == 0:
                     missing_tables.append(table_type)
             
@@ -699,4 +675,3 @@ class handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         """Suprime logs padrão"""
         pass
-
