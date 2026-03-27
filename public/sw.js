@@ -8,7 +8,7 @@ const STATIC_CACHE = 'goalscan-pro-static';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
+  // manifest vem embutido no HTML (data URL) no build — evita 401 em previews Vercel com proteção
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   '/icons/icon.svg',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
@@ -34,6 +34,7 @@ const ChampionshipsScreen: React.FC = () => {
   const [fbrefBatchCompleted, setFbrefBatchCompleted] = useState(0);
   const [fbrefBatchProcessing, setFbrefBatchProcessing] = useState(false);
   const [fbrefSyncAllLoading, setFbrefSyncAllLoading] = useState(false);
+  const fbrefBatchAbortRef = useRef<AbortController | null>(null);
 
   const handleNewChampionship = () => {
     setEditingChampionship(null);
@@ -121,9 +122,12 @@ const ChampionshipsScreen: React.FC = () => {
     setFbrefBatchOpen(true);
     setFbrefBatchProcessing(true);
     setFbrefSyncAllLoading(true);
+    fbrefBatchAbortRef.current = new AbortController();
+    const signal = fbrefBatchAbortRef.current.signal;
     try {
       await syncAllChampionships(championships, {
         skipCache: true,
+        signal,
         onBeforeEach: (_c, i) => {
           setFbrefBatchItems((prev) =>
             prev.map((p, j) => (j === i ? { ...p, status: 'processing' as const } : p))
@@ -148,9 +152,14 @@ const ChampionshipsScreen: React.FC = () => {
     } catch (e) {
       handleError(e instanceof Error ? e.message : 'Erro na sincronização em lote do FBref');
     } finally {
+      fbrefBatchAbortRef.current = null;
       setFbrefBatchProcessing(false);
       setFbrefSyncAllLoading(false);
     }
+  };
+
+  const handleCancelFbrefBatch = () => {
+    fbrefBatchAbortRef.current?.abort();
   };
 
   if (isLoading) {
@@ -460,6 +469,7 @@ const ChampionshipsScreen: React.FC = () => {
         currentIndex={fbrefBatchCompleted}
         total={fbrefBatchItems.length}
         isProcessing={fbrefBatchProcessing}
+        onCancel={handleCancelFbrefBatch}
         title="Sincronizar todos do FBref"
       />
     </div>

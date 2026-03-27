@@ -8,6 +8,8 @@ export const FBREF_SYNC_DELAY_MS = 3000;
 export interface FbrefExtractCallOptions {
   /** Não usar cache local (recomendado na sincronização em lote). */
   skipCache?: boolean;
+  /** Interrompe a requisição HTTP (cancelar sincronização em lote). */
+  signal?: AbortSignal;
 }
 
 export interface SyncChampionshipFromFbrefResult {
@@ -22,8 +24,35 @@ export interface SyncAllChampionshipsOptions {
   skipCache?: boolean;
   /** Pausa entre um campeonato e o próximo (ms). Padrão: FBREF_SYNC_DELAY_MS. */
   delayBetweenMs?: number;
+  /** Abortar lote: interrompe após a requisição atual e marca o restante como cancelado. */
+  signal?: AbortSignal;
   onBeforeEach?: (championship: Championship, index: number) => void;
   onAfterEach?: (result: SyncChampionshipFromFbrefResult, index: number) => void;
+}
+
+function isAbortError(e: unknown): boolean {
+  return (
+    (e instanceof DOMException && e.name === 'AbortError') ||
+    (e instanceof Error && e.name === 'AbortError')
+  );
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(id);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const id = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
@@ -134,6 +163,7 @@ export const extractFbrefData = async (
         championshipId: request.championshipId,
         extractTypes: request.extractTypes,
       }),
+      signal: callOptions?.signal,
     });
 
     if (!response.ok) {
@@ -175,6 +205,9 @@ export const extractFbrefData = async (
 
     return result;
   } catch (error) {
+    if (isAbortError(error)) {
+      return { success: false, error: 'Cancelado' };
+    }
     logger.error('[FBrefService] Erro inesperado:', error);
     return {
       success: false,
@@ -261,10 +294,6 @@ export const saveExtractedTables = async (
   return saved;
 };
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * Sincroniza um campeonato: extrai via API de scraping, aplica mapToTableRowsGeral e persiste.
  * `saveExtractedTable` → `saveChampionshipTable` atualiza `championship_teams` para tabela geral.
@@ -272,7 +301,11 @@ function sleep(ms: number): Promise<void> {
 export async function syncChampionshipFromFbref(
   championship: Championship,
   options?: FbrefExtractCallOptions & { useSelenium?: boolean }
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; cancelled?: boolean }> {
+  if (options?.signal?.aborted) {
+    return { success: false, error: 'Cancelado', cancelled: true };
+  }
+
   const url = championship.fbrefUrl?.trim();
   if (!url) {
     return { success: false, error: 'URL do FBref não configurada' };
@@ -299,9 +332,12 @@ export async function syncChampionshipFromFbref(
         championshipId: championship.id,
         extractTypes: ['table'],
       },
-      { skipCache: options?.skipCache ?? true }
+      { skipCache: options?.skipCache ?? true, signal: options?.signal }
     );
   } catch (e) {
+    if (isAbortError(e)) {
+      return { success: false, error: 'Cancelado' };
+    }
     return {
       success: false,
       error: e instanceof Error ? e.message : 'Falha de conexão com o serviço de extração',
@@ -309,7 +345,8 @@ export async function syncChampionshipFromFbref(
   }
 
   if (!result.success) {
-    return { success: false, error: result.error || 'Falha na extração do FBref' };
+    const cancelled = result.error === 'Cancelado';
+    return { success: false, error: result.error || 'Falha na extração do FBref', cancelled };
   }
 
   const raw = result.data?.tables?.geral;
@@ -344,19 +381,52 @@ export async function syncAllChampionships(
   options?: SyncAllChampionshipsOptions
 ): Promise<SyncChampionshipFromFbrefResult[]> {
   const delay = options?.delayBetweenMs ?? FBREF_SYNC_DELAY_MS;
+  const signal = options?.signal;
   const targets = championships.filter((c) => c.fbrefUrl && String(c.fbrefUrl).trim() !== '');
   const results: SyncChampionshipFromFbrefResult[] = [];
 
+  const pushCancelledForRemaining = (fromIndex: number) => {
+    for (let j = fromIndex; j < targets.length; j++) {
+      const ch = targets[j];
+      const entry: SyncChampionshipFromFbrefResult = {
+        championshipId: ch.id,
+        nome: ch.nome,
+        success: false,
+        error: 'Cancelado pelo usuário',
+      };
+      results.push(entry);
+      options?.onAfterEach?.(entry, j);
+    }
+  };
+
   for (let i = 0; i < targets.length; i++) {
+    if (signal?.aborted) {
+      pushCancelledForRemaining(i);
+      break;
+    }
+
     const c = targets[i];
     if (i > 0 && delay > 0) {
-      await sleep(delay);
+      try {
+        await sleep(delay, signal);
+      } catch {
+        pushCancelledForRemaining(i);
+        break;
+      }
     }
+
+    if (signal?.aborted) {
+      pushCancelledForRemaining(i);
+      break;
+    }
+
     options?.onBeforeEach?.(c, i);
     const r = await syncChampionshipFromFbref(c, {
       useSelenium: options?.useSelenium,
       skipCache: options?.skipCache ?? true,
+      signal,
     });
+
     const entry: SyncChampionshipFromFbrefResult = {
       championshipId: c.id,
       nome: c.nome,
@@ -365,6 +435,11 @@ export async function syncAllChampionships(
     };
     results.push(entry);
     options?.onAfterEach?.(entry, i);
+
+    if (r.cancelled || r.error === 'Cancelado') {
+      pushCancelledForRemaining(i + 1);
+      break;
+    }
   }
 
   return results;
@@ -407,6 +482,7 @@ export const extractFbrefDataWithSelenium = async (
         championshipId: request.championshipId,
         extractTypes: request.extractTypes,
       }),
+      signal: callOptions?.signal,
     });
 
     if (!response.ok) {
@@ -458,6 +534,9 @@ export const extractFbrefDataWithSelenium = async (
 
     return result;
   } catch (error) {
+    if (isAbortError(error)) {
+      return { success: false, error: 'Cancelado' };
+    }
     logger.error('[FBrefService] Erro inesperado (Selenium):', error);
     return {
       success: false,

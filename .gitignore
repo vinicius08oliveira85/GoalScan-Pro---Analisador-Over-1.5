@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
+
+# Cópia local duplicada do repositório (não versionar)
+GoalScan-Pro---Analisador-Over-1.5/
 dist-ssr
 *.local
 .env
