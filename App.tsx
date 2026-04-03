@@ -1,3 +1,4 @@
+
 import React, { useState, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import MatchForm from './components/MatchForm';
@@ -18,7 +19,6 @@ import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
 import { Loader, Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
 
-// Lazy loading de componentes pesados para code splitting
 const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 
 import { performAnalysis } from './services/analysisEngine';
@@ -27,13 +27,10 @@ import {
   AnalysisResult,
   SavedAnalysis,
   BankSettings as BankSettingsType,
-  BetInfo,
   SelectedBet,
   MatchResultAnalysis,
 } from './types';
-import { calculateBankUpdate } from './utils/bankCalculator';
 import { getCurrencySymbol } from './utils/currency';
-import { logger } from './utils/logger';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
 
 const App: React.FC = () => {
@@ -43,7 +40,6 @@ const App: React.FC = () => {
     isLoading,
     isUsingLocalData,
     saveMatch,
-    saveMatchPartial,
     removeMatch,
   } = useSavedMatches(showError);
   const { bankSettings, saveSettings } = useBankSettings(showError);
@@ -56,12 +52,10 @@ const App: React.FC = () => {
   const [currentMatchData, setCurrentMatchData] = useState<MatchData | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
-  const [isUpdatingBetStatus, setIsUpdatingBetStatus] = useState<boolean>(false);
   const [showResultAnalysisModal, setShowResultAnalysisModal] = useState<boolean>(false);
   const [matchForAnalysis, setMatchForAnalysis] = useState<SavedAnalysis | null>(null);
   const [webSearchResults, setWebSearchResults] = useState<Array<{ content?: string; snippet?: string; url?: string }>>([]);
 
-  // Funções de Navegação
   const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
     if (match) {
       setSelectedMatch(match);
@@ -95,60 +89,24 @@ const App: React.FC = () => {
   };
 
   const handleAnalyze = async (data: MatchData) => {
-    // Log: verificar dados recebidos antes de analisar
-    if (import.meta.env.DEV) {
-      console.log('[App] ===== handleAnalyze - Dados recebidos do MatchForm =====');
-      console.log('[App] Times:', {
-        homeTeam: data.homeTeam,
-        awayTeam: data.awayTeam,
-      });
-      console.log('[App] Status das tabelas:', {
-        geral: !!(data.homeTableData && data.awayTableData),
-        complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
-      });
-      
-      // Validação explícita antes de análise (apenas tabelas suportadas)
-      const hasGeral = !!(data.homeTableData && data.awayTableData);
-      const hasComplement = !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg);
-      
-      const allTablesPresent = hasGeral && hasComplement;
-      
-      if (allTablesPresent) {
-        console.log('[App] ✅ Todas as 2 tabelas presentes (geral, complement) - análise será completa');
-      } else {
-        const missingTables = [];
-        if (!hasGeral) missingTables.push('geral');
-        if (!hasComplement) missingTables.push('complement');
-        console.warn(`[App] ⚠️ Tabelas faltando: ${missingTables.join(', ')} - análise será parcial`);
-      }
-    }
-    
-    // Executar análise estatística (combina estatísticas + tabela)
     const result = performAnalysis(data);
     setAnalysisResult(result);
     setCurrentMatchData(data);
-    
-    // Scroll para resultados em mobile
+
     if (window.innerWidth < 768) {
       window.scrollTo({ top: 600, behavior: 'smooth' });
     }
   };
 
-
   const handleOddChange = (newOdd: number) => {
     if (currentMatchData) {
-      // Atualizar odd no currentMatchData
       const updatedData = { ...currentMatchData, oddOver15: newOdd };
       setCurrentMatchData(updatedData);
 
-      // Recalcular análise com nova odd (EV será recalculado automaticamente)
       if (analysisResult) {
         const updatedResult = performAnalysis(updatedData);
-        
-        // Manter as probabilidades Over/Under e combinações existentes
         updatedResult.overUnderProbabilities = analysisResult.overUnderProbabilities;
         updatedResult.recommendedCombinations = analysisResult.recommendedCombinations;
-        
         setAnalysisResult(updatedResult);
       }
     }
@@ -159,33 +117,29 @@ const App: React.FC = () => {
       try {
         let matchToSave: SavedAnalysis;
 
-        // Se já existe uma partida selecionada, atualizar ela
         if (selectedMatch) {
           matchToSave = {
             ...selectedMatch,
             data: currentMatchData,
             result: analysisResult,
-            betInfo: selectedMatch.betInfo, // Manter betInfo se existir
-            selectedBets: selectedBets, // Incluir apostas selecionadas
-            timestamp: Date.now(), // Atualizar timestamp
+            betInfo: selectedMatch.betInfo,
+            selectedBets: selectedBets,
+            timestamp: Date.now(),
           };
         } else {
-          // Criar nova partida
           matchToSave = {
             id: Math.random().toString(36).slice(2, 11),
             timestamp: Date.now(),
             data: currentMatchData,
             result: analysisResult,
-            betInfo: selectedMatch?.betInfo, // Incluir betInfo se existir
-            selectedBets: selectedBets, // Incluir apostas selecionadas
+            betInfo: selectedMatch?.betInfo,
+            selectedBets: selectedBets,
           };
         }
 
-        // Salvar usando o hook
         await saveMatch(matchToSave);
         showSuccess('Partida salva com sucesso!');
 
-        // Fechar modal após salvar
         setTimeout(() => {
           handleCloseAnalysis();
           setActiveTab('matches');
@@ -205,183 +159,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateBetStatus = async (match: SavedAnalysis, status: 'won' | 'lost') => {
-    if (!match.betInfo || match.betInfo.betAmount === 0) {
-      showError('Esta partida não possui aposta registrada.');
-      return;
-    }
-
-    // Verificar se o status já é o mesmo - evitar processamento desnecessário
-    if (match.betInfo.status === status) {
-      return; // Status já é o mesmo, não precisa processar
-    }
-
-    // Proteção contra múltiplos cliques
-    if (isUpdatingBetStatus) {
-      return; // Já está processando outra atualização
-    }
-
-    try {
-      setIsUpdatingBetStatus(true);
-
-      const oldBetInfo = match.betInfo;
-      const updatedBetInfo: BetInfo = {
-        ...oldBetInfo,
-        status,
-        resultAt: Date.now(),
-      };
-
-      // Atualizar a partida com o novo betInfo
-      const updatedMatch: SavedAnalysis = {
-        ...match,
-        betInfo: updatedBetInfo,
-        timestamp: Date.now(),
-      };
-
-      // Se a partida está selecionada, atualizar o estado local também
-      if (selectedMatch && selectedMatch.id === match.id) {
-        setSelectedMatch(updatedMatch);
-        // Atualizar também currentMatchData e analysisResult se necessário
-        if (!currentMatchData) setCurrentMatchData(match.data);
-        if (!analysisResult) setAnalysisResult(match.result);
-      }
-
-      // Passar o oldBetInfo correto para handleSaveBetInfo
-      await handleSaveBetInfo(updatedBetInfo, oldBetInfo);
-
-      // Salvar a partida atualizada
-      await saveMatch(updatedMatch);
-
-      showSuccess(`Aposta marcada como ${status === 'won' ? 'ganha' : 'perdida'}!`);
-    } catch {
-      showError('Erro ao atualizar status da aposta. Tente novamente.');
-    } finally {
-      setIsUpdatingBetStatus(false);
-    }
-  };
-
-  const handleSaveBetInfo = async (betInfo: BetInfo, providedOldBetInfo?: BetInfo) => {
-    // Proteção contra múltiplos cliques simultâneos (apenas se não veio de handleUpdateBetStatus)
-    // Se veio de handleUpdateBetStatus, a proteção já está lá
-    if (isUpdatingBetStatus && !providedOldBetInfo) {
-      return; // Já está processando outra atualização e não veio de handleUpdateBetStatus
-    }
-
-    // Atualizar banca se há banca configurada
-    if (bankSettings) {
-      // Usar oldBetInfo fornecido (de handleUpdateBetStatus) ou do selectedMatch
-      const oldBetInfo = providedOldBetInfo || selectedMatch?.betInfo;
-      const isNewBet = !oldBetInfo || oldBetInfo.betAmount === 0;
-      const isRemovingBet = betInfo.betAmount === 0 || betInfo.status === 'cancelled';
-
-      // Determinar oldStatus corretamente
-      let oldStatus: BetInfo['status'] | undefined;
-      let oldBetAmount = 0;
-
-      if (isNewBet) {
-        // Nova aposta: oldStatus é undefined
-        oldStatus = undefined;
-      } else {
-        // Aposta existente: usar status e valor anterior
-        oldStatus = oldBetInfo.status;
-        oldBetAmount = oldBetInfo.betAmount;
-      }
-
-      const newStatus = betInfo.status;
-      const newBetAmount = betInfo.betAmount;
-
-      // Verificar se há mudança que afeta a banca (status ou valor)
-      const statusChanged = oldStatus !== newStatus;
-      const valueChanged = oldBetAmount !== newBetAmount;
-      const needsBankUpdate = isNewBet || isRemovingBet || statusChanged || valueChanged;
-
-      if (needsBankUpdate) {
-        // Se está removendo a aposta, usar valores antigos para calcular devolução
-        const betAmountForCalc = isRemovingBet ? oldBetAmount : newBetAmount;
-        const potentialReturnForCalc = isRemovingBet
-          ? oldBetInfo?.potentialReturn || 0
-          : betInfo.potentialReturn;
-
-        // Tratar mudança de valor da aposta (quando não é nova e não está removendo)
-        let valueChangeAdjustment = 0;
-        if (!isNewBet && !isRemovingBet && valueChanged && oldStatus) {
-          // Se o valor mudou, precisa ajustar a diferença
-          if (oldStatus === 'pending') {
-            // Estava pending: reverter desconto antigo e aplicar novo desconto
-            valueChangeAdjustment = oldBetAmount - newBetAmount;
-          } else if (oldStatus === 'won') {
-            // Estava won: reverter retorno antigo e aplicar novo retorno
-            const oldReturn = oldBetInfo.potentialReturn || 0;
-            valueChangeAdjustment = betInfo.potentialReturn - oldReturn;
-          } else if (oldStatus === 'lost') {
-            // Estava lost: a perda é o stake; ajustar diferença do valor descontado
-            valueChangeAdjustment = oldBetAmount - newBetAmount;
-          }
-          // Se estava lost, não precisa ajustar (já estava descontado)
-        }
-
-        // Calcular diferença na banca
-        const bankDifference =
-          calculateBankUpdate(oldStatus, newStatus, betAmountForCalc, potentialReturnForCalc) +
-          valueChangeAdjustment;
-
-        // Se houve mudança que afeta a banca, atualizar
-        if (bankDifference !== 0) {
-          // Usar valor mais recente da banca para evitar inconsistência se múltiplas atualizações ocorrerem
-          const updatedBank = bankSettings.totalBank + bankDifference;
-          const newBankSettings: BankSettingsType = {
-            ...bankSettings,
-            totalBank: Math.max(0, Number(updatedBank.toFixed(2))), // Garantir 2 casas decimais e não negativa
-            updatedAt: Date.now(),
-          };
-          await saveSettings(newBankSettings);
-          showSuccess('Banca atualizada com sucesso!');
-        }
-      }
-
-      // Atualizar resultAt quando status muda para won/lost
-      if ((newStatus === 'won' || newStatus === 'lost') && !betInfo.resultAt) {
-        betInfo.resultAt = Date.now();
-      }
-    }
-
-    if (selectedMatch && currentMatchData && analysisResult) {
-      try {
-        const updatedMatch: SavedAnalysis = {
-          ...selectedMatch,
-          data: currentMatchData,
-          result: analysisResult,
-          betInfo,
-          timestamp: Date.now(),
-        };
-
-        // Salvar usando o hook
-        const savedMatch = await saveMatch(updatedMatch);
-        setSelectedMatch(savedMatch);
-        showSuccess('Aposta atualizada com sucesso!');
-      } catch {
-        showError('Erro ao salvar aposta. Tente novamente.');
-      }
-    } else if (currentMatchData && analysisResult) {
-      // Se não há partida salva ainda, apenas atualizar o estado local
-      // A aposta será salva quando o usuário salvar a partida
-      const tempMatch: SavedAnalysis = {
-        id: selectedMatch?.id || Math.random().toString(36).slice(2, 11),
-        timestamp: selectedMatch?.timestamp || Date.now(),
-        data: currentMatchData,
-        result: analysisResult,
-        betInfo,
-      };
-      setSelectedMatch(tempMatch);
-    }
-  };
-
   const handleDeleteSaved = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
-      // Cancelar notificação da partida
       cancelMatchNotification(id);
-      // Deletar usando o hook
       await removeMatch(id);
       showSuccess('Partida removida com sucesso!');
     } catch {
@@ -397,16 +178,10 @@ const App: React.FC = () => {
       throw new Error('A partida deve ter uma aposta finalizada (ganha ou perdida) para análise');
     }
 
-    // Construir query de busca
     const searchQuery = `${homeTeam} vs ${awayTeam} ${matchDate || ''} resultado placar`.trim();
-
-    // Fazer busca web usando a função handleWebSearch
-    // Esta função será chamada pelo modal que terá acesso à ferramenta web_search
     const searchResults = await handleWebSearch(searchQuery);
     
-    // Se não houver resultados, retornar análise básica
     if (!searchResults.results || searchResults.results.length === 0) {
-      // Retornar análise básica sem dados da web
       const analysisText = generateAnalysisText(match, { homeScore: 0, awayScore: 0, totalGoals: 0 }, '');
       
       return {
@@ -422,7 +197,6 @@ const App: React.FC = () => {
       };
     }
     
-    // Processar resultados
     const searchText = searchResults.results?.map((r: { content?: string; snippet?: string; url?: string }) => r.content || r.snippet || '').join('\n\n') || '';
     const parsed = parseWebSearchResults(searchText);
     const analysisText = generateAnalysisText(match, parsed, searchText);
@@ -443,29 +217,22 @@ const App: React.FC = () => {
   const handleOpenResultAnalysis = async (match: SavedAnalysis) => {
     setMatchForAnalysis(match);
     setShowResultAnalysisModal(true);
-    setWebSearchResults([]); // Limpar resultados anteriores
+    setWebSearchResults([]);
     
-    // Fazer busca web automaticamente quando o modal abrir
-    // A busca será feita pelo assistente usando a ferramenta web_search
     const { homeTeam, awayTeam, matchDate } = match.data;
     const searchQuery = `${homeTeam} vs ${awayTeam} ${matchDate || ''} resultado placar`.trim();
     
     try {
-      // Fazer busca web usando a ferramenta web_search
       const searchResults = await web_search({ search_term: searchQuery });
       
-      // Converter os resultados para o formato esperado pelo modal
       const formattedResults = (searchResults.results || []).map((result: any) => ({
         content: result.content || result.snippet || result.text || '',
         snippet: result.snippet || result.content || result.text || '',
         url: result.url || result.link || '',
       }));
       
-      // Armazenar os resultados no estado para que o modal possa usá-los
       setWebSearchResults(formattedResults);
-      console.log('[App] Resultados da busca armazenados:', formattedResults);
     } catch (error) {
-      console.error('[App] Erro ao buscar informações:', error);
       showError(`Erro ao buscar na web: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
@@ -473,43 +240,22 @@ const App: React.FC = () => {
   const handleCloseResultAnalysis = () => {
     setShowResultAnalysisModal(false);
     setMatchForAnalysis(null);
-    setWebSearchResults([]); // Limpar resultados quando fechar
+    setWebSearchResults([]);
   };
 
-  // Função wrapper para busca web que será passada ao modal
-  // Nota: Esta função será chamada pelo modal para fazer busca web
-  // A busca será feita usando a ferramenta web_search quando disponível
-  // Como web_search só pode ser chamada pelo assistente, vamos fazer a busca aqui
-  // através de uma chamada que será interceptada pelo assistente
   const handleWebSearch = async (query: string) => {
     try {
-      console.log('[App] Solicitando busca web:', query);
-      
-      // Se já temos resultados em cache, retornar eles
       if (webSearchResults.length > 0) {
         return { results: webSearchResults };
       }
       
-      // Nota: A busca web real precisa ser feita pelo assistente usando a ferramenta web_search
-      // Como a ferramenta web_search só pode ser chamada pelo assistente, vamos fazer a busca aqui
-      // através de uma chamada que será interceptada pelo assistente quando o usuário clicar no botão
-      
-      // Por enquanto, vamos retornar um resultado vazio
-      // O assistente será chamado para fazer a busca quando o modal abrir
-      // e o usuário clicar no botão de análise
-      
-      // TODO: Implementar busca web real usando uma API ou backend proxy
-      // Por enquanto, retornamos estrutura vazia - a busca será feita pelo assistente
-      
       return { results: [] };
     } catch (error) {
-      console.error('Erro ao buscar informações:', error);
       showError(`Erro ao buscar na web: ${error instanceof Error ? error.message : String(error)}`);
       return { results: [] };
     }
   };
 
-  // Keyboard shortcut para Command Palette (⌘K ou Ctrl+K)
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -522,7 +268,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Ações do Command Palette
   const commandActions = [
     {
       id: 'new-match',
@@ -574,20 +319,16 @@ const App: React.FC = () => {
     },
   ];
 
-  // Renderizar tela principal com abas
   return (
     <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
-      {/* Command Palette */}
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
         actions={commandActions}
       />
 
-      {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
 
-      {/* Notificações In-App */}
       <div className="fixed top-20 left-4 right-4 md:left-auto md:right-4 md:w-96 z-[100] space-y-3 pointer-events-none">
         {activeNotifications.map((match) => (
           <div key={match.id} className="pointer-events-auto">
@@ -600,7 +341,6 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {/* Header */}
       <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-3 md:px-4 py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3 mb-4">
@@ -642,12 +382,10 @@ const App: React.FC = () => {
               <span className="badge badge-outline badge-sm font-bold">v3.8.2 Elite Edition</span>
             </div>
           </div>
-          {/* Tab Navigation */}
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
       </header>
 
-      {/* Main Content - Renderizar tela baseada na aba ativa */}
       <main className="container mx-auto px-4 pt-6">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
@@ -678,10 +416,8 @@ const App: React.FC = () => {
                 onMatchClick={handleNavigateToAnalysis}
                 onNewMatch={handleNewMatch}
                 onDeleteMatch={handleDeleteSaved}
-                onUpdateBetStatus={handleUpdateBetStatus}
                 onAnalyzeResult={handleOpenResultAnalysis}
                 isLoading={isLoading}
-                isUpdatingBetStatus={isUpdatingBetStatus}
               />
             </motion.div>
           )}
@@ -726,7 +462,6 @@ const App: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      {/* Modal de Análise */}
       <ModalShell
         isOpen={showAnalysisModal}
         onClose={handleCloseAnalysis}
@@ -738,7 +473,6 @@ const App: React.FC = () => {
         panelClassName="fixed inset-4 md:inset-8 lg:inset-16 max-w-none w-auto bg-base-200 rounded-xl shadow-2xl overflow-hidden flex flex-col"
         bodyClassName="p-0 max-h-none overflow-hidden"
       >
-        {/* Header do Modal */}
         <div className="bg-base-200/80 backdrop-blur-md border-b border-base-300 p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2">
@@ -756,10 +490,8 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Conteúdo do Modal */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            {/* Sidebar: Entry Form */}
             <aside className="xl:col-span-4 flex flex-col gap-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold flex items-center gap-2">
@@ -782,7 +514,6 @@ const App: React.FC = () => {
               <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
             </aside>
 
-            {/* Main Content: Results */}
             <section className="xl:col-span-8 flex flex-col gap-6">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-6 bg-primary rounded-full"></span>
@@ -805,12 +536,9 @@ const App: React.FC = () => {
                     betInfo={selectedMatch?.betInfo}
                     bankSettings={bankSettings}
                     savedMatches={savedMatches}
-                    onBetSave={handleSaveBetInfo}
                     onError={showError}
-                    isUpdatingBetStatus={isUpdatingBetStatus}
                     onOddChange={handleOddChange}
                     initialSelectedBets={selectedMatch?.selectedBets}
-                    onAnalyzeResult={handleOpenResultAnalysis}
                     savedMatch={selectedMatch}
                   />
                 </Suspense>
@@ -844,7 +572,6 @@ const App: React.FC = () => {
         </div>
       </ModalShell>
 
-      {/* Modal de Análise de Resultado */}
       <MatchResultAnalysisModal
         isOpen={showResultAnalysisModal}
         onClose={handleCloseResultAnalysis}

@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { getSupabaseClient } from '../lib/supabase';
 
 // Definição do tipo para os dados da aposta, alinhado com a Edge Function
 interface BetUpdatePayload {
@@ -16,6 +16,7 @@ interface BetUpdatePayload {
  * @returns O resultado da operação da Edge Function.
  */
 const updateBetAndBank = async (payload: BetUpdatePayload) => {
+  const supabase = await getSupabaseClient();
   // 1. Converter o valor da aposta para centavos antes de enviar para o backend.
   // Isso garante que todos os cálculos no backend sejam feitos com inteiros.
   const betAmountCents = Math.round(payload.bet_amount * 100);
@@ -45,6 +46,7 @@ const updateBetAndBank = async (payload: BetUpdatePayload) => {
 // A função para buscar as configurações da banca permanece a mesma, mas agora
 // o valor retornado (`total_bank_cents`) estará em centavos.
 const getBankSettings = async () => {
+  const supabase = await getSupabaseClient();
   const { data, error } = await supabase
     .from('bank_settings')
     .select('*, user:users(*)') // Incluindo dados do usuário se necessário

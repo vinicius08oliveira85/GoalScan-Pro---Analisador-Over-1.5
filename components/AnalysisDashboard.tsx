@@ -1,20 +1,11 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { AnalysisResult, MatchData, BetInfo, BankSettings, SelectedBet, SavedAnalysis } from '../types';
 import {
-  TrendingUp,
-  TrendingDown,
-  AlertCircle,
-  Calculator,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Ban,
-  Zap,
-  Shield,
-  Target,
-  Sparkles,
-  Search,
+  AnalysisResult, MatchData, BetInfo, BankSettings, SelectedBet, SavedAnalysis
+} from '../types';
+import {
+  TrendingUp, TrendingDown, AlertCircle, Calculator, Sparkles,
 } from 'lucide-react';
 import BetManager from './BetManager';
 import ProbabilityGauge from './ProbabilityGauge';
@@ -25,13 +16,7 @@ import { getPrimaryProbability } from '../utils/probability';
 import { getEdgePp } from '../utils/betMetrics';
 import { calculateSelectedBetsProbability } from '../utils/betRange';
 import { getRiskLevelFromProbability } from '../utils/risk';
-import {
-  getEdgeTooltip,
-  calculateDataQuality,
-  getMarketOverTooltip,
-  getMarketUnderTooltip,
-  getBothGoalsTooltip,
-} from '../utils/probabilityTooltips';
+import { bankService } from '../services/bankService';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
@@ -40,12 +25,9 @@ interface AnalysisDashboardProps {
   betInfo?: BetInfo;
   bankSettings?: BankSettings;
   savedMatches?: SavedAnalysis[];
-  onBetSave?: (betInfo: BetInfo) => void;
   onError?: (message: string) => void;
-  isUpdatingBetStatus?: boolean;
   onOddChange?: (odd: number) => void;
   initialSelectedBets?: SelectedBet[];
-  onAnalyzeResult: (match: SavedAnalysis) => void;
   savedMatch: SavedAnalysis | null;
 }
 
@@ -56,12 +38,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   betInfo,
   bankSettings,
   savedMatches,
-  onBetSave,
   onError,
-  isUpdatingBetStatus = false,
   onOddChange,
   initialSelectedBets,
-  onAnalyzeResult,
   savedMatch,
 }) => {
   const [showBetManager, setShowBetManager] = useState(false);
@@ -113,6 +92,28 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   };
 
   const isBetSelected = (line: string, type: 'over' | 'under') => selectedBets.some(b => b.line === line && b.type === type);
+
+  const handleBetSave = async (newBetInfo: BetInfo) => {
+    if (!savedMatch || !savedMatch.id) {
+      onError?.('Informações da partida não encontradas para salvar a aposta.');
+      return;
+    }
+
+    try {
+      await bankService.updateBetAndBank({
+        analysis_id: savedMatch.id,
+        bet_status: newBetInfo.status,
+        bet_amount: newBetInfo.betAmount,
+        bet_odd: newBetInfo.odd,
+      });
+
+      setShowBetManager(false);
+    } catch (error) {
+      if (error instanceof Error) {
+        onError?.(error.message);
+      }
+    }
+  };
 
   return (
     <motion.div className="flex flex-col gap-6 md:gap-8" variants={animations.fadeInUp} initial="initial" animate="animate">
@@ -182,23 +183,21 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           </motion.div>
       )}
 
-      {onBetSave && (
-          <div className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6">
-              <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-black text-base-content">Gerenciar Aposta</h3>
-                  {!showBetManager && <button onClick={() => setShowBetManager(true)} className="btn btn-primary btn-sm">{betInfo?.betAmount > 0 ? 'Editar' : 'Apostar'}</button>}
-              </div>
-              {showBetManager ? (
-                  <BetManager odd={data.oddOver15 || 0} probability={displayProbability} betInfo={betInfo} bankSettings={bankSettings} onSave={newBetInfo => { onBetSave(newBetInfo); setShowBetManager(false); }} onError={onError} onCancel={() => setShowBetManager(false)} />
-              ) : betInfo?.betAmount > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div><div className="text-xs font-bold text-base-content/70">Status</div><div className={`badge ${betInfo.status === 'won' ? 'badge-success' : betInfo.status === 'lost' ? 'badge-error' : 'badge-warning'}`}>{betInfo.status}</div></div>
-                      <div><div className="text-xs font-bold text-base-content/70">Apostado</div><div className="font-bold text-base-content">{getCurrencySymbol(bankSettings?.currency)}{betInfo.betAmount.toFixed(2)}</div></div>
-                      <div><div className="text-xs font-bold text-base-content/70">Retorno</div><div className={`font-bold ${betInfo.status === 'won' ? 'text-success' : betInfo.status === 'lost' ? 'text-error' : 'text-primary'}`}>{betInfo.status === 'won' ? `+${betInfo.potentialProfit.toFixed(2)}` : betInfo.status === 'lost' ? `-${betInfo.betAmount.toFixed(2)}` : betInfo.potentialReturn.toFixed(2)}</div></div>
-                  </div>
-              ) : <p className="text-sm text-base-content/70">Nenhuma aposta registrada.</p>}
+      <div className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6">
+          <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-black text-base-content">Gerenciar Aposta</h3>
+              {!showBetManager && <button onClick={() => setShowBetManager(true)} className="btn btn-primary btn-sm">{betInfo?.betAmount > 0 ? 'Editar' : 'Apostar'}</button>}
           </div>
-      )}
+          {showBetManager ? (
+              <BetManager odd={data.oddOver15 || 0} probability={displayProbability} betInfo={betInfo} bankSettings={bankSettings} onSave={handleBetSave} onError={onError} onCancel={() => setShowBetManager(false)} savedMatches={savedMatches} />
+          ) : betInfo?.betAmount > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><div className="text-xs font-bold text-base-content/70">Status</div><div className={`badge ${betInfo.status === 'won' ? 'badge-success' : betInfo.status === 'lost' ? 'badge-error' : 'badge-warning'}`}>{betInfo.status}</div></div>
+                  <div><div className="text-xs font-bold text-base-content/70">Apostado</div><div className="font-bold text-base-content">{getCurrencySymbol(bankSettings?.currency)}{betInfo.betAmount.toFixed(2)}</div></div>
+                  <div><div className="text-xs font-bold text-base-content/70">Retorno</div><div className={`font-bold ${betInfo.status === 'won' ? 'text-success' : betInfo.status === 'lost' ? 'text-error' : 'text-primary'}`}>{betInfo.status === 'won' ? `+${betInfo.potentialProfit.toFixed(2)}` : betInfo.status === 'lost' ? `-${betInfo.betAmount.toFixed(2)}` : betInfo.potentialReturn.toFixed(2)}</div></div>
+              </div>
+          ) : <p className="text-sm text-base-content/70">Nenhuma aposta registrada.</p>}
+      </div>
     </motion.div>
   );
 };
