@@ -112,22 +112,13 @@ const App: React.FC = () => {
       });
       console.log('[App] Status das tabelas:', {
         geral: !!(data.homeTableData && data.awayTableData),
-        complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
       });
-      
-      // Validação explícita antes de análise (apenas tabelas suportadas)
+
       const hasGeral = !!(data.homeTableData && data.awayTableData);
-      const hasComplement = !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg);
-      
-      const allTablesPresent = hasGeral && hasComplement;
-      
-      if (allTablesPresent) {
-        console.log('[App] ✅ Todas as 2 tabelas presentes (geral, complement) - análise será completa');
+      if (hasGeral) {
+        console.log('[App] ✅ Tabela geral (classificação) presente — análise com dados de liga habilitada');
       } else {
-        const missingTables = [];
-        if (!hasGeral) missingTables.push('geral');
-        if (!hasComplement) missingTables.push('complement');
-        console.warn(`[App] ⚠️ Tabelas faltando: ${missingTables.join(', ')} - análise será parcial`);
+        console.warn('[App] ⚠️ Tabela geral ausente — análise usará apenas estatísticas manuais / contexto limitado');
       }
     }
     

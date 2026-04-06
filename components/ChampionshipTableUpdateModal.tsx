@@ -1,18 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileJson, X, Save, FileSpreadsheet } from 'lucide-react';
-import type { Championship, ChampionshipTable, TableType, TableRowGeral } from '../types';
+import { Upload, FileJson, X } from 'lucide-react';
+import type { Championship, ChampionshipTable } from '../types';
 import { animations } from '../utils/animations';
-import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 import { updateChampionshipTableFormat } from '../services/championshipService';
-
-type TableMeta = { type: TableType; name: string };
-
-const TABLES: TableMeta[] = [
-  { type: 'geral', name: 'Geral' },
-  { type: 'standard_for', name: 'Standard (For) - Complemento' },
-];
+import { parseAndNormalizeLeagueStandingJson } from '../utils/leagueStandingJson';
 
 interface Props {
   championship: Championship;
@@ -22,23 +15,6 @@ interface Props {
   onReloadTables: () => Promise<void>;
 }
 
-function safeJsonParse(text: string): unknown | null {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-function validateTableJson(json: unknown): string | null {
-  if (!Array.isArray(json)) return 'O JSON deve ser um array de objetos.';
-  if (json.length === 0) return 'O JSON está vazio.';
-  const first = json[0] as Record<string, unknown>;
-  if (!first || typeof first !== 'object') return 'O JSON deve conter objetos.';
-  if (!('Squad' in first)) return 'O JSON deve conter o campo "Squad".';
-  return null;
-}
-
 export default function ChampionshipTableUpdateModal({
   championship,
   existingTables,
@@ -46,112 +22,77 @@ export default function ChampionshipTableUpdateModal({
   onSaveTable,
   onReloadTables,
 }: Props) {
-  const [activeType, setActiveType] = useState<TableType>('geral');
-  const [jsonTextByType, setJsonTextByType] = useState<Record<TableType, string>>({
-    geral: '',
-    standard_for: '',
-  });
-  const [errorByType, setErrorByType] = useState<Record<TableType, string | null>>({
-    geral: null,
-    standard_for: null,
-  });
+  const [jsonText, setJsonText] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const existingByType = useMemo(() => {
-    const map = new Map<TableType, ChampionshipTable>();
-    for (const t of existingTables) {
-      map.set(t.table_type, t);
+  const existingGeral = useMemo(
+    () => existingTables.find((t) => t.table_type === 'geral') || null,
+    [existingTables]
+  );
+
+  const handleFileUpload = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
+      setError('Use apenas arquivo .json.');
+      return;
     }
-    return map;
-  }, [existingTables]);
-
-  const activeExisting = existingByType.get(activeType) || null;
-
-  const handleFileUpload = async (type: TableType, file: File) => {
     try {
-      let jsonData: unknown;
-
-      // Verificar se é arquivo Excel
-      if (isExcelFile(file)) {
-        // Processar Excel
-        const excelData = await parseExcelToJson(file);
-        // Converter para JSON string para exibir no textarea
-        jsonData = excelData;
-        setJsonTextByType((prev) => ({ ...prev, [type]: JSON.stringify(excelData, null, 2) }));
-      } else {
-        // Processar JSON
-        const reader = new FileReader();
-        const content = await new Promise<string>((resolve, reject) => {
-          reader.onload = (e) => {
-            resolve((e.target?.result as string) || '');
-          };
-          reader.onerror = () => {
-            reject(new Error('Erro ao ler arquivo'));
-          };
-          reader.readAsText(file);
-        });
-
-        setJsonTextByType((prev) => ({ ...prev, [type]: content }));
-        jsonData = safeJsonParse(content);
+      const content = await file.text();
+      setJsonText(content);
+      const parsed = JSON.parse(content);
+      const result = parseAndNormalizeLeagueStandingJson(parsed);
+      setError(result.ok ? null : result.error);
+      if (result.ok) {
+        void updateChampionshipTableFormat(championship.id, detectTableFormatFromData(result.rows));
       }
-
-      const err = validateTableJson(jsonData);
-      setErrorByType((prev) => ({ ...prev, [type]: err }));
-
-      // Detectar formato automaticamente se for tabela geral
-      if (type === 'geral' && !err && Array.isArray(jsonData) && jsonData.length > 0) {
-        const detectedFormat = detectTableFormatFromData(jsonData as TableRowGeral[]);
-        // Atualizar formato no campeonato
-        updateChampionshipTableFormat(championship.id, detectedFormat).catch((error) => {
-          console.warn('Erro ao atualizar formato do campeonato:', error);
-        });
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Erro ao processar arquivo. Verifique se o arquivo é válido.';
-      setErrorByType((prev) => ({ ...prev, [type]: errorMessage }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao ler o arquivo.');
     }
   };
 
   const handleUpdate = async () => {
-    const text = jsonTextByType[activeType].trim();
+    const text = jsonText.trim();
     if (!text) {
-      setErrorByType((prev) => ({ ...prev, [activeType]: 'Cole o JSON ou selecione um arquivo.' }));
+      setError('Cole o JSON ou selecione um arquivo.');
       return;
     }
 
-    const parsed = safeJsonParse(text);
-    const err = validateTableJson(parsed);
-    if (err) {
-      setErrorByType((prev) => ({ ...prev, [activeType]: err }));
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      setError('JSON inválido.');
+      return;
+    }
+
+    const result = parseAndNormalizeLeagueStandingJson(parsed);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
 
     setIsSaving(true);
-    setErrorByType((prev) => ({ ...prev, [activeType]: null }));
+    setError(null);
+
+    const detected = detectTableFormatFromData(result.rows);
+    await updateChampionshipTableFormat(championship.id, detected);
 
     const now = new Date().toISOString();
-    const meta = TABLES.find((t) => t.type === activeType);
-    const id = activeExisting?.id || `${championship.id}_${activeType}`;
+    const id = existingGeral?.id || `${championship.id}_geral`;
 
     const tableToSave: ChampionshipTable = {
       id,
       championship_id: championship.id,
-      table_type: activeType,
-      table_name: meta?.name || activeType,
-      table_data: parsed as unknown,
-      created_at: activeExisting?.created_at || now,
+      table_type: 'geral',
+      table_name: 'Classificação (JSON)',
+      table_data: result.rows as unknown,
+      created_at: existingGeral?.created_at || now,
       updated_at: now,
     };
 
     const saved = await onSaveTable(tableToSave);
     if (!saved) {
-      setErrorByType((prev) => ({
-        ...prev,
-        [activeType]: 'Não foi possível salvar a tabela. Tente novamente.',
-      }));
+      setError('Não foi possível salvar a tabela. Tente novamente.');
       setIsSaving(false);
       return;
     }
@@ -178,111 +119,71 @@ export default function ChampionshipTableUpdateModal({
       >
         <div className="sticky top-0 bg-base-100 border-b border-base-300 p-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold">Atualizar Tabelas — {championship.nome}</h2>
+            <FileJson className="w-5 h-5 text-secondary" />
+            <h2 className="text-xl font-bold">Atualizar classificação — {championship.nome}</h2>
           </div>
-          <button onClick={onClose} className="btn btn-sm btn-ghost btn-circle">
+          <button type="button" onClick={onClose} className="btn btn-sm btn-ghost btn-circle">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Tabs */}
-          <div role="tablist" className="tabs tabs-bordered">
-            {TABLES.map((t) => (
-              <button
-                key={t.type}
-                role="tab"
-                className={`tab ${activeType === t.type ? 'tab-active' : ''}`}
-                onClick={() => setActiveType(t.type)}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs opacity-70">
+            Substitui a tabela geral do campeonato. JSON: array com <code>Squad</code>, <code>MP</code>,{' '}
+            <code>GF</code>, <code>GA</code>, etc.
+          </p>
 
-          {/* Contexto */}
-          <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
-            <div className="opacity-70">
-              Modo: <span className="font-black">Overwrite</span> (substitui totalmente o conteúdo da tabela)
-            </div>
-            <div className="opacity-70">
-              Status:{' '}
-              <span className="font-black">
-                {activeExisting ? 'Existe no campeonato' : 'Ainda não cadastrada'}
-              </span>
-            </div>
-          </div>
-
-          {/* Upload */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="custom-card p-4 space-y-3">
-              <div className="font-bold flex items-center gap-2">
-                Upload de arquivo Excel ou JSON
-                <FileSpreadsheet className="w-4 h-4 text-primary" />
-                <FileJson className="w-4 h-4 text-secondary" />
-              </div>
+              <div className="font-bold">Arquivo JSON</div>
               <input
                 type="file"
-                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/json,.json"
+                accept=".json,application/json"
                 className="file-input file-input-bordered w-full file-input-primary"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleFileUpload(activeType, file);
+                  if (file) void handleFileUpload(file);
                 }}
               />
-              <div className="text-xs opacity-70">
-                <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls), CSV (.csv) ou JSON (.json)
-                <br />
-                <strong>Requisito:</strong> Deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team")
-                <br />
-                <strong>Nota:</strong> Arquivos Excel são convertidos automaticamente para JSON
-              </div>
             </div>
 
             <div className="custom-card p-4 space-y-3">
               <div className="font-bold">Ou cole o JSON</div>
               <textarea
                 className="textarea textarea-bordered w-full min-h-[140px] font-mono text-xs"
-                placeholder='[{"Squad":"Bayern Munich", ...}]'
-                value={jsonTextByType[activeType]}
+                placeholder='[{"Rk":"1","Squad":"Barcelona","MP":"30",...}]'
+                value={jsonText}
                 onChange={(e) => {
                   const next = e.target.value;
-                  setJsonTextByType((prev) => ({ ...prev, [activeType]: next }));
-                  const parsed = safeJsonParse(next);
-                  const err = validateTableJson(parsed);
-                  // só mostra erro se houver conteúdo suficiente
-                  setErrorByType((prev) => ({ ...prev, [activeType]: next.trim() ? err : null }));
+                  setJsonText(next);
+                  if (!next.trim()) {
+                    setError(null);
+                    return;
+                  }
+                  try {
+                    const result = parseAndNormalizeLeagueStandingJson(JSON.parse(next));
+                    setError(result.ok ? null : result.error);
+                  } catch {
+                    setError(null);
+                  }
                 }}
               />
-              {errorByType[activeType] && (
-                <div className="text-error text-sm">{errorByType[activeType]}</div>
-              )}
             </div>
           </div>
 
+          {error && <div className="text-error text-sm">{error}</div>}
+
           <div className="flex items-center justify-end gap-2 pt-2">
-            <button className="btn btn-ghost" onClick={onClose} disabled={isSaving}>
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isSaving}>
               Cancelar
             </button>
-            <button className="btn btn-primary gap-2" onClick={handleUpdate} disabled={isSaving}>
-              {isSaving ? (
-                <span className="loading loading-spinner loading-sm" />
-              ) : (
-                <Upload className="w-4 h-4" />
-              )}
+            <button type="button" className="btn btn-primary gap-2" onClick={() => void handleUpdate()} disabled={isSaving}>
+              {isSaving ? <span className="loading loading-spinner loading-sm" /> : <Upload className="w-4 h-4" />}
               Atualizar
             </button>
-          </div>
-
-          <div className="text-xs opacity-60">
-            Dica: após atualizar, volte na aba <span className="font-semibold">Partida</span> e clique em{' '}
-            <span className="font-semibold">Sincronizar</span> para puxar os novos dados.
           </div>
         </div>
       </motion.div>
     </motion.div>
   );
 }
-
-

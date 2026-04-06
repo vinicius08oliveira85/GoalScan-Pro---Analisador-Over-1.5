@@ -124,8 +124,8 @@ export default function BatchExtractionProgressModal({
                 <div className="mt-0.5">{getStatusIcon(item.status)}</div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-base">{item.championship.nome}</div>
-                  <div className="text-xs opacity-70 mt-1 truncate" title={item.championship.fbrefUrl || ''}>
-                    {item.championship.fbrefUrl}
+                  <div className="text-xs opacity-70 mt-1 truncate" title={item.championship.id}>
+                    {item.championship.id}
                   </div>
                   <div className="text-xs font-semibold mt-1">
                     {getStatusText(item.status)}

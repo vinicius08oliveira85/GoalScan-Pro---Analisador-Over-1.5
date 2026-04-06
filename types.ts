@@ -513,6 +513,23 @@ export interface ChampionshipTeam {
   away_xga?: string; // Expected Goals Against Fora
   away_xgd?: string; // Expected Goals Difference Fora
   away_xgd_90?: string; // Expected Goals Difference por 90min Fora
+
+  /** Classificação agregada (temporada) — fluxo JSON único; home_/away_ ficam vazios */
+  standing_mp?: string;
+  standing_w?: string;
+  standing_d?: string;
+  standing_l?: string;
+  standing_gf?: string;
+  standing_ga?: string;
+  standing_gd?: string;
+  standing_pts?: string;
+  standing_pts_per_mp?: string;
+  standing_last_5?: string;
+  standing_attendance?: string;
+  top_team_scorer?: string;
+  goalkeeper?: string;
+  notes?: string;
+  status_b?: string;
   
   // Campo para campos extras de outros campeonatos
   extra_fields?: Record<string, unknown>; // Campos extras em formato JSONB
