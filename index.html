@@ -2,15 +2,14 @@
 <html lang="pt-br" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
+    <!-- Permite zoom (acessibilidade WCAG — usuários com baixa visão precisam ampliar) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       name="description"
       content="Análise inteligente de partidas de futebol com cálculo de EV (Expected Value) e probabilidades usando algoritmo Poisson v3.8"
     />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#4F46E5" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F172A" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="GoalScan Pro" />
@@ -25,6 +24,19 @@
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          var root = document.documentElement;
+          if (t === 'dark' || t === 'light') root.setAttribute('data-theme', t);
+          else {
+            var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            root.setAttribute('data-theme', dark ? 'dark' : 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
@@ -75,19 +87,7 @@
         }
       });
 
-      // Prevenir zoom duplo toque no iOS
-      let lastTouchEnd = 0;
-      document.addEventListener(
-        'touchend',
-        (event) => {
-          const now = Date.now();
-          if (now - lastTouchEnd <= 300) {
-            event.preventDefault();
-          }
-          lastTouchEnd = now;
-        },
-        false
-      );
+      /* Removido bloqueio de duplo-toque: impedia zoom de acessibilidade no iOS */
     </script>
   </body>
 </html>
