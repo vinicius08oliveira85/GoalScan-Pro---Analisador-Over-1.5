@@ -1,5 +1,15 @@
 import { MatchData, AnalysisResult, CompetitionComplementAverages, TableRowGeral } from '../types';
 import { stripImportExtrasFromRow } from '../utils/leagueStandingJson';
+import {
+  blendAttackRate,
+  blendHistoricWithFormSnapshot,
+  finishingLambdaFactor,
+  normalizeGolsStatsSlice,
+  resolveGlobalGolsSlice,
+  volumeOffenseFactor,
+  weightedRecentGoalsPerGame,
+  xgFinishDelta,
+} from './matchDataSignals';
 
 /**
  * Função sigmoid suavizada para ajustes progressivos
@@ -80,7 +90,10 @@ function calculateDixonColesUnder15(lambdaHome: number, lambdaAway: number, rho:
 }
 
 /**
- * Calcula probabilidades Over/Under para múltiplas linhas usando distribuição Poisson
+ * Calcula probabilidades Over/Under para múltiplas linhas usando Poisson **univariado** em T = gols totais.
+ * Pressuposto: T ~ Poisson(λ_total) com λ_total = λ_home + λ_away (somas independentes).
+ * Válido para linhas sobre **total de gols**; não substitui Dixon–Coles na linha 1.5 final (placares baixos).
+ *
  * @param lambdaTotal - Média total de gols esperados no jogo (lambdaHome + lambdaAway)
  * @returns Objeto com probabilidades Over/Under para linhas 0.5, 1.5, 2.5, 3.5, 4.5, 5.5
  */
@@ -109,6 +122,40 @@ function calculateOverUnderProbabilities(lambdaTotal: number): {
   }
 
   return probabilities;
+}
+
+/**
+ * Probabilidades 1X2 (casa, empate, fora) via Poisson independente para cada time, truncada em maxGoals.
+ */
+function calculateMatchOddsFromPoisson(
+  lambdaHome: number,
+  lambdaAway: number,
+  maxGoals: number = 10
+): { home: number; draw: number; away: number } {
+  const lh = Math.max(0, lambdaHome);
+  const la = Math.max(0, lambdaAway);
+  let pHome = 0;
+  let pDraw = 0;
+  let pAway = 0;
+  for (let i = 0; i <= maxGoals; i++) {
+    const pi = poissonProbability(i, lh);
+    for (let j = 0; j <= maxGoals; j++) {
+      const pj = poissonProbability(j, la);
+      const p = pi * pj;
+      if (i > j) pHome += p;
+      else if (i === j) pDraw += p;
+      else pAway += p;
+    }
+  }
+  const sum = pHome + pDraw + pAway;
+  if (sum <= 0) {
+    return { home: 33.33, draw: 33.34, away: 33.33 };
+  }
+  return {
+    home: (pHome / sum) * 100,
+    draw: (pDraw / sum) * 100,
+    away: (pAway / sum) * 100,
+  };
 }
 
 /**
@@ -167,23 +214,26 @@ function combineOverUnderProbabilities(
  * @returns Estatísticas combinadas com pesos adaptativos
  */
 function getWeightedTeamStats(
-  home: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number },
-  away: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number },
-  global: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number },
+  home: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number } | undefined,
+  away: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number } | undefined,
+  global: { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number } | undefined,
   context: 'home' | 'away'
 ): { avgScored: number; avgConceded: number; avgTotal: number; cleanSheetPct: number; noGoalsPct: number; over25Pct: number; under25Pct: number } {
+  const h = normalizeGolsStatsSlice(home);
+  const a = normalizeGolsStatsSlice(away);
+  const g = resolveGlobalGolsSlice(h, a, global);
+
   // Pesos adaptativos baseados no contexto
   // Para time da casa: home tem mais peso
   // Para visitante: away tem mais peso
   const homeWeight = context === 'home' ? 0.5 : 0.3;
   const awayWeight = context === 'away' ? 0.5 : 0.3;
   const globalWeight = 0.3;
-  const totalWeight = homeWeight + awayWeight + globalWeight;
 
   // Verificar se dados estão disponíveis (não são todos zero)
-  const hasHome = home.avgScored > 0 || home.avgConceded > 0;
-  const hasAway = away.avgScored > 0 || away.avgConceded > 0;
-  const hasGlobal = global.avgScored > 0 || global.avgConceded > 0;
+  const hasHome = h.avgScored > 0 || h.avgConceded > 0;
+  const hasAway = a.avgScored > 0 || a.avgConceded > 0;
+  const hasGlobal = g.avgScored > 0 || g.avgConceded > 0;
 
   // Ajustar pesos se algum dado não estiver disponível
   let adjustedHomeWeight = homeWeight;
@@ -220,13 +270,13 @@ function getWeightedTeamStats(
 
   // Calcular média ponderada
   return {
-    avgScored: ((home.avgScored * adjustedHomeWeight + away.avgScored * adjustedAwayWeight + global.avgScored * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
-    avgConceded: ((home.avgConceded * adjustedHomeWeight + away.avgConceded * adjustedAwayWeight + global.avgConceded * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
-    avgTotal: ((home.avgTotal * adjustedHomeWeight + away.avgTotal * adjustedAwayWeight + global.avgTotal * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
-    cleanSheetPct: ((home.cleanSheetPct * adjustedHomeWeight + away.cleanSheetPct * adjustedAwayWeight + global.cleanSheetPct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
-    noGoalsPct: ((home.noGoalsPct * adjustedHomeWeight + away.noGoalsPct * adjustedAwayWeight + global.noGoalsPct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
-    over25Pct: ((home.over25Pct * adjustedHomeWeight + away.over25Pct * adjustedAwayWeight + global.over25Pct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
-    under25Pct: ((home.under25Pct * adjustedHomeWeight + away.under25Pct * adjustedAwayWeight + global.under25Pct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    avgScored: ((h.avgScored * adjustedHomeWeight + a.avgScored * adjustedAwayWeight + g.avgScored * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    avgConceded: ((h.avgConceded * adjustedHomeWeight + a.avgConceded * adjustedAwayWeight + g.avgConceded * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    avgTotal: ((h.avgTotal * adjustedHomeWeight + a.avgTotal * adjustedAwayWeight + g.avgTotal * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    cleanSheetPct: ((h.cleanSheetPct * adjustedHomeWeight + a.cleanSheetPct * adjustedAwayWeight + g.cleanSheetPct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    noGoalsPct: ((h.noGoalsPct * adjustedHomeWeight + a.noGoalsPct * adjustedAwayWeight + g.noGoalsPct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    over25Pct: ((h.over25Pct * adjustedHomeWeight + a.over25Pct * adjustedAwayWeight + g.over25Pct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
+    under25Pct: ((h.under25Pct * adjustedHomeWeight + a.under25Pct * adjustedAwayWeight + g.under25Pct * adjustedGlobalWeight) / (adjustedTotalWeight || 1)),
   };
 }
 
@@ -352,17 +402,20 @@ function calculateMomentum(
  * @returns Score de consistência e flag de divergência
  */
 function validateStatsConsistency(
-  home: { avgScored: number; avgConceded: number },
-  away: { avgScored: number; avgConceded: number },
-  global: { avgScored: number; avgConceded: number }
+  home: { avgScored: number; avgConceded: number } | undefined,
+  away: { avgScored: number; avgConceded: number } | undefined,
+  global?: { avgScored: number; avgConceded: number } | undefined | null
 ): { consistencyScore: number; hasSignificantDivergence: boolean } {
+  const h = normalizeGolsStatsSlice(home);
+  const a = normalizeGolsStatsSlice(away);
+  const gFull = resolveGlobalGolsSlice(h, a, global);
   // Calcular médias esperadas
-  const expectedHomeAvg = (home.avgScored + away.avgScored) / 2;
-  const expectedAwayAvg = (home.avgConceded + away.avgConceded) / 2;
+  const expectedHomeAvg = (h.avgScored + a.avgScored) / 2;
+  const expectedAwayAvg = (h.avgConceded + a.avgConceded) / 2;
 
-  // Comparar com dados global
-  const scoredDiff = Math.abs(global.avgScored - expectedHomeAvg);
-  const concededDiff = Math.abs(global.avgConceded - expectedAwayAvg);
+  // Comparar com dados global (ou proxy casa/fora)
+  const scoredDiff = Math.abs(gFull.avgScored - expectedHomeAvg);
+  const concededDiff = Math.abs(gFull.avgConceded - expectedAwayAvg);
 
   // Normalizar diferenças (tolerância de 0.3 gols = boa consistência)
   const scoredConsistency = Math.max(0, 1 - (scoredDiff / 0.3));
@@ -413,14 +466,35 @@ function calculateStatisticsProbability(data: MatchData): {
   );
 
   // Extrair médias de gols combinadas (já ponderadas)
-  const homeAvgScored = homeWeightedStats.avgScored || 0;
+  let homeAvgScored = homeWeightedStats.avgScored || 0;
   const homeAvgConceded = homeWeightedStats.avgConceded || 0;
-  const awayAvgScored = awayWeightedStats.avgScored || 0;
+  let awayAvgScored = awayWeightedStats.avgScored || 0;
   const awayAvgConceded = awayWeightedStats.avgConceded || 0;
 
   if (homeAvgScored === 0 && homeAvgConceded === 0 && awayAvgScored === 0 && awayAvgConceded === 0) {
     return null;
   }
+
+  const histHomeScored = homeAvgScored;
+  const histAwayScored = awayAvgScored;
+
+  const homeFormPull =
+    data.homeXG != null && data.homeXG > 0
+      ? data.homeXG
+      : data.homeGoalsScoredAtHome != null && data.homeGoalsScoredAtHome > 0
+        ? data.homeGoalsScoredAtHome
+        : histHomeScored;
+  const awayFormPull =
+    data.awayXG != null && data.awayXG > 0
+      ? data.awayXG
+      : data.awayGoalsScoredAway != null && data.awayGoalsScoredAway > 0
+        ? data.awayGoalsScoredAway
+        : histAwayScored;
+
+  homeAvgScored = blendHistoricWithFormSnapshot(histHomeScored, homeFormPull);
+  awayAvgScored = blendHistoricWithFormSnapshot(histAwayScored, awayFormPull);
+  homeAvgScored = blendAttackRate(homeAvgScored, data.homeXG > 0 ? data.homeXG : 0);
+  awayAvgScored = blendAttackRate(awayAvgScored, data.awayXG > 0 ? data.awayXG : 0);
 
   // 2. Validar consistência entre home/away/global
   const homeConsistency = validateStatsConsistency(
@@ -451,6 +525,43 @@ function calculateStatisticsProbability(data: MatchData): {
   // Garantir valores mínimos para evitar divisão por zero
   lambdaHome = lambdaHome || 1.0;
   lambdaAway = lambdaAway || 1.0;
+
+  if (data.homeXG > 0) {
+    lambdaHome *= finishingLambdaFactor(xgFinishDelta(histHomeScored, data.homeXG));
+  }
+  lambdaHome *= volumeOffenseFactor({
+    shotsOnTarget: data.homeShotsOnTarget,
+    xa: data.homeXA,
+    progressivePasses: data.homeProgressivePasses,
+    keyPasses: data.homeKeyPasses,
+  });
+
+  if (data.awayXG > 0) {
+    lambdaAway *= finishingLambdaFactor(xgFinishDelta(histAwayScored, data.awayXG));
+  }
+  lambdaAway *= volumeOffenseFactor({
+    shotsOnTarget: data.awayShotsOnTarget,
+    xa: data.awayXA,
+    progressivePasses: data.awayProgressivePasses,
+    keyPasses: data.awayKeyPasses,
+  });
+
+  const clampSmall = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const hr = weightedRecentGoalsPerGame(data.homeHistory || [], 5);
+  const ar = weightedRecentGoalsPerGame(data.awayHistory || [], 5);
+  if (hr > 0 && homeWeightedStats.avgTotal > 0) {
+    const ratio = hr / homeWeightedStats.avgTotal;
+    lambdaHome *= 1 + clampSmall((ratio - 1) * 0.12, -0.06, 0.06);
+  }
+  if (ar > 0 && awayWeightedStats.avgTotal > 0) {
+    const ratio = ar / awayWeightedStats.avgTotal;
+    lambdaAway *= 1 + clampSmall((ratio - 1) * 0.12, -0.06, 0.06);
+  }
+
+  const homeOpens = data.homeTeamStats?.firstGoal?.home?.opensScorePct;
+  if (homeOpens != null && homeOpens > 58) lambdaHome *= 1.02;
+  const awayOpens = data.awayTeamStats?.firstGoal?.away?.opensScorePct;
+  if (awayOpens != null && awayOpens > 58) lambdaAway *= 1.02;
 
   // 4. Calcular força do oponente para ajustar lambda
   const homeOpponentStrength = calculateOpponentStrength(
@@ -1982,15 +2093,15 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     }
   }
 
-  // Considerar xG se disponível (Expected Goals)
-  if (normalizedData.homeXG > 0 && normalizedData.awayXG > 0) {
+  // xG no formulário: só ajusta `prob` legada quando não há bloco completo de TeamStatistics (evita duplicar o blend no λ)
+  const hasFullTeamStatsForXG = !!(
+    normalizedData.homeTeamStats &&
+    normalizedData.awayTeamStats
+  );
+  if (!hasFullTeamStatsForXG && normalizedData.homeXG > 0 && normalizedData.awayXG > 0) {
     const avgXG = (normalizedData.homeXG + normalizedData.awayXG) / 2;
-    // xG > 2.5 indica alta probabilidade de gols
-    if (avgXG > 2.5) {
-      prob += 3;
-    } else if (avgXG < 1.5) {
-      prob -= 3;
-    }
+    if (avgXG > 2.5) prob += 3;
+    else if (avgXG < 1.5) prob -= 3;
   }
 
   // Se não temos dados suficientes (nem campos deprecated nem dados novos), usar apenas média da competição como baseline
@@ -2009,7 +2120,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let awayGoalsScored = 0;
   let awayGoalsConceded = 0;
   
-  // Usar dados weighted se temos estatísticas globais
+  // Usar dados weighted se temos estatísticas globais (alinhado ao blend gols+xG do ramo estatísticas)
   if (normalizedData.homeTeamStats && normalizedData.awayTeamStats) {
     const homeWeighted = getWeightedTeamStats(
       normalizedData.homeTeamStats.gols.home,
@@ -2023,11 +2134,51 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       normalizedData.awayTeamStats.gols.global,
       'away'
     );
-    
-    homeGoalsScored = homeWeighted.avgScored;
+
+    const histHS = homeWeighted.avgScored;
+    const histAS = awayWeighted.avgScored;
+    const homePull =
+      normalizedData.homeXG > 0
+        ? normalizedData.homeXG
+        : normalizedData.homeGoalsScoredAtHome != null && normalizedData.homeGoalsScoredAtHome > 0
+          ? normalizedData.homeGoalsScoredAtHome
+          : histHS;
+    const awayPull =
+      normalizedData.awayXG > 0
+        ? normalizedData.awayXG
+        : normalizedData.awayGoalsScoredAway != null && normalizedData.awayGoalsScoredAway > 0
+          ? normalizedData.awayGoalsScoredAway
+          : histAS;
+
+    homeGoalsScored = blendAttackRate(
+      blendHistoricWithFormSnapshot(histHS, homePull),
+      normalizedData.homeXG > 0 ? normalizedData.homeXG : 0
+    );
+    awayGoalsScored = blendAttackRate(
+      blendHistoricWithFormSnapshot(histAS, awayPull),
+      normalizedData.awayXG > 0 ? normalizedData.awayXG : 0
+    );
     homeGoalsConceded = homeWeighted.avgConceded;
-    awayGoalsScored = awayWeighted.avgScored;
     awayGoalsConceded = awayWeighted.avgConceded;
+
+    if (normalizedData.homeXG > 0) {
+      homeGoalsScored *= finishingLambdaFactor(xgFinishDelta(histHS, normalizedData.homeXG));
+    }
+    if (normalizedData.awayXG > 0) {
+      awayGoalsScored *= finishingLambdaFactor(xgFinishDelta(histAS, normalizedData.awayXG));
+    }
+    homeGoalsScored *= volumeOffenseFactor({
+      shotsOnTarget: normalizedData.homeShotsOnTarget,
+      xa: normalizedData.homeXA,
+      progressivePasses: normalizedData.homeProgressivePasses,
+      keyPasses: normalizedData.homeKeyPasses,
+    });
+    awayGoalsScored *= volumeOffenseFactor({
+      shotsOnTarget: normalizedData.awayShotsOnTarget,
+      xa: normalizedData.awayXA,
+      progressivePasses: normalizedData.awayProgressivePasses,
+      keyPasses: normalizedData.awayKeyPasses,
+    });
   }
   
   // Usar dados da tabela geral
@@ -2211,6 +2362,18 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     Math.max(0, ((homeGoalsConceded + awayGoalsConceded) / 2) * 50)
   );
   const bttsCorrelation = Math.min(100, Math.max(0, 100 - avgCleanSheet));
+
+  const finishingParts: number[] = [];
+  if (normalizedData.homeGoalsScoredAvg > 0 && normalizedData.homeXG > 0) {
+    finishingParts.push(xgFinishDelta(normalizedData.homeGoalsScoredAvg, normalizedData.homeXG));
+  }
+  if (normalizedData.awayGoalsScoredAvg > 0 && normalizedData.awayXG > 0) {
+    finishingParts.push(xgFinishDelta(normalizedData.awayGoalsScoredAvg, normalizedData.awayXG));
+  }
+  const finishingSignal =
+    finishingParts.length > 0
+      ? Math.round((finishingParts.reduce((a, b) => a + b, 0) / finishingParts.length) * 1000) / 10
+      : 0;
 
   // Calcular tendência de forma baseada em histórico recente se disponível
   let formTrend = 0;
@@ -2566,6 +2729,8 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const lambdaHomeFinal = lambdaFinal * ratioHome;
   const lambdaAwayFinal = Math.max(0, lambdaFinal - lambdaHomeFinal);
 
+  const matchOdds = calculateMatchOddsFromPoisson(lambdaHomeFinal, lambdaAwayFinal);
+
   // Calcular BTTS (Ambas Marcam) via Poisson a partir do λ final combinado (home/away)
   const pHomeScores = 1 - Math.exp(-lambdaHomeFinal);
   const pAwayScores = 1 - Math.exp(-lambdaAwayFinal);
@@ -2696,7 +2861,9 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       defensiveLeaking,
       bttsCorrelation,
       formTrend,
+      finishingSignal,
     },
+    matchOdds,
     // Probabilidades Over/Under combinadas (final)
     overUnderProbabilities,
     // Probabilidades Over/Under baseadas apenas na tabela

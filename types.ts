@@ -62,6 +62,10 @@ export interface TeamStatistics {
   };
 }
 
+/**
+ * Dados de entrada da partida para o motor estatístico.
+ * Como cada grupo alimenta o cálculo: ver `services/matchDataSignals.ts` (mapa) e `services/analysisEngine.ts` (Poisson / combinação).
+ */
 export interface MatchData {
   homeTeam: string;
   awayTeam: string;
@@ -150,6 +154,14 @@ export interface AnalysisResult {
     defensiveLeaking: number;
     bttsCorrelation: number;
     formTrend: number;
+    /** Média dos deltas (xG−gols)/gols dos dois times; positivo ≈ subconversão vs xG, negativo ≈ superconversão (regressão). */
+    finishingSignal: number;
+  };
+  /** Probabilidades 1X2 derivadas de Poisson independente (0–10 gols); uso opcional em dashboards. */
+  matchOdds?: {
+    home: number;
+    draw: number;
+    away: number;
   };
   // Probabilidades Over/Under para diferentes linhas (calculadas estatisticamente usando Poisson)
   overUnderProbabilities?: {
