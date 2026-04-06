@@ -19,6 +19,11 @@ export interface ModalShellProps {
   panelClassName?: string;
   headerClassName?: string;
   bodyClassName?: string;
+  /**
+   * `dialog`: corpo com max-h 70vh, scroll e padding padrão (modais compactos).
+   * `fill`: só min-h-0/min-w-0 — use com painel full-screen e scroll interno (ex.: modal de análise).
+   */
+  bodyLayout?: 'dialog' | 'fill';
 }
 
 const ModalShell: React.FC<ModalShellProps> = ({
@@ -34,6 +39,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
   panelClassName,
   headerClassName,
   bodyClassName,
+  bodyLayout = 'dialog',
 }) => {
   useEffect(() => {
     if (!isOpen || !closeOnEscape) return;
@@ -108,7 +114,9 @@ const ModalShell: React.FC<ModalShellProps> = ({
 
             <div
               className={cn(
-                'min-h-0 min-w-0 max-h-[70vh] overflow-y-auto overflow-x-hidden custom-scrollbar p-2',
+                'min-h-0 min-w-0',
+                bodyLayout === 'dialog' &&
+                  'max-h-[70vh] overflow-y-auto overflow-x-hidden custom-scrollbar p-2',
                 bodyClassName
               )}
             >

@@ -759,10 +759,11 @@ const App: React.FC = () => {
         closeOnOverlayClick
         closeOnEscape
         showCloseButton={false}
+        bodyLayout="fill"
         containerClassName="px-0 pt-0 items-stretch justify-stretch z-[200]"
         overlayClassName="bg-black/50 backdrop-blur-sm"
-        panelClassName="fixed inset-4 z-[200] flex min-h-0 min-w-0 w-auto max-w-none flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl md:inset-8 lg:inset-16"
-        bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0 !max-h-none"
+        panelClassName="fixed inset-4 z-[200] box-border flex max-h-[100dvh] min-h-0 min-w-0 w-auto max-w-none flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl md:inset-8 lg:inset-12 xl:inset-16"
+        bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0"
       >
         {/* Header do Modal */}
         <div className="flex shrink-0 items-center justify-between border-b border-base-300 bg-base-200/80 p-4 backdrop-blur-md">
