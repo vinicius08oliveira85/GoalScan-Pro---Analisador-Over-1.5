@@ -104,6 +104,11 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
     }
 
     setIsSaving(true);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.submit;
+      return next;
+    });
     try {
       const finalFormat =
         geralTable && Array.isArray(geralTable.table_data) && geralTable.table_data.length > 0
@@ -133,6 +138,9 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
       await onSave(championshipToSave, tablesToSave);
     } catch (error) {
       console.error('Erro ao salvar campeonato:', error);
+      const msg =
+        error instanceof Error ? error.message : 'Erro ao salvar. Tente novamente.';
+      setErrors((prev) => ({ ...prev, submit: msg }));
     } finally {
       setIsSaving(false);
     }
@@ -241,6 +249,10 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
           )}
         </div>
       </div>
+
+      {errors.submit && (
+        <div className="alert alert-error text-sm whitespace-pre-wrap">{errors.submit}</div>
+      )}
 
       <div className="flex gap-3 justify-end">
         <button type="button" onClick={onCancel} className="btn btn-ghost">

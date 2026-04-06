@@ -363,6 +363,13 @@ export interface TableRowGeral {
   'Top Team Scorer'?: string; // Artilheiro da Equipe
   Goalkeeper?: string; // Goleiro
   Notes?: string; // Observações
+
+  /**
+   * Chaves extras do JSON de importação (ex.: Lookup_* da planilha).
+   * Persistidas em `championship_teams.extra_fields`; removidas do snapshot em `championship_tables`.
+   * Não usar no motor de análise — apenas auditoria/dados brutos.
+   */
+  importExtras?: Record<string, unknown>;
   
   // Permitir campos extras dinâmicos
   [key: string]: unknown;

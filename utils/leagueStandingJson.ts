@@ -37,6 +37,33 @@ const ALLOWED_KEYS = new Set([
 ]);
 
 /**
+ * Extrai do objeto bruto as chaves que não fazem parte do núcleo da classificação
+ * (ex.: Lookup_*), para persistir em extra_fields sem poluir a tabela nem a análise.
+ */
+export function extractImportExtras(raw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(raw)) {
+    if (key === 'importExtras') continue;
+    if (ALLOWED_KEYS.has(key)) continue;
+    if (isNdValue(val)) continue;
+    out[key] = typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' ? val : String(val);
+  }
+  return out;
+}
+
+/** Remove `importExtras` de cada linha antes de salvar em championship_tables ou exibir na grade. */
+export function stripImportExtrasFromRows(rows: TableRowGeral[]): TableRowGeral[] {
+  return rows.map((row) => stripImportExtrasFromRow(row)!);
+}
+
+/** Remove `importExtras` de uma linha (ex.: antes da análise Poisson). */
+export function stripImportExtrasFromRow(row: TableRowGeral | undefined): TableRowGeral | undefined {
+  if (!row) return undefined;
+  const { importExtras: _ignored, ...rest } = row as TableRowGeral & { importExtras?: unknown };
+  return rest as TableRowGeral;
+}
+
+/**
  * Limpa uma linha bruta do JSON: remove Lookup_*, valores #N/D, chaves desconhecidas.
  */
 export function cleanStandingRow(row: Record<string, unknown>): TableRowGeral {
@@ -105,7 +132,11 @@ export function parseAndNormalizeLeagueStandingJson(parsed: unknown): ParseLeagu
       };
     }
 
-    rows.push(cleaned);
+    const importExtras = extractImportExtras(raw);
+    const rowWithExtras: TableRowGeral =
+      Object.keys(importExtras).length > 0 ? { ...cleaned, importExtras } : cleaned;
+
+    rows.push(rowWithExtras);
   }
 
   return { ok: true, rows };

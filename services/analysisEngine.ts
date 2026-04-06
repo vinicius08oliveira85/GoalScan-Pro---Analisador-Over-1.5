@@ -1,4 +1,5 @@
 import { MatchData, AnalysisResult, CompetitionComplementAverages, TableRowGeral } from '../types';
+import { stripImportExtrasFromRow } from '../utils/leagueStandingJson';
 
 /**
  * Função sigmoid suavizada para ajustes progressivos
@@ -1597,9 +1598,9 @@ function normalizeMatchData(data: MatchData): MatchData {
     h2hOver15Freq: data.h2hOver15Freq ?? 0,
     matchImportance: data.matchImportance ?? 0,
     keyAbsences: data.keyAbsences ?? 'none',
-    // Preservar tabela geral e complemento legado se existirem
-    homeTableData: data.homeTableData,
-    awayTableData: data.awayTableData,
+    // Preservar tabela geral e complemento legado; importExtras não entra no cálculo Poisson
+    homeTableData: stripImportExtrasFromRow(data.homeTableData),
+    awayTableData: stripImportExtrasFromRow(data.awayTableData),
     homeComplementData: data.homeComplementData,
     awayComplementData: data.awayComplementData,
     competitionComplementAvg: data.competitionComplementAvg,

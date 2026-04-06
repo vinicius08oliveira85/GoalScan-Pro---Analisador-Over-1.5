@@ -46,8 +46,8 @@ const fieldTranslations: Record<string, string> = {
   'Per 90 Minutes xAG': 'xAG/90',
 };
 
-// Campos que devem ser ocultos (links internos)
-const hiddenFields = ['Top Team Scorer_link', 'Goalkeeper_link'];
+// Campos que devem ser ocultos (links internos / blob de importação JSON)
+const hiddenFields = ['Top Team Scorer_link', 'Goalkeeper_link', 'importExtras'];
 
 function parseNumberMaybe(value: unknown): number | null {
   if (value == null) return null;

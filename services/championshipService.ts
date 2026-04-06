@@ -13,7 +13,24 @@ import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
-import { normalizeSquadName } from '../utils/leagueStandingJson';
+import {
+  normalizeSquadName,
+  stripImportExtrasFromRows,
+} from '../utils/leagueStandingJson';
+
+/** Erro lançado quando o Supabase ainda não tem colunas standing_* (migração pendente). */
+export const STANDING_MIGRATION_ERROR_MESSAGE =
+  'O banco ainda não tem as colunas de classificação agregada (standing_*). No Supabase (SQL Editor), execute o arquivo supabase/migrations/20260406120000_championship_teams_standing_aggregate.sql no projeto correto.';
+
+function isSupabaseStandingMigrationError(error: unknown): boolean {
+  const e = error as { code?: string; message?: string; details?: string };
+  const text = `${e?.message || ''} ${e?.details || ''}`.toLowerCase();
+  if (e?.code === 'PGRST204') return true;
+  if (text.includes('standing_mp') || text.includes('standing_pts')) return true;
+  if (text.includes('column') && text.includes('does not exist')) return true;
+  if (text.includes('schema cache')) return true;
+  return false;
+}
 
 export interface ChampionshipRow {
   id: string;
@@ -830,6 +847,11 @@ export const saveChampionshipTable = async (
     const result = await withRetry(async () => {
       const supabase = await getSupabaseClient();
       const now = new Date().toISOString();
+
+      const tableDataForJsonb =
+        table.table_type === 'geral' && Array.isArray(table.table_data)
+          ? stripImportExtrasFromRows(table.table_data as TableRowGeral[])
+          : table.table_data;
       
       if (import.meta.env.DEV) {
         logger.log(`[ChampionshipService] Salvando tabela ${table.table_type} para campeonato ${table.championship_id}`);
@@ -843,7 +865,7 @@ export const saveChampionshipTable = async (
             championship_id: table.championship_id,
             table_type: table.table_type,
             table_name: table.table_name,
-            table_data: table.table_data,
+            table_data: tableDataForJsonb,
             created_at: table.created_at || now,
             updated_at: now,
           },
@@ -898,7 +920,7 @@ export const saveChampionshipTable = async (
                 .from('championship_tables')
                 .update({
                   table_name: table.table_name,
-                  table_data: table.table_data,
+                  table_data: tableDataForJsonb,
                   updated_at: now,
                 })
                 .eq('id', existingTable.id)
@@ -934,7 +956,7 @@ export const saveChampionshipTable = async (
                     championship_id: table.championship_id,
                     table_type: table.table_type,
                     table_name: table.table_name,
-                    table_data: table.table_data,
+                    table_data: tableDataForJsonb,
                     created_at: existingTable.created_at || now,
                     updated_at: now,
                   })
@@ -987,7 +1009,7 @@ export const saveChampionshipTable = async (
                 championship_id: table.championship_id,
                 table_type: table.table_type,
                 table_name: table.table_name,
-                table_data: table.table_data,
+                table_data: tableDataForJsonb,
                 created_at: table.created_at || now,
                 updated_at: now,
               },
@@ -1014,7 +1036,7 @@ export const saveChampionshipTable = async (
                 championship_id: table.championship_id,
                 table_type: table.table_type,
                 table_name: table.table_name,
-                table_data: table.table_data,
+                table_data: tableDataForJsonb,
                 created_at: table.created_at || now,
                 updated_at: now,
               })
@@ -1128,9 +1150,11 @@ export const saveChampionshipTable = async (
         // Atualizar uploaded_at no campeonato
         await updateChampionshipUploadedAt(table.championship_id);
       } catch (error) {
-        // Log mas não falhar o salvamento da tabela JSONB
         if (import.meta.env.DEV) {
           logger.warn('[ChampionshipService] Erro ao salvar dados normalizados:', error);
+        }
+        if (error instanceof Error && error.message === STANDING_MIGRATION_ERROR_MESSAGE) {
+          throw error;
         }
       }
     }
@@ -1691,13 +1715,19 @@ function normalizeTeamData(
     'MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts', 'Pts/MP', 'xG', 'xGA', 'xGD', 'xGD/90',
     'Last 5', 'Attendance', 'Top Team Scorer', 'Goalkeeper', 'Notes', 'Status_B',
     'Top Team Scorer_link', 'Goalkeeper_link',
+    'importExtras',
   ]);
 
   const extraFields: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(row)) {
+    if (key === 'importExtras') continue;
     if (!knownFields.has(key) && key !== 'Squad' && key !== 'Rk') {
       extraFields[key] = value;
     }
+  }
+  const imp = row.importExtras;
+  if (imp && typeof imp === 'object' && !Array.isArray(imp)) {
+    Object.assign(extraFields, imp as Record<string, unknown>);
   }
 
   if (hasAggregate) {
@@ -1920,6 +1950,10 @@ export const saveChampionshipTeamsNormalized = async (
         }
         return;
       }
+
+      if (isSupabaseStandingMigrationError(insertError)) {
+        throw new Error(STANDING_MIGRATION_ERROR_MESSAGE);
+      }
       
       // Se for erro de constraint UNIQUE (23505), tentar inserir um por vez com upsert
       const errorStatus = getErrorStatus(insertError);
@@ -1959,6 +1993,9 @@ export const saveChampionshipTeamsNormalized = async (
               '[ChampionshipService] Erro ao inserir times após DELETE:',
               { error: retryInsertError, errorStatus: getErrorStatus(retryInsertError) }
             );
+          }
+          if (isSupabaseStandingMigrationError(retryInsertError)) {
+            throw new Error(STANDING_MIGRATION_ERROR_MESSAGE);
           }
           throw retryInsertError;
         }
@@ -2039,6 +2076,14 @@ export const loadChampionshipTeams = async (
     if (error) {
       if (error.code === 'PGRST116' || error.code === '42P01') {
         // Tabela não existe ainda
+        return [];
+      }
+      if (isSupabaseStandingMigrationError(error)) {
+        logger.error(
+          '[ChampionshipService] championship_teams: colunas standing_* ausentes. ' +
+            STANDING_MIGRATION_ERROR_MESSAGE,
+          error
+        );
         return [];
       }
       throw error;
@@ -2320,15 +2365,22 @@ function saveChampionshipTablesToLocalStorage(tables: ChampionshipTable[]): void
 }
 
 function saveChampionshipTableToLocalStorage(table: ChampionshipTable): ChampionshipTable {
-  const tables = loadChampionshipTablesFromLocalStorage(table.championship_id);
-  const existingIndex = tables.findIndex((t) => t.id === table.id);
+  const toStore: ChampionshipTable =
+    table.table_type === 'geral' && Array.isArray(table.table_data)
+      ? {
+          ...table,
+          table_data: stripImportExtrasFromRows(table.table_data as TableRowGeral[]),
+        }
+      : table;
+  const tables = loadChampionshipTablesFromLocalStorage(toStore.championship_id);
+  const existingIndex = tables.findIndex((t) => t.id === toStore.id);
   if (existingIndex >= 0) {
-    tables[existingIndex] = table;
+    tables[existingIndex] = toStore;
   } else {
-    tables.push(table);
+    tables.push(toStore);
   }
   saveChampionshipTablesToLocalStorage(tables);
-  return table;
+  return toStore;
 }
 
 function deleteChampionshipTableFromLocalStorage(tableId: string): void {
