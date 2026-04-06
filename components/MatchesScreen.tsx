@@ -196,12 +196,12 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
   };
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
+    <div className="min-w-0 space-y-6 pb-20 md:space-y-8 md:pb-8">
       {/* Sistema de Abas */}
       <MatchTabs activeTab={activeTab} onTabChange={setActiveTab} counts={categoryCounts} />
 
       {/* Filtros e Visualização */}
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <MatchFilters
           filterState={filterState}
           sortState={sortState}
@@ -216,7 +216,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
 
       {/* Estatísticas Gerais */}
       {totalMatches > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
+        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3 md:gap-3">
           <motion.div
             variants={animations.fadeInUp}
             initial="initial"
@@ -292,7 +292,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
 
       {/* Grid de Partidas */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <SkeletonMatchCard key={index} />
           ))}
@@ -309,7 +309,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
         <AnimatePresence mode="wait">
           <motion.div
             key={`${activeTab}-${isMobile ? 'mobile' : 'desktop'}`}
-            className={isMobile ? 'space-y-2' : 'space-y-3'}
+            className={isMobile ? 'min-w-0 space-y-2' : 'min-w-0 space-y-3'}
             variants={animations.staggerChildren}
             initial="initial"
             animate="animate"

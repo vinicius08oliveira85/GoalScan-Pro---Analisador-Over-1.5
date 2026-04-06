@@ -6,8 +6,13 @@ import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, ChampionshipTablesDiagnostic } from '../services/championshipService';
-import { AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet, Clipboard } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet, Clipboard, Copy } from 'lucide-react';
 import { parseGlobalStatsExcel, isGlobalStatsFile } from '../utils/globalStatsParser';
+import {
+  buildGlobalStatsTableJson,
+  parseGlobalStatsTableJson,
+  parseDualGlobalStatsJson,
+} from '../utils/globalStatsJson';
 
 interface MatchFormProps {
   onAnalyze: (data: MatchData) => void | Promise<void>;
@@ -332,16 +337,100 @@ const MatchForm: React.FC<MatchFormProps> = ({
     });
   };
 
+  const applyGolsBlock = (
+    team: 'home' | 'away',
+    newGols: { home: GolsStats; away: GolsStats; global: GolsStats }
+  ) => {
+    const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
+    const emptyPercurso = {
+      winStreak: 0,
+      drawStreak: 0,
+      lossStreak: 0,
+      withoutWin: 0,
+      withoutDraw: 0,
+      withoutLoss: 0,
+    };
+    setFormData((prev) => {
+      const currentStats =
+        prev[teamKey] || {
+          percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso },
+          gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() },
+        };
+      return { ...prev, [teamKey]: { ...currentStats, gols: newGols } };
+    });
+    if (team === 'home') {
+      setShowPasteHome(false);
+      setPasteTextHome('');
+    } else {
+      setShowPasteAway(false);
+      setPasteTextAway('');
+    }
+  };
+
   const processPastedStats = (text: string, team: 'home' | 'away') => {
-    const lines = text.trim().split('\n');
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          if (parsed.length !== 2) {
+            alert('Se usar array JSON, deve haver exatamente 2 objetos: [ estatísticasTimeCasa, estatísticasVisitante ].');
+            return;
+          }
+          const gHome = parseGlobalStatsTableJson(parsed[0]);
+          const gAway = parseGlobalStatsTableJson(parsed[1]);
+          const emptyPercurso = {
+            winStreak: 0,
+            drawStreak: 0,
+            lossStreak: 0,
+            withoutWin: 0,
+            withoutDraw: 0,
+            withoutLoss: 0,
+          };
+          setFormData((prev) => ({
+            ...prev,
+            homeTeamStats: {
+              ...(prev.homeTeamStats || {
+                percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso },
+                gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() },
+              }),
+              gols: gHome,
+            },
+            awayTeamStats: {
+              ...(prev.awayTeamStats || {
+                percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso },
+                gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() },
+              }),
+              gols: gAway,
+            },
+          }));
+          setShowPasteHome(false);
+          setShowPasteAway(false);
+          setPasteTextHome('');
+          setPasteTextAway('');
+          return;
+        }
+
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const gols = parseGlobalStatsTableJson(parsed);
+          applyGolsBlock(team, gols);
+          return;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'JSON inválido';
+        alert(`JSON: ${msg}. Tentando formato texto/tabulação…`);
+      }
+    }
+
+    const lines = trimmed.split('\n');
     if (lines.length < 1) return;
 
     const newStats = {
       home: createEmptyGols(),
       away: createEmptyGols(),
-      global: createEmptyGols()
+      global: createEmptyGols(),
     };
-    
+
     let found = false;
 
     const parseVal = (v: string) => {
@@ -349,7 +438,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
       return parseFloat(v.replace('%', '').replace(',', '.').trim()) || 0;
     };
 
-    lines.forEach(line => {
+    lines.forEach((line) => {
       // Tenta dividir por tabulação primeiro
       let cols = line.trim().split(/\t/);
       // Se não tiver colunas suficientes, tenta por múltiplos espaços
@@ -380,24 +469,30 @@ const MatchForm: React.FC<MatchFormProps> = ({
     });
 
     if (found) {
-      setFormData(prev => {
-        const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
-        const emptyPercurso = {
-          winStreak: 0, drawStreak: 0, lossStreak: 0,
-          withoutWin: 0, withoutDraw: 0, withoutLoss: 0,
-        };
-        const currentStats = prev[teamKey] || { 
-          percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso }, 
-          gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() } 
-        };
-        
-        return { ...prev, [teamKey]: { ...currentStats, gols: newStats } };
-      });
-      
-      if (team === 'home') { setShowPasteHome(false); setPasteTextHome(''); }
-      else { setShowPasteAway(false); setPasteTextAway(''); }
+      applyGolsBlock(team, newStats);
     } else {
-      alert('Nenhum dado reconhecido. Verifique o formato.');
+      alert('Nenhum dado reconhecido. Use o JSON canônico (objeto com title/headers/rows) ou linhas com Casa, Fora e Global.');
+    }
+  };
+
+  const copyGlobalStatsJson = async (team: 'home' | 'away') => {
+    const title = team === 'home' ? formData.homeTeam || 'Time Casa' : formData.awayTeam || 'Time Visitante';
+    const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
+    const stats = formData[teamKey];
+    const gols = stats?.gols || {
+      home: createEmptyGols(),
+      away: createEmptyGols(),
+      global: createEmptyGols(),
+    };
+    const uuid =
+      typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : undefined;
+    const payload = buildGlobalStatsTableJson(title, gols, uuid);
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    } catch {
+      if (onError) onError('Não foi possível copiar para a área de transferência.');
     }
   };
 
@@ -409,11 +504,29 @@ const MatchForm: React.FC<MatchFormProps> = ({
     try {
       // Validar tipo de arquivo
       if (!isGlobalStatsFile(file)) {
-        throw new Error('Arquivo inválido. Use arquivos .xlsx, .xls ou .csv');
+        throw new Error('Arquivo inválido. Use arquivos .xlsx, .xls, .csv ou .json');
       }
 
-      // Processar arquivo
-      const { homeTeamStats, awayTeamStats } = await parseGlobalStatsExcel(file);
+      const isJson = file.name.toLowerCase().endsWith('.json');
+      const { homeTeamStats, awayTeamStats } = isJson
+        ? await new Promise<{
+            homeTeamStats: TeamStatistics;
+            awayTeamStats: TeamStatistics;
+          }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const text = String(reader.result ?? '');
+                const parsed: unknown = JSON.parse(text);
+                resolve(parseDualGlobalStatsJson(parsed));
+              } catch (e) {
+                reject(e instanceof Error ? e : new Error('Erro ao ler JSON'));
+              }
+            };
+            reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+            reader.readAsText(file, 'UTF-8');
+          })
+        : await parseGlobalStatsExcel(file);
 
       // Atualizar formData com as estatísticas importadas
       setFormData((prev) => ({
@@ -812,7 +925,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-teal-500" />
             <span className="text-sm font-bold">Importar Estatísticas Globais</span>
-            <InfoIcon text="Importe um arquivo Excel (xlsx) ou CSV com as estatísticas dos 10 últimos jogos do campeonato para ambos os times. O arquivo deve conter seções 'Time Casa' e 'Time Fora' com dados para Casa, Fora e Global." />
+            <InfoIcon text="Excel/CSV: seções Time Casa e Time Fora. JSON: objeto com chaves home e away (ou timeCasa/timeFora), ou array [casa, fora], cada um no formato title/headers/rows (Casa, Fora, Global)." />
           </div>
         </div>
         
@@ -822,7 +935,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             {isImporting ? 'Importando...' : 'Selecionar Arquivo'}
             <input
               type="file"
-              accept=".xlsx,.xls,.xlsm,.csv"
+              accept=".xlsx,.xls,.xlsm,.csv,.json,application/json"
               onChange={handleFileInputChange}
               disabled={isImporting}
               className="hidden"
@@ -854,24 +967,38 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
               Estatísticas Globais - {formData.homeTeam || 'Time Casa'}
             </span>
-            <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato (alimentam o modelo Poisson). Insira manualmente ou importe via Excel. Cada métrica tem Casa, Fora e Global." />
+            <InfoIcon text="Estatísticas dos 10 últimos jogos (Poisson). Preencha manualmente, importe Excel ou cole JSON no padrão title/headers/rows. Array [timeCasa, timeVisitante] preenche os dois times de uma vez." />
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPasteHome(!showPasteHome)}
-            className="btn btn-xs btn-ghost gap-1 text-teal-600"
-          >
-            <Clipboard className="w-3 h-3" />
-            Colar Dados
-          </button>
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => void copyGlobalStatsJson('home')}
+              className="btn btn-xs btn-ghost gap-1 text-teal-600"
+              title="Copiar JSON canônico"
+            >
+              <Copy className="w-3 h-3" />
+              Copiar JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPasteHome(!showPasteHome)}
+              className="btn btn-xs btn-ghost gap-1 text-teal-600"
+            >
+              <Clipboard className="w-3 h-3" />
+              Colar
+            </button>
+          </div>
         </div>
 
         {showPasteHome && (
           <div className="mb-4 p-3 bg-base-200 rounded-lg border border-base-300">
-            <p className="text-xs opacity-60 mb-2">Cole as estatísticas (Casa, Fora, Global) abaixo:</p>
+            <p className="text-xs opacity-60 mb-2">
+              Cole o JSON (objeto com title, headers, rows) ou linhas tabuladas. Opcional: array com dois objetos para
+              preencher casa e visitante.
+            </p>
             <textarea
               className="textarea textarea-bordered w-full text-xs font-mono min-h-[100px]"
-              placeholder={`Exemplo:\nMédia de gols marcados por jogo\t0.67\t1.1\t0.89\n...`}
+              placeholder={`JSON: { "title": "Time", "headers": ["Casa","Fora","Global"], "rows": [...] }\n\nOu texto:\nMédia de gols marcados por jogo\t1.75\t1\t1.3`}
               value={pasteTextHome}
               onChange={(e) => setPasteTextHome(e.target.value)}
             />
@@ -1375,24 +1502,38 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
               Estatísticas Globais - {formData.awayTeam || 'Time Visitante'}
             </span>
-            <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato (alimentam o modelo Poisson). Insira manualmente ou importe via Excel. Cada métrica tem Casa, Fora e Global." />
+            <InfoIcon text="Estatísticas dos 10 últimos jogos (Poisson). Preencha manualmente, importe Excel ou cole JSON no padrão title/headers/rows. Array [timeCasa, timeVisitante] preenche os dois times de uma vez." />
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPasteAway(!showPasteAway)}
-            className="btn btn-xs btn-ghost gap-1 text-teal-600"
-          >
-            <Clipboard className="w-3 h-3" />
-            Colar Dados
-          </button>
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => void copyGlobalStatsJson('away')}
+              className="btn btn-xs btn-ghost gap-1 text-teal-600"
+              title="Copiar JSON canônico"
+            >
+              <Copy className="w-3 h-3" />
+              Copiar JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPasteAway(!showPasteAway)}
+              className="btn btn-xs btn-ghost gap-1 text-teal-600"
+            >
+              <Clipboard className="w-3 h-3" />
+              Colar
+            </button>
+          </div>
         </div>
 
         {showPasteAway && (
           <div className="mb-4 p-3 bg-base-200 rounded-lg border border-base-300">
-            <p className="text-xs opacity-60 mb-2">Cole as estatísticas (Casa, Fora, Global) abaixo:</p>
+            <p className="text-xs opacity-60 mb-2">
+              Cole o JSON (objeto com title, headers, rows) ou linhas tabuladas. Opcional: array com dois objetos para
+              preencher casa e visitante.
+            </p>
             <textarea
               className="textarea textarea-bordered w-full text-xs font-mono min-h-[100px]"
-              placeholder={`Exemplo:\nMédia de gols marcados por jogo\t0.67\t1.1\t0.89\n...`}
+              placeholder={`JSON: { "title": "Time", "headers": ["Casa","Fora","Global"], "rows": [...] }\n\nOu texto:\nMédia de gols marcados por jogo\t1.75\t1\t1.3`}
               value={pasteTextAway}
               onChange={(e) => setPasteTextAway(e.target.value)}
             />

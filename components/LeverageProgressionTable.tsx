@@ -78,22 +78,22 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
-      className="custom-card p-4 md:p-6"
+      className="custom-card min-w-0 p-4 md:p-6"
     >
       <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/20 border border-primary/30">
-              <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+        <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="rounded-xl border border-primary/30 bg-primary/20 p-2">
+              <TrendingUp className="h-5 w-5 text-primary md:h-6 md:w-6" />
             </div>
-            <div>
-              <h3 className="text-lg md:text-xl font-black">Tabela de Alavancagem Progressiva</h3>
-              <p className="text-xs md:text-sm opacity-60">
+            <div className="min-w-0">
+              <h3 className="text-lg font-black md:text-xl">Tabela de Alavancagem Progressiva</h3>
+              <p className="text-xs opacity-60 md:text-sm">
                 Projeção de reinvestimento dia a dia (retorno vira investimento)
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {progression.length > 0 && (
               <>
                 <button
@@ -236,8 +236,8 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
 
       {/* Tabela */}
       {progression.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="table table-zebra w-full">
+        <div className="min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+          <table className="table table-zebra min-w-[18rem] w-full">
             <thead>
               <tr className="bg-base-200">
                 <th className="text-center font-black">DIA</th>

@@ -44,9 +44,9 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
   ];
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 min-w-0">
       {/* Desktop Tabs */}
-      <div className="hidden md:flex gap-2 p-2 bg-base-200/50 backdrop-blur-xl rounded-2xl border border-base-300/50">
+      <div className="hidden min-w-0 gap-2 rounded-2xl border border-base-300/50 bg-base-200/50 p-2 backdrop-blur-xl md:flex">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -100,7 +100,7 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       </div>
 
       {/* Mobile Tabs - Scroll Horizontal */}
-      <div className="md:hidden overflow-x-auto custom-scrollbar pb-2 -mx-4 px-4">
+      <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-2 [-webkit-overflow-scrolling:touch] custom-scrollbar md:hidden">
         <div className="flex gap-2 min-w-max">
           {tabs.map((tab) => (
             <button

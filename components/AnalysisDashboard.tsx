@@ -154,8 +154,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   }
 
   const statsSection = (
-    <div className={cn(splitMode && !showStatsPanel && 'hidden')} aria-hidden={splitMode && !showStatsPanel}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div
+      className={cn('min-w-0', splitMode && !showStatsPanel && 'hidden')}
+      aria-hidden={splitMode && !showStatsPanel}
+    >
+      <div className="mb-6 grid min-w-0 grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-4">
         <MetricCard
           title={
             <span className="inline-flex items-center gap-0.5 flex-wrap">
@@ -207,14 +210,15 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
       {(hasCombinedOU || hasStatsOU || hasTableOU) && (
         <motion.div
-          className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+          className="card min-w-0 border border-base-300/50 bg-base-100 p-4 shadow-sm md:p-6"
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
         >
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-            <h3 className="text-lg font-black text-base-content">Probabilidades por linha</h3>
-            <div className="tabs tabs-boxed tabs-sm shrink-0">
+          <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="min-w-0 text-lg font-black text-base-content">Probabilidades por linha</h3>
+            <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch]">
+              <div className="tabs tabs-boxed tabs-sm inline-flex w-max shrink-0 flex-nowrap">
               {hasCombinedOU && (
                 <button
                   type="button"
@@ -242,9 +246,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                   Tabela
                 </button>
               )}
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid min-w-0 grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
             {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
               const prob =
                 overUnderTab === 'combined'
@@ -255,7 +260,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               if (!prob) return null;
               const isInteractive = overUnderTab === 'combined';
               return (
-                <div key={line} className="card bg-base-200 p-3">
+                <div key={line} className="card min-w-0 bg-base-200 p-3">
                   <div className="text-xs font-bold text-base-content/70 mb-2">Linha {line} gols</div>
                   <div
                     role={isInteractive ? 'button' : undefined}
@@ -305,11 +310,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   );
 
   const verdictSection = (
-    <div className={cn(splitMode && !showVerdictPanel && 'hidden')} aria-hidden={splitMode && !showVerdictPanel}>
-      <div className="flex flex-col gap-6 md:gap-8">
+    <div
+      className={cn('min-w-0', splitMode && !showVerdictPanel && 'hidden')}
+      aria-hidden={splitMode && !showVerdictPanel}
+    >
+      <div className="flex min-w-0 flex-col gap-6 md:gap-8">
         <motion.div
           className={cn(
-            'card bg-gradient-to-br from-primary/20 via-base-100 to-base-100 border-4 p-6 md:p-10 text-center transition-shadow duration-300',
+            'card min-w-0 border-4 bg-gradient-to-br from-primary/20 via-base-100 to-base-100 p-6 text-center transition-shadow duration-300 md:p-10',
             evSemaphoreFrame
           )}
           variants={animations.scaleIn}
@@ -354,8 +362,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-          <motion.div className="lg:col-span-1 opacity-90 scale-[0.99] origin-top" variants={animations.scaleIn} initial="initial" animate="animate">
+        <div className="grid min-w-0 grid-cols-1 gap-6 md:gap-8 lg:grid-cols-3">
+          <motion.div
+            className="origin-top min-w-0 scale-[0.99] opacity-90 lg:col-span-1"
+            variants={animations.scaleIn}
+            initial="initial"
+            animate="animate"
+          >
             <ProbabilityGauge
               probability={primaryProb}
               selectedProbability={displayProbability}
@@ -366,7 +379,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             />
           </motion.div>
           <motion.div
-            className="lg:col-span-2 card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
+            className="card min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6 lg:col-span-2"
             variants={animations.slideInRight}
             initial="initial"
             animate="animate"
@@ -407,11 +420,15 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
         </div>
 
         {onBetSave && (
-          <div className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6">
-            <div className="flex justify-between items-center mb-4">
+          <div className="card min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-lg font-black text-base-content">Sua aposta</h3>
               {!showBetManager && (
-                <button type="button" onClick={() => setShowBetManager(true)} className="btn btn-primary btn-sm">
+                <button
+                  type="button"
+                  onClick={() => setShowBetManager(true)}
+                  className="btn btn-primary btn-sm min-h-[2.75rem] w-full sm:w-auto"
+                >
                   {betInfo?.betAmount > 0 ? 'Editar' : 'Registrar aposta'}
                 </button>
               )}
@@ -430,7 +447,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 onCancel={() => setShowBetManager(false)}
               />
             ) : betInfo?.betAmount > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 md:gap-4">
                 <div>
                   <div className="text-xs font-bold text-base-content/70">Status</div>
                   <div
@@ -470,7 +487,12 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
   if (!splitMode) {
     return (
-      <motion.div className="flex flex-col gap-6 md:gap-8" variants={animations.fadeInUp} initial="initial" animate="animate">
+      <motion.div
+        className="flex min-w-0 flex-col gap-6 md:gap-8"
+        variants={animations.fadeInUp}
+        initial="initial"
+        animate="animate"
+      >
         {verdictSection}
         {statsSection}
       </motion.div>
@@ -478,7 +500,12 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   }
 
   return (
-    <motion.div className="flex flex-col gap-6 md:gap-8" variants={animations.fadeInUp} initial="initial" animate="animate">
+    <motion.div
+      className="flex min-w-0 flex-col gap-6 md:gap-8"
+      variants={animations.fadeInUp}
+      initial="initial"
+      animate="animate"
+    >
       {statsSection}
       {verdictSection}
     </motion.div>

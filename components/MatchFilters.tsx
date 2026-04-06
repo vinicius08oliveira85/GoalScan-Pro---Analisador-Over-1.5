@@ -72,7 +72,7 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
   };
 
   return (
-    <div className="mb-6 space-y-4">
+    <div className="mb-6 min-w-0 space-y-4">
       {/* Header com contador e botão limpar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
@@ -96,8 +96,8 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
       </div>
 
       {/* Filtros sempre visíveis, lado a lado */}
-      <div className="custom-card p-4 md:p-6 border border-base-300/50">
-        <div className="flex flex-col sm:flex-row gap-4 md:gap-6 items-start sm:items-end">
+      <div className="custom-card min-w-0 border border-base-300/50 p-4 md:p-6">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end md:gap-6">
           {/* Filtro por Campeonato */}
           <div className="flex-1 min-w-0 w-full sm:w-auto">
             <label className="text-xs font-bold uppercase opacity-60 mb-2 block flex items-center gap-2">

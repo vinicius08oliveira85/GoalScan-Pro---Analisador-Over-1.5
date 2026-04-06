@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { TeamStatistics, GolsStats, PercursoStats } from '../types';
+import { GLOBAL_STATS_GOLS_METRIC_MAPPINGS } from './globalStatsMetricMappings';
 
 interface ParsedGlobalStats {
   homeTeamStats: TeamStatistics;
@@ -7,9 +8,10 @@ interface ParsedGlobalStats {
 }
 
 /**
- * Converte um valor de string para número, removendo % e tratando valores vazios
+ * Converte um valor de string para número, removendo % e tratando valores vazios.
+ * Exportado para reutilização no formato JSON de Estatísticas Globais.
  */
-function parseNumber(value: string | number | null | undefined): number {
+export function parseNumber(value: string | number | null | undefined): number {
   if (value === null || value === undefined || value === '') {
     return 0;
   }
@@ -124,20 +126,6 @@ function extractTeamStats(
     global: createEmptyGolsStats(),
   };
 
-  // Mapeamento de métricas para índices de linha esperados
-  const metricMappings: Array<{
-    pattern: RegExp;
-    field: keyof GolsStats;
-  }> = [
-    { pattern: /média.*gols.*marcados/i, field: 'avgScored' },
-    { pattern: /média.*gols.*sofridos/i, field: 'avgConceded' },
-    { pattern: /média.*gols.*marcados.*sofridos|média.*total/i, field: 'avgTotal' },
-    { pattern: /jogos.*sem.*sofrer/i, field: 'cleanSheetPct' },
-    { pattern: /jogos.*sem.*marcar/i, field: 'noGoalsPct' },
-    { pattern: /jogos.*mais.*2[.,]?5.*gols|over.*2[.,]?5/i, field: 'over25Pct' },
-    { pattern: /jogos.*menos.*2[.,]?5.*gols|under.*2[.,]?5/i, field: 'under25Pct' },
-  ];
-
   // Processar linhas após o cabeçalho
   for (let i = headerRowIndex + 1; i <= endRow && i < rows.length; i++) {
     const row = rows[i];
@@ -148,7 +136,7 @@ function extractTeamStats(
     if (!metricName) continue;
 
     // Encontrar qual métrica é esta
-    for (const mapping of metricMappings) {
+    for (const mapping of GLOBAL_STATS_GOLS_METRIC_MAPPINGS) {
       if (mapping.pattern.test(metricName)) {
         // Extrair valores das colunas Casa, Fora e Global
         const casaRaw = String(row[casaColIndex] || '').trim();
@@ -329,7 +317,7 @@ export async function parseGlobalStatsExcel(file: File): Promise<ParsedGlobalSta
  * Valida se um arquivo é um Excel ou CSV válido para Estatísticas Globais
  */
 export function isGlobalStatsFile(file: File): boolean {
-  const validExtensions = ['.xlsx', '.xls', '.xlsm', '.csv'];
+  const validExtensions = ['.xlsx', '.xls', '.xlsm', '.csv', '.json'];
   const fileName = file.name.toLowerCase();
   return validExtensions.some((ext) => fileName.endsWith(ext));
 }

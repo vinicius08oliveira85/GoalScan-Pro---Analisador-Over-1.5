@@ -63,9 +63,9 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
       whileHover="hover"
       whileTap="tap"
       variants={cardHover}
-      className={`group custom-card ${getStatusColor()} p-2.5 hover:shadow-lg cursor-pointer transition-all duration-300`}
+      className={`group custom-card min-w-0 ${getStatusColor()} cursor-pointer p-2.5 transition-all duration-300 hover:shadow-lg`}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center justify-between gap-2">
         {/* Times - Compacto */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-xs font-semibold">
@@ -116,7 +116,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
         </div>
 
         {/* Métricas Compactas */}
-        <div className="flex items-center gap-3">
+        <div className="flex max-w-[min(100%,22rem)] shrink-0 items-center gap-2 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] sm:max-w-none sm:gap-3">
           {/* Probabilidade */}
           <div className="flex flex-col items-center min-w-[50px]">
             <div className="text-xs font-semibold opacity-70 uppercase leading-tight">Prob</div>

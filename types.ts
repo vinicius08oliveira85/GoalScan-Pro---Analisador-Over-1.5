@@ -43,6 +43,23 @@ export interface FirstGoalStats {
   comebacks?: number; // Reviravoltas (opcional, apenas para time visitante)
 }
 
+/**
+ * JSON canônico para colar/importar o bloco "Estatísticas Globais" (Casa / Fora / Global).
+ * Mantém o mesmo formato em exportação (Copiar JSON).
+ */
+export interface GlobalStatsTableRow {
+  metric: string;
+  values: [string, string, string];
+}
+
+export interface GlobalStatsTableJson {
+  id?: string;
+  title: string;
+  headers: [string, string, string];
+  rows: GlobalStatsTableRow[];
+  firstColumnHeader?: string;
+}
+
 // Estatísticas completas de um time (últimos 10 jogos)
 export interface TeamStatistics {
   percurso: {

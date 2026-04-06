@@ -27,7 +27,7 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
   const isReconcileDisabled = !bankSettings || state.bankBase === null;
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
+    <div className="min-w-0 space-y-6 pb-20 md:space-y-8 md:pb-8">
       <BankCurrentCard
         totalBank={state.totalBank}
         pendingExposure={state.bankStats.pendingExposure}
