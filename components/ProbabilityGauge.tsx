@@ -99,7 +99,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
 
   return (
     <div
-      className="surface surface-hover p-6 cursor-help"
+      className="surface surface-hover min-w-0 cursor-help p-6"
       title={`Probabilidade de ${displayLabel}. ${
         selectedProbability != null
           ? 'Baseada na seleção de apostas (linha/combinação escolhida).'

@@ -362,9 +362,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           </p>
         </motion.div>
 
-        <div className="grid min-w-0 grid-cols-1 gap-6 md:gap-8 lg:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-6 md:gap-8 xl:grid-cols-3">
           <motion.div
-            className="origin-top min-w-0 scale-[0.99] opacity-90 lg:col-span-1"
+            className="origin-top min-w-0 scale-[0.99] opacity-90 xl:col-span-1"
             variants={animations.scaleIn}
             initial="initial"
             animate="animate"
@@ -379,7 +379,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             />
           </motion.div>
           <motion.div
-            className="card min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6 lg:col-span-2"
+            className="card min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6 xl:col-span-2"
             variants={animations.slideInRight}
             initial="initial"
             animate="animate"

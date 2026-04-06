@@ -106,7 +106,12 @@ const ModalShell: React.FC<ModalShellProps> = ({
               </div>
             )}
 
-            <div className={cn('max-h-[70vh] overflow-y-auto custom-scrollbar p-2', bodyClassName)}>
+            <div
+              className={cn(
+                'min-h-0 min-w-0 max-h-[70vh] overflow-y-auto overflow-x-hidden custom-scrollbar p-2',
+                bodyClassName
+              )}
+            >
               {children}
             </div>
           </motion.div>

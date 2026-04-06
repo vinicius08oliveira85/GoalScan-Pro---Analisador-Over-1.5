@@ -761,30 +761,39 @@ const App: React.FC = () => {
         showCloseButton={false}
         containerClassName="px-0 pt-0 items-stretch justify-stretch z-[200]"
         overlayClassName="bg-black/50 backdrop-blur-sm"
-        panelClassName="fixed inset-4 md:inset-8 lg:inset-16 max-w-none w-auto bg-base-200 rounded-xl shadow-2xl overflow-hidden flex flex-col"
-        bodyClassName="p-0 max-h-none overflow-hidden"
+        panelClassName="fixed inset-4 z-[200] flex min-h-0 min-w-0 w-auto max-w-none flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl md:inset-8 lg:inset-16"
+        bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0 !max-h-none"
       >
         {/* Header do Modal */}
-        <div className="bg-base-200/80 backdrop-blur-md border-b border-base-300 p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2">
-              <ArrowLeft className="w-4 h-4" />
+        <div className="flex shrink-0 items-center justify-between border-b border-base-300 bg-base-200/80 p-4 backdrop-blur-md">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <button
+              type="button"
+              onClick={handleCloseAnalysis}
+              className="btn btn-sm btn-ghost shrink-0 gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Voltar</span>
             </button>
-            <h2 className="text-lg md:text-xl font-black">
+            <h2 className="min-w-0 truncate text-lg font-black md:text-xl">
               {currentMatchData
                 ? `${currentMatchData.homeTeam} vs ${currentMatchData.awayTeam}`
                 : 'Nova Análise'}
             </h2>
           </div>
-          <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost">
-            <X className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={handleCloseAnalysis}
+            className="btn btn-sm btn-circle btn-ghost shrink-0"
+            aria-label="Fechar"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Conteúdo do Modal */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
+        {/* Conteúdo do Modal — min-h-0 + scroll em ambos os eixos evita corte lateral */}
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6">
+          <div className="mx-auto flex min-w-0 w-full max-w-5xl flex-col gap-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <span className="w-2 h-6 bg-secondary rounded-full"></span>
