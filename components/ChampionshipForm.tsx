@@ -6,6 +6,7 @@ import { animations } from '../utils/animations';
 import ChampionshipTableView from './ChampionshipTableView';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 import { parseAndNormalizeLeagueStandingJson } from '../utils/leagueStandingJson';
+import { isExcelFile, parseExcelToJson } from '../utils/excelParser';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -75,19 +76,44 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   };
 
   const handleFileUpload = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
-      setErrors((prev) => ({ ...prev, geral: 'Use apenas arquivo .json com a classificação da liga.' }));
+    const lower = file.name.toLowerCase();
+    const isJson = lower.endsWith('.json') || file.type === 'application/json';
+
+    if (isJson) {
+      try {
+        const content = await file.text();
+        handleJsonContent(content, file.name);
+      } catch (error) {
+        setErrors((prev) => ({
+          ...prev,
+          geral: error instanceof Error ? error.message : 'Erro ao ler o arquivo.',
+        }));
+      }
       return;
     }
-    try {
-      const content = await file.text();
-      handleJsonContent(content, file.name);
-    } catch (error) {
-      setErrors((prev) => ({
-        ...prev,
-        geral: error instanceof Error ? error.message : 'Erro ao ler o arquivo.',
-      }));
+
+    if (isExcelFile(file)) {
+      try {
+        const rawRows = await parseExcelToJson(file);
+        const result = parseAndNormalizeLeagueStandingJson(rawRows as unknown);
+        if (!result.ok) {
+          setErrors((prev) => ({ ...prev, geral: result.error }));
+          return;
+        }
+        applyNormalizedRows(result.rows);
+      } catch (error) {
+        setErrors((prev) => ({
+          ...prev,
+          geral: error instanceof Error ? error.message : 'Erro ao ler a planilha.',
+        }));
+      }
+      return;
     }
+
+    setErrors((prev) => ({
+      ...prev,
+      geral: 'Use arquivo .json, .xlsx, .xls ou .csv com a classificação da liga.',
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -175,15 +201,17 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 
       <div className="alert alert-info text-sm">
         <div>
-          Importe a <strong>classificação agregada</strong> da temporada em JSON (array de objetos com{' '}
-          <code className="text-xs">Squad</code>, <code className="text-xs">MP</code>,{' '}
-          <code className="text-xs">GF</code>, <code className="text-xs">GA</code>, etc.). Prefixos como
-          &quot;Club Crest&quot; nos nomes são removidos automaticamente.
+          Importe <strong>uma única tabela</strong> em JSON ou Excel (primeira aba):{' '}
+          <code className="text-xs">Squad</code> obrigatório; totais <code className="text-xs">MP</code> /{' '}
+          <code className="text-xs">GF</code> / <code className="text-xs">GA</code> <em>ou</em> colunas{' '}
+          <code className="text-xs">Home …</code> e <code className="text-xs">Away …</code>. Colunas{' '}
+          <code className="text-xs">Lookup_*</code> viram colunas normais (# Pl, idade, posse, etc.). Prefixos
+          &quot;Club Crest&quot; nos nomes são removidos.
         </div>
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-xl font-bold">Classificação (JSON)</h3>
+        <h3 className="text-xl font-bold">Classificação (JSON ou Excel)</h3>
         <div className="border border-base-300 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -211,13 +239,13 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
               <div className="form-control">
                 <label className="label">
                   <span className="label-text font-bold flex items-center gap-2">
-                    Arquivo JSON
+                    Arquivo JSON ou Excel
                     <FileJson className="w-4 h-4 text-secondary" />
                   </span>
                 </label>
                 <input
                   type="file"
-                  accept=".json,application/json"
+                  accept=".json,.xlsx,.xls,.xlsm,.csv,application/json"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleFileUpload(file);
@@ -234,7 +262,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                 </label>
                 <textarea
                   className="textarea textarea-bordered h-40 font-mono text-sm"
-                  placeholder='[{"Rk":"1","Squad":"Barcelona","MP":"30","GF":"80","GA":"29",...}]'
+                  placeholder='[{"Rk":"1","Squad":"Barcelona","Home MP":"15","Home GF":"47",...}]'
                   onBlur={(e) => {
                     const v = e.target.value.trim();
                     if (v) handleJsonContent(v, 'paste');

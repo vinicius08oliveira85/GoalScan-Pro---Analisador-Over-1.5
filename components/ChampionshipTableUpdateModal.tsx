@@ -6,6 +6,7 @@ import { animations } from '../utils/animations';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 import { updateChampionshipTableFormat } from '../services/championshipService';
 import { parseAndNormalizeLeagueStandingJson } from '../utils/leagueStandingJson';
+import { isExcelFile, parseExcelToJson } from '../utils/excelParser';
 
 interface Props {
   championship: Championship;
@@ -32,22 +33,41 @@ export default function ChampionshipTableUpdateModal({
   );
 
   const handleFileUpload = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
-      setError('Use apenas arquivo .json.');
+    const lower = file.name.toLowerCase();
+    const isJson = lower.endsWith('.json') || file.type === 'application/json';
+
+    if (isJson) {
+      try {
+        const content = await file.text();
+        setJsonText(content);
+        const parsed = JSON.parse(content);
+        const result = parseAndNormalizeLeagueStandingJson(parsed);
+        setError(result.ok ? null : result.error);
+        if (result.ok) {
+          void updateChampionshipTableFormat(championship.id, detectTableFormatFromData(result.rows));
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Erro ao ler o arquivo.');
+      }
       return;
     }
-    try {
-      const content = await file.text();
-      setJsonText(content);
-      const parsed = JSON.parse(content);
-      const result = parseAndNormalizeLeagueStandingJson(parsed);
-      setError(result.ok ? null : result.error);
-      if (result.ok) {
-        void updateChampionshipTableFormat(championship.id, detectTableFormatFromData(result.rows));
+
+    if (isExcelFile(file)) {
+      try {
+        const rawRows = await parseExcelToJson(file);
+        const result = parseAndNormalizeLeagueStandingJson(rawRows as unknown);
+        setError(result.ok ? null : result.error);
+        if (result.ok) {
+          setJsonText(JSON.stringify(result.rows));
+          void updateChampionshipTableFormat(championship.id, detectTableFormatFromData(result.rows));
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Erro ao ler a planilha.');
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao ler o arquivo.');
+      return;
     }
+
+    setError('Use arquivo .json, .xlsx, .xls ou .csv.');
   };
 
   const handleUpdate = async () => {
@@ -129,16 +149,17 @@ export default function ChampionshipTableUpdateModal({
 
         <div className="p-4 space-y-4">
           <p className="text-xs opacity-70">
-            Substitui a tabela geral do campeonato. JSON: array com <code>Squad</code>, <code>MP</code>,{' '}
-            <code>GF</code>, <code>GA</code>, etc.
+            Substitui a tabela geral. Envie JSON ou Excel (1ª aba): <code>Squad</code> obrigatório;{' '}
+            <code>MP</code>/<code>GF</code>/<code>GA</code> agregados ou colunas <code>Home …</code> /{' '}
+            <code>Away …</code>. Colunas <code>Lookup_*</code> são normalizadas.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="custom-card p-4 space-y-3">
-              <div className="font-bold">Arquivo JSON</div>
+              <div className="font-bold">Arquivo JSON ou Excel</div>
               <input
                 type="file"
-                accept=".json,application/json"
+                accept=".json,.xlsx,.xls,.xlsm,.csv,application/json"
                 className="file-input file-input-bordered w-full file-input-primary"
                 onChange={(e) => {
                   const file = e.target.files?.[0];

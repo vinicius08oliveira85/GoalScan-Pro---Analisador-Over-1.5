@@ -44,6 +44,19 @@ const fieldTranslations: Record<string, string> = {
   'Per 90 Minutes xG+xAG': 'xG+xAG/90',
   'Per 90 Minutes npxG+xAG': 'npxG+xAG/90',
   'Per 90 Minutes xAG': 'xAG/90',
+  'Performance Gls': 'Gols',
+  'Performance Ast': 'Assistências',
+  'Performance G+A': 'G+A',
+  'Performance G-PK': 'Gols (sem pênalti)',
+  'Performance PK': 'Pênaltis marcados',
+  'Performance PKatt': 'Pênaltis tentados',
+  'Performance CrdY': 'Cartões amarelos',
+  'Performance CrdR': 'Cartões vermelhos',
+  'Per 90 Minutes Gls': 'Gols/90',
+  'Per 90 Minutes Ast': 'Assist./90',
+  'Per 90 Minutes G+A': 'G+A/90',
+  'Per 90 Minutes G-PK': 'G-PK/90',
+  'Per 90 Minutes G+A-PK': 'G+A-PK/90',
 };
 
 // Campos que devem ser ocultos (links internos / blob de importação JSON)
@@ -74,19 +87,24 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
     return table.table_data as Array<Record<string, unknown>>;
   }, [table.table_data]);
 
-  // Obter colunas disponíveis (campos do primeiro registro)
-  // Garantir que Squad seja sempre a primeira coluna (chave primária lógica)
+  // União das chaves de todas as linhas; Squad primeiro quando existir
   const columns = useMemo(() => {
     if (rows.length === 0) return [];
-    const firstRow = rows[0];
-    const allColumns = Object.keys(firstRow).filter((key) => !hiddenFields.includes(key));
-    
-    // Separar Squad das outras colunas
-    const squadIndex = allColumns.indexOf('Squad');
-    const otherColumns = allColumns.filter((col) => col !== 'Squad');
-    
-    // Retornar Squad primeiro, depois as outras colunas
-    return squadIndex >= 0 ? ['Squad', ...otherColumns] : allColumns;
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const row of rows) {
+      for (const key of Object.keys(row as Record<string, unknown>)) {
+        if (hiddenFields.includes(key) || seen.has(key)) continue;
+        seen.add(key);
+        ordered.push(key);
+      }
+    }
+    const squadIdx = ordered.indexOf('Squad');
+    if (squadIdx > 0) {
+      ordered.splice(squadIdx, 1);
+      ordered.unshift('Squad');
+    }
+    return ordered;
   }, [rows]);
 
   // Filtrar e ordenar linhas
