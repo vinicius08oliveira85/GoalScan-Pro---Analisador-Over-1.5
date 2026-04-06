@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { SavedAnalysis, BetInfo, BankSettings as BankSettingsType } from '../types';
-import { Plus, Trash2, Check, X, BarChart2, Loader } from 'lucide-react';
+import { Plus, Trash2, Check, X, BarChart2 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import SkeletonLoader from './SkeletonLoader';
 import { getCurrencySymbol } from '../utils/currency';
@@ -71,7 +71,10 @@ const MatchCard: React.FC<{
 
           <div className="flex items-center gap-2">
             {isUpdatingBetStatus && (
-              <Loader className="w-5 h-5 animate-spin text-primary" />
+              <span
+                className="loading loading-spinner loading-md text-primary"
+                aria-label="Atualizando status da aposta"
+              />
             )}
             {isPending && !isUpdatingBetStatus && (
               <>

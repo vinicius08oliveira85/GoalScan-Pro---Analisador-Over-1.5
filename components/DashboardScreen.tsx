@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Activity,
@@ -10,9 +10,6 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
-  CheckCircle,
-  XCircle,
-  Clock,
   Hash,
 } from 'lucide-react';
 import { formatTimestampInBrasilia } from '../utils/dateFormatter';
@@ -38,7 +35,6 @@ import {
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
-import { getDisplayProbability } from '../utils/probability';
 import { getDisplayEV } from '../utils/betMetrics';
 import { cn } from '../utils/cn';
 import {
@@ -66,6 +62,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   isLoading,
 }) => {
   const windowSize = useWindowSize();
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
 
   const stats = useMemo(
     () => calculateDashboardStats(savedMatches, bankSettings),
@@ -83,6 +80,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const recentMatches = useMemo(() => {
     return [...savedMatches].sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
   }, [savedMatches]);
+
+  const bankTrendData = useMemo(() => {
+    if (bankEvolutionData.length === 0) return [];
+    return bankEvolutionData.slice(-20);
+  }, [bankEvolutionData]);
 
   if (isLoading) {
     return <DashboardLoadingSkeleton />;
@@ -153,6 +155,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     },
   ];
 
+  const statCardsFiltered = bankSettings
+    ? statCards.filter((c) => c.title !== 'Banca Atual')
+    : statCards;
+
   type StatCardTone = 'primary' | 'success' | 'error' | 'warning' | 'info' | 'neutral';
 
   const toneClasses: Record<StatCardTone, { bg: string; border: string; text: string }> = {
@@ -168,12 +174,68 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return (tone in toneClasses ? tone : 'primary') as StatCardTone;
   };
 
+  const BankHero = bankSettings ? (
+    <motion.div
+      variants={animations.fadeInUp}
+      initial="initial"
+      animate="animate"
+      className="card bg-gradient-to-br from-primary/18 via-base-100 to-base-100 border-2 border-primary/35 shadow-xl ring-1 ring-base-content/10 p-6 md:p-10"
+    >
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs md:text-sm font-black uppercase tracking-widest text-base-content/70 mb-2">Saldo da banca</p>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 font-black text-primary leading-none">
+            <span className="text-3xl sm:text-4xl tabular-nums shrink-0">{getCurrencySymbol(bankSettings.currency)}</span>
+            <span className="text-5xl sm:text-6xl md:text-7xl tabular-nums tracking-tight break-all sm:break-normal">
+              {stats.currentBank.toFixed(2)}
+            </span>
+          </div>
+          <p className="text-sm md:text-base text-base-content/70 mt-3 font-medium">Capital disponível para suas apostas</p>
+        </div>
+        {bankTrendData.length > 1 && (
+          <div className="w-full lg:w-[min(100%,280px)] h-[120px] shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={bankTrendData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="bankHeroTrend" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartColors.equity} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={chartColors.equity} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload?.length) {
+                      const p = payload[0].payload as { date: string; equity: number };
+                      return (
+                        <div className={chartTooltipCompactClassName}>
+                          <span className="font-bold">{p.date}</span>
+                          <span className="ml-2 tabular-nums">R$ {p.equity.toFixed(2)}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Area type="monotone" dataKey="equity" stroke={chartColors.equity} strokeWidth={2} fill="url(#bankHeroTrend)" fillOpacity={1} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  ) : null;
+
   return (
-    <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
+    <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
+      {bankSettings && savedMatches.length === 0 && BankHero}
       {savedMatches.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
-            {statCards.map((card, index) => {
+          {bankSettings && BankHero}
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-base-content/55 mb-3">Resumo rápido</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 md:gap-6">
+            {statCardsFiltered.map((card, index) => {
               const Icon = card.icon;
               const tone = getTone(card.color);
               const toneClass = toneClasses[tone];
@@ -191,7 +253,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   initial="initial"
                   animate="animate"
                   custom={index}
-                  className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+                  className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}>
@@ -227,7 +289,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 variants={animations.fadeInUp}
                 initial="initial"
                 animate="animate"
-                className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+                className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
               >
                 <SectionHeader
                   className="mb-4"
@@ -278,7 +340,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 variants={animations.fadeInUp}
                 initial="initial"
                 animate="animate"
-                className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+                className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
               >
                 <SectionHeader className="mb-4" title="Distribuição de Resultados" subtitle="Breakdown das apostas" />
                 <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
@@ -327,53 +389,95 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               variants={animations.fadeInUp}
               initial="initial"
               animate="animate"
-              className="card bg-base-100 shadow-sm border border-base-300/50"
+              className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
             >
-              <SectionHeader className="p-4 md:p-6 border-b border-base-300/50" title="Partidas Recentes" subtitle="Suas últimas 10 análises" />
-              <div className="overflow-x-auto">
-                <table className="table w-full">
-                  <thead>
-                    <tr>
-                      <th>Partida</th>
-                      <th className="text-right">Odd</th>
-                      <th className="text-right">EV</th>
-                      <th className="text-center">Status</th>
-                      <th className="text-right">Lucro/Prejuízo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentMatches.map((match) => {
-                      const hasBet = match.betInfo && match.betInfo.betAmount > 0;
-                      const profit = hasBet && match.betInfo?.status === 'won' ? match.betInfo.potentialProfit : hasBet && match.betInfo?.status === 'lost' ? -match.betInfo.betAmount : 0;
-                      const displayEv = getDisplayEV(match);
+              <SectionHeader
+                className="mb-4 md:mb-6"
+                title="Partidas recentes"
+                subtitle="Abra cada jogo para ver detalhes — use o botão para ir à análise completa"
+              />
+              <div className="flex flex-col gap-2 md:gap-3">
+                {recentMatches.map((match) => {
+                  const hasBet = match.betInfo && match.betInfo.betAmount > 0;
+                  const profit =
+                    hasBet && match.betInfo?.status === 'won'
+                      ? match.betInfo.potentialProfit
+                      : hasBet && match.betInfo?.status === 'lost'
+                        ? -match.betInfo.betAmount
+                        : 0;
+                  const displayEv = getDisplayEV(match);
+                  const isOpen = expandedMatchId === match.id;
 
-                      return (
-                        <tr key={match.id} onClick={() => onMatchClick?.(match)} className="hover cursor-pointer">
-                          <td>
-                            <div className="font-bold">{match.data.homeTeam} vs {match.data.awayTeam}</div>
-                            <div className="text-xs opacity-60">{formatTimestampInBrasilia(match.timestamp)}</div>
-                          </td>
-                          <td className="text-right font-semibold">{match.data.oddOver15?.toFixed(2) || '-'}</td>
-                          <td className={`text-right font-semibold ${displayEv > 0 ? 'text-success' : displayEv < 0 ? 'text-error' : ''}`}>
-                            {displayEv > 0 ? '+' : ''}{displayEv.toFixed(1)}%
-                          </td>
-                          <td className="text-center">
+                  return (
+                    <div
+                      key={match.id}
+                      className="collapse collapse-arrow rounded-xl border border-base-content/15 bg-base-200/80 shadow-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isOpen}
+                        onChange={(e) => setExpandedMatchId(e.target.checked ? match.id : null)}
+                        aria-expanded={isOpen}
+                        aria-controls={`recent-match-${match.id}`}
+                        className="min-h-0"
+                      />
+                      <div className="collapse-title py-3 md:py-4 pr-10 text-left font-bold text-sm md:text-base leading-snug">
+                        <span className="line-clamp-2">
+                          {match.data.homeTeam}{' '}
+                          <span className="text-primary font-black">vs</span> {match.data.awayTeam}
+                        </span>
+                        <span className="mt-1 flex flex-wrap items-center gap-2 font-normal">
+                          <span className="text-xs text-base-content/60">{formatTimestampInBrasilia(match.timestamp)}</span>
+                          <span
+                            className={`badge badge-sm font-bold tabular-nums ${displayEv > 0 ? 'badge-success' : displayEv < 0 ? 'badge-error' : 'badge-ghost'}`}
+                          >
+                            EV {displayEv > 0 ? '+' : ''}
+                            {displayEv.toFixed(1)}%
+                          </span>
+                        </span>
+                      </div>
+                      <div className="collapse-content" id={`recent-match-${match.id}`}>
+                        <div className="pb-4 pt-0 border-t border-base-content/10 mt-0">
+                          <p className="text-xs text-base-content/65 mb-3">Resumo da análise salva</p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            <span className="badge badge-ghost badge-sm font-mono tabular-nums">
+                              Odd {match.data.oddOver15?.toFixed(2) || '—'}
+                            </span>
+                            <span
+                              className={`badge badge-sm font-bold tabular-nums ${displayEv > 0 ? 'badge-success' : displayEv < 0 ? 'badge-error' : 'badge-ghost'}`}
+                            >
+                              EV {displayEv > 0 ? '+' : ''}
+                              {displayEv.toFixed(1)}%
+                            </span>
                             {hasBet ? (
-                              <span className={`badge badge-sm ${match.betInfo?.status === 'won' ? 'badge-success' : match.betInfo?.status === 'lost' ? 'badge-error' : 'badge-warning'}`}>
+                              <span
+                                className={`badge badge-sm ${match.betInfo?.status === 'won' ? 'badge-success' : match.betInfo?.status === 'lost' ? 'badge-error' : 'badge-warning'}`}
+                              >
                                 {match.betInfo?.status === 'won' ? 'Ganhou' : match.betInfo?.status === 'lost' ? 'Perdeu' : 'Pendente'}
                               </span>
                             ) : (
                               <span className="badge badge-sm badge-ghost">Sem aposta</span>
                             )}
-                          </td>
-                          <td className={`text-right font-semibold ${profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''}`}>
-                            {profit !== 0 ? `${profit > 0 ? '+' : ''}${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${Math.abs(profit).toFixed(2)}` : '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </div>
+                          <p
+                            className={`text-sm font-bold tabular-nums mb-4 ${profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : 'text-base-content/55'}`}
+                          >
+                            {profit !== 0
+                              ? `${profit > 0 ? 'Lucro +' : 'Prejuízo '}${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${Math.abs(profit).toFixed(2)}`
+                              : 'Sem resultado financeiro registrado'}
+                          </p>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-block sm:btn-wide"
+                            onClick={() => onMatchClick?.(match)}
+                          >
+                            Abrir análise
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </motion.div>
           )}

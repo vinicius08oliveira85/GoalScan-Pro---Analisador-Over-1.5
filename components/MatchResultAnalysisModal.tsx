@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Loader2, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
+import { X, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { SavedAnalysis, MatchResultAnalysis } from '../types';
 import { generateAnalysisText, parseWebSearchResults } from '../services/matchResultAnalysisService';
 import ModalShell from './ui/ModalShell';
@@ -140,10 +140,17 @@ const MatchResultAnalysisModal: React.FC<MatchResultAnalysisModalProps> = ({
       {/* Content */}
       <div className="p-4 md:p-6 max-h-[70vh] overflow-y-auto">
         {loading && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-            <p className="text-sm opacity-70">Buscando informações sobre o resultado...</p>
-            <p className="text-xs opacity-50 mt-2">Isso pode levar alguns segundos</p>
+          <div className="space-y-4 py-2" aria-busy="true" aria-label="Carregando análise do resultado">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm font-semibold text-base-content/80 flex-1 min-w-0">
+                Buscando informações sobre o resultado…
+              </p>
+              <span className="loading loading-spinner loading-sm text-primary shrink-0 mt-0.5" aria-hidden />
+            </div>
+            <div className="skeleton h-[120px] w-full rounded-xl" />
+            <div className="skeleton h-3 w-full" />
+            <div className="skeleton h-3 w-11/12" />
+            <div className="skeleton h-3 w-4/5" />
           </div>
         )}
 

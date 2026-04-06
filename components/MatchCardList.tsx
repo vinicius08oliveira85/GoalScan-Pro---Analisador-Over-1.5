@@ -240,7 +240,13 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
         )}
 
         {match.betInfo?.status === 'pending' && onUpdateBetStatus && (
-          <div className="flex gap-1">
+          <div className="flex gap-1 items-center">
+            {isUpdatingBetStatus && (
+              <span
+                className="loading loading-spinner loading-xs text-primary shrink-0"
+                aria-label="Atualizando aposta"
+              />
+            )}
             <motion.button
               onClick={(e) => {
                 e.stopPropagation();

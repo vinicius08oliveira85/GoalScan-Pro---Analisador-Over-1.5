@@ -7,7 +7,6 @@ import {
   TrendingUp,
   TrendingDown,
   Check,
-  Loader2,
   Euro,
   PoundSterling,
   AlertCircle,
@@ -526,7 +525,7 @@ const BankSettingsComponent: React.FC<BankSettingsProps> = ({ bankSettings, onSa
           >
             {saveStatus === 'loading' && (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="loading loading-spinner loading-md" />
                 Salvando...
               </>
             )}

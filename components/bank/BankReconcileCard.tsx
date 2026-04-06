@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, Save, AlertCircle, Check, Loader2, RotateCcw } from 'lucide-react';
+import { DollarSign, Save, AlertCircle, Check, RotateCcw } from 'lucide-react';
 import { animations } from '../../utils/animations';
 import type { SaveStatus } from './types';
 
@@ -85,23 +85,47 @@ const BankReconcileCard: React.FC<BankReconcileCardProps> = ({
             <button onClick={onUseSuggestedBase} className="btn btn-outline btn-sm flex-1" type="button">Usar Sugerida</button>
             <button
               onClick={onSaveBase}
-              className="btn btn-outline btn-sm flex-1"
+              className="btn btn-outline btn-sm flex-1 gap-1"
               type="button"
               disabled={baseStatus === 'loading' || isSaveBaseDisabled}
             >
-              {baseStatus === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {baseStatus === 'loading' ? (
+                <span className="loading loading-spinner loading-sm" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
               {baseStatus === 'loading' ? 'Salvando...' : 'Salvar Base'}
             </button>
           </div>
         </div>
 
+        {(baseStatus === 'loading' || reconcileStatus === 'loading') && (
+          <div
+            className="rounded-xl border border-base-content/12 bg-base-200/30 p-4 space-y-2"
+            aria-busy="true"
+            aria-label={reconcileStatus === 'loading' ? 'Reconciliando' : 'Salvando base'}
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold text-base-content/75">
+              <span className="loading loading-spinner loading-sm text-secondary" />
+              {reconcileStatus === 'loading' ? 'Sincronizando com as apostas…' : 'Salvando banca base…'}
+            </div>
+            <div className="skeleton h-2 w-full" />
+            <div className="skeleton h-2 w-11/12" />
+            <div className="skeleton h-2 w-2/3" />
+          </div>
+        )}
+
         <button
           onClick={onReconcile}
           disabled={reconcileStatus === 'loading' || isReconcileDisabled}
-          className="btn btn-secondary w-full btn-lg font-semibold"
+          className="btn btn-secondary w-full btn-lg font-semibold gap-2"
           type="button"
         >
-          {reconcileStatus === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : <RotateCcw className="w-5 h-5" />}
+          {reconcileStatus === 'loading' ? (
+            <span className="loading loading-spinner loading-md" />
+          ) : (
+            <RotateCcw className="w-5 h-5" />
+          )}
           {reconcileStatus === 'loading' ? 'Reconciliando...' : 'Reconciliar com Apostas'}
         </button>
       </div>

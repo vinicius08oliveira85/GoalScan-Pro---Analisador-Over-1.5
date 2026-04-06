@@ -16,7 +16,8 @@
     --color-base-100: oklch(100% 0 0);
     --color-base-200: oklch(98% 0.01 240);
     --color-base-300: oklch(95% 0.02 240);
-    --color-base-content: oklch(20% 0.02 240);
+    /* Texto mais escuro para leitura ao sol (outdoor) */
+    --color-base-content: oklch(16% 0.025 250);
     --color-info: oklch(65% 0.18 230);
     --color-success: oklch(65% 0.18 150);
     --color-warning: oklch(75% 0.2 90);
@@ -32,7 +33,7 @@
     /* Glass tokens (Light Theme) */
     --glass-bg: oklch(98% 0.01 240 / 0.7);
     --glass-bg-hover: oklch(95% 0.02 240 / 0.8);
-    --glass-border: oklch(20% 0.02 240 / 0.1);
+    --glass-border: oklch(16% 0.025 250 / 0.14);
     --shadow-elev-1: 0 4px 10px -5px rgba(0, 0, 0, 0.08);
     --shadow-elev-2: 0 10px 25px -10px rgba(0, 0, 0, 0.12);
     --noise-opacity: 0.03;

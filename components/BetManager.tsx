@@ -10,6 +10,7 @@ import {
   Lightbulb,
   Sparkles,
   AlertCircle,
+  HelpCircle,
 } from 'lucide-react';
 import { validateBetInfo } from '../utils/validation';
 import { errorService } from '../services/errorService';
@@ -215,11 +216,19 @@ const BetManager: React.FC<BetManagerProps> = ({
                 <Lightbulb className="w-4 h-4" />
               </div>
               <div className="flex-1 space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h4 className="font-bold text-sm">Sugestão de Valor</h4>
-                  <span className="text-xs opacity-60">
-                    EV: {ev > 0 ? '+' : ''}
-                    {ev.toFixed(1)}%
+                  <span className="text-xs font-bold tabular-nums flex items-center gap-1 opacity-90">
+                    <span className={ev > 0 ? 'text-success' : ev < 0 ? 'text-error' : 'text-warning'}>
+                      EV: {ev > 0 ? '+' : ''}
+                      {ev.toFixed(1)}%
+                    </span>
+                    <span
+                      className="tooltip tooltip-left z-10"
+                      data-tip="EV (valor esperado): retorno médio estimado por unidade apostada, usando a probabilidade do modelo e a odd. Positivo costuma indicar valor; negativo, odd desfavorável."
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 cursor-help text-base-content/45 shrink-0" aria-label="Ajuda sobre EV" />
+                    </span>
                   </span>
                 </div>
                 <p className="text-xs opacity-80">{betSuggestion.explanation}</p>
@@ -253,15 +262,20 @@ const BetManager: React.FC<BetManagerProps> = ({
                     {betSuggestion.moderate.toFixed(2)}
                   </button>
                   {betSuggestion.kelly > 0 && betSuggestion.kelly !== betSuggestion.recommended && (
-                    <button
-                      type="button"
-                      onClick={() => setBetAmount(betSuggestion.kelly)}
-                      className="btn btn-xs btn-outline"
-                      title="Kelly Criterion (otimizado)"
+                    <span
+                      className="tooltip tooltip-top inline-flex"
+                      data-tip="Critério de Kelly (versão fracionária e conservadora): estima o tamanho da aposta a partir da vantagem matemática. É só uma sugestão — não garante lucro e envolve risco."
                     >
-                      Kelly: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                      {betSuggestion.kelly.toFixed(2)}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setBetAmount(betSuggestion.kelly)}
+                        className="btn btn-xs btn-outline gap-1"
+                      >
+                        <HelpCircle className="w-3 h-3 shrink-0 opacity-70" aria-hidden />
+                        Kelly: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
+                        {betSuggestion.kelly.toFixed(2)}
+                      </button>
+                    </span>
                   )}
                 </div>
               </div>

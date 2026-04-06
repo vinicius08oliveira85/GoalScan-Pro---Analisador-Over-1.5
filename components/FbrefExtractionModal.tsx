@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
+import { ExternalLink, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
 import { extractFbrefData, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
 import { Championship, TableType } from '../types';
@@ -216,7 +216,7 @@ export default function FbrefExtractionModal({
           >
             {loading ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="loading loading-spinner loading-md" />
                 {useSelenium ? 'Extraindo com Selenium...' : 'Extraindo dados...'}
               </>
             ) : (
@@ -226,6 +226,22 @@ export default function FbrefExtractionModal({
               </>
             )}
           </button>
+
+          {loading && (
+            <div
+              className="rounded-xl border border-base-content/12 bg-base-200/40 p-4 space-y-3 mt-3"
+              aria-busy="true"
+              aria-label="Extração em andamento"
+            >
+              <div className="flex items-center gap-2 text-sm font-semibold text-base-content/80">
+                <span className="loading loading-spinner loading-sm text-primary" />
+                Lendo e interpretando a página…
+              </div>
+              <div className="skeleton h-14 w-full rounded-lg" />
+              <div className="skeleton h-3 w-full" />
+              <div className="skeleton h-3 w-4/5" />
+            </div>
+          )}
 
           {/* Result */}
           {result && (
@@ -356,7 +372,7 @@ export default function FbrefExtractionModal({
               >
                 {saving ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="loading loading-spinner loading-sm" />
                     Salvando...
                   </>
                 ) : (
@@ -366,6 +382,18 @@ export default function FbrefExtractionModal({
                   </>
                 )}
               </button>
+
+              {saving && (
+                <div
+                  className="rounded-xl border border-base-content/12 bg-base-200/40 p-4 space-y-2 mt-3"
+                  aria-busy="true"
+                  aria-label="Salvando tabelas extraídas"
+                >
+                  <div className="skeleton h-8 w-full rounded-lg" />
+                  <div className="skeleton h-3 w-full" />
+                  <div className="skeleton h-3 w-3/4" />
+                </div>
+              )}
             </motion.div>
           )}
         </div>

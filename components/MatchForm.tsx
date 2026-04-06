@@ -501,14 +501,14 @@ const MatchForm: React.FC<MatchFormProps> = ({
   };
 
   const InfoIcon = ({ text }: { text: string }) => (
-    <div className="tooltip tooltip-top cursor-help ml-1" data-tip={text} role="tooltip">
+    <span className="tooltip tooltip-top cursor-help ml-1 inline-flex align-middle" data-tip={text}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
         strokeWidth={1.5}
         stroke="currentColor"
-        className="w-4 h-4 opacity-50 hover:opacity-100 transition-opacity"
+        className="w-4 h-4 opacity-60 hover:opacity-100 text-base-content transition-opacity"
         aria-label={text}
         role="img"
       >
@@ -518,7 +518,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
           d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
         />
       </svg>
-    </div>
+    </span>
   );
 
   return (
@@ -849,7 +849,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
       <div className="form-control">
         <label className="label ml-2 flex items-center">
           <span className="label-text font-bold">Odd</span>
-          <InfoIcon text="Insira a odd atual do mercado Over 1.5 para calcular o EV (Valor Esperado)." />
+          <InfoIcon text="Odd atual do mercado Over 1.5. Com ela o app calcula o EV (retorno médio esperado por unidade apostada). O modelo de probabilidade usa Poisson e os dados que você preencheu abaixo." />
         </label>
         <input
           type="number"
@@ -911,7 +911,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
               Estatísticas Globais - {formData.homeTeam || 'Time Casa'}
             </span>
-            <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato. Insira manualmente os dados ou importe via Excel. Cada métrica mostra dados para Casa, Fora e Global." />
+            <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato (alimentam o modelo Poisson). Insira manualmente ou importe via Excel. Cada métrica tem Casa, Fora e Global." />
           </div>
           <button
             type="button"
@@ -1432,7 +1432,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
               Estatísticas Globais - {formData.awayTeam || 'Time Visitante'}
             </span>
-            <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato. Insira manualmente os dados ou importe via Excel. Cada métrica mostra dados para Casa, Fora e Global." />
+            <InfoIcon text="Estatísticas dos 10 últimos jogos do campeonato (alimentam o modelo Poisson). Insira manualmente ou importe via Excel. Cada métrica tem Casa, Fora e Global." />
           </div>
           <button
             type="button"

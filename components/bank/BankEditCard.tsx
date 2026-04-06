@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, TrendingUp, Save, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { DollarSign, TrendingUp, Save, AlertCircle, Check } from 'lucide-react';
 import { animations } from '../../utils/animations';
 import type { SaveStatus, ValidationState } from './types';
 
@@ -107,13 +107,33 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
           </label>
         </div>
 
+        {saveStatus === 'loading' && (
+          <div
+            className="rounded-xl border border-base-content/12 bg-base-200/30 p-4 space-y-2"
+            aria-busy="true"
+            aria-label="Salvando configurações da banca"
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold text-base-content/75">
+              <span className="loading loading-spinner loading-sm text-primary" />
+              Gravando valores…
+            </div>
+            <div className="skeleton h-2 w-full" />
+            <div className="skeleton h-2 w-4/5" />
+            <div className="skeleton h-2 w-3/5" />
+          </div>
+        )}
+
         <button
           onClick={onSave}
           disabled={isSaveDisabled || saveStatus === 'loading'}
-          className="btn btn-primary w-full btn-lg font-semibold"
+          className="btn btn-primary w-full btn-lg font-semibold gap-2"
           type="button"
         >
-          {saveStatus === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+          {saveStatus === 'loading' ? (
+            <span className="loading loading-spinner loading-md" />
+          ) : (
+            <Save className="w-5 h-5" />
+          )}
           {saveStatus === 'loading' ? 'Salvando...' : 'Salvar Configurações'}
         </button>
       </div>

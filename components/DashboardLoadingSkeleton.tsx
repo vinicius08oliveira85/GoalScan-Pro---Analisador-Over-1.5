@@ -2,54 +2,56 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { animations } from '../utils/animations';
-import Skeleton from './Skeleton';
-import SectionHeader from './ui/SectionHeader';
 
 const SkeletonStatCard: React.FC = () => (
-  <div className="custom-card p-4 md:p-6">
-    <div className="flex items-start justify-between mb-3">
-      <Skeleton variant="rectangular" width={48} height={48} className="rounded-xl" />
-      <Skeleton variant="circular" width={16} height={16} />
+  <div className="card border border-base-content/10 p-4 md:p-6 space-y-3">
+    <div className="flex items-start justify-between">
+      <div className="skeleton h-12 w-12 rounded-xl shrink-0" />
+      <div className="skeleton h-4 w-4 rounded-full shrink-0" />
     </div>
-    <div>
-      <Skeleton variant="text" width="70%" height={14} className="mb-1.5" />
-      <Skeleton variant="text" width="50%" height={28} className="mb-1.5" />
-      <Skeleton variant="text" width="80%" height={12} />
-    </div>
+    <div className="skeleton h-3 w-32" />
+    <div className="skeleton h-8 w-24" />
+    <div className="skeleton h-3 w-40" />
   </div>
 );
 
 const SkeletonChart: React.FC<{ hasSubtitle?: boolean }> = ({ hasSubtitle }) => (
-  <div className="custom-card p-4 md:p-6">
-    <SectionHeader
-      title={<Skeleton variant="text" width="40%" height={20} />}
-      subtitle={
-        hasSubtitle ? <Skeleton variant="text" width="60%" height={14} /> : undefined
-      }
-      className="mb-4"
-    />
-    <Skeleton variant="rectangular" width="100%" height={350} />
+  <div className="card border border-base-content/10 p-4 md:p-6">
+    <div className="mb-4 space-y-2">
+      <div className="skeleton h-5 w-40" />
+      {hasSubtitle && <div className="skeleton h-3 w-56" />}
+    </div>
+    <div className="skeleton h-[350px] w-full rounded-xl" />
   </div>
 );
 
-const SkeletonRecentMatchesTable: React.FC = () => (
-  <div className="custom-card p-4 md:p-6">
-    <div className="mb-4">
-      <Skeleton variant="text" width="30%" height={24} className="mb-1" />
-      <Skeleton variant="text" width="50%" height={14} />
+const SkeletonBankHero: React.FC = () => (
+  <div className="card border border-base-content/12 p-5 md:p-8 ring-1 ring-base-content/10">
+    <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex-1 space-y-3">
+        <div className="skeleton h-3 w-28" />
+        <div className="skeleton h-14 w-full max-w-xs" />
+        <div className="skeleton h-3 w-48" />
+      </div>
+      <div className="skeleton h-[120px] w-full rounded-xl lg:max-w-[280px]" />
     </div>
-    <div className="space-y-3">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="flex justify-between items-center">
-          <div className="flex-1">
-            <Skeleton variant="text" width="70%" height={16} className="mb-1" />
-            <Skeleton variant="text" width="40%" height={12} />
-          </div>
-          <div className="w-1/4 flex justify-end">
-            <Skeleton variant="text" width="50%" height={16} />
-          </div>
-          <div className="w-1/4 flex justify-end">
-            <Skeleton variant="text" width="50%" height={16} />
+  </div>
+);
+
+const SkeletonRecentCollapses: React.FC = () => (
+  <div className="card border border-base-content/10 p-4 md:p-6">
+    <div className="mb-4 md:mb-6 space-y-2">
+      <div className="skeleton h-6 w-44" />
+      <div className="skeleton h-3 w-64" />
+    </div>
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="rounded-xl border border-base-content/10 p-4 space-y-2">
+          <div className="skeleton h-4 w-full max-w-md" />
+          <div className="skeleton h-3 w-36" />
+          <div className="flex gap-2 pt-2">
+            <div className="skeleton h-6 w-16 rounded-md" />
+            <div className="skeleton h-6 w-20 rounded-md" />
           </div>
         </div>
       ))}
@@ -58,32 +60,34 @@ const SkeletonRecentMatchesTable: React.FC = () => (
 );
 
 const DashboardLoadingSkeleton: React.FC = () => {
-  const statCardCount = 7;
+  const statCardCount = 6;
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
-      {/* Grid de Estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
+    <div className="space-y-6 md:space-y-8 pb-20 md:pb-8" aria-busy="true" aria-label="Carregando painel inicial">
+      <motion.div variants={animations.fadeInUp} initial="initial" animate="animate" custom={0}>
+        <SkeletonBankHero />
+      </motion.div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 md:gap-6">
         {Array.from({ length: statCardCount }).map((_, index) => (
           <motion.div
             key={`sk-stat-${index}`}
             variants={animations.fadeInUp}
             initial="initial"
             animate="animate"
-            custom={index}
+            custom={index + 1}
           >
             <SkeletonStatCard />
           </motion.div>
         ))}
       </div>
 
-      {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         <motion.div
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          custom={statCardCount}
+          custom={statCardCount + 1}
         >
           <SkeletonChart hasSubtitle />
         </motion.div>
@@ -91,20 +95,19 @@ const DashboardLoadingSkeleton: React.FC = () => {
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          custom={statCardCount + 1}
+          custom={statCardCount + 2}
         >
           <SkeletonChart />
         </motion.div>
       </div>
 
-      {/* Tabela de Partidas Recentes */}
       <motion.div
         variants={animations.fadeInUp}
         initial="initial"
         animate="animate"
-        custom={statCardCount + 2}
+        custom={statCardCount + 3}
       >
-        <SkeletonRecentMatchesTable />
+        <SkeletonRecentCollapses />
       </motion.div>
     </div>
   );

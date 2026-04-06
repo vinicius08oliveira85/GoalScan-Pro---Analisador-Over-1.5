@@ -3,7 +3,7 @@ import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface MetricCardProps {
-  title: string;
+  title: React.ReactNode;
   value: string | number;
   icon: LucideIcon;
   color: 'primary' | 'secondary' | 'success' | 'error' | 'warning' | 'accent';
@@ -89,7 +89,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
       className={`surface surface-hover border-l-4 ${colors.accentBorder} p-3 md:p-4 ${tooltip ? 'cursor-help' : ''}`}
     >
       <div className="flex items-center justify-between mb-2 md:mb-3">
-        <p className="kpi-label">{title}</p>
+        <div className="kpi-label">{title}</div>
         <div className={`p-1.5 md:p-2 rounded-lg ${colors.iconBg} border ${colors.iconBorder}`}>
           <Icon className={`w-3 h-3 md:w-4 md:h-4 ${colors.text}`} />
         </div>

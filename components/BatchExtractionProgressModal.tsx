@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
 import { Championship } from '../types';
 import { animations } from '../utils/animations';
@@ -39,7 +39,7 @@ export default function BatchExtractionProgressModal({
   const getStatusIcon = (status: ChampionshipStatus) => {
     switch (status) {
       case 'processing':
-        return <Loader2 className="w-5 h-5 animate-spin text-primary" />;
+        return <span className="loading loading-spinner loading-md text-primary" />;
       case 'success':
         return <CheckCircle className="w-5 h-5 text-success" />;
       case 'error':

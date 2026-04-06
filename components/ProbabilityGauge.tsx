@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { Target, TrendingUp, TrendingDown } from 'lucide-react';
+import { Target, TrendingUp, TrendingDown, HelpCircle } from 'lucide-react';
 import { animations } from '../utils/animations';
 
 interface ProbabilityGaugeProps {
@@ -112,7 +112,12 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
           <h3 className="kpi-label">Probabilidade {displayLabel}</h3>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-base-content/50">
-          <Target className="w-3 h-3" />
+          <span
+            className="tooltip tooltip-left z-10"
+            data-tip="Modelo estatístico (Poisson) que estima quantos gols são esperados a partir das médias dos times e ajusta com os dados que você informou."
+          >
+            <HelpCircle className="w-3.5 h-3.5 cursor-help text-base-content/50" aria-label="O que é Poisson?" />
+          </span>
           <span>Poisson v3.8</span>
         </div>
       </div>
@@ -205,8 +210,14 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
             </motion.span>
             <span className="text-lg md:text-xl font-bold text-teal-400 opacity-80">%</span>
           </div>
-          <span className="text-xs md:text-sm font-bold text-base-content/70 mt-2 uppercase tracking-widest leading-tight">
+          <span className="text-xs md:text-sm font-bold text-base-content/75 mt-2 uppercase tracking-widest leading-tight inline-flex items-center gap-1">
             Probabilidade
+            <span
+              className="tooltip tooltip-top z-10"
+              data-tip="Probabilidade estimada para o mercado exibido (ex.: Over 1.5), calculada pelo modelo com os dados do formulário."
+            >
+              <HelpCircle className="w-3.5 h-3.5 cursor-help text-base-content/45" aria-label="O que é esta probabilidade?" />
+            </span>
           </span>
         </motion.div>
       </div>
@@ -235,11 +246,16 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
             <p className="text-xl font-black font-mono text-base-content">{odd?.toFixed(2) || '—'}</p>
           )}
         </div>
-        <div
-          className="text-center flex-1 surface-muted p-3 cursor-help"
-          title="EV (Expected Value): valor esperado em %. EV = (Prob × Odd - 1) × 100."
-        >
-          <p className="kpi-label mb-2">EV</p>
+        <div className="text-center flex-1 surface-muted p-3">
+          <p className="kpi-label mb-2 inline-flex items-center justify-center gap-1 w-full">
+            EV
+            <span
+              className="tooltip tooltip-top z-10"
+              data-tip="EV (valor esperado) em %: (probabilidade × odd − 1) × 100. Verde = positivo; vermelho = negativo."
+            >
+              <HelpCircle className="w-3.5 h-3.5 cursor-help text-base-content/45" aria-label="Ajuda EV" />
+            </span>
+          </p>
           <div className="flex items-center justify-center gap-1">
             {calculatedEv > 0 ? (
               <TrendingUp className="w-4 h-4 text-success" />

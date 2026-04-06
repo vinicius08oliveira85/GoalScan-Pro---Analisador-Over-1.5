@@ -4,7 +4,11 @@ import MatchForm from './components/MatchForm';
 import InAppNotification from './components/InAppNotification';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
-import TabNavigation, { TabType } from './components/TabNavigation';
+import { TabType } from './components/navTypes';
+import MobileBottomNav from './components/layout/MobileBottomNav';
+import DesktopSidebar from './components/layout/DesktopSidebar';
+import AnalysisDashboardSkeleton from './components/analysis/AnalysisDashboardSkeleton';
+import type { AnalysisUiTab } from './components/AnalysisDashboard';
 import DashboardScreen from './components/DashboardScreen';
 import MatchesScreen from './components/MatchesScreen';
 import ChampionshipsScreen from './components/ChampionshipsScreen';
@@ -16,7 +20,7 @@ import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
-import { Loader, Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
+import { Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
 
 // Lazy loading de componentes pesados para code splitting
 const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
@@ -60,6 +64,7 @@ const App: React.FC = () => {
   const [showResultAnalysisModal, setShowResultAnalysisModal] = useState<boolean>(false);
   const [matchForAnalysis, setMatchForAnalysis] = useState<SavedAnalysis | null>(null);
   const [webSearchResults, setWebSearchResults] = useState<Array<{ content?: string; snippet?: string; url?: string }>>([]);
+  const [analysisModalTab, setAnalysisModalTab] = useState<AnalysisUiTab>('dados');
 
   // Funções de Navegação
   const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
@@ -67,10 +72,12 @@ const App: React.FC = () => {
       setSelectedMatch(match);
       setCurrentMatchData(match.data);
       setAnalysisResult(match.result);
+      setAnalysisModalTab('verdict');
     } else {
       setSelectedMatch(null);
       setCurrentMatchData(null);
       setAnalysisResult(null);
+      setAnalysisModalTab('dados');
     }
     setShowAnalysisModal(true);
   };
@@ -80,6 +87,7 @@ const App: React.FC = () => {
     setAnalysisResult(null);
     setCurrentMatchData(null);
     setSelectedMatch(null);
+    setAnalysisModalTab('dados');
   };
 
   const handleNewMatch = () => {
@@ -127,11 +135,7 @@ const App: React.FC = () => {
     const result = performAnalysis(data);
     setAnalysisResult(result);
     setCurrentMatchData(data);
-    
-    // Scroll para resultados em mobile
-    if (window.innerWidth < 768) {
-      window.scrollTo({ top: 600, behavior: 'smooth' });
-    }
+    setAnalysisModalTab('verdict');
   };
 
 
@@ -576,7 +580,9 @@ const App: React.FC = () => {
 
   // Renderizar tela principal com abas
   return (
-    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
+    <div className="min-h-screen flex flex-col md:flex-row md:items-stretch pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8">
+      <DesktopSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="flex flex-1 flex-col min-w-0 min-h-0">
       {/* Command Palette */}
       <CommandPalette
         isOpen={showCommandPalette}
@@ -603,7 +609,7 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-3 md:px-4 py-3 md:py-4">
-          <div className="flex items-center gap-2 md:gap-3 mb-4">
+          <div className="flex items-center gap-2 md:gap-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
               G
             </div>
@@ -615,10 +621,37 @@ const App: React.FC = () => {
                 AI Goal Analysis Engine
               </span>
             </div>
-            <div className="hidden md:flex gap-4 items-center">
+            <div className="flex md:hidden items-center gap-2 shrink-0">
+              {isLoading && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-info/10 border border-info/20 rounded-lg">
+                  <span className="loading loading-spinner loading-xs text-info" aria-hidden />
+                  <span className="text-[10px] font-bold text-info">…</span>
+                </div>
+              )}
+              {!isLoading && isUsingLocalData && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-warning/10 border border-warning/20 rounded-lg" title="Usando dados locais">
+                  <div className="w-1.5 h-1.5 bg-warning rounded-full animate-pulse" />
+                </div>
+              )}
+              {bankSettings && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-secondary/10 border border-secondary/20 rounded-lg text-[10px] font-bold text-secondary">
+                  <Wallet className="w-3 h-3 shrink-0" aria-hidden />
+                  <span className="tabular-nums">{getCurrencySymbol(bankSettings.currency)}{bankSettings.totalBank.toFixed(0)}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                className="btn btn-ghost btn-circle btn-sm focus-ring-sm"
+                onClick={() => setActiveTab('settings')}
+                aria-label="Configurações"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="hidden md:flex gap-4 items-center shrink-0">
               {isLoading && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
-                  <Loader className="w-3 h-3 text-info animate-spin" />
+                  <span className="loading loading-spinner loading-xs text-info" aria-hidden />
                   <span className="text-xs font-bold text-info">Carregando...</span>
                 </div>
               )}
@@ -642,8 +675,6 @@ const App: React.FC = () => {
               <span className="badge badge-outline badge-sm font-bold">v3.8.2 Elite Edition</span>
             </div>
           </div>
-          {/* Tab Navigation */}
-          <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
       </header>
 
@@ -662,6 +693,7 @@ const App: React.FC = () => {
                 savedMatches={savedMatches}
                 bankSettings={bankSettings}
                 onMatchClick={handleNavigateToAnalysis}
+                isLoading={isLoading}
               />
             </motion.div>
           )}
@@ -726,6 +758,9 @@ const App: React.FC = () => {
         </AnimatePresence>
       </main>
 
+      <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
+
       {/* Modal de Análise */}
       <ModalShell
         isOpen={showAnalysisModal}
@@ -758,9 +793,7 @@ const App: React.FC = () => {
 
         {/* Conteúdo do Modal */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            {/* Sidebar: Entry Form */}
-            <aside className="xl:col-span-4 flex flex-col gap-6">
+          <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <span className="w-2 h-6 bg-secondary rounded-full"></span>
@@ -768,10 +801,12 @@ const App: React.FC = () => {
                 </h3>
                 {analysisResult && (
                   <button
+                    type="button"
                     onClick={() => {
                       setAnalysisResult(null);
                       setCurrentMatchData(null);
                       setSelectedMatch(null);
+                      setAnalysisModalTab('dados');
                     }}
                     className="btn btn-xs btn-ghost text-error"
                   >
@@ -779,25 +814,48 @@ const App: React.FC = () => {
                   </button>
                 )}
               </div>
-              <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
-            </aside>
-
-            {/* Main Content: Results */}
-            <section className="xl:col-span-8 flex flex-col gap-6">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-6 bg-primary rounded-full"></span>
-                <h3 className="text-lg font-bold">Painel de Resultados e EV</h3>
+              <div
+                role="tablist"
+                aria-label="Etapas da análise"
+                className="tabs tabs-boxed tabs-sm flex-wrap gap-1 p-1 bg-base-300/40 rounded-xl mb-4"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={analysisModalTab === 'dados'}
+                  className={`tab rounded-lg ${analysisModalTab === 'dados' ? 'tab-active' : ''}`}
+                  onClick={() => setAnalysisModalTab('dados')}
+                >
+                  Dados do jogo
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={analysisModalTab === 'stats'}
+                  disabled={!analysisResult || !currentMatchData}
+                  className={`tab rounded-lg ${!analysisResult ? 'opacity-40 pointer-events-none' : ''} ${analysisModalTab === 'stats' ? 'tab-active' : ''}`}
+                  onClick={() => analysisResult && currentMatchData && setAnalysisModalTab('stats')}
+                >
+                  Estatísticas
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={analysisModalTab === 'verdict'}
+                  disabled={!analysisResult || !currentMatchData}
+                  className={`tab rounded-lg ${!analysisResult ? 'opacity-40 pointer-events-none' : ''} ${analysisModalTab === 'verdict' ? 'tab-active' : ''}`}
+                  onClick={() => analysisResult && currentMatchData && setAnalysisModalTab('verdict')}
+                >
+                  Veredito da IA
+                </button>
               </div>
 
-              {analysisResult && currentMatchData ? (
-                <Suspense
-                  fallback={
-                    <div className="flex flex-col items-center justify-center py-20">
-                      <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
-                      <p className="text-sm opacity-60">Carregando análise...</p>
-                    </div>
-                  }
-                >
+              {analysisModalTab === 'dados' && (
+                <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
+              )}
+
+              {analysisResult && currentMatchData && (analysisModalTab === 'stats' || analysisModalTab === 'verdict') && (
+                <Suspense fallback={<AnalysisDashboardSkeleton />}>
                   <AnalysisDashboard
                     result={analysisResult}
                     data={currentMatchData}
@@ -812,17 +870,21 @@ const App: React.FC = () => {
                     initialSelectedBets={selectedMatch?.selectedBets}
                     onAnalyzeResult={handleOpenResultAnalysis}
                     savedMatch={selectedMatch}
+                    analysisUiTab={analysisModalTab}
                   />
                 </Suspense>
-              ) : (
-                <div className="custom-card p-12 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2">
-                  <div className="w-24 h-24 mb-6 rounded-full border-4 border-current flex items-center justify-center">
+              )}
+
+              {analysisModalTab === 'dados' && !analysisResult && (
+                <div className="mt-6 custom-card p-8 md:p-12 flex flex-col items-center justify-center text-center opacity-50 border-dashed border-2">
+                  <div className="w-20 h-20 mb-4 rounded-full border-4 border-base-300 flex items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-12 w-12"
+                      className="h-10 w-10 text-base-content/40"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
+                      aria-hidden
                     >
                       <path
                         strokeLinecap="round"
@@ -832,14 +894,12 @@ const App: React.FC = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-2xl font-bold">Aguardando Análise</h3>
-                  <p className="max-w-xs mx-auto mt-2 italic">
-                    Insira os dados e as odds para descobrir o valor esperado (EV) e a confiança
-                    matemática da partida.
+                  <h3 className="text-xl font-bold">Próximo passo</h3>
+                  <p className="max-w-sm mx-auto mt-2 text-sm text-base-content/70">
+                    Preencha os dados do jogo e toque em analisar. Depois, abra as abas Estatísticas ou Veredito da IA.
                   </p>
                 </div>
               )}
-            </section>
           </div>
         </div>
       </ModalShell>

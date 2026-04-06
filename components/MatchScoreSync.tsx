@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Loader2, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle } from 'lucide-react';
 import { SavedAnalysis } from '../types';
 import { syncMatchScore, MatchScore } from '../services/googleMatchSync';
 
@@ -79,6 +79,24 @@ const MatchScoreSync: React.FC<MatchScoreSyncProps> = ({
   // Renderizar placar
   const renderScore = () => {
     if (!score) {
+      if (isLoading) {
+        return (
+          <div
+            className="flex items-center gap-2 rounded-lg border border-base-content/10 bg-base-200/40 px-2 py-2"
+            aria-label="Buscando placar"
+          >
+            <span className="loading loading-spinner loading-xs text-primary shrink-0" />
+            {compact ? (
+              <div className="skeleton h-4 w-16 rounded" />
+            ) : (
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                <div className="skeleton h-5 w-28 rounded" />
+                <div className="skeleton h-3 w-36 rounded opacity-70" />
+              </div>
+            )}
+          </div>
+        );
+      }
       return (
         <div className="flex items-center gap-2 text-sm opacity-60">
           <span>Placar não disponível</span>
@@ -150,17 +168,18 @@ const MatchScoreSync: React.FC<MatchScoreSyncProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" aria-busy={isLoading}>
       {renderScore()}
       <button
         onClick={handleSync}
         disabled={isLoading}
         className={`btn btn-xs ${compact ? 'btn-ghost' : 'btn-outline'} gap-2 self-start`}
         title="Atualizar placar"
+        type="button"
       >
         {isLoading ? (
           <>
-            <Loader2 className="w-3 h-3 animate-spin" />
+            <span className="loading loading-spinner loading-xs text-primary" aria-hidden />
             <span className={compact ? 'hidden' : ''}>Atualizando...</span>
           </>
         ) : (
