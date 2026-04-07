@@ -1,6 +1,7 @@
 import { SavedAnalysis, BankSettings } from '../types';
 import { getDisplayProbability } from './probability';
 import { calculateEVPercent } from './evDecimal';
+import { subtractMoney } from './bankMoney';
 import { buildBankCurve, computeNetCashDelta } from './bankLedger';
 
 export interface DashboardStats {
@@ -187,7 +188,7 @@ export function calculateBankStats(
   const currentEquity = currentCash + pendingAmount;
   // Base inferida para manter o gráfico consistente com a banca atual (caso não exista base armazenada)
   const netDelta = computeNetCashDelta(savedMatches);
-  const initialBank = Math.max(0, Number((currentCash - netDelta).toFixed(2)));
+  const initialBank = Math.max(0, subtractMoney(currentCash, netDelta));
 
   return {
     totalProfit,
@@ -217,7 +218,7 @@ export function prepareBankEvolutionData(
 
   // Base inferida: garante que o último ponto de cash bata com bankSettings.totalBank
   const netDelta = computeNetCashDelta(savedMatches);
-  const baseCash = Math.max(0, Number((bankSettings.totalBank - netDelta).toFixed(2)));
+  const baseCash = Math.max(0, subtractMoney(bankSettings.totalBank, netDelta));
 
   const { series } = buildBankCurve(savedMatches, baseCash);
   return series;

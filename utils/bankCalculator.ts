@@ -1,4 +1,6 @@
+import Decimal from 'decimal.js';
 import { BetInfo } from '../types';
+import { roundMoney2, decimalMoney } from './bankMoney';
 
 type BetStatus = BetInfo['status'] | undefined | null;
 
@@ -8,16 +10,18 @@ type BetStatus = BetInfo['status'] | undefined | null;
  * 'won' representa o lucro líquido (potentialReturn - betAmount).
  * 'cancelled' ou inexistente representa zero impacto (0).
  */
-const getStatusImpact = (status: BetStatus, amount: number, potentialReturn: number): number => {
+const getStatusImpact = (status: BetStatus, amount: number, potentialReturn: number): Decimal => {
+  const a = decimalMoney(amount);
+  const pr = decimalMoney(potentialReturn);
   switch (status) {
     case 'pending':
     case 'lost':
-      return -amount;
+      return a.neg();
     case 'won':
-      return potentialReturn - amount;
+      return pr.minus(a);
     case 'cancelled':
     default:
-      return 0;
+      return new Decimal(0);
   }
 };
 
@@ -36,7 +40,7 @@ export function calculateBankUpdate(
   const oldImpact = getStatusImpact(oldStatus, betAmount, potentialReturn);
   const newImpact = getStatusImpact(newStatus, betAmount, potentialReturn);
 
-  return newImpact - oldImpact;
+  return roundMoney2(newImpact.minus(oldImpact));
 }
 
 /**
@@ -46,9 +50,9 @@ export function calculateCurrentBank(
   initialBank: number,
   allBets: Array<{ betInfo: BetInfo }>
 ): number {
-  const totalImpact = allBets.reduce((acc, { betInfo }) => {
-    return acc + getStatusImpact(betInfo.status, betInfo.betAmount, betInfo.potentialReturn);
-  }, 0);
-
-  return Math.max(0, initialBank + totalImpact);
+  let total = decimalMoney(initialBank);
+  for (const { betInfo } of allBets) {
+    total = total.plus(getStatusImpact(betInfo.status, betInfo.betAmount, betInfo.potentialReturn));
+  }
+  return roundMoney2(Decimal.max(total, 0));
 }

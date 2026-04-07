@@ -15,7 +15,12 @@ import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
 import { getEdgePp, calculateEVPercent } from '../utils/betMetrics';
-import { fractionalKellyBankFraction, DEFAULT_FRACTIONAL_KELLY } from '../utils/bankCalculations';
+import {
+  fractionalKellyBankFraction,
+  DEFAULT_FRACTIONAL_KELLY,
+  kellyConfidenceLevelPt,
+  type KellyConfidenceLevelPt,
+} from '../utils/bankCalculations';
 import { calculateSelectedBetsProbability } from '../utils/betRange';
 import { getRiskLevelFromProbability } from '../utils/risk';
 import { getBothGoalsTooltip } from '../utils/probabilityTooltips';
@@ -123,6 +128,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     );
     return frac * 100;
   }, [displayProbability, data.oddOver15, result.confidenceScore]);
+  const kellyDashboardLevel: KellyConfidenceLevelPt | null = useMemo(() => {
+    if (!data.oddOver15 || data.oddOver15 <= 1) return null;
+    return kellyConfidenceLevelPt(displayProbability, data.oddOver15);
+  }, [displayProbability, data.oddOver15]);
   const edgePp = useMemo(
     () => (data.oddOver15 > 1 ? getEdgePp(displayProbability, data.oddOver15, 0.06) : null),
     [displayProbability, data.oddOver15]
@@ -393,14 +402,29 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             />
           </p>
           {kellyBankPercent != null && (
-            <p className="mt-2 text-xs text-base-content/80 max-w-md mx-auto">
-              Sugestão Kelly (¼ + teto 10%, ajustada pela confiança):{' '}
-              <span className="font-bold tabular-nums">
-                {kellyBankPercent > 0 ? `${kellyBankPercent.toFixed(2)}%` : '0%'}
-              </span>{' '}
-              da banca
+            <p className="mt-2 text-xs text-base-content/80 max-w-md mx-auto flex flex-wrap items-center justify-center gap-2">
+              <span>
+                Sugestão Kelly (¼ + teto 10%, ajustada pela confiança):{' '}
+                <span className="font-bold tabular-nums">
+                  {kellyBankPercent > 0 ? `${kellyBankPercent.toFixed(2)}%` : '0%'}
+                </span>{' '}
+                da banca
+              </span>
+              {kellyDashboardLevel && (
+                <span
+                  className={`badge badge-sm font-bold ${
+                    kellyDashboardLevel === 'Alto'
+                      ? 'badge-success'
+                      : kellyDashboardLevel === 'Médio'
+                        ? 'badge-warning'
+                        : 'badge-ghost border border-base-content/25'
+                  }`}
+                >
+                  Confiança Kelly: {kellyDashboardLevel}
+                </span>
+              )}
               <TooltipHint
-                tip="O Kelly integral costuma ser agressivo; aqui usamos Kelly fracionário (25%) e teto de 10% da banca, ponderado pelo score de confiança do modelo. Valor orientativo, não é recomendação de aposta."
+                tip="O Kelly integral costuma ser agressivo; aqui usamos Kelly fracionário (25%) e teto de 10% da banca, ponderado pelo score de confiança do modelo. O selo Baixo/Médio/Alto reflete a força do Kelly integral (edge). Valor orientativo."
                 label="Ajuda Kelly"
               />
             </p>

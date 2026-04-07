@@ -1,4 +1,6 @@
+import Decimal from 'decimal.js';
 import type { BetInfo, SavedAnalysis } from '../types';
+import { roundMoney2, sumMoneyValues } from './bankMoney';
 
 export type BankCurvePoint = {
   date: string; // label (ex.: "12 jan" ou "Início")
@@ -31,17 +33,12 @@ type BankEvent = {
 
 const BR_TZ = 'America/Sao_Paulo';
 
-function roundMoney(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Number((Math.round(value * 100) / 100).toFixed(2));
-}
-
 function clampNonNegativeMoney(value: number): number {
-  return Math.max(0, roundMoney(value));
+  return Math.max(0, roundMoney2(value));
 }
 
 function sumMoney(values: number[]): number {
-  return roundMoney(values.reduce((acc, v) => acc + (Number.isFinite(v) ? v : 0), 0));
+  return sumMoneyValues(values.filter((v) => Number.isFinite(v)));
 }
 
 function formatDayLabel(ts: number): string {
@@ -84,7 +81,7 @@ export function computeNetCashDelta(savedMatches: SavedAnalysis[]): number {
     }
   }
 
-  return roundMoney(deltas.reduce((acc, v) => acc + v, 0));
+  return sumMoneyValues(deltas);
 }
 
 export function buildBankCurve(
@@ -157,7 +154,13 @@ export function buildBankCurve(
   };
 
   summary.roiSettledPct =
-    summary.investedSettled > 0 ? Number(((summary.realizedProfit / summary.investedSettled) * 100).toFixed(1)) : 0;
+    summary.investedSettled > 0
+      ? new Decimal(summary.realizedProfit)
+          .div(summary.investedSettled)
+          .mul(100)
+          .toDecimalPlaces(1, Decimal.ROUND_HALF_UP)
+          .toNumber()
+      : 0;
 
   if (events.length === 0) {
     const base = clampNonNegativeMoney(baseCash);

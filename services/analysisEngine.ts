@@ -76,23 +76,48 @@ function poissonCumulative(k: number, lambda: number): number {
   return cumulative;
 }
 
+/** Rho típico em futebol (Dixon–Coles): correlação negativa em placares baixos. */
+const DIXON_COLES_RHO_DEFAULT = -0.13;
+
 /**
- * Calcula a probabilidade de Under 1.5 (0 ou 1 gol) usando o ajuste de Dixon-Coles.
- * Corrige a interdependência entre gols em placares baixos (0-0, 1-0, 0-1).
- * @param lambdaHome Média de gols esperados para o time da casa
- * @param lambdaAway Média de gols esperados para o time visitante
- * @param rho Fator de correlação (padrão -0.13 para futebol, ajusta a subestimação de empates 0-0)
+ * Fator tau(i,j) de Dixon–Coles para placares baixos (i,j ∈ {0,1}).
+ * @see Dixon & Coles (1997)
  */
-function calculateDixonColesUnder15(lambdaHome: number, lambdaAway: number, rho: number = -0.1): number {
-  // P(0,0) com correção: aumenta probabilidade de 0-0 (comum em jogos travados)
-  const p00 = poissonProbability(0, lambdaHome) * poissonProbability(0, lambdaAway) * (1 - lambdaHome * lambdaAway * rho);
-  
-  // P(1,0) com correção
-  const p10 = poissonProbability(1, lambdaHome) * poissonProbability(0, lambdaAway) * (1 + lambdaHome * rho);
-  
-  // P(0,1) com correção
-  const p01 = poissonProbability(0, lambdaHome) * poissonProbability(1, lambdaAway) * (1 + lambdaAway * rho);
-  
+function dixonColesTau(i: number, j: number, lambdaHome: number, lambdaAway: number, rho: number): number {
+  if (i === 0 && j === 0) return 1 - lambdaHome * lambdaAway * rho;
+  if (i === 1 && j === 0) return 1 + lambdaHome * rho;
+  if (i === 0 && j === 1) return 1 + lambdaAway * rho;
+  if (i === 1 && j === 1) return 1 - rho;
+  return 1;
+}
+
+function dixonColesJointScoreProbability(
+  i: number,
+  j: number,
+  lambdaHome: number,
+  lambdaAway: number,
+  rho: number
+): number {
+  const base = poissonProbability(i, lambdaHome) * poissonProbability(j, lambdaAway);
+  const tau = dixonColesTau(i, j, lambdaHome, lambdaAway, rho);
+  return Math.max(0, base * tau);
+}
+
+/**
+ * Probabilidade de Under 1.5 (≤1 gol): P(0-0)+P(1-0)+P(0-1) com tau DC.
+ * O termo 1-1 (2 gols) usa o mesmo tau em {@link dixonColesJointScoreProbability} para coerência do modelo em placares baixos.
+ */
+function calculateDixonColesUnder15(
+  lambdaHome: number,
+  lambdaAway: number,
+  rho: number = DIXON_COLES_RHO_DEFAULT
+): number {
+  const lh = Math.max(0, lambdaHome);
+  const la = Math.max(0, lambdaAway);
+  const p00 = dixonColesJointScoreProbability(0, 0, lh, la, rho);
+  const p10 = dixonColesJointScoreProbability(1, 0, lh, la, rho);
+  const p01 = dixonColesJointScoreProbability(0, 1, lh, la, rho);
+  // 1-1: tau(1,1)=1−ρ — usar dixonColesJointScoreProbability(1,1,...) em extensões (ex.: BTTS bivariado)
   return Math.max(0, Math.min(1, p00 + p10 + p01));
 }
 
@@ -788,6 +813,7 @@ function parseStandingCell(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Time decay / recência: últimos 5 jogos pesam 1,5× frente à média ponderada (≈ temporada em janela). */
 const RECENCY_BLEND_WEIGHT = 1.5;
 const RECENCY_BASE_WEIGHT = 1;
 const MIN_GAMES_FOR_RECENCY_BLEND = 3;

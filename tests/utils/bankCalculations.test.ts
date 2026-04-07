@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { kellyFraction, fractionalKellyBankFraction } from '../../utils/bankCalculations';
+import {
+  kellyFraction,
+  fractionalKellyBankFraction,
+  kellyConfidenceLevelPt,
+} from '../../utils/bankCalculations';
 
 describe('kellyFraction', () => {
   it('retorna 0 para odd ≤ 1 ou prob inválida', () => {
@@ -12,6 +16,15 @@ describe('kellyFraction', () => {
   it('Kelly positivo quando há edge', () => {
     const f = kellyFraction(55, 2);
     expect(f).toBeGreaterThan(0);
+  });
+});
+
+describe('kellyConfidenceLevelPt', () => {
+  it('classifica Baixo, Médio e Alto conforme fração Kelly integral', () => {
+    expect(kellyConfidenceLevelPt(50, 2)).toBe('Baixo');
+    expect(kellyConfidenceLevelPt(51, 2)).toBe('Baixo');
+    expect(kellyConfidenceLevelPt(52, 2)).toBe('Médio');
+    expect(kellyConfidenceLevelPt(70, 2)).toBe('Alto');
   });
 });
 

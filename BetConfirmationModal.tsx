@@ -1,6 +1,8 @@
 import React from 'react';
+import Decimal from 'decimal.js';
 import { AlertTriangle, X, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { roundMoney2 } from './utils/bankMoney';
 
 interface BetConfirmationModalProps {
   isOpen: boolean;
@@ -23,8 +25,8 @@ const BetConfirmationModal: React.FC<BetConfirmationModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const potentialReturn = betAmount * odd;
-  const profit = potentialReturn - betAmount;
+  const potentialReturn = roundMoney2(new Decimal(betAmount).mul(odd));
+  const profit = roundMoney2(new Decimal(potentialReturn).minus(betAmount));
 
   return (
     <AnimatePresence>

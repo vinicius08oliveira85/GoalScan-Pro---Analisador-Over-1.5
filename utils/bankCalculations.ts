@@ -40,3 +40,20 @@ export function fractionalKellyBankFraction(
   const cap = new Decimal(DEFAULT_MAX_BANK_FRACTION);
   return Decimal.min(frac, cap).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toNumber();
 }
+
+/** Nível de confiança no Kelly integral (vantagem estimada antes do fracionamento). */
+export type KellyConfidenceLevelPt = 'Baixo' | 'Médio' | 'Alto';
+
+/**
+ * Classifica o “tamanho” do Kelly completo: edge fraco → Baixo, forte → Alto.
+ */
+export function kellyConfidenceLevelPt(
+  probabilityPercent: number,
+  decimalOdd: number
+): KellyConfidenceLevelPt {
+  const full = kellyFraction(probabilityPercent, decimalOdd);
+  if (full <= 0) return 'Baixo';
+  if (full < 0.035) return 'Baixo';
+  if (full < 0.09) return 'Médio';
+  return 'Alto';
+}

@@ -1,5 +1,7 @@
+import Decimal from 'decimal.js';
 import { calculateEVPercent } from './evDecimal';
 import { fractionalKellyBankFraction } from './bankCalculations';
+import { roundMoney2 } from './bankMoney';
 
 /**
  * Configurações de Gestão de Risco
@@ -54,7 +56,7 @@ export function calculateKellyStake(
     RISK_LEVELS.FRACTIONAL_KELLY,
     confidence / 100
   );
-  return bank * frac;
+  return roundMoney2(new Decimal(bank).mul(frac));
 }
 
 export function suggestBetAmount(
@@ -76,12 +78,12 @@ export function suggestBetAmount(
     return createEmptySuggestion(`EV negativo (${ev.toFixed(2)}%): aposta matematicamente desvantajosa`);
   }
 
-  // Cálculos de Base
+  const b = new Decimal(bank);
   const baseStake = {
-    conservative: bank * RISK_LEVELS.CONSERVATIVE,
-    moderate: bank * RISK_LEVELS.MODERATE,
-    aggressive: bank * RISK_LEVELS.AGGRESSIVE,
-    kelly: calculateKellyStake(probability, odd, bank, confidence)
+    conservative: roundMoney2(b.mul(RISK_LEVELS.CONSERVATIVE)),
+    moderate: roundMoney2(b.mul(RISK_LEVELS.MODERATE)),
+    aggressive: roundMoney2(b.mul(RISK_LEVELS.AGGRESSIVE)),
+    kelly: calculateKellyStake(probability, odd, bank, confidence),
   };
 
   // Lógica de Recomendação (Weighted Decision)
@@ -105,23 +107,22 @@ export function suggestBetAmount(
 
   // Ajuste final por confiança (Baixa confiança reduz stake)
   if (confidence < 50) {
-    recommended *= (confidence / 100);
+    recommended = roundMoney2(new Decimal(recommended).mul(confidence).div(100));
     explanation += ` Valor reduzido pela baixa confiança (${confidence}%).`;
   }
 
+  const cap = roundMoney2(b.mul(RISK_LEVELS.MAX_BANK_EXPOSURE));
+
   return {
-    conservative: round2(baseStake.conservative),
-    moderate: round2(baseStake.moderate),
-    aggressive: round2(baseStake.aggressive),
-    kelly: round2(baseStake.kelly),
-    recommended: round2(Math.min(recommended, bank * RISK_LEVELS.MAX_BANK_EXPOSURE)),
+    conservative: baseStake.conservative,
+    moderate: baseStake.moderate,
+    aggressive: baseStake.aggressive,
+    kelly: baseStake.kelly,
+    recommended: roundMoney2(Decimal.min(new Decimal(recommended), new Decimal(cap))),
     method,
-    explanation
+    explanation,
   };
 }
-
-// Helpers para limpar o código
-function round2(num: number) { return Math.round(num * 100) / 100; }
 
 function createEmptySuggestion(msg: string): BetSuggestion {
   return { 

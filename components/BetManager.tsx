@@ -16,6 +16,9 @@ import { validateBetInfo } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { getCurrencySymbol } from '../utils/currency';
 import { suggestBetAmount, calculateEV, MIN_BET_AMOUNT } from '../utils/betSuggestion';
+import { isInsufficientBankForBet, roundMoney2 } from '../utils/bankMoney';
+import { kellyConfidenceLevelPt, type KellyConfidenceLevelPt } from '../utils/bankCalculations';
+import Decimal from 'decimal.js';
 import { animations } from '../utils/animations';
 import { useLeveragePlan } from '../hooks/useLeveragePlan';
 import { computeNextProgressionDay } from '../utils/leverageProgressionSync';
@@ -65,18 +68,26 @@ const BetManager: React.FC<BetManagerProps> = ({
   const effectiveLeverage = leverage ?? bankSettings?.leverage ?? 1.0;
 
   // Calcular valores automaticamente com alavancagem
-  const potentialReturn = betAmount > 0 && odd > 0 ? betAmount * odd * effectiveLeverage : 0;
-  const potentialProfit = potentialReturn - betAmount;
+  const potentialReturn =
+    betAmount > 0 && odd > 0
+      ? roundMoney2(new Decimal(betAmount).mul(odd).mul(effectiveLeverage))
+      : 0;
+  const potentialProfit = roundMoney2(new Decimal(potentialReturn).minus(betAmount));
   const totalBank = bankSettings?.totalBank ?? 0;
   const hasBank = totalBank > 0;
-  const isOverBank = hasBank && betAmount > totalBank + 1e-6;
+  const insufficientBank =
+    betAmount >= MIN_BET_AMOUNT && hasBank && isInsufficientBankForBet(betAmount, totalBank);
   const rawBankPercentage = hasBank ? (betAmount / totalBank) * 100 : 0;
-  // Normalizar para evitar erro por ponto flutuante (ex.: 100.0000000002)
-  // e manter o contrato do schema (0–100) ao salvar.
   const bankPercentage = hasBank
-    ? Math.max(0, Math.min(100, Number(rawBankPercentage.toFixed(6))))
+    ? Math.max(
+        0,
+        Math.min(100, new Decimal(rawBankPercentage).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toNumber())
+      )
     : 0;
-  const roi = betAmount > 0 ? (potentialProfit / betAmount) * 100 : 0;
+  const roi =
+    betAmount > 0
+      ? new Decimal(potentialProfit).div(betAmount).mul(100).toDecimalPlaces(4, Decimal.ROUND_HALF_UP).toNumber()
+      : 0;
 
   // Calcular sugestões de valor de aposta
   const betSuggestion =
@@ -84,6 +95,8 @@ const BetManager: React.FC<BetManagerProps> = ({
       ? suggestBetAmount(probability, odd, bankSettings.totalBank)
       : null;
   const ev = calculateEV(probability, odd);
+  const kellyConfLevel: KellyConfidenceLevelPt | null =
+    odd > 1 && probability > 0 ? kellyConfidenceLevelPt(probability, odd) : null;
 
   useEffect(() => {
     if (betInfo) {
@@ -130,7 +143,7 @@ const BetManager: React.FC<BetManagerProps> = ({
 
   const handleSave = () => {
     try {
-      if (isOverBank) {
+      if (insufficientBank) {
         const currency = getCurrencySymbol(bankSettings?.currency || 'BRL');
         throw new Error(
           `Valor da aposta não pode ser maior que sua banca (${currency} ${totalBank.toFixed(2)})`
@@ -217,7 +230,23 @@ const BetManager: React.FC<BetManagerProps> = ({
               </div>
               <div className="flex-1 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h4 className="font-bold text-sm">Sugestão de Valor</h4>
+                  <h4 className="font-bold text-sm flex items-center gap-2 flex-wrap">
+                    Sugestão de Valor
+                    {kellyConfLevel && (
+                      <span
+                        className={`badge badge-sm font-bold ${
+                          kellyConfLevel === 'Alto'
+                            ? 'badge-success'
+                            : kellyConfLevel === 'Médio'
+                              ? 'badge-warning'
+                              : 'badge-ghost border border-base-content/20'
+                        }`}
+                        title="Nível de confiança Kelly: baseado na fração Kelly integral (edge do modelo)."
+                      >
+                        Kelly: {kellyConfLevel}
+                      </span>
+                    )}
+                  </h4>
                   <span className="text-xs font-bold tabular-nums flex items-center gap-1 opacity-90">
                     <span className={ev > 0 ? 'text-success' : ev < 0 ? 'text-error' : 'text-warning'}>
                       EV: {ev > 0 ? '+' : ''}
@@ -300,7 +329,7 @@ const BetManager: React.FC<BetManagerProps> = ({
               value={betAmount || ''}
               onChange={(e) => setBetAmount(Number(e.target.value))}
               className={`input input-bordered w-full min-h-[44px] text-base ${
-                isOverBank
+                insufficientBank
                   ? 'border-error focus:ring-error'
                   : betSuggestion &&
                       betAmount > 0 &&
@@ -311,9 +340,9 @@ const BetManager: React.FC<BetManagerProps> = ({
               }`}
               placeholder={`Ex: ${getCurrencySymbol(bankSettings?.currency || 'BRL')} 10.00`}
               aria-label="Valor da aposta"
-              aria-invalid={isOverBank ? true : undefined}
+              aria-invalid={insufficientBank ? true : undefined}
             />
-            {isOverBank && (
+            {insufficientBank && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-error">
                 <AlertCircle className="w-5 h-5" />
               </div>
@@ -321,7 +350,7 @@ const BetManager: React.FC<BetManagerProps> = ({
           </div>
           <label className="label">
             <span className="label-text-alt opacity-60">
-              {isOverBank ? (
+              {insufficientBank ? (
                 <span className="text-error">
                   Valor acima da banca: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
                   {totalBank.toFixed(2)}
@@ -500,7 +529,7 @@ const BetManager: React.FC<BetManagerProps> = ({
             {bankSettings && bankSettings.totalBank > 0 && (
               <div className="flex items-center justify-between pt-2 border-t border-white/5">
                 <span className="text-sm opacity-80">% da Banca:</span>
-                <span className={`font-bold text-lg ${isOverBank ? 'text-error' : ''}`}>
+                <span className={`font-bold text-lg ${insufficientBank ? 'text-error' : ''}`}>
                   {rawBankPercentage.toFixed(2)}%
                 </span>
               </div>
@@ -511,8 +540,16 @@ const BetManager: React.FC<BetManagerProps> = ({
         {/* Botões de Ação */}
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
           <button
+            type="button"
             onClick={handleSave}
-            disabled={betAmount < MIN_BET_AMOUNT || isOverBank}
+            disabled={betAmount < MIN_BET_AMOUNT || insufficientBank}
+            title={
+              insufficientBank
+                ? 'Saldo insuficiente na banca para este valor de aposta.'
+                : betAmount < MIN_BET_AMOUNT
+                  ? `Valor mínimo: ${MIN_BET_AMOUNT}`
+                  : undefined
+            }
             className="btn btn-primary flex-1 min-h-[44px] text-base disabled:btn-disabled"
           >
             {betInfo ? 'Atualizar Aposta' : 'Salvar Aposta'}

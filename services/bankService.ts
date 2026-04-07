@@ -1,65 +1,94 @@
-import { supabase } from './supabaseClient';
+import type { BetInfo } from '../types';
+import { calculateBankUpdate } from '../utils/bankCalculator';
+import { applyBankDelta } from '../utils/bankMoney';
 
-// Definição do tipo para os dados da aposta, alinhado com a Edge Function
-interface BetUpdatePayload {
-  analysis_id: number;
-  bet_status: 'pending' | 'won' | 'lost' | 'cancelled';
-  bet_amount: number; // O valor ainda é recebido como float do formulário
-  bet_odd: number;
-}
+export type BankSaveBetContext = {
+  oldBetInfo?: BetInfo;
+  betInfo: BetInfo;
+};
 
 /**
- * Orquestra a atualização de uma aposta e o saldo da banca de forma transacional,
- * invocando a Edge Function "update-bet-and-bank".
- * 
- * @param payload Os dados da aposta a serem atualizados.
- * @returns O resultado da operação da Edge Function.
+ * Replica a lógica de delta de banca usada ao salvar/atualizar aposta (antes aplicada em App.tsx).
+ * Retorna 0 se nenhum ajuste for necessário.
  */
-const updateBetAndBank = async (payload: BetUpdatePayload) => {
-  // 1. Converter o valor da aposta para centavos antes de enviar para o backend.
-  // Isso garante que todos os cálculos no backend sejam feitos com inteiros.
-  const betAmountCents = Math.round(payload.bet_amount * 100);
+export function computeBankDifferenceForBetSave(ctx: BankSaveBetContext): number {
+  const { oldBetInfo, betInfo } = ctx;
+  const isNewBet = !oldBetInfo || oldBetInfo.betAmount === 0;
+  const isRemovingBet = betInfo.betAmount === 0 || betInfo.status === 'cancelled';
 
-  // 2. Chamar a Edge Function.
-  const { data, error } = await supabase.functions.invoke('update-bet-and-bank', {
-    body: {
-      analysis_id: payload.analysis_id,
-      bet_status: payload.bet_status,
-      bet_amount_cents: betAmountCents,
-      bet_odd: payload.bet_odd,
-    },
-  });
+  let oldStatus: BetInfo['status'] | undefined;
+  let oldBetAmount = 0;
 
-  if (error) {
-    console.error("Erro ao invocar a Edge Function:", error.message);
-    // Propaga o erro para que o componente React possa tratá-lo (ex: mostrar notificação)
-    throw new Error(`Falha ao atualizar a aposta: ${error.message}`);
+  if (isNewBet) {
+    oldStatus = undefined;
+  } else {
+    oldStatus = oldBetInfo!.status;
+    oldBetAmount = oldBetInfo!.betAmount;
   }
 
-  // 3. Opcional: O backend já atualizou a banca. O frontend pode precisar re-sincronizar
-  // os dados ou usar a resposta para atualizar o estado localmente.
-  console.log("Edge Function invocada com sucesso:", data);
-  return data;
-};
+  const newStatus = betInfo.status;
+  const newBetAmount = betInfo.betAmount;
 
-// A função para buscar as configurações da banca permanece a mesma, mas agora
-// o valor retornado (`total_bank_cents`) estará em centavos.
-const getBankSettings = async () => {
-  const { data, error } = await supabase
-    .from('bank_settings')
-    .select('*, user:users(*)') // Incluindo dados do usuário se necessário
-    .single();
+  const statusChanged = oldStatus !== newStatus;
+  const valueChanged = oldBetAmount !== newBetAmount;
+  const needsBankUpdate = isNewBet || isRemovingBet || statusChanged || valueChanged;
 
-  if (error && error.code !== 'PGRST116') { // PGRST116: "exact-one-row-not-found"
-    console.error('Erro ao buscar configurações da banca:', error);
-    throw error;
+  if (!needsBankUpdate) return 0;
+
+  const betAmountForCalc = isRemovingBet ? oldBetAmount : newBetAmount;
+  const potentialReturnForCalc = isRemovingBet
+    ? oldBetInfo?.potentialReturn || 0
+    : betInfo.potentialReturn;
+
+  let valueChangeAdjustment = 0;
+  if (!isNewBet && !isRemovingBet && valueChanged && oldStatus) {
+    if (oldStatus === 'pending') {
+      valueChangeAdjustment = oldBetAmount - newBetAmount;
+    } else if (oldStatus === 'won') {
+      const oldReturn = oldBetInfo!.potentialReturn || 0;
+      valueChangeAdjustment = betInfo.potentialReturn - oldReturn;
+    } else if (oldStatus === 'lost') {
+      valueChangeAdjustment = oldBetAmount - newBetAmount;
+    }
   }
 
-  return data;
+  return (
+    calculateBankUpdate(oldStatus, newStatus, betAmountForCalc, potentialReturnForCalc) +
+    valueChangeAdjustment
+  );
+}
+
+export function computeNextTotalBank(currentTotalBank: number, delta: number): number {
+  return applyBankDelta(currentTotalBank, delta);
+}
+
+/** Payload alinhado a uma futura Edge Function `update-bet-and-bank` no Supabase. */
+export type UpdateBetAndBankPayload = {
+  matchId: string;
+  betInfo: BetInfo;
+  totalBankBefore: number;
+  bankDelta: number;
+  totalBankAfter: number;
 };
 
-// Exporta as funções para serem usadas nos componentes React.
-export const bankService = {
-  updateBetAndBank,
-  getBankSettings,
-};
+export type UpdateBetAndBankResult =
+  | { ok: true; requestId: string; serverTotalBank?: number }
+  | { ok: false; error: string };
+
+/**
+ * Mock da chamada atômica ao backend. Substituir por `supabase.functions.invoke('update-bet-and-bank')`
+ * quando a função existir; hoje apenas simula latência e eco dos dados.
+ */
+export async function updateBetAndBankEdgeFunctionMock(
+  payload: UpdateBetAndBankPayload
+): Promise<UpdateBetAndBankResult> {
+  await new Promise((r) => setTimeout(r, 30));
+  if (!(payload.totalBankAfter >= 0)) {
+    return { ok: false, error: 'Saldo inválido após transação' };
+  }
+  return {
+    ok: true,
+    requestId: `edge_mock_${Date.now()}_${payload.matchId.slice(0, 8)}`,
+    serverTotalBank: payload.totalBankAfter,
+  };
+}
