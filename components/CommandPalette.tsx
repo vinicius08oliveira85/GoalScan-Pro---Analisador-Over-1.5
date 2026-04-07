@@ -86,8 +86,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
       isOpen={isOpen}
       onClose={onClose}
       showCloseButton={false}
-      containerClassName="pt-[20vh]"
-      panelClassName="max-w-2xl max-h-[80vh] flex flex-col"
+      panelClassName="mt-[18vh] max-h-[min(80vh,calc(100dvh-6rem))] w-full max-w-2xl flex-col self-start"
       bodyClassName="p-0 max-h-none overflow-hidden"
     >
       {/* Header */}

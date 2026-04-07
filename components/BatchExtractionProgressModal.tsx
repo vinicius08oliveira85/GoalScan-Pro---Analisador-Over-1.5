@@ -69,7 +69,7 @@ export default function BatchExtractionProgressModal({
       closeOnOverlayClick={!isProcessing}
       closeOnEscape={!isProcessing}
       showCloseButton={!isProcessing}
-      containerClassName="z-[300]"
+      containerClassName="!z-[300]"
       overlayClassName="bg-black/60 backdrop-blur-sm"
       panelClassName="max-w-2xl w-full"
     >

@@ -731,9 +731,9 @@ const App: React.FC = () => {
         closeOnEscape
         showCloseButton={false}
         bodyLayout="fill"
-        containerClassName="px-0 pt-0 items-stretch justify-stretch z-[200]"
+        containerClassName="!z-[200]"
         overlayClassName="bg-black/50 backdrop-blur-sm"
-        panelClassName="fixed inset-4 md:inset-auto md:top-[4vh] md:left-1/2 md:-translate-x-1/2 z-[200] box-border flex min-h-0 min-w-0 w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl md:h-[92vh] md:max-h-[92vh]"
+        panelClassName="box-border flex min-h-0 min-w-0 w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl md:h-[92vh] md:max-h-[92vh]"
         bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0"
       >
         {/* Header do Modal — fora da área com scroll; fundo opaco para não vazar conteúdo */}

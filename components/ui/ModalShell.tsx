@@ -57,7 +57,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
       {isOpen && (
         <div
           className={cn(
-            'fixed inset-0 z-[10000] flex items-start justify-center px-4 pt-[10vh]',
+            'pointer-events-none fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-4 md:p-6',
             containerClassName
           )}
         >
@@ -67,18 +67,21 @@ const ModalShell: React.FC<ModalShellProps> = ({
             initial="initial"
             animate="animate"
             exit="exit"
-            className={cn('fixed inset-0 bg-black/60 backdrop-blur-md', overlayClassName)}
+            className={cn(
+              'pointer-events-auto fixed inset-0 bg-black/60 backdrop-blur-md',
+              overlayClassName
+            )}
             onClick={closeOnOverlayClick ? onClose : undefined}
           />
 
-          {/* Panel */}
+          {/* Painel: centralizado pelo flex do container (evita left+translate, que o Framer Motion sobrescreve) */}
           <motion.div
             variants={modalVariants}
             initial="initial"
             animate="animate"
             exit="exit"
             className={cn(
-              'z-[1] flex min-h-0 w-full max-w-2xl flex-col overflow-hidden bg-base-200/95 backdrop-blur-xl border border-base-300/50 rounded-2xl shadow-2xl',
+              'pointer-events-auto relative z-[1] mx-auto flex min-h-0 w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/95 shadow-2xl backdrop-blur-xl',
               panelClassName
             )}
             role="dialog"
