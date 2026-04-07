@@ -178,10 +178,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
   const statsSection = (
     <div
-      className={cn('min-w-0', splitMode && !showStatsPanel && 'hidden')}
+      className={cn(
+        'flex min-h-0 h-full min-w-0 flex-col',
+        splitMode && !showStatsPanel && 'hidden'
+      )}
       aria-hidden={splitMode && !showStatsPanel}
     >
-      <div className="mb-6 grid min-w-0 grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+      <div className="mb-6 grid min-h-0 min-w-0 grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <MetricCard
           title={
             <span className="inline-flex items-center gap-0.5 flex-wrap">
@@ -322,7 +325,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               </div>
             </div>
           </div>
-          <div className="grid min-w-0 grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+          <div className="grid min-h-0 min-w-0 grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
             {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
               const prob =
                 overUnderTab === 'combined'
@@ -384,10 +387,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
   const verdictSection = (
     <div
-      className={cn('min-w-0', splitMode && !showVerdictPanel && 'hidden')}
+      className={cn(
+        'flex min-h-0 h-full min-w-0 flex-col',
+        splitMode && !showVerdictPanel && 'hidden'
+      )}
       aria-hidden={splitMode && !showVerdictPanel}
     >
-      <div className="flex min-w-0 flex-col gap-6 md:gap-8">
+      <div className="flex min-h-0 min-w-0 flex-col gap-6 md:gap-8">
         <motion.div
           className={cn(
             'card min-w-0 border-4 bg-gradient-to-br from-primary/20 via-base-100 to-base-100 p-6 text-center transition-shadow duration-300 md:p-10',
@@ -463,9 +469,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           )}
         </motion.div>
 
-        <div className="grid min-w-0 grid-cols-1 gap-6 md:gap-8 xl:grid-cols-3">
+        <div className="grid min-h-0 min-w-0 grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 md:gap-8">
           <motion.div
-            className="origin-top min-w-0 scale-[0.99] opacity-90 xl:col-span-1"
+            className="origin-top min-h-0 min-w-0 scale-[0.99] opacity-90 lg:col-span-1"
             variants={animations.scaleIn}
             initial="initial"
             animate="animate"
@@ -480,7 +486,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             />
           </motion.div>
           <motion.div
-            className="card min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6 xl:col-span-2"
+            className="card min-h-0 min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6 lg:col-span-2"
             variants={animations.slideInRight}
             initial="initial"
             animate="animate"
@@ -589,7 +595,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   if (!splitMode) {
     return (
       <motion.div
-        className="flex min-w-0 flex-col gap-6 md:gap-8"
+        className="flex h-full min-h-0 min-w-0 flex-col gap-6 md:gap-8"
         variants={animations.fadeInUp}
         initial="initial"
         animate="animate"
@@ -602,7 +608,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
   return (
     <motion.div
-      className="flex min-w-0 flex-col gap-6 md:gap-8"
+      className="flex h-full min-h-0 min-w-0 flex-col gap-6 md:gap-8"
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"

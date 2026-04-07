@@ -20,8 +20,8 @@ export interface ModalShellProps {
   headerClassName?: string;
   bodyClassName?: string;
   /**
-   * `dialog`: corpo com max-h 70vh, scroll e padding padrão (modais compactos).
-   * `fill`: só min-h-0/min-w-0 — use com painel full-screen e scroll interno (ex.: modal de análise).
+   * `dialog`: cabeçalho fixo no painel; corpo com max-h limitado, scroll vertical e padding padrão.
+   * `fill`: flex column + min-h-0 + overflow hidden no wrapper — filhos devem usar shrink-0 no header e flex-1 min-h-0 overflow-y-auto no corpo (ex.: modal de análise em App.tsx).
    */
   bodyLayout?: 'dialog' | 'fill';
 }
@@ -78,7 +78,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
             animate="animate"
             exit="exit"
             className={cn(
-              'relative w-full max-w-2xl bg-base-200/95 backdrop-blur-xl border border-base-300/50 rounded-2xl shadow-2xl overflow-hidden',
+              'z-[1] flex min-h-0 w-full max-w-2xl flex-col overflow-hidden bg-base-200/95 backdrop-blur-xl border border-base-300/50 rounded-2xl shadow-2xl',
               panelClassName
             )}
             role="dialog"
@@ -87,7 +87,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
             {(title || showCloseButton) && (
               <div
                 className={cn(
-                  'flex items-center gap-3 p-4 border-b border-base-300/50',
+                  'sticky top-0 z-[2] flex shrink-0 items-center gap-3 border-b border-base-300/50 bg-base-200/95 p-4 backdrop-blur-sm',
                   headerClassName
                 )}
               >
@@ -116,7 +116,9 @@ const ModalShell: React.FC<ModalShellProps> = ({
               className={cn(
                 'min-h-0 min-w-0',
                 bodyLayout === 'dialog' &&
-                  'max-h-[70vh] overflow-y-auto overflow-x-hidden custom-scrollbar p-2',
+                  'max-h-[min(70vh,92vh)] flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-2',
+                bodyLayout === 'fill' &&
+                  'flex min-h-0 flex-1 flex-col overflow-hidden',
                 bodyClassName
               )}
             >

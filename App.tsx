@@ -733,11 +733,11 @@ const App: React.FC = () => {
         bodyLayout="fill"
         containerClassName="px-0 pt-0 items-stretch justify-stretch z-[200]"
         overlayClassName="bg-black/50 backdrop-blur-sm"
-        panelClassName="fixed inset-4 z-[200] box-border flex max-h-[100dvh] min-h-0 min-w-0 w-auto max-w-none flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl md:inset-8 lg:inset-12 xl:inset-16"
+        panelClassName="fixed inset-4 md:inset-auto md:top-[4vh] md:left-1/2 md:-translate-x-1/2 z-[200] box-border flex max-h-[92vh] h-auto min-h-0 min-w-0 w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl"
         bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0"
       >
-        {/* Header do Modal */}
-        <div className="flex shrink-0 items-center justify-between border-b border-base-300 bg-base-200/80 p-4 backdrop-blur-md">
+        {/* Header do Modal — fora da área com scroll; fundo opaco para não vazar conteúdo */}
+        <div className="flex shrink-0 items-center justify-between border-b border-base-300 bg-base-200 p-4 backdrop-blur-md md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               type="button"
@@ -763,9 +763,9 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Conteúdo do Modal — min-h-0 + scroll em ambos os eixos evita corte lateral */}
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6">
-          <div className="mx-auto flex min-w-0 w-full max-w-5xl flex-col gap-6">
+        {/* Corpo: única região com scroll vertical; min-h-0 permite encolher dentro do flex pai */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [-webkit-overflow-scrolling:touch] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6">
+          <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-6xl flex-col gap-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <span className="w-2 h-6 bg-secondary rounded-full"></span>
