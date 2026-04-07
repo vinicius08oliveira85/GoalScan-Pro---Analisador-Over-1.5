@@ -14,7 +14,8 @@ import MetricCard from './MetricCard';
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
-import { getEdgePp } from '../utils/betMetrics';
+import { getEdgePp, calculateEVPercent } from '../utils/betMetrics';
+import { fractionalKellyBankFraction, DEFAULT_FRACTIONAL_KELLY } from '../utils/bankCalculations';
 import { calculateSelectedBetsProbability } from '../utils/betRange';
 import { getRiskLevelFromProbability } from '../utils/risk';
 import { getBothGoalsTooltip } from '../utils/probabilityTooltips';
@@ -106,9 +107,22 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   }, [selectedBets]);
 
   const displayEv = useMemo(
-    () => (data.oddOver15 > 1 ? ((displayProbability / 100) * data.oddOver15 - 1) * 100 : result.ev),
+    () =>
+      data.oddOver15 && data.oddOver15 > 1
+        ? calculateEVPercent(displayProbability, data.oddOver15)
+        : result.ev,
     [displayProbability, data.oddOver15, result.ev]
   );
+  const kellyBankPercent = useMemo(() => {
+    if (!data.oddOver15 || data.oddOver15 <= 1) return null;
+    const frac = fractionalKellyBankFraction(
+      displayProbability,
+      data.oddOver15,
+      DEFAULT_FRACTIONAL_KELLY,
+      result.confidenceScore / 100
+    );
+    return frac * 100;
+  }, [displayProbability, data.oddOver15, result.confidenceScore]);
   const edgePp = useMemo(
     () => (data.oddOver15 > 1 ? getEdgePp(displayProbability, data.oddOver15, 0.06) : null),
     [displayProbability, data.oddOver15]
@@ -158,7 +172,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
       className={cn('min-w-0', splitMode && !showStatsPanel && 'hidden')}
       aria-hidden={splitMode && !showStatsPanel}
     >
-      <div className="mb-6 grid min-w-0 grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-4">
+      <div className="mb-6 grid min-w-0 grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <MetricCard
           title={
             <span className="inline-flex items-center gap-0.5 flex-wrap">
@@ -205,6 +219,24 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           value={edgePp == null ? '—' : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`}
           icon={TrendingUp}
           color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
+        />
+        <MetricCard
+          title={
+            <span className="inline-flex items-center gap-0.5 flex-wrap">
+              Índice de Confiança Baseado em Forma Recente
+              <TooltipHint
+                tip="Mede alinhamento entre os últimos jogos e as médias ponderadas, e estabilidade dos totais de gols. Mais alto = forma recente mais coerente com o histórico."
+                label="Ajuda índice de forma"
+              />
+            </span>
+          }
+          value={
+            result.recentFormConfidenceIndex != null
+              ? `${result.recentFormConfidenceIndex}`
+              : '—'
+          }
+          icon={Sparkles}
+          color="accent"
         />
       </div>
 
@@ -360,6 +392,19 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               label="Semáforo EV"
             />
           </p>
+          {kellyBankPercent != null && (
+            <p className="mt-2 text-xs text-base-content/80 max-w-md mx-auto">
+              Sugestão Kelly (¼ + teto 10%, ajustada pela confiança):{' '}
+              <span className="font-bold tabular-nums">
+                {kellyBankPercent > 0 ? `${kellyBankPercent.toFixed(2)}%` : '0%'}
+              </span>{' '}
+              da banca
+              <TooltipHint
+                tip="O Kelly integral costuma ser agressivo; aqui usamos Kelly fracionário (25%) e teto de 10% da banca, ponderado pelo score de confiança do modelo. Valor orientativo, não é recomendação de aposta."
+                label="Ajuda Kelly"
+              />
+            </p>
+          )}
         </motion.div>
 
         <div className="grid min-w-0 grid-cols-1 gap-6 md:gap-8 xl:grid-cols-3">

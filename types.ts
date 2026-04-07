@@ -160,6 +160,8 @@ export interface AnalysisResult {
   combinedProbability?: number; // Probabilidade final combinada (estatísticas + tabela)
   bttsProbability?: number; // Probabilidade de Ambas Marcam (BTTS) estimada via Poisson (λ_home, λ_away) da análise combinada
   confidenceScore: number;
+  /** 0–100: alinhamento entre forma recente (últimos jogos) e médias ponderadas + estabilidade dos totais de gols. */
+  recentFormConfidenceIndex?: number;
   poissonHome: number[];
   poissonAway: number[];
   riskLevel: 'Baixo' | 'Moderado' | 'Alto' | 'Muito Alto';

@@ -22,6 +22,7 @@ import {
   formatTimestampInBrasilia,
 } from '../utils/dateFormatter';
 import { useChampionshipName } from '../hooks/useChampionshipName';
+import { calculateEVPercent } from '../utils/evDecimal';
 
 interface MatchCardListProps {
   match: SavedAnalysis;
@@ -74,9 +75,10 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
   const championshipName = useChampionshipName(match.data.championshipId);
   
   // Calcular EV com a probabilidade correta (selecionada/combinada ou padrão)
-  const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
-    ? ((probability / 100) * match.data.oddOver15 - 1) * 100
-    : match.result.ev;
+  const displayEv =
+    match.data.oddOver15 && match.data.oddOver15 > 1
+      ? calculateEVPercent(probability, match.data.oddOver15)
+      : match.result.ev;
 
   const getRiskColor = (risk: string) => {
     switch (risk) {

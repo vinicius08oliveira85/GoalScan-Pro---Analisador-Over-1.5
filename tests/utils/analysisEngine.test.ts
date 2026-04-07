@@ -126,6 +126,28 @@ describe('performAnalysis', () => {
     expect(typeof result.ev).toBe('number');
   });
 
+  it('deve expor índice de confiança por forma recente quando há stats e pouco histórico', () => {
+    const result = performAnalysis(mockMatchData);
+    expect(result.recentFormConfidenceIndex).toBe(28);
+  });
+
+  it('deve calcular índice de forma com histórico suficiente', () => {
+    const hist = [
+      { date: '2026-01-01', homeScore: 2, awayScore: 1 },
+      { date: '2025-12-28', homeScore: 1, awayScore: 1 },
+      { date: '2025-12-20', homeScore: 3, awayScore: 0 },
+    ];
+    const data: MatchData = {
+      ...mockMatchData,
+      homeHistory: hist,
+      awayHistory: hist,
+    };
+    const result = performAnalysis(data);
+    expect(result.recentFormConfidenceIndex).toBeDefined();
+    expect(result.recentFormConfidenceIndex).toBeGreaterThanOrEqual(0);
+    expect(result.recentFormConfidenceIndex).toBeLessThanOrEqual(100);
+  });
+
   it('deve incluir métricas avançadas', () => {
     const result = performAnalysis(mockMatchData);
 

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Target, TrendingUp, TrendingDown, HelpCircle } from 'lucide-react';
 import { animations } from '../utils/animations';
+import { calculateEVPercent } from '../utils/evDecimal';
 
 interface ProbabilityGaugeProps {
   probability: number; // Probabilidade padrão (Over 1.5)
@@ -42,7 +43,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
     if (isEditingOdd) {
       const oddValue = parseFloat(localOdd);
       if (!isNaN(oddValue) && oddValue > 1.0) {
-        const newEv = ((displayProbability / 100) * oddValue - 1) * 100;
+        const newEv = calculateEVPercent(displayProbability, oddValue);
         setCalculatedEv(newEv);
       } else {
         setCalculatedEv(0);

@@ -1,3 +1,6 @@
+import { calculateEVPercent } from './evDecimal';
+import { fractionalKellyBankFraction } from './bankCalculations';
+
 /**
  * Configurações de Gestão de Risco
  */
@@ -32,9 +35,7 @@ function calculateEdge(probability: number, odd: number): number {
  * Calcula o Valor Esperado (EV) em porcentagem
  */
 export function calculateEV(probability: number, odd: number): number {
-  const p = probability / 100;
-  const ev = (p * (odd - 1) - (1 - p)) * 100;
-  return ev;
+  return calculateEVPercent(probability, odd);
 }
 
 export function calculateKellyStake(
@@ -47,21 +48,13 @@ export function calculateKellyStake(
     return 0;
   }
 
-  const p = probability / 100;
-  const q = 1 - p;
-  const b = odd - 1;
-  
-  // Fórmula: (bp - q) / b
-  const kellyPercent = (b * p - q) / b;
-
-  if (kellyPercent <= 0) return 0;
-
-  // Aplicar Kelly Fracionário (Segurança) e ajuste de confiança
-  const confidenceMultiplier = confidence / 100;
-  const safeKelly = kellyPercent * RISK_LEVELS.FRACTIONAL_KELLY * confidenceMultiplier;
-
-  // Limite absoluto de exposição por aposta
-  return bank * Math.min(safeKelly, RISK_LEVELS.MAX_BANK_EXPOSURE);
+  const frac = fractionalKellyBankFraction(
+    probability,
+    odd,
+    RISK_LEVELS.FRACTIONAL_KELLY,
+    confidence / 100
+  );
+  return bank * frac;
 }
 
 export function suggestBetAmount(

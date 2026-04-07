@@ -1,6 +1,8 @@
-
 import { SavedAnalysis } from '../types';
 import { getDisplayProbability } from './probability';
+import { calculateEVPercent } from './evDecimal';
+
+export { calculateEVPercent } from './evDecimal';
 
 /**
  * Calcula a probabilidade implícita de uma odd decimal.
@@ -20,13 +22,7 @@ export function getImpliedProbabilityFromOdd(odd: number): number | null {
  * @returns O EV como uma porcentagem. Retorna 0 se os inputs forem inválidos.
  */
 export function calculateEV(probability: number, odd: number): number {
-  if (!probability || !odd || odd <= 1 || probability < 0 || probability > 100) {
-    return 0;
-  }
-  // Fórmula do EV: (Probabilidade de Ganhar * Lucro por Aposta) - (Probabilidade de Perder * Valor da Aposta)
-  // Simplificado: ((probability / 100) * odd - 1) * 100
-  const ev = (probability / 100) * odd - 1;
-  return ev * 100;
+  return calculateEVPercent(probability, odd);
 }
 
 /**

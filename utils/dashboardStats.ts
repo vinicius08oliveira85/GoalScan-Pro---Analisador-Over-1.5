@@ -1,5 +1,6 @@
 import { SavedAnalysis, BankSettings } from '../types';
 import { getDisplayProbability } from './probability';
+import { calculateEVPercent } from './evDecimal';
 import { buildBankCurve, computeNetCashDelta } from './bankLedger';
 
 export interface DashboardStats {
@@ -56,9 +57,10 @@ export function calculateDashboardStats(
   // Calcular EV médio usando a mesma lógica dos cards (considera probabilidade selecionada/combinada)
   const totalEV = savedMatches.reduce((sum, match) => {
     const probability = getDisplayProbability(match);
-    const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
-      ? ((probability / 100) * match.data.oddOver15 - 1) * 100
-      : match.result.ev;
+    const displayEv =
+      match.data.oddOver15 && match.data.oddOver15 > 1
+        ? calculateEVPercent(probability, match.data.oddOver15)
+        : match.result.ev;
     return sum + displayEv;
   }, 0);
   const averageEV = totalEV / totalMatches;
@@ -96,9 +98,10 @@ export function calculateDashboardStats(
   // Contar partidas com EV positivo usando a mesma lógica dos cards
   const positiveEVCount = savedMatches.filter((match) => {
     const probability = getDisplayProbability(match);
-    const displayEv = match.data.oddOver15 && match.data.oddOver15 > 1
-      ? ((probability / 100) * match.data.oddOver15 - 1) * 100
-      : match.result.ev;
+    const displayEv =
+      match.data.oddOver15 && match.data.oddOver15 > 1
+        ? calculateEVPercent(probability, match.data.oddOver15)
+        : match.result.ev;
     return displayEv > 0;
   }).length;
 
