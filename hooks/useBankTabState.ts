@@ -13,6 +13,8 @@ import {
 } from '../utils/bankNumbers';
 import type { SaveStatus, ValidationState } from '../components/bank/types';
 import { useBankReconcileState } from './useBankReconcileState';
+import Decimal from 'decimal.js';
+import { decimalMoney, roundMoney2 } from '../utils/bankMoney';
 
 interface UseBankTabStateParams {
   bankSettings?: BankSettings;
@@ -39,7 +41,8 @@ export function useBankTabState({ bankSettings, savedMatches, onSave, onError }:
 
   const suggestedBase = useMemo(() => {
     if (!bankSettings) return 0;
-    return Math.max(0, Number((bankSettings.totalBank - netCashDelta).toFixed(2)));
+    const raw = decimalMoney(bankSettings.totalBank).minus(netCashDelta);
+    return roundMoney2(Decimal.max(raw, 0));
   }, [bankSettings, netCashDelta]);
 
   const bankStats = useMemo(() => calculateBankStats(savedMatches, bankSettings), [savedMatches, bankSettings]);
@@ -156,7 +159,7 @@ export function useBankTabState({ bankSettings, savedMatches, onSave, onError }:
             ? bankSettings.baseBank
             : reconcile.bankBase === null
               ? undefined
-              : Number(reconcile.bankBase.toFixed(2)),
+              : roundMoney2(reconcile.bankBase),
         leverage: normalizeLeverageForSettings(leverage),
         updatedAt: Date.now(),
       };

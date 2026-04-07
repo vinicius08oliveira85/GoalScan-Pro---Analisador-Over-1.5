@@ -40,3 +40,17 @@ export function sumMoneyValues(values: number[]): number {
   }
   return roundMoney2(acc);
 }
+
+/**
+ * Aposta pendente: o stake não pode exceder a banca atual mais o stake pendente anterior
+ * (substituído na edição), evitando salvar aposta sem cobertura.
+ */
+export function canCoverPendingBetStake(
+  betAmount: number,
+  totalBank: number,
+  previousPendingStake: number
+): boolean {
+  if (!(betAmount > 0) || !(totalBank >= 0)) return true;
+  const ceiling = decimalMoney(totalBank).plus(previousPendingStake);
+  return !decimalMoney(betAmount).gt(ceiling);
+}

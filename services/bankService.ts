@@ -1,6 +1,7 @@
+import Decimal from 'decimal.js';
 import type { BetInfo } from '../types';
 import { calculateBankUpdate } from '../utils/bankCalculator';
-import { applyBankDelta } from '../utils/bankMoney';
+import { applyBankDelta, decimalMoney, roundMoney2 } from '../utils/bankMoney';
 
 export type BankSaveBetContext = {
   oldBetInfo?: BetInfo;
@@ -40,22 +41,22 @@ export function computeBankDifferenceForBetSave(ctx: BankSaveBetContext): number
     ? oldBetInfo?.potentialReturn || 0
     : betInfo.potentialReturn;
 
-  let valueChangeAdjustment = 0;
+  let valueChangeAdj = new Decimal(0);
   if (!isNewBet && !isRemovingBet && valueChanged && oldStatus) {
     if (oldStatus === 'pending') {
-      valueChangeAdjustment = oldBetAmount - newBetAmount;
+      valueChangeAdj = decimalMoney(oldBetAmount).minus(newBetAmount);
     } else if (oldStatus === 'won') {
       const oldReturn = oldBetInfo!.potentialReturn || 0;
-      valueChangeAdjustment = betInfo.potentialReturn - oldReturn;
+      valueChangeAdj = decimalMoney(betInfo.potentialReturn).minus(oldReturn);
     } else if (oldStatus === 'lost') {
-      valueChangeAdjustment = oldBetAmount - newBetAmount;
+      valueChangeAdj = decimalMoney(oldBetAmount).minus(newBetAmount);
     }
   }
 
-  return (
-    calculateBankUpdate(oldStatus, newStatus, betAmountForCalc, potentialReturnForCalc) +
-    valueChangeAdjustment
+  const statusDelta = decimalMoney(
+    calculateBankUpdate(oldStatus, newStatus, betAmountForCalc, potentialReturnForCalc)
   );
+  return roundMoney2(statusDelta.plus(valueChangeAdj));
 }
 
 export function computeNextTotalBank(currentTotalBank: number, delta: number): number {

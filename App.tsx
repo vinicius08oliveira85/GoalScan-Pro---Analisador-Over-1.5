@@ -41,6 +41,7 @@ import {
   updateBetAndBankEdgeFunctionMock,
 } from './services/bankService';
 import { getCurrencySymbol } from './utils/currency';
+import { canCoverPendingBetStake, roundMoney2, decimalMoney } from './utils/bankMoney';
 import { logger } from './utils/logger';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
 
@@ -264,6 +265,20 @@ const App: React.FC = () => {
     // Se veio de handleUpdateBetStatus, a proteção já está lá
     if (isUpdatingBetStatus && !providedOldBetInfo) {
       return; // Já está processando outra atualização e não veio de handleUpdateBetStatus
+    }
+
+    if (bankSettings && betInfo.status === 'pending' && betInfo.betAmount > 0) {
+      const oldBet = providedOldBetInfo || selectedMatch?.betInfo;
+      const prevPending = oldBet?.status === 'pending' ? oldBet.betAmount : 0;
+      if (!canCoverPendingBetStake(betInfo.betAmount, bankSettings.totalBank, prevPending)) {
+        const maxStake = roundMoney2(
+          decimalMoney(bankSettings.totalBank).plus(prevPending)
+        );
+        showError(
+          `Saldo insuficiente para registrar esta aposta. Stake máximo disponível: ${getCurrencySymbol(bankSettings.currency)} ${maxStake.toFixed(2)}`
+        );
+        return;
+      }
     }
 
     if (bankSettings) {

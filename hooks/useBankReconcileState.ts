@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { BankSettings } from '../types';
 import { validateBankSettings } from '../utils/validation';
 import { formatMoneyPtBr, normalizeLeverageForSettings, parseMoneyPtBr } from '../utils/bankNumbers';
+import Decimal from 'decimal.js';
+import { decimalMoney, roundMoney2 } from '../utils/bankMoney';
 import type { SaveStatus } from '../components/bank/types';
 
 interface UseBankReconcileStateParams {
@@ -56,7 +58,7 @@ export function useBankReconcileState({
     setBankBaseInput(formatMoneyPtBr(baseToUse));
 
     try {
-      localStorage.setItem('goalscan_bank_base', String(Number(baseToUse.toFixed(2))));
+      localStorage.setItem('goalscan_bank_base', String(roundMoney2(baseToUse)));
     } catch {
       // ignorar
     }
@@ -91,7 +93,7 @@ export function useBankReconcileState({
     setBaseStatus('loading');
     try {
       try {
-        localStorage.setItem('goalscan_bank_base', String(Number(bankBase.toFixed(2))));
+        localStorage.setItem('goalscan_bank_base', String(roundMoney2(bankBase)));
       } catch {
         // ignorar
       }
@@ -99,7 +101,7 @@ export function useBankReconcileState({
       const newSettings: BankSettings = {
         totalBank: bankSettings.totalBank,
         currency: 'BRL',
-        baseBank: Number(bankBase.toFixed(2)),
+        baseBank: roundMoney2(bankBase),
         leverage: normalizeLeverageForSettings(leverage),
         updatedAt: Date.now(),
       };
@@ -129,11 +131,13 @@ export function useBankReconcileState({
 
     setReconcileStatus('loading');
     try {
-      const reconciledCash = Math.max(0, Number((bankBase + netCashDelta).toFixed(2)));
+      const reconciledCash = roundMoney2(
+        Decimal.max(decimalMoney(bankBase).plus(netCashDelta), 0)
+      );
       const newSettings: BankSettings = {
         totalBank: reconciledCash,
         currency: 'BRL',
-        baseBank: Number(bankBase.toFixed(2)),
+        baseBank: roundMoney2(bankBase),
         leverage: normalizeLeverageForSettings(leverage),
         updatedAt: Date.now(),
       };

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { applyBankDelta, isInsufficientBankForBet, subtractMoney } from '../../utils/bankMoney';
+import {
+  applyBankDelta,
+  canCoverPendingBetStake,
+  isInsufficientBankForBet,
+  subtractMoney,
+} from '../../utils/bankMoney';
 
 describe('bankMoney', () => {
   it('applyBankDelta nunca retorna negativo', () => {
@@ -15,5 +20,12 @@ describe('bankMoney', () => {
     expect(isInsufficientBankForBet(100, 99.99)).toBe(true);
     expect(isInsufficientBankForBet(100, 100)).toBe(false);
     expect(isInsufficientBankForBet(0, 100)).toBe(false);
+  });
+
+  it('canCoverPendingBetStake considera stake pendente liberado na edição', () => {
+    expect(canCoverPendingBetStake(100, 100, 0)).toBe(true);
+    expect(canCoverPendingBetStake(100.01, 100, 0)).toBe(false);
+    expect(canCoverPendingBetStake(150, 100, 50)).toBe(true);
+    expect(canCoverPendingBetStake(151, 100, 50)).toBe(false);
   });
 });

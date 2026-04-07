@@ -247,6 +247,38 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           icon={Sparkles}
           color="accent"
         />
+        <MetricCard
+          title={
+            <span className="inline-flex items-center gap-0.5 flex-wrap">
+              Confiança Recente
+              <TooltipHint
+                tip="Compara o ritmo de gols marcados nos últimos 5 jogos com a média da temporada (estatísticas ponderadas). Reflete se o λ de ataque recente está subindo ou descendo em relação ao histórico."
+                label="Ajuda confiança recente"
+              />
+            </span>
+          }
+          value={(() => {
+            const d = result.recentLambdaTrendDelta;
+            const suffix =
+              d != null && result.recentLambdaTrend && result.recentLambdaTrend !== 'unknown'
+                ? ` (${d > 0 ? '+' : ''}${d.toFixed(2)} g/j)`
+                : '';
+            if (result.recentLambdaTrend === 'up') return `λ em alta${suffix}`;
+            if (result.recentLambdaTrend === 'down') return `λ em queda${suffix}`;
+            if (result.recentLambdaTrend === 'flat') return `λ estável${suffix}`;
+            return '—';
+          })()}
+          icon={TrendingUp}
+          color={
+            result.recentLambdaTrend === 'up'
+              ? 'success'
+              : result.recentLambdaTrend === 'down'
+                ? 'error'
+                : result.recentLambdaTrend === 'flat'
+                  ? 'warning'
+                  : 'accent'
+          }
+        />
       </div>
 
       {(hasCombinedOU || hasStatsOU || hasTableOU) && (

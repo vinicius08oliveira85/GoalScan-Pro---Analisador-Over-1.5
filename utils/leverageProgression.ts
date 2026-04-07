@@ -1,4 +1,5 @@
 import { LeverageProgressionRow } from '../types';
+import { decimalMoney, roundMoney2 } from './bankMoney';
 
 /**
  * Calcula a progressão de alavancagem onde o retorno de cada dia vira o investimento do próximo
@@ -17,17 +18,17 @@ export function calculateLeverageProgression(
   }
 
   const progression: LeverageProgressionRow[] = [];
-  let currentInvestment = initialInvestment;
+  let currentInvestment = roundMoney2(initialInvestment);
 
   for (let day = 1; day <= days; day++) {
-    const returnAmount = Number((currentInvestment * odd).toFixed(2));
+    const inv = decimalMoney(currentInvestment);
+    const returnAmount = roundMoney2(inv.times(odd));
     progression.push({
       day,
-      investment: Number(currentInvestment.toFixed(2)),
+      investment: currentInvestment,
       return: returnAmount,
       odd,
     });
-    // Próximo investimento = retorno atual
     currentInvestment = returnAmount;
   }
 
@@ -51,7 +52,7 @@ export function calculateLeverageProgressionWithVariableOdds(
   }
 
   const progression: LeverageProgressionRow[] = [];
-  let currentInvestment = initialInvestment;
+  let currentInvestment = roundMoney2(initialInvestment);
 
   for (let day = 1; day <= days; day++) {
     // Usar odd do dia ou fallback para primeira odd se não houver
@@ -59,11 +60,11 @@ export function calculateLeverageProgressionWithVariableOdds(
     
     // Validar odd
     if (dayOdd <= 1.0 || dayOdd > 50) {
-      // Se odd inválida, usar 1.0 como fallback
-      const returnAmount = Number((currentInvestment * 1.0).toFixed(2));
+      const inv = decimalMoney(currentInvestment);
+      const returnAmount = roundMoney2(inv);
       progression.push({
         day,
-        investment: Number(currentInvestment.toFixed(2)),
+        investment: currentInvestment,
         return: returnAmount,
         odd: dayOdd,
       });
@@ -71,14 +72,14 @@ export function calculateLeverageProgressionWithVariableOdds(
       continue;
     }
 
-    const returnAmount = Number((currentInvestment * dayOdd).toFixed(2));
+    const inv = decimalMoney(currentInvestment);
+    const returnAmount = roundMoney2(inv.times(dayOdd));
     progression.push({
       day,
-      investment: Number(currentInvestment.toFixed(2)),
+      investment: currentInvestment,
       return: returnAmount,
       odd: dayOdd,
     });
-    // Próximo investimento = retorno atual
     currentInvestment = returnAmount;
   }
 

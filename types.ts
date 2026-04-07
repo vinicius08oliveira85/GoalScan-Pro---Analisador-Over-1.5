@@ -162,6 +162,13 @@ export interface AnalysisResult {
   confidenceScore: number;
   /** 0–100: alinhamento entre forma recente (últimos jogos) e médias ponderadas + estabilidade dos totais de gols. */
   recentFormConfidenceIndex?: number;
+  /**
+   * Tendência do volume ofensivo recente (últimos 5 jogos) vs média da temporada (gols marcados/jogo).
+   * Positivo ≈ λ de ataque recente acima da média ponderada; negativo ≈ abaixo.
+   */
+  recentLambdaTrend?: 'up' | 'down' | 'flat' | 'unknown';
+  /** Diferença média (mandante + visitante) / 2 em gols/jogo (ataque). */
+  recentLambdaTrendDelta?: number;
   poissonHome: number[];
   poissonAway: number[];
   riskLevel: 'Baixo' | 'Moderado' | 'Alto' | 'Muito Alto';
