@@ -249,7 +249,7 @@ const ChampionshipsScreen: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 bg-black/50 z-[500] flex items-center justify-center p-4 overflow-y-auto"
             onClick={() => {
               setShowForm(false);
               setEditingChampionship(null);
@@ -298,7 +298,7 @@ const ChampionshipsScreen: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 bg-black/50 z-[500] flex items-center justify-center p-4 overflow-y-auto"
             onClick={() => setViewingTables(null)}
           >
             <motion.div

@@ -569,7 +569,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Header */}
-      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-50 shadow-sm pt-[env(safe-area-inset-top)]">
+      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-40 shadow-sm pt-[env(safe-area-inset-top)]">
         <div className="app-container py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
@@ -731,7 +731,6 @@ const App: React.FC = () => {
         closeOnEscape
         showCloseButton={false}
         bodyLayout="fill"
-        containerClassName="!z-[200]"
         overlayClassName="bg-black/50 backdrop-blur-sm"
         panelClassName="box-border flex min-h-0 min-w-0 w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl md:h-[92vh] md:max-h-[92vh]"
         bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0"

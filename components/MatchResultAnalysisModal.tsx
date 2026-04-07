@@ -103,7 +103,6 @@ const MatchResultAnalysisModal: React.FC<MatchResultAnalysisModalProps> = ({
       closeOnOverlayClick
       closeOnEscape
       showCloseButton={false}
-      containerClassName="!z-[200]"
       overlayClassName="bg-black/50 backdrop-blur-sm"
       panelClassName="max-w-3xl w-full bg-base-200 rounded-xl shadow-2xl overflow-hidden"
       bodyClassName="p-0"

@@ -12,7 +12,7 @@ const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onClose }) => {
 
   return (
     <div
-      className="fixed top-20 right-4 z-[9999] pointer-events-none"
+      className="fixed top-20 right-4 z-[400] pointer-events-none"
       aria-live="polite"
       aria-label="Notificações"
     >

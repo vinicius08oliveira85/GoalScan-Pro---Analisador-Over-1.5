@@ -1,3 +1,7 @@
+/**
+ * Camadas de z-index (app): header ~40, bottom nav 90, banners in-app 100, toasts 400, modais bloqueantes 500.
+ * Manter novos fixed/sticky alinhados a essa ordem para evitar sobreposição.
+ */
 import React, { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -57,7 +61,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
       {isOpen && (
         <div
           className={cn(
-            'pointer-events-none fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-4 md:p-6',
+            'pointer-events-none fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-4 md:p-6',
             containerClassName
           )}
         >
