@@ -78,8 +78,6 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   const [overUnderTab, setOverUnderTab] = useState<'combined' | 'stats' | 'table'>('combined');
 
   const splitMode = analysisUiTab !== undefined;
-  const showStatsPanel = !splitMode || analysisUiTab === 'stats';
-  const showVerdictPanel = !splitMode || analysisUiTab === 'verdict';
 
   useEffect(() => {
     if (initialSelectedBets) {
@@ -176,15 +174,107 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     return null;
   }
 
+  const lineProbabilitiesCardShell =
+    'card min-w-0 border border-base-300/50 bg-base-100 p-4 shadow-sm md:p-6';
+
+  const lineProbabilitiesCardContent = (
+    <>
+      <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="min-w-0 text-lg font-black text-base-content">Probabilidades por linha</h3>
+        <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch]">
+          <div className="tabs tabs-boxed tabs-sm inline-flex w-max shrink-0 flex-nowrap">
+            {hasCombinedOU && (
+              <button
+                type="button"
+                onClick={() => setOverUnderTab('combined')}
+                className={`tab ${overUnderTab === 'combined' ? 'tab-active' : ''}`}
+              >
+                Combinada
+              </button>
+            )}
+            {hasStatsOU && (
+              <button
+                type="button"
+                onClick={() => setOverUnderTab('stats')}
+                className={`tab ${overUnderTab === 'stats' ? 'tab-active' : ''}`}
+              >
+                Estatísticas
+              </button>
+            )}
+            {hasTableOU && (
+              <button
+                type="button"
+                onClick={() => setOverUnderTab('table')}
+                className={`tab ${overUnderTab === 'table' ? 'tab-active' : ''}`}
+              >
+                Tabela
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="grid min-w-0 grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+        {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
+          const prob =
+            overUnderTab === 'combined'
+              ? result.overUnderProbabilities?.[line]
+              : overUnderTab === 'stats'
+                ? result.statsOverUnderProbabilities?.[line]
+                : result.tableOverUnderProbabilities?.[line];
+          if (!prob) return null;
+          const isInteractive = overUnderTab === 'combined';
+          return (
+            <div key={line} className="card min-w-0 bg-base-200 p-3">
+              <div className="text-xs font-bold text-base-content/70 mb-2">Linha {line} gols</div>
+              <div
+                role={isInteractive ? 'button' : undefined}
+                tabIndex={isInteractive ? 0 : undefined}
+                onClick={isInteractive ? () => handleBetClick(line, 'over', prob.over) : undefined}
+                onKeyDown={
+                  isInteractive
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleBetClick(line, 'over', prob.over);
+                        }
+                      }
+                    : undefined
+                }
+                className={`flex justify-between p-2 rounded-lg ${isInteractive ? 'cursor-pointer' : ''} ${isBetSelected(line, 'over') ? 'bg-success/20' : 'hover:bg-base-300/50'}`}
+              >
+                <span className="text-xs font-semibold text-success">Mais (Over)</span>
+                <span className="text-sm font-black text-base-content">{prob.over.toFixed(1)}%</span>
+              </div>
+              <div
+                role={isInteractive ? 'button' : undefined}
+                tabIndex={isInteractive ? 0 : undefined}
+                onClick={isInteractive ? () => handleBetClick(line, 'under', prob.under) : undefined}
+                onKeyDown={
+                  isInteractive
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleBetClick(line, 'under', prob.under);
+                        }
+                      }
+                    : undefined
+                }
+                className={`flex justify-between p-2 rounded-lg ${isInteractive ? 'cursor-pointer' : ''} ${isBetSelected(line, 'under') ? 'bg-error/20' : 'hover:bg-base-300/50'}`}
+              >
+                <span className="text-xs font-semibold text-error">Menos (Under)</span>
+                <span className="text-sm font-black text-base-content">{prob.under.toFixed(1)}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
   const statsSection = (
-    <div
-      className={cn(
-        'flex min-h-0 min-w-0 flex-col',
-        splitMode && !showStatsPanel && 'hidden'
-      )}
-      aria-hidden={splitMode && !showStatsPanel}
-    >
-      <div className="mb-6 grid min-h-0 min-w-0 grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+    <div className="flex min-w-0 flex-col">
+      {/* Métricas + “Probabilidades por linha” na mesma grid: última linha col-span-full evita overlap (mesmo padrão do veredito) */}
+      <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <MetricCard
           title={
             <span className="inline-flex items-center gap-0.5 flex-wrap">
@@ -282,117 +372,29 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                   : 'accent'
           }
         />
-      </div>
 
-      {(hasCombinedOU || hasStatsOU || hasTableOU) && (
-        <motion.div
-          className="card min-w-0 border border-base-300/50 bg-base-100 p-4 shadow-sm md:p-6"
-          variants={animations.fadeInUp}
-          initial="initial"
-          animate="animate"
-        >
-          <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="min-w-0 text-lg font-black text-base-content">Probabilidades por linha</h3>
-            <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch]">
-              <div className="tabs tabs-boxed tabs-sm inline-flex w-max shrink-0 flex-nowrap">
-              {hasCombinedOU && (
-                <button
-                  type="button"
-                  onClick={() => setOverUnderTab('combined')}
-                  className={`tab ${overUnderTab === 'combined' ? 'tab-active' : ''}`}
-                >
-                  Combinada
-                </button>
-              )}
-              {hasStatsOU && (
-                <button
-                  type="button"
-                  onClick={() => setOverUnderTab('stats')}
-                  className={`tab ${overUnderTab === 'stats' ? 'tab-active' : ''}`}
-                >
-                  Estatísticas
-                </button>
-              )}
-              {hasTableOU && (
-                <button
-                  type="button"
-                  onClick={() => setOverUnderTab('table')}
-                  className={`tab ${overUnderTab === 'table' ? 'tab-active' : ''}`}
-                >
-                  Tabela
-                </button>
-              )}
-              </div>
-            </div>
+        {(hasCombinedOU || hasStatsOU || hasTableOU) && (
+          <div className="col-span-full min-w-0 w-full">
+            {splitMode ? (
+              <div className={lineProbabilitiesCardShell}>{lineProbabilitiesCardContent}</div>
+            ) : (
+              <motion.div
+                className={lineProbabilitiesCardShell}
+                variants={animations.fadeInUp}
+                initial="initial"
+                animate="animate"
+              >
+                {lineProbabilitiesCardContent}
+              </motion.div>
+            )}
           </div>
-          <div className="grid min-h-0 min-w-0 grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
-            {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
-              const prob =
-                overUnderTab === 'combined'
-                  ? result.overUnderProbabilities?.[line]
-                  : overUnderTab === 'stats'
-                    ? result.statsOverUnderProbabilities?.[line]
-                    : result.tableOverUnderProbabilities?.[line];
-              if (!prob) return null;
-              const isInteractive = overUnderTab === 'combined';
-              return (
-                <div key={line} className="card min-w-0 bg-base-200 p-3">
-                  <div className="text-xs font-bold text-base-content/70 mb-2">Linha {line} gols</div>
-                  <div
-                    role={isInteractive ? 'button' : undefined}
-                    tabIndex={isInteractive ? 0 : undefined}
-                    onClick={isInteractive ? () => handleBetClick(line, 'over', prob.over) : undefined}
-                    onKeyDown={
-                      isInteractive
-                        ? (e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              handleBetClick(line, 'over', prob.over);
-                            }
-                          }
-                        : undefined
-                    }
-                    className={`flex justify-between p-2 rounded-lg ${isInteractive ? 'cursor-pointer' : ''} ${isBetSelected(line, 'over') ? 'bg-success/20' : 'hover:bg-base-300/50'}`}
-                  >
-                    <span className="text-xs font-semibold text-success">Mais (Over)</span>
-                    <span className="text-sm font-black text-base-content">{prob.over.toFixed(1)}%</span>
-                  </div>
-                  <div
-                    role={isInteractive ? 'button' : undefined}
-                    tabIndex={isInteractive ? 0 : undefined}
-                    onClick={isInteractive ? () => handleBetClick(line, 'under', prob.under) : undefined}
-                    onKeyDown={
-                      isInteractive
-                        ? (e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              handleBetClick(line, 'under', prob.under);
-                            }
-                          }
-                        : undefined
-                    }
-                    className={`flex justify-between p-2 rounded-lg ${isInteractive ? 'cursor-pointer' : ''} ${isBetSelected(line, 'under') ? 'bg-error/20' : 'hover:bg-base-300/50'}`}
-                  >
-                    <span className="text-xs font-semibold text-error">Menos (Under)</span>
-                    <span className="text-sm font-black text-base-content">{prob.under.toFixed(1)}%</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-      )}
+        )}
+      </div>
     </div>
   );
 
   const verdictSection = (
-    <div
-      className={cn(
-        'relative z-0 flex min-h-0 min-w-0 flex-col',
-        splitMode && !showVerdictPanel && 'hidden'
-      )}
-      aria-hidden={splitMode && !showVerdictPanel}
-    >
+    <div className="relative z-0 flex min-h-0 min-w-0 flex-col">
       <div className="isolate flex min-h-0 min-w-0 flex-col gap-6 md:gap-8">
         <motion.div
           className={cn(
@@ -400,17 +402,22 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             evSemaphoreFrame
           )}
           variants={animations.scaleIn}
-          initial="initial"
+          initial={splitMode ? false : 'initial'}
           animate="animate"
         >
-          <p className="text-sm font-bold text-base-content/80 uppercase tracking-wide mb-2 flex flex-wrap items-center justify-center gap-1">
-            Resultado principal — {displayLabel}
-            <TooltipHint
-              tip="Probabilidade: chance estimada pelo modelo para este mercado (Over/Under), com base nos dados do jogo. Não é previsão certa de placar."
-              label="Ajuda probabilidade"
-            />
-          </p>
-          <p className="text-5xl md:text-6xl font-black text-primary tabular-nums leading-none">
+          <div className="mb-4 space-y-2 text-center md:mb-5">
+            <p className="text-sm font-bold uppercase tracking-wide text-base-content/80">
+              Resultado principal
+            </p>
+            <p className="flex flex-wrap items-center justify-center gap-1 px-1 text-xs font-semibold normal-case tracking-normal text-base-content/70 sm:text-sm">
+              <span className="min-w-0 break-words">{displayLabel}</span>
+              <TooltipHint
+                tip="Probabilidade: chance estimada pelo modelo para este mercado (Over/Under), com base nos dados do jogo. Não é previsão certa de placar."
+                label="Ajuda probabilidade"
+              />
+            </p>
+          </div>
+          <p className="text-5xl font-black tabular-nums leading-tight text-primary md:text-6xl md:leading-tight">
             {displayProbability.toFixed(1)}
             <span className="text-3xl md:text-4xl align-top">%</span>
           </p>
@@ -469,126 +476,138 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           )}
         </motion.div>
 
-        <div className="grid min-h-0 min-w-0 grid-cols-1 items-start gap-6 overflow-x-clip md:grid-cols-2 md:gap-8 lg:grid-cols-3">
-          <motion.div
-            className="min-h-0 min-w-0 lg:col-span-1"
-            variants={animations.scaleIn}
-            initial="initial"
-            animate="animate"
-          >
-            <div className="origin-top scale-[0.99] opacity-90">
-              <ProbabilityGauge
-                probability={primaryProb}
-                selectedProbability={displayProbability}
-                selectedLabel={displayLabel}
-                odd={data.oddOver15}
-                ev={displayEv}
-                onOddChange={onOddChange}
-              />
-            </div>
-          </motion.div>
-          <motion.div
-            className="card min-h-0 min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6 lg:col-span-2"
-            variants={animations.fadeInUp}
-            initial="initial"
-            animate="animate"
-          >
-            <div className="flex flex-col gap-4 md:gap-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-xl sm:text-2xl font-black tracking-tight text-base-content">
-                    {data.homeTeam} <span className="text-primary/70 mx-1">vs</span> {data.awayTeam}
-                  </h3>
-                  <p className="text-xs sm:text-sm font-semibold text-base-content/70 uppercase tracking-wide">
-                    Veredito e valor esperado (EV)
-                    <TooltipHint
-                      tip="EV (valor esperado): quanto o modelo sugere de retorno médio por unidade apostada nesta odd, usando a probabilidade exibida."
-                      label="Ajuda EV"
-                    />
-                  </p>
-                </div>
-                <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
-                  {onSave && (
-                    <button
-                      type="button"
-                      onClick={() => onSave(selectedBets.length > 0 ? selectedBets : undefined)}
-                      className="btn btn-primary btn-md shadow-lg w-full sm:w-auto"
-                    >
-                      Salvar análise
-                    </button>
-                  )}
-                </div>
+        <div
+          className={cn(
+            'grid min-h-0 min-w-0 items-start gap-6 overflow-x-clip',
+            splitMode
+              ? 'grid-cols-1'
+              : 'grid-cols-1 md:grid-cols-2 md:gap-8 lg:grid-cols-3'
+          )}
+        >
+            <motion.div
+              className={cn('min-h-0 min-w-0', !splitMode && 'lg:col-span-1')}
+              variants={animations.scaleIn}
+              initial={splitMode ? false : 'initial'}
+              animate="animate"
+            >
+              <div className="origin-top scale-[0.99] opacity-90">
+                <ProbabilityGauge
+                  probability={primaryProb}
+                  selectedProbability={displayProbability}
+                  selectedLabel={displayLabel}
+                  odd={data.oddOver15}
+                  ev={displayEv}
+                  onOddChange={onOddChange}
+                />
               </div>
+            </motion.div>
+            <motion.div
+              className={cn(
+                /* sem min-h-0: evita célula de grid encolher abaixo do conteúdo e “Sua aposta” (irmão) cobrir a recomendação */
+                'card min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6',
+                !splitMode && 'lg:col-span-2'
+              )}
+              variants={animations.fadeInUp}
+              initial={splitMode ? false : 'initial'}
+              animate="animate"
+            >
+              <div className="flex flex-col gap-4 md:gap-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-base-content">
+                      {data.homeTeam} <span className="text-primary/70 mx-1">vs</span> {data.awayTeam}
+                    </h3>
+                    <p className="text-xs sm:text-sm font-semibold text-base-content/70 uppercase tracking-wide">
+                      Veredito e valor esperado (EV)
+                      <TooltipHint
+                        tip="EV (valor esperado): quanto o modelo sugere de retorno médio por unidade apostada nesta odd, usando a probabilidade exibida."
+                        label="Ajuda EV"
+                      />
+                    </p>
+                  </div>
+                  <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
+                    {onSave && (
+                      <button
+                        type="button"
+                        onClick={() => onSave(selectedBets.length > 0 ? selectedBets : undefined)}
+                        className="btn btn-primary btn-md shadow-lg w-full sm:w-auto"
+                      >
+                        Salvar análise
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-              <div className="p-4 card bg-base-200 border-l-4 border-primary/60">
-                <p className="text-xs font-bold text-base-content/60 uppercase mb-1">Recomendação</p>
-                <p className="text-sm md:text-base text-base-content/95 leading-relaxed">&ldquo;{result.recommendation}&rdquo;</p>
-              </div>
-            </div>
-          </motion.div>
+                <div className="p-4 card bg-base-200 border-l-4 border-primary/60">
+                  <p className="text-xs font-bold text-base-content/60 uppercase mb-1">Recomendação</p>
+                  <p className="text-sm md:text-base text-base-content/95 leading-relaxed">&ldquo;{result.recommendation}&rdquo;</p>
+                </div>
 
-          {onBetSave && (
-            <div className="col-span-full card min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6">
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-lg font-black text-base-content">Sua aposta</h3>
-                {!showBetManager && (
-                  <button
-                    type="button"
-                    onClick={() => setShowBetManager(true)}
-                    className="btn btn-primary btn-sm min-h-[2.75rem] w-full sm:w-auto"
-                  >
-                    {betInfo?.betAmount > 0 ? 'Editar' : 'Registrar aposta'}
-                  </button>
+                {/* Dentro do mesmo fluxo flex que a recomendação — impossível sobrepor por altura errada do grid */}
+                {onBetSave && (
+                  <div className="border-t border-base-content/15 pt-4 md:pt-6">
+                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="text-lg font-black text-base-content">Sua aposta</h3>
+                      {!showBetManager && (
+                        <button
+                          type="button"
+                          onClick={() => setShowBetManager(true)}
+                          className="btn btn-primary btn-sm min-h-[2.75rem] w-full sm:w-auto"
+                        >
+                          {betInfo?.betAmount > 0 ? 'Editar' : 'Registrar aposta'}
+                        </button>
+                      )}
+                    </div>
+                    {showBetManager ? (
+                      <BetManager
+                        odd={data.oddOver15 || 0}
+                        probability={displayProbability}
+                        betInfo={betInfo}
+                        bankSettings={bankSettings}
+                        onSave={(newBetInfo) => {
+                          onBetSave(newBetInfo);
+                          setShowBetManager(false);
+                        }}
+                        onError={onError}
+                        onCancel={() => setShowBetManager(false)}
+                      />
+                    ) : betInfo?.betAmount > 0 ? (
+                      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 md:gap-4">
+                        <div>
+                          <div className="text-xs font-bold text-base-content/70">Status</div>
+                          <div
+                            className={`badge ${betInfo.status === 'won' ? 'badge-success' : betInfo.status === 'lost' ? 'badge-error' : 'badge-warning'}`}
+                          >
+                            {betInfo.status}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-base-content/70">Apostado</div>
+                          <div className="font-bold text-base-content">
+                            {getCurrencySymbol(bankSettings?.currency)}
+                            {betInfo.betAmount.toFixed(2)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-base-content/70">Retorno</div>
+                          <div
+                            className={`font-bold ${betInfo.status === 'won' ? 'text-success' : betInfo.status === 'lost' ? 'text-error' : 'text-primary'}`}
+                          >
+                            {betInfo.status === 'won'
+                              ? `+${betInfo.potentialProfit.toFixed(2)}`
+                              : betInfo.status === 'lost'
+                                ? `-${betInfo.betAmount.toFixed(2)}`
+                                : betInfo.potentialReturn.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-base-content/70">Nenhuma aposta registrada para esta análise.</p>
+                    )}
+                  </div>
                 )}
               </div>
-              {showBetManager ? (
-                <BetManager
-                  odd={data.oddOver15 || 0}
-                  probability={displayProbability}
-                  betInfo={betInfo}
-                  bankSettings={bankSettings}
-                  onSave={(newBetInfo) => {
-                    onBetSave(newBetInfo);
-                    setShowBetManager(false);
-                  }}
-                  onError={onError}
-                  onCancel={() => setShowBetManager(false)}
-                />
-              ) : betInfo?.betAmount > 0 ? (
-                <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 md:gap-4">
-                  <div>
-                    <div className="text-xs font-bold text-base-content/70">Status</div>
-                    <div
-                      className={`badge ${betInfo.status === 'won' ? 'badge-success' : betInfo.status === 'lost' ? 'badge-error' : 'badge-warning'}`}
-                    >
-                      {betInfo.status}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-base-content/70">Apostado</div>
-                    <div className="font-bold text-base-content">
-                      {getCurrencySymbol(bankSettings?.currency)}
-                      {betInfo.betAmount.toFixed(2)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-base-content/70">Retorno</div>
-                    <div
-                      className={`font-bold ${betInfo.status === 'won' ? 'text-success' : betInfo.status === 'lost' ? 'text-error' : 'text-primary'}`}
-                    >
-                      {betInfo.status === 'won'
-                        ? `+${betInfo.potentialProfit.toFixed(2)}`
-                        : betInfo.status === 'lost'
-                          ? `-${betInfo.betAmount.toFixed(2)}`
-                          : betInfo.potentialReturn.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-base-content/70">Nenhuma aposta registrada para esta análise.</p>
-              )}
-            </div>
-          )}
+            </motion.div>
         </div>
       </div>
     </div>
@@ -608,16 +627,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     );
   }
 
+  /* Sem motion no wrapper no modal: fadeInUp usa translateY e o layout não reserva altura → overlap com blocos abaixo */
   return (
-    <motion.div
-      className="flex min-h-0 min-w-0 w-full flex-col gap-6 md:gap-8"
-      variants={animations.fadeInUp}
-      initial="initial"
-      animate="animate"
-    >
-      {statsSection}
-      {verdictSection}
-    </motion.div>
+    <div className="flex min-h-0 min-w-0 w-full flex-col gap-6 md:gap-8">
+      {analysisUiTab === 'stats' ? statsSection : verdictSection}
+    </div>
   );
 };
 

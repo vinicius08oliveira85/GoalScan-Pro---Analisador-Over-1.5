@@ -61,7 +61,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
       {isOpen && (
         <div
           className={cn(
-            'pointer-events-none fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-4 md:p-6',
+            'pointer-events-none fixed inset-0 z-[500] flex min-h-0 items-center justify-center p-3 sm:p-4 md:p-6',
             containerClassName
           )}
         >
@@ -85,7 +85,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
             animate="animate"
             exit="exit"
             className={cn(
-              'pointer-events-auto relative z-[1] mx-auto flex min-h-0 w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/95 shadow-2xl backdrop-blur-xl',
+              'pointer-events-auto relative z-[1] mx-auto flex min-h-0 w-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/95 shadow-2xl',
               panelClassName
             )}
             role="dialog"

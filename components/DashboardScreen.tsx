@@ -104,6 +104,19 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const totalBets = resultDistributionData.reduce((sum, item) => sum + item.value, 0);
 
+  const showBankEvolutionChart = bankEvolutionData.length > 0;
+  const showResultPieChart = resultDistributionData.some((d) => d.value > 0);
+  const onlyOneMainChart =
+    (showBankEvolutionChart && !showResultPieChart) || (!showBankEvolutionChart && showResultPieChart);
+
+  const bankChartHeight = windowSize.isMobile ? 232 : windowSize.isTablet ? 288 : 328;
+  const areaChartMargin = {
+    top: 8,
+    right: windowSize.isMobile ? 4 : 12,
+    left: windowSize.isMobile ? 0 : 4,
+    bottom: windowSize.isMobile ? 20 : 8,
+  } as const;
+
   const statCards = [
     {
       title: 'Total de Partidas',
@@ -283,21 +296,25 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             })}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-            {bankEvolutionData.length > 0 && (
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:gap-8 md:grid-cols-2">
+            {showBankEvolutionChart && (
               <motion.div
                 variants={animations.fadeInUp}
                 initial="initial"
                 animate="animate"
-                className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
+                className={cn(
+                  'card min-w-0 w-full overflow-hidden bg-base-100 shadow-sm border border-base-content/12 p-3 sm:p-4 md:p-6',
+                  onlyOneMainChart && 'md:col-span-2 md:max-w-4xl md:justify-self-center'
+                )}
               >
                 <SectionHeader
-                  className="mb-4"
+                  className="mb-3 sm:mb-4"
                   title="Evolução da Banca"
                   subtitle="Cash (disponível) e Equity (cash + pendentes) ao longo do tempo"
                 />
-                <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
-                  <AreaChart data={bankEvolutionData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                <div className="relative w-full min-w-0 -mx-1 px-1 sm:mx-0 sm:px-0">
+                  <ResponsiveContainer width="100%" height={bankChartHeight} debounce={50}>
+                    <AreaChart data={bankEvolutionData} margin={areaChartMargin}>
                     <defs>
                       <linearGradient id="bankEquityGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={chartColors.equity} stopOpacity={0.18} />
@@ -305,8 +322,21 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       </linearGradient>
                     </defs>
                     <CartesianGrid {...chartGridProps} />
-                    <XAxis dataKey="date" tick={getChartAxisTick(windowSize.isMobile)} tickLine={chartAxisTickLine} />
-                    <YAxis tick={getChartAxisTick(windowSize.isMobile)} tickLine={chartAxisTickLine} tickFormatter={(value) => `R$ ${value.toFixed(0)}`} />
+                    <XAxis
+                      dataKey="date"
+                      tick={getChartAxisTick(windowSize.isMobile)}
+                      tickLine={chartAxisTickLine}
+                      interval="preserveStartEnd"
+                      angle={windowSize.isMobile ? -35 : 0}
+                      textAnchor={windowSize.isMobile ? 'end' : 'middle'}
+                      height={windowSize.isMobile ? 52 : 36}
+                    />
+                    <YAxis
+                      width={windowSize.isMobile ? 44 : 56}
+                      tick={getChartAxisTick(windowSize.isMobile)}
+                      tickLine={chartAxisTickLine}
+                      tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
+                    />
                     <Tooltip content={({ active, payload }) => {
                        if (active && payload && payload.length) {
                           const p = payload[0].payload as { date: string; timestamp: number; cash: number; equity: number; };
@@ -332,20 +362,27 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <Line type="monotone" dataKey="cash" stroke={chartColors.cash} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 7 }} />
                   </AreaChart>
                 </ResponsiveContainer>
+                </div>
               </motion.div>
             )}
 
-            {resultDistributionData.some((d) => d.value > 0) && (
+            {showResultPieChart && (
               <motion.div
                 variants={animations.fadeInUp}
                 initial="initial"
                 animate="animate"
-                className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
+                className={cn(
+                  'card min-w-0 w-full overflow-visible bg-base-100 shadow-sm border border-base-content/12 p-3 sm:p-4 md:p-6',
+                  onlyOneMainChart && 'md:col-span-2 md:max-w-4xl md:justify-self-center'
+                )}
               >
-                <SectionHeader className="mb-4" title="Distribuição de Resultados" subtitle="Breakdown das apostas" />
-                <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
-                  <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 300}>
-                    <PieChart>
+                <SectionHeader className="mb-3 sm:mb-4" title="Distribuição de Resultados" subtitle="Breakdown das apostas" />
+                {/* Coluna até lg: evita pizza + legenda lado a lado em ~350px (cortava o gráfico) */}
+                <div className="flex min-w-0 flex-col items-stretch gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-center lg:gap-8">
+                  <div className="mx-auto w-full min-w-0 max-w-[min(100%,320px)] shrink-0 lg:mx-0 lg:max-w-[min(100%,360px)] lg:flex-1">
+                    <div className="mx-auto aspect-square w-full min-h-[200px] max-h-[min(92vw,320px)] lg:max-h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%" minHeight={200} debounce={50}>
+                        <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <Tooltip content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                             const data = payload[0];
@@ -358,27 +395,40 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         }
                         return null;
                       }} />
-                      <Pie data={resultDistributionData} cx="50%" cy="50%" innerRadius={windowSize.isMobile ? 50 : 70} outerRadius={windowSize.isMobile ? 90 : 110} paddingAngle={5} dataKey="value">
+                      <Pie
+                        data={resultDistributionData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="42%"
+                        outerRadius="72%"
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
                         {resultDistributionData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={getColorForCategory(entry.name)} />
                         ))}
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="space-y-3 w-full md:w-auto">
+                    </div>
+                  </div>
+                  <ul className="grid w-full min-w-0 grid-cols-1 gap-2 sm:gap-3 xs:grid-cols-2 lg:flex lg:w-auto lg:min-w-[12rem] lg:max-w-[14rem] lg:flex-col lg:justify-center lg:shrink-0">
                     {resultDistributionData.map((item) => {
                       const color = getColorForCategory(item.name);
                       const percentage = totalBets > 0 ? ((item.value / totalBets) * 100).toFixed(1) : '0';
                       return (
-                        <div key={item.name} className="flex items-center gap-3 text-sm">
-                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                          <span className="font-bold">{item.name}</span>
-                          <span className="text-base-content/70 ml-auto">{item.value}</span>
-                          <span className="text-xs text-base-content/50">({percentage}%)</span>
-                        </div>
+                        <li
+                          key={item.name}
+                          className="flex min-w-0 items-center gap-2 rounded-lg border border-base-content/10 bg-base-200/40 px-3 py-2 text-sm sm:gap-3"
+                        >
+                          <div className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                          <span className="min-w-0 truncate font-bold">{item.name}</span>
+                          <span className="ml-auto shrink-0 tabular-nums text-base-content/70">{item.value}</span>
+                          <span className="shrink-0 text-xs text-base-content/50">({percentage}%)</span>
+                        </li>
                       );
                     })}
-                  </div>
+                  </ul>
                 </div>
               </motion.div>
             )}
