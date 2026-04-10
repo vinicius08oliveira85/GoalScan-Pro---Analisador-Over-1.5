@@ -38,6 +38,9 @@ import {
 import {
   computeBankDifferenceForBetSave,
   computeNextTotalBank,
+  ledgerForSignedDelta,
+  mergeBetInfoAfterRpc,
+  processBetTransactionAtomic,
   updateBetAndBankEdgeFunctionMock,
 } from './services/bankService';
 import { getCurrencySymbol } from './utils/currency';
@@ -258,11 +261,8 @@ const App: React.FC = () => {
         if (!analysisResult) setAnalysisResult(match.result);
       }
 
-      // Passar o oldBetInfo correto para handleSaveBetInfo
+      // handleSaveBetInfo persiste partida + banca (incl. RPC); evita segundo save que sobrescreve bet_info (ex.: dia da progressão).
       await handleSaveBetInfo(updatedBetInfo, oldBetInfo);
-
-      // Salvar a partida atualizada
-      await saveMatch(updatedMatch);
 
       showSuccess(`Aposta marcada como ${status === 'won' ? 'ganha' : 'perdida'}!`);
     } catch {
@@ -279,10 +279,12 @@ const App: React.FC = () => {
       return; // Já está processando outra atualização e não veio de handleUpdateBetStatus
     }
 
-    if (bankSettings && betInfo.status === 'pending' && betInfo.betAmount > 0) {
+    let workingBet: BetInfo = { ...betInfo };
+
+    if (bankSettings && workingBet.status === 'pending' && workingBet.betAmount > 0) {
       const oldBet = providedOldBetInfo || selectedMatch?.betInfo;
       const prevPending = oldBet?.status === 'pending' ? oldBet.betAmount : 0;
-      if (!canCoverPendingBetStake(betInfo.betAmount, bankSettings.totalBank, prevPending)) {
+      if (!canCoverPendingBetStake(workingBet.betAmount, bankSettings.totalBank, prevPending)) {
         const maxStake = roundMoney2(
           decimalMoney(bankSettings.totalBank).plus(prevPending)
         );
@@ -293,11 +295,78 @@ const App: React.FC = () => {
       }
     }
 
-    if (bankSettings) {
-      const oldBetInfo = providedOldBetInfo || selectedMatch?.betInfo;
-      const bankDifference = computeBankDifferenceForBetSave({ oldBetInfo, betInfo });
+    if (bankSettings && selectedMatch?.id) {
+      const dataForSave = currentMatchData ?? selectedMatch.data;
+      const resultForSave = analysisResult ?? selectedMatch.result;
 
-      if (bankDifference !== 0) {
+      const oldBetInfo = providedOldBetInfo || selectedMatch.betInfo;
+      const bankDifference = roundMoney2(
+        computeBankDifferenceForBetSave({ oldBetInfo, betInfo: workingBet })
+      );
+      const incrementLeverageProgressionDay =
+        oldBetInfo?.status === 'pending' &&
+        workingBet.status === 'won' &&
+        Boolean(workingBet.useLeverageProgression);
+
+      const useAtomicRpc =
+        Boolean(selectedMatch.id) && (bankDifference !== 0 || incrementLeverageProgressionDay);
+
+      let updatedMatch: SavedAnalysis = {
+        ...selectedMatch,
+        data: dataForSave,
+        result: resultForSave,
+        betInfo: workingBet,
+        timestamp: Date.now(),
+      };
+
+      if (useAtomicRpc) {
+        await saveMatch(updatedMatch);
+        const ledger = ledgerForSignedDelta(bankDifference, {
+          oldStatus: oldBetInfo?.status,
+          newStatus: workingBet.status,
+        });
+        const rpc = await processBetTransactionAtomic({
+          betId: selectedMatch.id,
+          signedDelta: bankDifference,
+          ledgerType: ledger.type,
+          ledgerAmount: ledger.amount,
+          betInfo: workingBet,
+          incrementLeverageProgressionDay,
+        });
+
+        if (rpc.ok) {
+          await saveSettings({
+            ...bankSettings,
+            totalBank: rpc.balanceAfter,
+            updatedAt: Date.now(),
+          });
+          workingBet = mergeBetInfoAfterRpc(workingBet, rpc.betInfoFromRpc);
+          updatedMatch = { ...updatedMatch, betInfo: workingBet };
+          logger.log('[BankService] RPC process_bet_transaction OK', rpc.balanceAfter);
+        } else if (rpc.error !== 'noop') {
+          if (bankDifference !== 0) {
+            const updatedBank = computeNextTotalBank(bankSettings.totalBank, bankDifference);
+            const newBankSettings: BankSettingsType = {
+              ...bankSettings,
+              totalBank: updatedBank,
+              updatedAt: Date.now(),
+            };
+            const edgeResult = await updateBetAndBankEdgeFunctionMock({
+              matchId: selectedMatch.id,
+              betInfo: workingBet,
+              totalBankBefore: bankSettings.totalBank,
+              bankDelta: bankDifference,
+              totalBankAfter: updatedBank,
+            });
+            if (edgeResult.ok) {
+              logger.log('[BankService] Fallback mock OK', edgeResult.requestId);
+            }
+            await saveSettings(newBankSettings);
+          } else {
+            logger.warn('[BankService] RPC falhou sem delta de banca', rpc.error);
+          }
+        }
+      } else if (bankDifference !== 0) {
         const updatedBank = computeNextTotalBank(bankSettings.totalBank, bankDifference);
         const newBankSettings: BankSettingsType = {
           ...bankSettings,
@@ -306,20 +375,61 @@ const App: React.FC = () => {
         };
         const edgeResult = await updateBetAndBankEdgeFunctionMock({
           matchId: selectedMatch?.id ?? 'local_temp',
-          betInfo,
+          betInfo: workingBet,
           totalBankBefore: bankSettings.totalBank,
           bankDelta: bankDifference,
           totalBankAfter: updatedBank,
         });
-          if (edgeResult.ok) {
-            logger.log('[BankService] Edge mock OK', edgeResult.requestId);
-          }
+        if (edgeResult.ok) {
+          logger.log('[BankService] Edge mock OK', edgeResult.requestId);
+        }
         await saveSettings(newBankSettings);
-        showSuccess('Banca atualizada com sucesso!');
       }
 
-      if ((betInfo.status === 'won' || betInfo.status === 'lost') && !betInfo.resultAt) {
-        betInfo.resultAt = Date.now();
+      if (
+        (workingBet.status === 'won' || workingBet.status === 'lost') &&
+        !workingBet.resultAt
+      ) {
+        workingBet = { ...workingBet, resultAt: Date.now() };
+      }
+
+      updatedMatch = { ...updatedMatch, betInfo: workingBet };
+
+      try {
+        const savedMatch = await saveMatch(updatedMatch);
+        setSelectedMatch(savedMatch);
+        showSuccess('Aposta atualizada com sucesso!');
+      } catch {
+        showError('Erro ao salvar aposta. Tente novamente.');
+      }
+      return;
+    }
+
+    if (bankSettings && (!selectedMatch || !currentMatchData || !analysisResult)) {
+      const oldBetInfo = providedOldBetInfo || selectedMatch?.betInfo;
+      const bankDifference = roundMoney2(
+        computeBankDifferenceForBetSave({ oldBetInfo, betInfo: workingBet })
+      );
+      if (bankDifference !== 0) {
+        const updatedBank = computeNextTotalBank(bankSettings.totalBank, bankDifference);
+        await saveSettings({
+          ...bankSettings,
+          totalBank: updatedBank,
+          updatedAt: Date.now(),
+        });
+        await updateBetAndBankEdgeFunctionMock({
+          matchId: selectedMatch?.id ?? 'local_temp',
+          betInfo: workingBet,
+          totalBankBefore: bankSettings.totalBank,
+          bankDelta: bankDifference,
+          totalBankAfter: updatedBank,
+        });
+      }
+      if (
+        (workingBet.status === 'won' || workingBet.status === 'lost') &&
+        !workingBet.resultAt
+      ) {
+        workingBet = { ...workingBet, resultAt: Date.now() };
       }
     }
 
@@ -329,11 +439,9 @@ const App: React.FC = () => {
           ...selectedMatch,
           data: currentMatchData,
           result: analysisResult,
-          betInfo,
+          betInfo: workingBet,
           timestamp: Date.now(),
         };
-
-        // Salvar usando o hook
         const savedMatch = await saveMatch(updatedMatch);
         setSelectedMatch(savedMatch);
         showSuccess('Aposta atualizada com sucesso!');
@@ -341,14 +449,12 @@ const App: React.FC = () => {
         showError('Erro ao salvar aposta. Tente novamente.');
       }
     } else if (currentMatchData && analysisResult) {
-      // Se não há partida salva ainda, apenas atualizar o estado local
-      // A aposta será salva quando o usuário salvar a partida
       const tempMatch: SavedAnalysis = {
         id: selectedMatch?.id || Math.random().toString(36).slice(2, 11),
         timestamp: selectedMatch?.timestamp || Date.now(),
         data: currentMatchData,
         result: analysisResult,
-        betInfo,
+        betInfo: workingBet,
       };
       setSelectedMatch(tempMatch);
     }

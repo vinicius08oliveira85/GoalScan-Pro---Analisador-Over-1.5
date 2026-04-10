@@ -1,74 +1,82 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-// Definição dos tipos para a requisição, garantindo que os dados sejam consistentes.
-interface BetUpdateRequest {
-  analysis_id: number;
-  bet_status: 'pending' | 'won' | 'lost' | 'cancelled';
-  bet_amount_cents: number;
-  bet_odd: number;
+/** Corpo alinhado à RPC `process_bet_transaction` (substitui o fluxo legado em centavos). */
+interface ProcessBetTransactionRequest {
+  bet_id: string;
+  signed_delta: number;
+  tx_type: "DEBIT" | "CREDIT" | "PROFIT";
+  tx_amount: number;
+  bet_info: Record<string, unknown>;
+  settings_id?: string;
+  increment_leverage_day?: boolean;
 }
 
-// CORS Headers para permitir que o seu frontend chame esta função.
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // Em produção, restrinja para o seu domínio: 'https://seusite.com'
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
-  // Trata a requisição pre-flight do CORS.
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // 1. Cria o cliente Supabase com as permissões do usuário que fez a chamada.
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? '',
-      Deno.env.get("SUPABASE_ANON_KEY") ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: req.headers.get("Authorization")! },
+        },
+      },
     );
 
-    // 2. Extrai os dados do usuário a partir do token JWT.
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Usuário não autenticado.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: "Usuário não autenticado." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       });
     }
 
-    // 3. Extrai e valida os dados da requisição.
-    const betUpdate: BetUpdateRequest = await req.json();
-    
-    // 4. Chama a função transacional no banco de dados (RPC).
-    // Esta é a parte central, que garante a atomicidade da operação.
-    const { data, error } = await supabaseClient.rpc('update_bet_and_bank_transactional', {
-      p_user_id: user.id,
-      p_analysis_id: betUpdate.analysis_id,
-      p_bet_status: betUpdate.bet_status,
-      p_bet_amount_cents: betUpdate.bet_amount_cents,
-      p_odd: betUpdate.bet_odd,
+    const body: ProcessBetTransactionRequest = await req.json();
+
+    if (!body.bet_id || body.tx_type == null || body.bet_info == null) {
+      return new Response(
+        JSON.stringify({
+          error: "Campos obrigatórios: bet_id, tx_type, bet_info.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 },
+      );
+    }
+
+    const settingsId = body.settings_id ?? "default";
+
+    const { data, error } = await supabaseClient.rpc("process_bet_transaction", {
+      p_settings_id: settingsId,
+      p_bet_id: body.bet_id,
+      p_signed_delta: body.signed_delta,
+      p_tx_type: body.tx_type,
+      p_tx_amount: body.tx_amount,
+      p_bet_info: body.bet_info,
+      p_increment_leverage_day: Boolean(body.increment_leverage_day),
     });
 
     if (error) {
-      // Se a função do DB retornar um erro (ex: saldo insuficiente, aposta não encontrada),
-      // ele será repassado ao frontend.
-      console.error('Erro na chamada RPC:', error);
-      throw new Error(`Erro no banco de dados: ${error.message}`);
+      console.error("RPC process_bet_transaction:", error);
+      throw new Error(error.message);
     }
 
-    // 5. Retorna uma resposta de sucesso.
     return new Response(JSON.stringify({ success: true, data }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-
   } catch (err) {
-    // Retorna uma resposta de erro genérica para qualquer outra falha.
     return new Response(String(err?.message ?? err), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
   }

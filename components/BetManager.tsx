@@ -65,6 +65,9 @@ const BetManager: React.FC<BetManagerProps> = ({
 
   const isNewBet = !betInfo || betInfo.betAmount === 0;
 
+  const fmtMoney = (n: number) =>
+    new Decimal(n).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2);
+
   // Alavancagem global/por aposta não multiplica retorno do bilhete (apenas metadado / progressão).
   const effectiveLeverage = leverage ?? bankSettings?.leverage ?? 1.0;
 
@@ -85,6 +88,12 @@ const BetManager: React.FC<BetManagerProps> = ({
     betAmount > 0
       ? new Decimal(potentialProfit).div(betAmount).mul(100).toDecimalPlaces(4, Decimal.ROUND_HALF_UP).toNumber()
       : 0;
+
+  const leverageRuinRisk =
+    useLeverageProgression &&
+    hasBank &&
+    betAmount >= MIN_BET_AMOUNT &&
+    new Decimal(betAmount).div(totalBank).gt(0.1);
 
   // Calcular sugestões de valor de aposta
   const betSuggestion =
@@ -143,7 +152,7 @@ const BetManager: React.FC<BetManagerProps> = ({
       if (insufficientBank) {
         const currency = getCurrencySymbol(bankSettings?.currency || 'BRL');
         throw new Error(
-          `Valor da aposta não pode ser maior que sua banca (${currency} ${totalBank.toFixed(2)})`
+          `Valor da aposta não pode ser maior que sua banca (${currency} ${fmtMoney(totalBank)})`
         );
       }
 
@@ -267,7 +276,7 @@ const BetManager: React.FC<BetManagerProps> = ({
                   >
                     <Sparkles className="w-3 h-3 mr-1" />
                     Recomendado: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                    {betSuggestion.recommended.toFixed(2)}
+                    {fmtMoney(betSuggestion.recommended)}
                   </button>
                   <button
                     type="button"
@@ -276,7 +285,7 @@ const BetManager: React.FC<BetManagerProps> = ({
                     title="1% da banca (conservador)"
                   >
                     Conservador: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                    {betSuggestion.conservative.toFixed(2)}
+                    {fmtMoney(betSuggestion.conservative)}
                   </button>
                   <button
                     type="button"
@@ -285,7 +294,7 @@ const BetManager: React.FC<BetManagerProps> = ({
                     title="2.5% da banca (moderado)"
                   >
                     Moderado: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                    {betSuggestion.moderate.toFixed(2)}
+                    {fmtMoney(betSuggestion.moderate)}
                   </button>
                   {betSuggestion.kelly > 0 && betSuggestion.kelly !== betSuggestion.recommended && (
                     <span
@@ -299,7 +308,7 @@ const BetManager: React.FC<BetManagerProps> = ({
                       >
                         <HelpCircle className="w-3 h-3 shrink-0 opacity-70" aria-hidden />
                         Kelly: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                        {betSuggestion.kelly.toFixed(2)}
+                        {fmtMoney(betSuggestion.kelly)}
                       </button>
                     </span>
                   )}
@@ -350,17 +359,23 @@ const BetManager: React.FC<BetManagerProps> = ({
               {insufficientBank ? (
                 <span className="text-error">
                   Valor acima da banca: {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                  {totalBank.toFixed(2)}
+                  {fmtMoney(totalBank)}
                 </span>
               ) : bankSettings && bankSettings.totalBank > 0 ? (
                 <>
-                  {rawBankPercentage.toFixed(2)}% da sua banca (
-                  {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(2)})
+                  {fmtMoney(rawBankPercentage)}% da sua banca (
+                  {getCurrencySymbol(bankSettings.currency)} {fmtMoney(bankSettings.totalBank)})
                   {betSuggestion && betSuggestion.recommended > 0 && (
                     <span className="ml-2">
                       • Sugestão: {getCurrencySymbol(bankSettings.currency)}{' '}
-                      {betSuggestion.recommended.toFixed(2)} (
-                      {((betSuggestion.recommended / bankSettings.totalBank) * 100).toFixed(2)}%)
+                      {fmtMoney(betSuggestion.recommended)} (
+                      {fmtMoney(
+                        new Decimal(betSuggestion.recommended)
+                          .div(bankSettings.totalBank)
+                          .mul(100)
+                          .toNumber()
+                      )}
+                      %)
                     </span>
                   )}
                 </>
@@ -451,12 +466,23 @@ const BetManager: React.FC<BetManagerProps> = ({
           </label>
         </div>
 
+        {leverageRuinRisk && (
+          <div
+            role="status"
+            className="rounded-lg border border-warning/70 bg-warning/15 px-3 py-2.5 text-sm text-warning-content"
+          >
+            <span className="font-bold">Risco de ruína (progressão):</span> esta aposta usa mais de 10% da banca (
+            {fmtMoney(rawBankPercentage)}%). Em planos de alavancagem, quedas longas podem zerar a banca com
+            rapidez — considere reduzir o stake.
+          </div>
+        )}
+
         {/* Informações da Odd */}
         <div className="bg-base-100/50 p-4 rounded-xl border border-white/5">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-xs opacity-60">Odd</span>
-              <p className="font-bold text-lg">{odd.toFixed(2)}</p>
+              <p className="font-bold text-lg">{fmtMoney(odd)}</p>
             </div>
             <div>
               <span className="text-xs opacity-60">Probabilidade</span>
@@ -488,7 +514,7 @@ const BetManager: React.FC<BetManagerProps> = ({
               <span className="text-sm opacity-80">Retorno Potencial:</span>
               <div className="text-right">
                 <span className="font-bold text-lg text-primary">
-                  {getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialReturn.toFixed(2)}
+                  {getCurrencySymbol(bankSettings?.currency || 'BRL')} {fmtMoney(potentialReturn)}
                 </span>
               </div>
             </div>
@@ -502,7 +528,7 @@ const BetManager: React.FC<BetManagerProps> = ({
                 className={`font-bold text-lg ${potentialProfit >= 0 ? 'text-success' : 'text-error'}`}
               >
                 {potentialProfit >= 0 ? '+' : ''}
-                {getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialProfit.toFixed(2)}
+                {getCurrencySymbol(bankSettings?.currency || 'BRL')} {fmtMoney(potentialProfit)}
               </span>
             </div>
 
@@ -521,7 +547,7 @@ const BetManager: React.FC<BetManagerProps> = ({
               <div className="flex items-center justify-between pt-2 border-t border-white/5">
                 <span className="text-sm opacity-80">% da Banca:</span>
                 <span className={`font-bold text-lg ${insufficientBank ? 'text-error' : ''}`}>
-                  {rawBankPercentage.toFixed(2)}%
+                  {fmtMoney(rawBankPercentage)}%
                 </span>
               </div>
             )}
