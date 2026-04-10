@@ -165,11 +165,7 @@ const App: React.FC = () => {
           selectedMatch?.betInfo &&
           selectedMatch.betInfo.betAmount > 0 &&
           selectedMatch.betInfo.status === 'pending'
-            ? syncPendingBetInfoWithMatchOdd(
-                selectedMatch.betInfo,
-                currentMatchData.oddOver15,
-                bankSettings?.leverage
-              )
+            ? syncPendingBetInfoWithMatchOdd(selectedMatch.betInfo, currentMatchData.oddOver15)
             : selectedMatch?.betInfo;
 
         if (selectedMatch) {
@@ -239,11 +235,7 @@ const App: React.FC = () => {
       const oldBetInfo = match.betInfo;
       const financialsBase =
         oldBetInfo.status === 'pending'
-          ? syncPendingBetInfoWithMatchOdd(
-              oldBetInfo,
-              match.data.oddOver15,
-              bankSettings?.leverage
-            )
+          ? syncPendingBetInfoWithMatchOdd(oldBetInfo, match.data.oddOver15)
           : oldBetInfo;
       const updatedBetInfo: BetInfo = {
         ...financialsBase,
@@ -696,7 +688,6 @@ const App: React.FC = () => {
                 onAnalyzeResult={handleOpenResultAnalysis}
                 isLoading={isLoading}
                 isUpdatingBetStatus={isUpdatingBetStatus}
-                bankDefaultLeverage={bankSettings?.leverage}
                 bankCurrency={bankSettings?.currency}
               />
             </motion.div>

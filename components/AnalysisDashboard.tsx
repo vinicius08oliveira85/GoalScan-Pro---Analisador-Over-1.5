@@ -120,11 +120,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
   const betSummaryMoney = useMemo(() => {
     if (!betInfo || betInfo.betAmount <= 0) return null;
-    return getBetDisplayFinancials(
-      { id: '_', timestamp: 0, data, result, betInfo },
-      bankSettings?.leverage
-    );
-  }, [betInfo, data.oddOver15, data, result, bankSettings?.leverage]);
+    return getBetDisplayFinancials({ id: '_', timestamp: 0, data, result, betInfo });
+  }, [betInfo, data.oddOver15, data, result]);
   const kellyBankPercent = useMemo(() => {
     if (!data.oddOver15 || data.oddOver15 <= 1) return null;
     const frac = fractionalKellyBankFraction(

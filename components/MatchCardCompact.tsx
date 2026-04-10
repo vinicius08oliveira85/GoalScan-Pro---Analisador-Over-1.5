@@ -16,7 +16,6 @@ interface MatchCardCompactProps {
   index: number;
   onMatchClick: (match: SavedAnalysis) => void;
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
-  bankDefaultLeverage?: number;
   bankCurrency?: string;
 }
 
@@ -25,7 +24,6 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
   index,
   onMatchClick,
   onDeleteMatch,
-  bankDefaultLeverage,
   bankCurrency,
 }) => {
   const currencySymbol = getCurrencySymbol(bankCurrency ?? 'BRL');
@@ -50,9 +48,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
       : match.result.ev;
 
   const betMoney =
-    match.betInfo && match.betInfo.betAmount > 0
-      ? getBetDisplayFinancials(match, bankDefaultLeverage)
-      : null;
+    match.betInfo && match.betInfo.betAmount > 0 ? getBetDisplayFinancials(match) : null;
 
   const getRiskBadge = (risk: string) => {
     const colors = {

@@ -65,14 +65,11 @@ const BetManager: React.FC<BetManagerProps> = ({
 
   const isNewBet = !betInfo || betInfo.betAmount === 0;
 
-  // Calcular alavancagem a ser usada (prioridade: BetInfo.leverage > BankSettings.leverage > 1.0)
+  // Alavancagem global/por aposta não multiplica retorno do bilhete (apenas metadado / progressão).
   const effectiveLeverage = leverage ?? bankSettings?.leverage ?? 1.0;
 
-  // Calcular valores automaticamente com alavancagem (mesma fórmula que utils/betFinancials)
   const { potentialReturn, potentialProfit } =
-    betAmount > 0 && odd > 0
-      ? computeBetPayouts(betAmount, odd, effectiveLeverage)
-      : { potentialReturn: 0, potentialProfit: 0 };
+    betAmount > 0 && odd > 0 ? computeBetPayouts(betAmount, odd) : { potentialReturn: 0, potentialProfit: 0 };
   const totalBank = bankSettings?.totalBank ?? 0;
   const hasBank = totalBank > 0;
   const insufficientBank =
@@ -424,12 +421,11 @@ const BetManager: React.FC<BetManagerProps> = ({
           </div>
           <label className="label">
             <span className="label-text-alt opacity-60 text-xs">
+              Retorno do bilhete usa só stake × odd. Campo ligado à banca/progressão.{' '}
               {leverage !== undefined
-                ? `Sobrescreve alavancagem global (${(bankSettings?.leverage ?? 1.0).toFixed(2)}x)`
-                : `Usa alavancagem global: ${(bankSettings?.leverage ?? 1.0).toFixed(2)}x`}
-              {effectiveLeverage > 2.0 && (
-                <span className="text-warning ml-2">⚠️ Alto risco</span>
-              )}
+                ? `Sobrescreve global (${(bankSettings?.leverage ?? 1.0).toFixed(2)}x).`
+                : `Global: ${(bankSettings?.leverage ?? 1.0).toFixed(2)}x.`}
+              {effectiveLeverage > 2.0 && <span className="text-warning ml-2">⚠️ Alto risco</span>}
             </span>
           </label>
         </div>
@@ -494,11 +490,6 @@ const BetManager: React.FC<BetManagerProps> = ({
                 <span className="font-bold text-lg text-primary">
                   {getCurrencySymbol(bankSettings?.currency || 'BRL')} {potentialReturn.toFixed(2)}
                 </span>
-                {effectiveLeverage !== 1.0 && (
-                  <p className="text-xs opacity-60 mt-1">
-                    (Alavancagem: {effectiveLeverage.toFixed(2)}x)
-                  </p>
-                )}
               </div>
             </div>
 

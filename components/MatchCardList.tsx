@@ -34,7 +34,6 @@ interface MatchCardListProps {
   onUpdateBetStatus?: (match: SavedAnalysis, status: 'won' | 'lost') => void;
   onAnalyzeResult?: (match: SavedAnalysis) => void;
   isUpdatingBetStatus?: boolean;
-  bankDefaultLeverage?: number;
   bankCurrency?: string;
 }
 
@@ -46,14 +45,11 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
   onUpdateBetStatus,
   onAnalyzeResult,
   isUpdatingBetStatus = false,
-  bankDefaultLeverage,
   bankCurrency,
 }) => {
   const currencySymbol = getCurrencySymbol(bankCurrency ?? 'BRL');
   const betMoney =
-    match.betInfo && match.betInfo.betAmount > 0
-      ? getBetDisplayFinancials(match, bankDefaultLeverage)
-      : null;
+    match.betInfo && match.betInfo.betAmount > 0 ? getBetDisplayFinancials(match) : null;
   const getStatusConfig = () => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
       if (match.betInfo.status === 'won') {

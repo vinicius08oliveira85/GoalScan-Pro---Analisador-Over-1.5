@@ -3,6 +3,7 @@ import { getDisplayProbability } from './probability';
 import { calculateEVPercent } from './evDecimal';
 import { subtractMoney } from './bankMoney';
 import { buildBankCurve, computeNetCashDelta } from './bankLedger';
+import { getBetDisplayFinancials } from './betFinancials';
 
 export interface DashboardStats {
   totalMatches: number;
@@ -78,7 +79,7 @@ export function calculateDashboardStats(
   const totalProfit = savedMatches.reduce((sum, match) => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
       if (match.betInfo.status === 'won') {
-        return sum + match.betInfo.potentialProfit;
+        return sum + getBetDisplayFinancials(match).potentialProfit;
       } else if (match.betInfo.status === 'lost') {
         return sum - match.betInfo.betAmount;
       }
@@ -153,7 +154,7 @@ export function calculateBankStats(
   // Resumo financeiro (apenas apostas finalizadas para lucro/ROI)
   const totalProfit = matchesWithBets.reduce((sum, match) => {
     if (!match.betInfo) return sum;
-    if (match.betInfo.status === 'won') return sum + match.betInfo.potentialProfit;
+    if (match.betInfo.status === 'won') return sum + getBetDisplayFinancials(match).potentialProfit;
     if (match.betInfo.status === 'lost') return sum - match.betInfo.betAmount;
     return sum;
   }, 0);
@@ -169,7 +170,7 @@ export function calculateBankStats(
 
   // Maior ganho
   const biggestWin = wonBets.reduce((max, match) => {
-    const profit = match.betInfo?.potentialProfit || 0;
+    const profit = match.betInfo ? getBetDisplayFinancials(match).potentialProfit : 0;
     return profit > max ? profit : max;
   }, 0);
 

@@ -9,16 +9,16 @@ import type { AnalysisResult, BetInfo, MatchData, SavedAnalysis } from '../../ty
 const baseResult = { ev: 0 } as AnalysisResult;
 
 describe('computeBetPayouts', () => {
-  it('calcula retorno e lucro com alavancagem 1', () => {
-    const r = computeBetPayouts(100, 2.0, 1);
+  it('retorno = stake × odd; lucro = stake × (odd − 1)', () => {
+    const r = computeBetPayouts(100, 2.0);
     expect(r.potentialReturn).toBe(200);
     expect(r.potentialProfit).toBe(100);
   });
 
-  it('aplica alavancagem', () => {
-    const r = computeBetPayouts(50, 1.8, 2);
-    expect(r.potentialReturn).toBe(180);
-    expect(r.potentialProfit).toBe(130);
+  it('exemplo mercado: stake 5, odd 1,24 → lucro 1,20', () => {
+    const r = computeBetPayouts(5, 1.24);
+    expect(r.potentialReturn).toBe(6.2);
+    expect(r.potentialProfit).toBe(1.2);
   });
 });
 
@@ -26,25 +26,25 @@ describe('getBetDisplayFinancials', () => {
   const data = (odd: number): MatchData =>
     ({ oddOver15: odd } as MatchData);
 
-  it('pendente usa alavancagem global quando a aposta não define leverage', () => {
+  it('pendente não usa alavancagem: só stake × odd da partida', () => {
     const betInfo: BetInfo = {
-      betAmount: 100,
-      odd: 2,
-      potentialReturn: 200,
-      potentialProfit: 100,
+      betAmount: 5,
+      odd: 1.24,
+      potentialReturn: 999,
+      potentialProfit: 999,
       bankPercentage: 10,
       status: 'pending',
     };
     const m: SavedAnalysis = {
       id: '1',
       timestamp: 1,
-      data: data(2.0),
+      data: data(1.24),
       result: baseResult,
       betInfo,
     };
-    const r = getBetDisplayFinancials(m, 2);
-    expect(r.potentialReturn).toBe(400);
-    expect(r.potentialProfit).toBe(300);
+    const r = getBetDisplayFinancials(m);
+    expect(r.potentialReturn).toBe(6.2);
+    expect(r.potentialProfit).toBe(1.2);
   });
 
   it('pendente usa odd da partida quando > 1', () => {
@@ -68,10 +68,31 @@ describe('getBetDisplayFinancials', () => {
     expect(r.potentialProfit).toBe(100);
   });
 
-  it('ganhou usa valores gravados na aposta', () => {
+  it('ganhou: ignora lucro/retorno legados e recalcula com odd da aposta (sem alavancagem)', () => {
+    const betInfo: BetInfo = {
+      betAmount: 5,
+      odd: 1.24,
+      potentialReturn: 8.06,
+      potentialProfit: 3.06,
+      bankPercentage: 10,
+      status: 'won',
+    };
+    const m: SavedAnalysis = {
+      id: '1',
+      timestamp: 1,
+      data: data(2.0),
+      result: baseResult,
+      betInfo,
+    };
+    const r = getBetDisplayFinancials(m);
+    expect(r.potentialReturn).toBe(6.2);
+    expect(r.potentialProfit).toBe(1.2);
+  });
+
+  it('ganhou sem odd gravada mantém valores persistidos', () => {
     const betInfo: BetInfo = {
       betAmount: 100,
-      odd: 1.5,
+      odd: 0,
       potentialReturn: 150,
       potentialProfit: 50,
       bankPercentage: 10,
@@ -80,7 +101,7 @@ describe('getBetDisplayFinancials', () => {
     const m: SavedAnalysis = {
       id: '1',
       timestamp: 1,
-      data: data(3.0),
+      data: data(2.0),
       result: baseResult,
       betInfo,
     };
@@ -100,7 +121,7 @@ describe('syncPendingBetInfoWithMatchOdd', () => {
       bankPercentage: 5,
       status: 'pending',
     };
-    const synced = syncPendingBetInfoWithMatchOdd(betInfo, 2.0, 1);
+    const synced = syncPendingBetInfoWithMatchOdd(betInfo, 2.0);
     expect(synced.odd).toBe(2);
     expect(synced.potentialReturn).toBe(80);
     expect(synced.potentialProfit).toBe(40);
@@ -115,7 +136,7 @@ describe('syncPendingBetInfoWithMatchOdd', () => {
       bankPercentage: 5,
       status: 'won',
     };
-    const synced = syncPendingBetInfoWithMatchOdd(betInfo, 2.0, 1);
+    const synced = syncPendingBetInfoWithMatchOdd(betInfo, 2.0);
     expect(synced).toEqual(betInfo);
   });
 });

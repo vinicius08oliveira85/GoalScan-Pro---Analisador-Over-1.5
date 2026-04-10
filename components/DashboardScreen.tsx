@@ -33,6 +33,7 @@ import {
   prepareResultDistributionData,
 } from '../utils/dashboardStats';
 import { getCurrencySymbol } from '../utils/currency';
+import { getBetDisplayFinancials } from '../utils/betFinancials';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
 import { getDisplayEV } from '../utils/betMetrics';
@@ -451,7 +452,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   const hasBet = match.betInfo && match.betInfo.betAmount > 0;
                   const profit =
                     hasBet && match.betInfo?.status === 'won'
-                      ? match.betInfo.potentialProfit
+                      ? getBetDisplayFinancials(match).potentialProfit
                       : hasBet && match.betInfo?.status === 'lost'
                         ? -match.betInfo.betAmount
                         : 0;

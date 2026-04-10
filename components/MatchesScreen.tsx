@@ -103,8 +103,6 @@ interface MatchesScreenProps {
   onAnalyzeResult?: (match: SavedAnalysis) => void;
   isLoading?: boolean;
   isUpdatingBetStatus?: boolean;
-  /** Alavancagem global da banca para projetar retorno/lucro nos cards (apostas pendentes). */
-  bankDefaultLeverage?: number;
   /** Código ISO da moeda da banca (ex.: BRL) para exibir símbolo nos cards. */
   bankCurrency?: string;
 }
@@ -118,7 +116,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
   onAnalyzeResult,
   isLoading = false,
   isUpdatingBetStatus = false,
-  bankDefaultLeverage,
   bankCurrency,
 }) => {
   const categoryCounts = useMemo(() => getCategoryCounts(savedMatches), [savedMatches]);
@@ -331,7 +328,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                     index={index}
                     onMatchClick={onMatchClick}
                     onDeleteMatch={onDeleteMatch}
-                    bankDefaultLeverage={bankDefaultLeverage}
                     bankCurrency={bankCurrency}
                   />
                 );
@@ -347,7 +343,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                     onUpdateBetStatus={onUpdateBetStatus}
                     onAnalyzeResult={onAnalyzeResult}
                     isUpdatingBetStatus={isUpdatingBetStatus}
-                    bankDefaultLeverage={bankDefaultLeverage}
                     bankCurrency={bankCurrency}
                   />
               );

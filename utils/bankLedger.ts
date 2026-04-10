@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import type { BetInfo, SavedAnalysis } from '../types';
 import { roundMoney2, sumMoneyValues } from './bankMoney';
+import { computeBetPayouts, getBetDisplayFinancials } from './betFinancials';
 
 export type BankCurvePoint = {
   date: string; // label (ex.: "12 jan" ou "Início")
@@ -75,7 +76,7 @@ export function computeNetCashDelta(savedMatches: SavedAnalysis[]): number {
     if (!bet || !(bet.betAmount > 0)) continue;
 
     if (bet.status === 'won') {
-      deltas.push(bet.potentialProfit);
+      deltas.push(getBetDisplayFinancials(match).potentialProfit);
     } else if (bet.status === 'lost' || bet.status === 'pending') {
       deltas.push(-bet.betAmount);
     }
@@ -108,7 +109,7 @@ export function buildBankCurve(
     counts[bet.status] += 1;
 
     if (bet.status === 'won') {
-      realizedProfitParts.push(bet.potentialProfit);
+      realizedProfitParts.push(getBetDisplayFinancials(match).potentialProfit);
       investedSettledParts.push(bet.betAmount);
     } else if (bet.status === 'lost') {
       realizedProfitParts.push(-bet.betAmount);
@@ -118,12 +119,16 @@ export function buildBankCurve(
     }
 
     const placedAt = getSafePlacedAt(match);
+    const payout =
+      bet.odd > 0 ? computeBetPayouts(bet.betAmount, bet.odd) : null;
+    const returnOnWin = payout?.potentialReturn ?? bet.potentialReturn;
+
     events.push({
       ts: placedAt,
       kind: 'place',
       matchId: match.id,
       amount: bet.betAmount,
-      potentialReturn: bet.potentialReturn,
+      potentialReturn: returnOnWin,
       status: bet.status,
     });
 
@@ -134,7 +139,7 @@ export function buildBankCurve(
         kind: 'settle',
         matchId: match.id,
         amount: bet.betAmount,
-        potentialReturn: bet.potentialReturn,
+        potentialReturn: returnOnWin,
         status: bet.status,
       });
     }
