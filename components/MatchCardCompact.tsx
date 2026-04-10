@@ -8,12 +8,16 @@ import { getRiskLevelFromProbability } from '../utils/risk';
 import { formatMatchDate, formatMatchTime, formatTimestampInBrasilia } from '../utils/dateFormatter';
 import { useChampionshipName } from '../hooks/useChampionshipName';
 import { calculateEVPercent } from '../utils/evDecimal';
+import { getBetDisplayFinancials } from '../utils/betFinancials';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface MatchCardCompactProps {
   match: SavedAnalysis;
   index: number;
   onMatchClick: (match: SavedAnalysis) => void;
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
+  bankDefaultLeverage?: number;
+  bankCurrency?: string;
 }
 
 const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
@@ -21,7 +25,10 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
   index,
   onMatchClick,
   onDeleteMatch,
+  bankDefaultLeverage,
+  bankCurrency,
 }) => {
+  const currencySymbol = getCurrencySymbol(bankCurrency ?? 'BRL');
   const getStatusColor = () => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
       if (match.betInfo.status === 'won') return 'border-l-2 border-success bg-success/5';
@@ -41,6 +48,11 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
     match.data.oddOver15 && match.data.oddOver15 > 1
       ? calculateEVPercent(probability, match.data.oddOver15)
       : match.result.ev;
+
+  const betMoney =
+    match.betInfo && match.betInfo.betAmount > 0
+      ? getBetDisplayFinancials(match, bankDefaultLeverage)
+      : null;
 
   const getRiskBadge = (risk: string) => {
     const colors = {
@@ -168,6 +180,23 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
               {match.data.oddOver15?.toFixed(2) || '-'}
             </div>
           </div>
+
+          {match.betInfo && match.betInfo.betAmount > 0 && betMoney && (
+            <div className="flex flex-col items-center min-w-[44px]">
+              <div className="text-xs font-semibold opacity-70 uppercase leading-tight">Stake</div>
+              <div className="text-sm font-black leading-none">{match.betInfo.betAmount.toFixed(0)}</div>
+              {match.betInfo.status === 'pending' && (
+                <div className="text-[10px] font-bold text-primary leading-tight mt-0.5 tabular-nums">
+                  {currencySymbol} {betMoney.potentialReturn.toFixed(0)}
+                </div>
+              )}
+              {match.betInfo.status === 'won' && (
+                <div className="text-[10px] font-bold text-success leading-tight mt-0.5 tabular-nums">
+                  +{currencySymbol} {betMoney.potentialProfit.toFixed(0)}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Status Badge */}
           {match.betInfo && match.betInfo.betAmount > 0 && (

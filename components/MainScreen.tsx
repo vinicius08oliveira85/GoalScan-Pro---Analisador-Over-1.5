@@ -28,6 +28,7 @@ import {
   formatTimestampInBrasilia,
 } from '../utils/dateFormatter';
 import { useChampionshipName } from '../hooks/useChampionshipName';
+import { getBetDisplayFinancials } from '../utils/betFinancials';
 
 // Componente de Empty State por categoria
 const EmptyStateByCategory: React.FC<{
@@ -378,6 +379,10 @@ const MainScreen: React.FC<MainScreenProps> = ({
               const statusConfig = getStatusConfig();
               const displayProb = getDisplayProbability(match);
               const riskLevel = getRiskLevelFromProbability(displayProb);
+              const betFin =
+                match.betInfo && match.betInfo.betAmount > 0
+                  ? getBetDisplayFinancials(match)
+                  : null;
 
               return (
                 <motion.div
@@ -610,10 +615,10 @@ const MainScreen: React.FC<MainScreenProps> = ({
                           >
                             {match.betInfo.status === 'won' && '+'}
                             {match.betInfo.status === 'won'
-                              ? match.betInfo.potentialProfit.toFixed(2)
+                              ? (betFin?.potentialProfit ?? 0).toFixed(2)
                               : match.betInfo.status === 'lost'
                                 ? `-${match.betInfo.betAmount.toFixed(2)}`
-                                : match.betInfo.potentialReturn.toFixed(2)}
+                                : (betFin?.potentialReturn ?? 0).toFixed(2)}
                           </div>
                         </div>
                       </div>

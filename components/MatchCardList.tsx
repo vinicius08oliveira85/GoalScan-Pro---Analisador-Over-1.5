@@ -23,6 +23,8 @@ import {
 } from '../utils/dateFormatter';
 import { useChampionshipName } from '../hooks/useChampionshipName';
 import { calculateEVPercent } from '../utils/evDecimal';
+import { getBetDisplayFinancials } from '../utils/betFinancials';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface MatchCardListProps {
   match: SavedAnalysis;
@@ -32,6 +34,8 @@ interface MatchCardListProps {
   onUpdateBetStatus?: (match: SavedAnalysis, status: 'won' | 'lost') => void;
   onAnalyzeResult?: (match: SavedAnalysis) => void;
   isUpdatingBetStatus?: boolean;
+  bankDefaultLeverage?: number;
+  bankCurrency?: string;
 }
 
 const MatchCardList: React.FC<MatchCardListProps> = ({
@@ -42,7 +46,14 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
   onUpdateBetStatus,
   onAnalyzeResult,
   isUpdatingBetStatus = false,
+  bankDefaultLeverage,
+  bankCurrency,
 }) => {
+  const currencySymbol = getCurrencySymbol(bankCurrency ?? 'BRL');
+  const betMoney =
+    match.betInfo && match.betInfo.betAmount > 0
+      ? getBetDisplayFinancials(match, bankDefaultLeverage)
+      : null;
   const getStatusConfig = () => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
       if (match.betInfo.status === 'won') {
@@ -207,6 +218,24 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
           <div className="flex flex-col items-center min-w-[60px]">
             <div className="text-[10px] font-semibold opacity-70 uppercase mb-1">Stake</div>
             <div className="text-lg font-black">{match.betInfo.betAmount.toFixed(2)}</div>
+          </div>
+        )}
+
+        {match.betInfo && match.betInfo.betAmount > 0 && betMoney && match.betInfo.status === 'pending' && (
+          <div className="flex flex-col items-center min-w-[58px]">
+            <div className="text-[10px] font-semibold opacity-70 uppercase mb-1">Retorno</div>
+            <div className="text-lg font-black text-primary tabular-nums">
+              {currencySymbol} {betMoney.potentialReturn.toFixed(2)}
+            </div>
+          </div>
+        )}
+
+        {match.betInfo && match.betInfo.betAmount > 0 && betMoney && match.betInfo.status === 'won' && (
+          <div className="flex flex-col items-center min-w-[52px]">
+            <div className="text-[10px] font-semibold opacity-70 uppercase mb-1">Lucro</div>
+            <div className="text-lg font-black text-success tabular-nums">
+              +{currencySymbol} {betMoney.potentialProfit.toFixed(2)}
+            </div>
           </div>
         )}
       </div>

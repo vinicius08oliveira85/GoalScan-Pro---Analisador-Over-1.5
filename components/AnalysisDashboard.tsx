@@ -26,6 +26,7 @@ import { getRiskLevelFromProbability } from '../utils/risk';
 import { getBothGoalsTooltip } from '../utils/probabilityTooltips';
 import { getOver15VerdictLabel } from './analysis/over15VerdictUi';
 import { cn } from '../utils/cn';
+import { getBetDisplayFinancials } from '../utils/betFinancials';
 
 export type AnalysisUiTab = 'dados' | 'stats' | 'verdict';
 
@@ -116,6 +117,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
         : result.ev,
     [displayProbability, data.oddOver15, result.ev]
   );
+
+  const betSummaryMoney = useMemo(() => {
+    if (!betInfo || betInfo.betAmount <= 0) return null;
+    return getBetDisplayFinancials(
+      { id: '_', timestamp: 0, data, result, betInfo },
+      bankSettings?.leverage
+    );
+  }, [betInfo, data.oddOver15, data, result, bankSettings?.leverage]);
   const kellyBankPercent = useMemo(() => {
     if (!data.oddOver15 || data.oddOver15 <= 1) return null;
     const frac = fractionalKellyBankFraction(
@@ -593,11 +602,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                           <div
                             className={`font-bold ${betInfo.status === 'won' ? 'text-success' : betInfo.status === 'lost' ? 'text-error' : 'text-primary'}`}
                           >
-                            {betInfo.status === 'won'
-                              ? `+${betInfo.potentialProfit.toFixed(2)}`
-                              : betInfo.status === 'lost'
-                                ? `-${betInfo.betAmount.toFixed(2)}`
-                                : betInfo.potentialReturn.toFixed(2)}
+                            {betSummaryMoney
+                              ? betInfo.status === 'won'
+                                ? `+${betSummaryMoney.potentialProfit.toFixed(2)}`
+                                : betInfo.status === 'lost'
+                                  ? `-${betInfo.betAmount.toFixed(2)}`
+                                  : betSummaryMoney.potentialReturn.toFixed(2)
+                              : null}
                           </div>
                         </div>
                       </div>

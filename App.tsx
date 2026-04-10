@@ -44,6 +44,7 @@ import { getCurrencySymbol } from './utils/currency';
 import { canCoverPendingBetStake, roundMoney2, decimalMoney } from './utils/bankMoney';
 import { logger } from './utils/logger';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
+import { syncPendingBetInfoWithMatchOdd } from './utils/betFinancials';
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
@@ -160,12 +161,23 @@ const App: React.FC = () => {
         let matchToSave: SavedAnalysis;
 
         // Se já existe uma partida selecionada, atualizar ela
+        const betInfoToSave =
+          selectedMatch?.betInfo &&
+          selectedMatch.betInfo.betAmount > 0 &&
+          selectedMatch.betInfo.status === 'pending'
+            ? syncPendingBetInfoWithMatchOdd(
+                selectedMatch.betInfo,
+                currentMatchData.oddOver15,
+                bankSettings?.leverage
+              )
+            : selectedMatch?.betInfo;
+
         if (selectedMatch) {
           matchToSave = {
             ...selectedMatch,
             data: currentMatchData,
             result: analysisResult,
-            betInfo: selectedMatch.betInfo, // Manter betInfo se existir
+            betInfo: betInfoToSave,
             selectedBets: selectedBets, // Incluir apostas selecionadas
             timestamp: Date.now(), // Atualizar timestamp
           };
@@ -176,7 +188,7 @@ const App: React.FC = () => {
             timestamp: Date.now(),
             data: currentMatchData,
             result: analysisResult,
-            betInfo: selectedMatch?.betInfo, // Incluir betInfo se existir
+            betInfo: betInfoToSave,
             selectedBets: selectedBets, // Incluir apostas selecionadas
           };
         }
@@ -225,8 +237,16 @@ const App: React.FC = () => {
       setIsUpdatingBetStatus(true);
 
       const oldBetInfo = match.betInfo;
+      const financialsBase =
+        oldBetInfo.status === 'pending'
+          ? syncPendingBetInfoWithMatchOdd(
+              oldBetInfo,
+              match.data.oddOver15,
+              bankSettings?.leverage
+            )
+          : oldBetInfo;
       const updatedBetInfo: BetInfo = {
-        ...oldBetInfo,
+        ...financialsBase,
         status,
         resultAt: Date.now(),
       };
@@ -676,6 +696,8 @@ const App: React.FC = () => {
                 onAnalyzeResult={handleOpenResultAnalysis}
                 isLoading={isLoading}
                 isUpdatingBetStatus={isUpdatingBetStatus}
+                bankDefaultLeverage={bankSettings?.leverage}
+                bankCurrency={bankSettings?.currency}
               />
             </motion.div>
           )}

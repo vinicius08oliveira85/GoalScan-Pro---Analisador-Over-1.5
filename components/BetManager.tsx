@@ -20,6 +20,7 @@ import { isInsufficientBankForBet, roundMoney2 } from '../utils/bankMoney';
 import { kellyConfidenceLevelPt, type KellyConfidenceLevelPt } from '../utils/bankCalculations';
 import Decimal from 'decimal.js';
 import { animations } from '../utils/animations';
+import { computeBetPayouts } from '../utils/betFinancials';
 import { useLeveragePlan } from '../hooks/useLeveragePlan';
 import { computeNextProgressionDay } from '../utils/leverageProgressionSync';
 
@@ -67,12 +68,11 @@ const BetManager: React.FC<BetManagerProps> = ({
   // Calcular alavancagem a ser usada (prioridade: BetInfo.leverage > BankSettings.leverage > 1.0)
   const effectiveLeverage = leverage ?? bankSettings?.leverage ?? 1.0;
 
-  // Calcular valores automaticamente com alavancagem
-  const potentialReturn =
+  // Calcular valores automaticamente com alavancagem (mesma fórmula que utils/betFinancials)
+  const { potentialReturn, potentialProfit } =
     betAmount > 0 && odd > 0
-      ? roundMoney2(new Decimal(betAmount).mul(odd).mul(effectiveLeverage))
-      : 0;
-  const potentialProfit = roundMoney2(new Decimal(potentialReturn).minus(betAmount));
+      ? computeBetPayouts(betAmount, odd, effectiveLeverage)
+      : { potentialReturn: 0, potentialProfit: 0 };
   const totalBank = bankSettings?.totalBank ?? 0;
   const hasBank = totalBank > 0;
   const insufficientBank =
