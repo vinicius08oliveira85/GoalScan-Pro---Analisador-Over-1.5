@@ -87,7 +87,9 @@ export const SkeletonMetricCard: React.FC<{ className?: string }> = ({ className
 );
 
 export const SkeletonMatchCard: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`custom-card p-4 md:p-6 space-y-4 ${className}`}>
+  <div
+    className={`space-y-4 rounded-3xl border border-white/10 bg-base-100/30 p-4 shadow-lg ring-1 ring-white/5 backdrop-blur-md dark:border-white/10 md:p-6 ${className}`}
+  >
     <div className="flex justify-between items-start">
       <div className="space-y-2 flex-1">
         <Skeleton variant="text" height={14} width="30%" />
