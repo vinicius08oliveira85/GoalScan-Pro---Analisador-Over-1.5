@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { SavedAnalysis } from '../types';
-import { TrendingUp, TrendingDown, Calendar, X, CheckCircle, XCircle, Clock, Trophy } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, CheckCircle, XCircle, Clock, Trophy, Trash2 } from 'lucide-react';
 import { cardHover } from '../utils/animations';
+import { cn } from '../utils/cn';
 import { getDisplayProbability, getSelectedProbabilityLabel } from '../utils/probability';
 import { getRiskLevelFromProbability } from '../utils/risk';
 import { formatMatchDate, formatMatchTime, formatTimestampInBrasilia } from '../utils/dateFormatter';
@@ -27,14 +28,14 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
   bankCurrency,
 }) => {
   const currencySymbol = getCurrencySymbol(bankCurrency ?? 'BRL');
-  const getStatusColor = () => {
+  const statusStripClass = (() => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
-      if (match.betInfo.status === 'won') return 'border-l-2 border-success bg-success/5';
-      if (match.betInfo.status === 'lost') return 'border-l-2 border-error bg-error/5';
-      if (match.betInfo.status === 'pending') return 'border-l-2 border-warning bg-warning/5';
+      if (match.betInfo.status === 'won') return 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.45)]';
+      if (match.betInfo.status === 'lost') return 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.4)]';
+      if (match.betInfo.status === 'pending') return 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.35)]';
     }
-    return 'border-l-2 border-primary bg-base-200/30';
-  };
+    return 'bg-primary/50 shadow-[0_0_8px_rgba(99,102,241,0.2)]';
+  })();
 
   const probability = getDisplayProbability(match);
   const selectedLabel = getSelectedProbabilityLabel(match.selectedBets);
@@ -65,6 +66,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
 
   return (
     <motion.div
+      layout
       key={match.id}
       onClick={() => onMatchClick(match)}
       custom={index}
@@ -73,14 +75,20 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
       whileHover="hover"
       whileTap="tap"
       variants={cardHover}
-      className={`group custom-card min-w-0 ${getStatusColor()} cursor-pointer p-2.5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/15`}
+      className={cn(
+        'group relative min-w-0 cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-base-100/40 p-2.5 pl-2 shadow-md shadow-black/5 ring-1 ring-white/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/15 dark:border-white/10 dark:bg-base-100/25'
+      )}
     >
-      <div className="flex min-w-0 items-center justify-between gap-2">
+      <span
+        className={cn('absolute bottom-2 left-0 top-2 w-1 rounded-full', statusStripClass)}
+        aria-hidden
+      />
+      <div className="flex min-w-0 items-center justify-between gap-2 pl-1.5">
         {/* Times - Compacto */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 text-xs font-semibold">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-xs font-black tracking-tight">
             <span className="truncate">{match.data.homeTeam}</span>
-            <span className="text-primary opacity-60 shrink-0">vs</span>
+            <span className="shrink-0 text-primary/70">vs</span>
             <span className="truncate">{match.data.awayTeam}</span>
           </div>
           {championshipName && (
@@ -130,7 +138,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           {/* Probabilidade */}
           <div className="flex flex-col items-center min-w-[50px]">
             <div className="text-xs font-semibold opacity-70 uppercase leading-tight">Prob</div>
-            <div className="text-sm font-black leading-none">{probability.toFixed(0)}%</div>
+            <div className="font-mono text-sm font-black tabular-nums leading-none">{probability.toFixed(0)}%</div>
             {selectedLabel && (
               <div className="text-[10px] font-semibold opacity-70 mt-0.5 text-center leading-tight">
                 {selectedLabel}
@@ -152,16 +160,13 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           <div className="flex flex-col items-center min-w-[45px]">
             <div className="text-xs font-semibold opacity-70 uppercase leading-tight">EV</div>
             <div
-              className={`text-sm font-black flex items-center gap-0.5 leading-none ${
-                displayEv > 0
-                  ? 'text-success'
-                  : displayEv < 0
-                    ? 'text-error'
-                    : 'opacity-50'
-              }`}
+              className={cn(
+                'flex items-center gap-0.5 font-mono text-sm font-black tabular-nums leading-none',
+                displayEv > 0 ? 'text-success' : displayEv < 0 ? 'text-error' : 'opacity-50'
+              )}
             >
-              {displayEv > 0 && <TrendingUp className="w-3.5 h-3.5" />}
-              {displayEv < 0 && <TrendingDown className="w-3.5 h-3.5" />}
+              {displayEv > 0 && <TrendingUp className="h-3.5 w-3.5 shrink-0" />}
+              {displayEv < 0 && <TrendingDown className="h-3.5 w-3.5 shrink-0" />}
               <span className="text-xs">
                 {displayEv > 0 ? '+' : ''}
                 {displayEv.toFixed(1)}%
@@ -172,7 +177,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           {/* Odd */}
           <div className="flex flex-col items-center min-w-[40px]">
             <div className="text-xs font-semibold opacity-70 uppercase leading-tight">Odd</div>
-            <div className="text-sm font-black text-primary leading-none">
+            <div className="font-mono text-sm font-black tabular-nums leading-none text-primary">
               {match.data.oddOver15?.toFixed(2) || '-'}
             </div>
           </div>
@@ -180,14 +185,14 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
           {match.betInfo && match.betInfo.betAmount > 0 && betMoney && (
             <div className="flex flex-col items-center min-w-[44px]">
               <div className="text-xs font-semibold opacity-70 uppercase leading-tight">Stake</div>
-              <div className="text-sm font-black leading-none">{match.betInfo.betAmount.toFixed(0)}</div>
+              <div className="font-mono text-sm font-black tabular-nums leading-none">{match.betInfo.betAmount.toFixed(0)}</div>
               {match.betInfo.status === 'pending' && (
-                <div className="text-[10px] font-bold text-primary leading-tight mt-0.5 tabular-nums">
+                <div className="mt-0.5 font-mono text-[10px] font-bold tabular-nums leading-tight text-primary">
                   {currencySymbol} {betMoney.potentialReturn.toFixed(0)}
                 </div>
               )}
               {match.betInfo.status === 'won' && (
-                <div className="text-[10px] font-bold text-success leading-tight mt-0.5 tabular-nums">
+                <div className="mt-0.5 font-mono text-[10px] font-bold tabular-nums leading-tight text-success">
                   +{currencySymbol} {betMoney.potentialProfit.toFixed(0)}
                 </div>
               )}
@@ -224,11 +229,12 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
 
           {/* Botão Delete */}
           <button
+            type="button"
             onClick={(e) => onDeleteMatch(e, match.id)}
-            className="opacity-0 group-hover:opacity-100 btn btn-xs btn-circle btn-ghost text-error hover:bg-error/20 transition-all flex-shrink-0 focus:opacity-100"
+            className="btn btn-circle btn-ghost btn-xs shrink-0 text-base-content/35 opacity-0 transition-all hover:bg-error/10 hover:text-error group-hover:opacity-100 focus:opacity-100"
             aria-label={`Remover partida ${match.data.homeTeam} vs ${match.data.awayTeam}`}
           >
-            <X className="w-3 h-3" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
