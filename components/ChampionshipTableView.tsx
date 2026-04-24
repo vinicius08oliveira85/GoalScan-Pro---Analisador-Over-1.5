@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChampionshipTable } from '../types';
 import { Search, ArrowUpDown } from 'lucide-react';
+import { cn } from '../utils/cn';
 
 interface ChampionshipTableViewProps {
   table: ChampionshipTable;
@@ -167,45 +168,46 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
 
   if (rows.length === 0) {
     return (
-      <div className="custom-card p-6 text-center">
-        <p className="text-base-content/60">Nenhum dado disponível nesta tabela.</p>
+      <div className="rounded-2xl border border-dashed border-white/15 bg-base-200/30 p-8 text-center backdrop-blur-sm">
+        <p className="text-sm text-base-content/60">Nenhum dado disponível nesta tabela.</p>
       </div>
     );
   }
 
   return (
-    <div className="custom-card p-4 md:p-6">
-      <div className="mb-4">
-        <h3 className="text-xl font-bold mb-2">{table.table_name}</h3>
+    <div className="rounded-2xl border border-white/10 bg-base-100/30 p-3 shadow-inner ring-1 ring-white/5 backdrop-blur-md dark:bg-base-100/20 sm:p-4 md:p-5">
+      <div className="mb-3 sm:mb-4">
+        <h3 className="mb-2 text-lg font-black tracking-tight sm:text-xl">{table.table_name}</h3>
         <div className="form-control">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-base-content/40" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/40" aria-hidden />
             <input
               type="text"
               placeholder="Buscar por equipe ou qualquer campo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input input-bordered w-full pl-10"
+              className="input input-bordered w-full rounded-2xl border-white/15 bg-base-200/50 pl-10 backdrop-blur-sm focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="table table-zebra w-full">
+      <div className="overflow-x-auto rounded-xl border border-white/10">
+        <table className="table table-sm w-full border-collapse">
           <thead>
-            <tr>
+            <tr className="border-b border-white/10 bg-base-200/40 text-[11px] uppercase tracking-wide dark:bg-base-200/25">
               {columns.map((column) => (
                 <th
                   key={column}
-                  className="cursor-pointer hover:bg-base-300 transition-colors"
+                  className="cursor-pointer border-b border-white/10 px-2 py-2.5 text-left font-black text-base-content/90 transition-colors hover:bg-primary/10 sm:px-3"
                   onClick={() => handleSort(column)}
                 >
-                  <div className="flex items-center gap-2">
-                    <span>{fieldTranslations[column] || column}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="leading-tight">{fieldTranslations[column] || column}</span>
                     {sortField === column && (
                       <ArrowUpDown
-                        className={`w-4 h-4 ${sortDirection === 'asc' ? '' : 'rotate-180'}`}
+                        className={cn('h-3.5 w-3.5 shrink-0 opacity-70', sortDirection === 'desc' && 'rotate-180')}
+                        aria-hidden
                       />
                     )}
                   </div>
@@ -215,21 +217,27 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
           </thead>
           <tbody>
             {filteredAndSortedRows.map((row) => {
-              // Usar Squad como chave primária (identificador único da linha)
               const squadKey = (row as Record<string, unknown>).Squad || `row-${Math.random()}`;
               return (
-                <tr key={squadKey} className="hover:bg-base-200">
+                <tr key={String(squadKey)} className="border-b border-white/5 transition-colors hover:bg-primary/5">
                   {columns.map((column) => {
                     const value = (row as Record<string, unknown>)[column];
                     const displayValue = value !== null && value !== undefined ? String(value) : '-';
+                    const numeric = column !== 'Squad' && parseNumberMaybe(value) != null;
+                    const cellClass = cn(
+                      'border-white/5 px-2 py-2 align-middle text-sm sm:px-3',
+                      numeric && 'font-mono text-xs tabular-nums text-base-content/90 sm:text-sm',
+                      !numeric && column !== 'Squad' && 'text-base-content/85',
+                      column === 'Squad' && 'font-semibold'
+                    );
 
-                    // Se for a coluna Squad e houver callback, tornar clicável
                     if (column === 'Squad' && onSquadSelect) {
                       return (
-                        <td key={column}>
+                        <td key={column} className={cellClass}>
                           <button
+                            type="button"
                             onClick={() => handleSquadClick(displayValue)}
-                            className="btn btn-link btn-sm p-0 h-auto min-h-0 text-primary hover:text-primary-focus"
+                            className="btn btn-link btn-sm h-auto min-h-0 p-0 font-semibold text-primary hover:text-primary-focus"
                           >
                             {displayValue}
                           </button>
@@ -237,7 +245,11 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
                       );
                     }
 
-                    return <td key={column}>{displayValue}</td>;
+                    return (
+                      <td key={column} className={cellClass}>
+                        {displayValue}
+                      </td>
+                    );
                   })}
                 </tr>
               );

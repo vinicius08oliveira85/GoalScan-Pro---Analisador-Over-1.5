@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Championship, ChampionshipTable, TableRowGeral, TableFormat } from '../types';
-import { Upload, X, Check, FileJson } from 'lucide-react';
+import { Upload, X, Check, FileJson, Sparkles, Zap } from 'lucide-react';
 import { animations } from '../utils/animations';
 import ChampionshipTableView from './ChampionshipTableView';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 import { parseAndNormalizeLeagueStandingJson } from '../utils/leagueStandingJson';
 import { isExcelFile, parseExcelToJson } from '../utils/excelParser';
+import { cn } from '../utils/cn';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -60,6 +61,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   };
 
   const handleJsonContent = (raw: string, source: string) => {
+    void source;
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -175,72 +177,106 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   return (
     <motion.form
       onSubmit={handleSubmit}
-      className="custom-card p-4 md:p-6 lg:p-8 flex flex-col gap-6"
+      className="relative flex flex-col gap-6"
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
     >
-      <h2 className="text-2xl font-bold">
+      <AnimatePresence>
+        {isSaving && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="overflow-hidden rounded-xl"
+            aria-busy="true"
+            aria-label="Sincronizando"
+          >
+            <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-base-300/50">
+              <motion.div
+                className="absolute inset-y-0 w-2/5 rounded-full bg-gradient-to-r from-primary via-secondary to-accent"
+                initial={{ x: '-120%' }}
+                animate={{ x: '320%' }}
+                transition={{ duration: 1.15, repeat: Infinity, ease: 'linear' }}
+              />
+            </div>
+            <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-widest text-base-content/50">
+              Sincronizando…
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <h2 className="text-xl font-black tracking-tight sm:text-2xl">
         {championship ? 'Editar Campeonato' : 'Novo Campeonato'}
       </h2>
 
       <div className="form-control">
-        <label className="label">
-          <span className="label-text font-bold">Nome do Campeonato</span>
+        <label className="label pb-1 pt-0" htmlFor="championship-nome">
+          <span className="label-text font-bold text-base-content/90">Nome do Campeonato</span>
         </label>
         <input
+          id="championship-nome"
           type="text"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
-          className="input input-bordered w-full"
+          className="input input-bordered w-full rounded-2xl border-white/15 bg-base-200/50 backdrop-blur-sm transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
           placeholder="Ex.: La Liga"
           required
         />
-        {errors.nome && <span className="text-error text-sm mt-1">{errors.nome}</span>}
+        {errors.nome && <span className="mt-1 text-sm text-error">{errors.nome}</span>}
       </div>
 
-      <div className="alert alert-info text-sm">
-        <div>
-          Importe <strong>uma única tabela</strong> em JSON ou Excel (primeira aba):{' '}
-          <code className="text-xs">Squad</code> obrigatório; totais <code className="text-xs">MP</code> /{' '}
-          <code className="text-xs">GF</code> / <code className="text-xs">GA</code> <em>ou</em> colunas{' '}
-          <code className="text-xs">Home …</code> e <code className="text-xs">Away …</code>. Colunas{' '}
-          <code className="text-xs">Lookup_*</code> viram colunas normais (# Pl, idade, posse, etc.). Prefixos
-          &quot;Club Crest&quot; nos nomes são removidos.
+      <div className="rounded-2xl border border-info/20 bg-info/10 p-3 text-xs leading-relaxed text-base-content/80 backdrop-blur-sm sm:p-4 sm:text-sm">
+        Importe <strong>uma única tabela</strong> em JSON ou Excel (primeira aba): <code className="rounded bg-base-200/60 px-1">Squad</code>{' '}
+        obrigatório; totais <code className="rounded bg-base-200/60 px-1">MP</code> / <code className="rounded bg-base-200/60 px-1">GF</code> /{' '}
+        <code className="rounded bg-base-200/60 px-1">GA</code> <em>ou</em> colunas <code className="rounded bg-base-200/60 px-1">Home …</code> e{' '}
+        <code className="rounded bg-base-200/60 px-1">Away …</code>. Colunas <code className="rounded bg-base-200/60 px-1">Lookup_*</code> viram
+        colunas normais. Prefixos &quot;Club Crest&quot; nos nomes são removidos.
+      </div>
+
+      <div
+        className={cn(
+          'rounded-3xl border border-white/10 p-4 shadow-inner shadow-primary/5 ring-1 ring-white/5',
+          'bg-gradient-to-br from-primary/20 via-base-100/40 to-secondary/20 backdrop-blur-xl dark:via-base-200/30'
+        )}
+      >
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-base-100/50 text-primary shadow-md dark:bg-base-100/30">
+            <Sparkles className="h-4 w-4" aria-hidden />
+          </span>
+          <Zap className="h-4 w-4 text-secondary opacity-90" aria-hidden />
+          <h3 className="text-base font-black tracking-tight text-base-content sm:text-lg">Extração automática</h3>
         </div>
-      </div>
+        <p className="mb-4 text-xs text-base-content/65 sm:text-sm">
+          Envie o arquivo da liga ou cole o JSON — a normalização roda localmente antes do envio ao servidor.
+        </p>
 
-      <div className="space-y-4">
-        <h3 className="text-xl font-bold">Classificação (JSON ou Excel)</h3>
-        <div className="border border-base-300 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
+        <div className="rounded-2xl border border-white/10 bg-base-100/35 p-3 backdrop-blur-md dark:bg-base-100/20 sm:p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="font-bold">Tabela da liga</span>
+              <span className="text-sm font-black sm:text-base">Classificação (JSON ou Excel)</span>
               {geralTable && (
-                <span className="badge badge-success gap-1">
-                  <Check className="w-3 h-3" />
+                <span className="badge badge-success gap-1 font-bold">
+                  <Check className="h-3 w-3" />
                   Carregada
                 </span>
               )}
             </div>
             {geralTable && (
-              <button
-                type="button"
-                onClick={() => setGeralTable(null)}
-                className="btn btn-sm btn-ghost"
-              >
-                <X className="w-4 h-4" />
+              <button type="button" onClick={() => setGeralTable(null)} className="btn btn-sm btn-ghost btn-circle" aria-label="Remover tabela">
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
 
           {!geralTable ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-bold flex items-center gap-2">
+                <label className="label pb-1 pt-0">
+                  <span className="label-text flex items-center gap-2 font-bold text-base-content/90">
                     Arquivo JSON ou Excel
-                    <FileJson className="w-4 h-4 text-secondary" />
+                    <FileJson className="h-4 w-4 text-secondary" aria-hidden />
                   </span>
                 </label>
                 <input
@@ -248,20 +284,20 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                   accept=".json,.xlsx,.xls,.xlsm,.csv,application/json"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file);
+                    if (file) void handleFileUpload(file);
                   }}
-                  className="file-input file-input-bordered w-full file-input-primary"
+                  className="file-input file-input-bordered file-input-primary w-full rounded-2xl border-white/15 bg-base-200/50 backdrop-blur-sm"
                 />
               </div>
 
-              <div className="divider">OU</div>
+              <div className="divider my-1 text-xs font-bold opacity-50">OU</div>
 
               <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-bold">Colar JSON</span>
+                <label className="label pb-1 pt-0">
+                  <span className="label-text font-bold text-base-content/90">Colar JSON</span>
                 </label>
                 <textarea
-                  className="textarea textarea-bordered h-40 font-mono text-sm"
+                  className="textarea textarea-bordered h-36 rounded-2xl border-white/15 bg-base-200/50 font-mono text-xs backdrop-blur-sm transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50 sm:h-40 sm:text-sm"
                   placeholder='[{"Rk":"1","Squad":"Barcelona","Home MP":"15","Home GF":"47",...}]'
                   onBlur={(e) => {
                     const v = e.target.value.trim();
@@ -270,7 +306,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
                 />
               </div>
 
-              {errors.geral && <span className="text-error text-sm">{errors.geral}</span>}
+              {errors.geral && <span className="text-sm text-error">{errors.geral}</span>}
             </div>
           ) : (
             <ChampionshipTableView table={geralTable} />
@@ -279,16 +315,39 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
       </div>
 
       {errors.submit && (
-        <div className="alert alert-error text-sm whitespace-pre-wrap">{errors.submit}</div>
+        <div className="alert alert-error rounded-2xl text-sm whitespace-pre-wrap">{errors.submit}</div>
       )}
 
-      <div className="flex gap-3 justify-end">
-        <button type="button" onClick={onCancel} className="btn btn-ghost">
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+        <motion.button
+          type="button"
+          onClick={onCancel}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="btn btn-ghost rounded-xl"
+          disabled={isSaving}
+        >
           Cancelar
-        </button>
-        <button type="submit" className="btn btn-primary" disabled={isSaving}>
-          {isSaving ? 'Salvando...' : 'Salvar'}
-        </button>
+        </motion.button>
+        <motion.button
+          type="submit"
+          whileHover={!isSaving ? { scale: 1.03 } : undefined}
+          whileTap={!isSaving ? { scale: 0.98 } : undefined}
+          className="btn btn-primary rounded-xl font-black shadow-lg shadow-primary/25 hover:shadow-xl"
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <>
+              <span className="loading loading-spinner loading-sm" />
+              Salvando…
+            </>
+          ) : (
+            <>
+              <Upload className="h-4 w-4" />
+              Salvar
+            </>
+          )}
+        </motion.button>
       </div>
     </motion.form>
   );
