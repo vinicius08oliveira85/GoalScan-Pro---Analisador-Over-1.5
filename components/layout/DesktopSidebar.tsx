@@ -18,11 +18,11 @@ interface DesktopSidebarProps {
 const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ activeTab, onTabChange }) => {
   return (
     <aside
-      className="hidden md:flex flex-col w-[220px] lg:w-56 shrink-0 sticky top-0 h-screen p-3 lg:p-4 rounded-none border-y-0 border-l-0 border-r border-base-content/10 dark:border-white/10 bg-base-100/65 dark:bg-base-100/40 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_-1px_0_0_rgba(0,0,0,0.06)] dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)]"
+      className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col rounded-none border-y-0 border-l-0 border-r border-white/10 bg-base-100/55 p-3 shadow-[inset_-1px_0_0_rgba(99,102,241,0.08)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/10 dark:bg-base-100/40 dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)] md:flex lg:w-56 lg:p-4"
       aria-label="Menu lateral"
     >
       <div className="flex items-center gap-2 px-2 py-3 mb-2">
-        <div className="w-9 h-9 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg shadow-lg shrink-0">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-secondary/80 text-lg font-black italic text-primary-content shadow-lg shadow-primary/25">
           G
         </div>
         <div className="min-w-0">
@@ -39,10 +39,10 @@ const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ activeTab, onTabChange 
               type="button"
               onClick={() => onTabChange(id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left font-semibold text-sm transition-colors focus-ring-sm min-h-[44px] ${
+              className={`flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-all duration-200 focus-ring-sm ${
                 isActive
-                  ? 'bg-primary text-primary-content shadow-md shadow-primary/20'
-                  : 'text-base-content/75 hover:bg-base-300/40'
+                  ? 'bg-primary text-primary-content shadow-lg shadow-primary/25'
+                  : 'text-base-content/75 hover:scale-[1.02] hover:bg-base-300/45'
               }`}
             >
               <Icon className="w-5 h-5 shrink-0" aria-hidden />
@@ -51,7 +51,7 @@ const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ activeTab, onTabChange 
           );
         })}
       </nav>
-      <p className="text-[10px] text-center text-base-content/40 px-2 pt-2">v3.8.2</p>
+      <p className="px-2 pt-2 text-center text-[10px] font-bold opacity-40">v3.8.2</p>
     </aside>
   );
 };

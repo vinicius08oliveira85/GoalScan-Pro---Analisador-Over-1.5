@@ -17,7 +17,7 @@ interface MobileBottomNavProps {
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange }) => {
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-[90] border-t border-base-300/50 bg-base-200/90 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 px-1 shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.12)]"
+      className="fixed inset-x-0 bottom-0 z-[90] border-t border-white/10 bg-base-200/75 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-8px_32px_-8px_rgba(99,102,241,0.12)] backdrop-blur-xl dark:border-white/10 md:hidden"
       aria-label="Navegação principal"
     >
       <div className="flex items-stretch justify-around max-w-lg mx-auto">
@@ -30,8 +30,10 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
               onClick={() => onTabChange(id)}
               aria-current={isActive ? 'page' : undefined}
               aria-label={label}
-              className={`flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[48px] min-w-0 rounded-xl py-1.5 transition-colors focus-ring-sm ${
-                isActive ? 'text-primary bg-primary/15' : 'text-base-content/60 active:bg-base-300/50'
+              className={`flex min-h-[48px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 transition-all duration-200 focus-ring-sm active:scale-[0.98] ${
+                isActive
+                  ? 'bg-primary/15 text-primary shadow-sm shadow-primary/15'
+                  : 'text-base-content/60 active:bg-base-300/50 md:hover:scale-[1.02] md:hover:bg-base-300/35'
               }`}
             >
               <Icon className="w-5 h-5 shrink-0" aria-hidden />

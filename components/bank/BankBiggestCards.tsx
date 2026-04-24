@@ -19,7 +19,7 @@ const BankBiggestCards: React.FC<BankBiggestCardsProps> = ({ biggestWin, biggest
           initial="initial"
           animate="animate"
           custom={9}
-          className="card bg-success/10 border border-success/20 p-4 md:p-6"
+          className="custom-card border border-success/25 bg-success/10 p-4 shadow-md shadow-success/10 backdrop-blur-sm md:p-6"
         >
           <div className="flex items-center gap-3 mb-2">
             <TrendingUp className="w-5 h-5 text-success" />
@@ -35,7 +35,7 @@ const BankBiggestCards: React.FC<BankBiggestCardsProps> = ({ biggestWin, biggest
           initial="initial"
           animate="animate"
           custom={10}
-          className="card bg-error/10 border border-error/20 p-4 md:p-6"
+          className="custom-card border border-error/25 bg-error/10 p-4 shadow-md shadow-error/10 backdrop-blur-sm md:p-6"
         >
           <div className="flex items-center gap-3 mb-2">
             <TrendingDown className="w-5 h-5 text-error" />

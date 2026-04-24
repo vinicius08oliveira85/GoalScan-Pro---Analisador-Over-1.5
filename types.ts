@@ -318,6 +318,21 @@ export interface BankSettings {
   updatedAt: number; // Última atualização
 }
 
+/** Linha de `bank_transactions` (Supabase). Campos opcionais dependem da versão da migração. */
+export interface BankTransaction {
+  id: number;
+  bet_id: string;
+  amount: number;
+  type: 'DEBIT' | 'CREDIT' | 'PROFIT';
+  balance_after?: number;
+  transaction_type?: string | null;
+  signed_delta?: number | null;
+  old_bank_balance?: number | null;
+  new_bank_balance?: number | null;
+  created_at: string;
+  description?: string | null;
+}
+
 export interface SavedAnalysis {
   id: string;
   timestamp: number;

@@ -193,18 +193,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
-      className="card bg-gradient-to-br from-primary/18 via-base-100 to-base-100 border-2 border-primary/35 shadow-xl ring-1 ring-base-content/10 p-6 md:p-10"
+      className="card border-2 border-primary/35 bg-gradient-to-br from-primary/22 via-base-100/90 to-base-100 p-6 shadow-2xl shadow-primary/20 ring-1 ring-white/10 backdrop-blur-xl dark:ring-white/10 md:p-10"
     >
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
         <div className="min-w-0 flex-1">
-          <p className="text-xs md:text-sm font-black uppercase tracking-widest text-base-content/70 mb-2">Saldo da banca</p>
+          <p className="mb-2 text-xs font-black uppercase tracking-widest opacity-60 md:text-sm">Saldo da banca</p>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 font-black text-primary leading-none">
             <span className="text-3xl sm:text-4xl tabular-nums shrink-0">{getCurrencySymbol(bankSettings.currency)}</span>
             <span className="text-5xl sm:text-6xl md:text-7xl tabular-nums tracking-tight break-all sm:break-normal">
               {stats.currentBank.toFixed(2)}
             </span>
           </div>
-          <p className="text-sm md:text-base text-base-content/70 mt-3 font-medium">Capital disponível para suas apostas</p>
+          <p className="mt-3 text-sm font-medium opacity-60 md:text-base">Capital disponível para suas apostas</p>
         </div>
         {bankTrendData.length > 1 && (
           <div className="w-full lg:w-[min(100%,280px)] h-[120px] shrink-0">
@@ -246,7 +246,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <>
           {bankSettings && BankHero}
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-base-content/55 mb-3">Resumo rápido</p>
+            <p className="mb-3 text-xs font-black uppercase tracking-widest opacity-60">Resumo rápido</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 md:gap-6">
             {statCardsFiltered.map((card, index) => {
@@ -267,7 +267,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   initial="initial"
                   animate="animate"
                   custom={index}
-                  className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
+                  className="custom-card p-4 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 md:p-6"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}>
@@ -284,13 +284,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     )}
                   </div>
                   <div>
-                    <p className="text-xs md:text-sm font-semibold text-base-content/70 uppercase tracking-wide mb-1.5 leading-tight">
+                    <p className="mb-1.5 text-xs font-black uppercase tracking-wide opacity-60 md:text-sm">
                       {card.title}
                     </p>
                     <p className={`text-2xl md:text-3xl font-black leading-none ${valueColor}`}>
                       {card.value}
                     </p>
-                    <p className="text-xs text-base-content/60 mt-1.5 leading-relaxed">{card.subtitle}</p>
+                    <p className="mt-1.5 text-xs leading-relaxed opacity-60">{card.subtitle}</p>
                   </div>
                 </motion.div>
               );
@@ -304,7 +304,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 initial="initial"
                 animate="animate"
                 className={cn(
-                  'card min-w-0 w-full overflow-hidden bg-base-100 shadow-sm border border-base-content/12 p-3 sm:p-4 md:p-6',
+                  'custom-card min-w-0 w-full overflow-hidden p-3 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 sm:p-4 md:p-6',
                   onlyOneMainChart && 'md:col-span-2 md:max-w-4xl md:justify-self-center'
                 )}
               >
@@ -373,7 +373,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 initial="initial"
                 animate="animate"
                 className={cn(
-                  'card min-w-0 w-full overflow-visible bg-base-100 shadow-sm border border-base-content/12 p-3 sm:p-4 md:p-6',
+                  'custom-card min-w-0 w-full overflow-visible p-3 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 sm:p-4 md:p-6',
                   onlyOneMainChart && 'md:col-span-2 md:max-w-4xl md:justify-self-center'
                 )}
               >
@@ -440,7 +440,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               variants={animations.fadeInUp}
               initial="initial"
               animate="animate"
-              className="card bg-base-100 shadow-sm border border-base-content/12 p-4 md:p-6"
+              className="custom-card p-4 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 md:p-6"
             >
               <SectionHeader
                 className="mb-4 md:mb-6"
@@ -538,7 +538,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          className="card bg-base-100 border-2 border-dashed border-base-300 p-12 md:p-16 flex flex-col items-center justify-center text-center"
+          className="custom-card flex flex-col items-center justify-center border-2 border-dashed border-base-content/20 p-12 text-center opacity-80 shadow-inner backdrop-blur-sm md:p-16"
         >
           <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center mb-6">
             <Activity className="w-12 h-12 md:w-16 md:h-16 text-primary opacity-60" />

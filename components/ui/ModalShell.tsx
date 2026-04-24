@@ -72,7 +72,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
             animate="animate"
             exit="exit"
             className={cn(
-              'pointer-events-auto fixed inset-0 bg-black/60 backdrop-blur-md',
+              'pointer-events-auto fixed inset-0 bg-black/55 backdrop-blur-lg',
               overlayClassName
             )}
             onClick={closeOnOverlayClick ? onClose : undefined}
@@ -85,7 +85,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
             animate="animate"
             exit="exit"
             className={cn(
-              'pointer-events-auto relative z-[1] mx-auto flex min-h-0 w-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/95 shadow-2xl',
+              'pointer-events-auto relative z-[1] mx-auto flex min-h-0 w-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-base-200/92 shadow-2xl shadow-primary/10 backdrop-blur-xl dark:border-white/10',
               panelClassName
             )}
             role="dialog"
@@ -94,7 +94,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
             {(title || showCloseButton) && (
               <div
                 className={cn(
-                  'sticky top-0 z-[2] flex shrink-0 items-center gap-3 border-b border-base-300/50 bg-base-200/95 p-4 backdrop-blur-sm',
+                  'sticky top-0 z-[2] flex shrink-0 items-center gap-3 border-b border-white/10 bg-base-200/95 p-4 backdrop-blur-xl dark:border-white/10',
                   headerClassName
                 )}
               >
@@ -110,7 +110,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="btn btn-xs btn-circle btn-ghost"
+                    className="btn btn-circle btn-ghost btn-xs ui-hover-rise"
                     aria-label="Fechar"
                   >
                     <X className="w-4 h-4" />

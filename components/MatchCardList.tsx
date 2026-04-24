@@ -111,7 +111,7 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
       whileHover="hover"
       whileTap="tap"
       variants={cardHover}
-      className={`group custom-card min-w-0 ${statusConfig.bg} ${statusConfig.border} flex cursor-pointer flex-col gap-4 p-4 transition-all duration-300 hover:shadow-xl md:flex-row md:items-center md:gap-6`}
+      className={`group custom-card min-w-0 ${statusConfig.bg} ${statusConfig.border} flex cursor-pointer flex-col gap-4 p-4 transition-all duration-300 hover:shadow-xl hover:shadow-primary/15 md:flex-row md:items-center md:gap-6`}
     >
       {/* Times e Data - Lado Esquerdo */}
       <div className="flex-1 min-w-0">

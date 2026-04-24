@@ -230,7 +230,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
           if (!prob) return null;
           const isInteractive = overUnderTab === 'combined';
           return (
-            <div key={line} className="card min-w-0 bg-base-200 p-3">
+            <div key={line} className="custom-card min-w-0 p-3 shadow-inner">
               <div className="text-xs font-bold text-base-content/70 mb-2">Linha {line} gols</div>
               <div
                 role={isInteractive ? 'button' : undefined}
@@ -544,7 +544,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="p-4 card bg-base-200 border-l-4 border-primary/60">
+                <div className="custom-card border-l-4 border-primary/60 p-4 shadow-md shadow-primary/10 backdrop-blur-md">
                   <p className="text-xs font-bold text-base-content/60 uppercase mb-1">Recomendação</p>
                   <p className="text-sm md:text-base text-base-content/95 leading-relaxed">&ldquo;{result.recommendation}&rdquo;</p>
                 </div>

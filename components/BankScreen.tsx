@@ -11,6 +11,7 @@ import BankStatsGrid from './bank/BankStatsGrid';
 import BankBiggestCards from './bank/BankBiggestCards';
 import BankEvolutionChart from './bank/BankEvolutionChart';
 import BankEmptyState from './bank/BankEmptyState';
+import BankTransactionHistory from './bank/BankTransactionHistory';
 
 interface BankScreenProps {
   bankSettings?: BankSettings;
@@ -76,6 +77,10 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
       <BankBiggestCards biggestWin={state.bankStats.biggestWin} biggestLoss={state.bankStats.biggestLoss} />
 
       <BankEvolutionChart data={state.bankEvolutionData} />
+
+      {bankSettings ? (
+        <BankTransactionHistory currencyCode={bankSettings.currency} />
+      ) : null}
 
       <BankEmptyState show={!bankSettings} />
     </div>

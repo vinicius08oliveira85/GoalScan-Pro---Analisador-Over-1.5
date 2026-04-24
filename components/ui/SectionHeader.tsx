@@ -23,11 +23,11 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          {icon ? <div className="text-base-content/70">{icon}</div> : null}
-          <h3 className="text-lg md:text-xl font-black tracking-tight leading-tight">{title}</h3>
+          {icon ? <div className="opacity-60">{icon}</div> : null}
+          <h3 className="text-lg font-black leading-tight tracking-tight md:text-xl">{title}</h3>
         </div>
         {subtitle ? (
-          <p className="mt-1 text-xs md:text-sm text-base-content/70 leading-relaxed">{subtitle}</p>
+          <p className="mt-1 text-xs leading-relaxed opacity-60 md:text-sm">{subtitle}</p>
         ) : null}
       </div>
       {actions ? <div className="flex items-center gap-2 flex-shrink-0">{actions}</div> : null}

@@ -73,7 +73,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
       whileHover="hover"
       whileTap="tap"
       variants={cardHover}
-      className={`group custom-card min-w-0 ${getStatusColor()} cursor-pointer p-2.5 transition-all duration-300 hover:shadow-lg`}
+      className={`group custom-card min-w-0 ${getStatusColor()} cursor-pointer p-2.5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/15`}
     >
       <div className="flex min-w-0 items-center justify-between gap-2">
         {/* Times - Compacto */}

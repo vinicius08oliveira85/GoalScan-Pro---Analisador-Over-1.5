@@ -5,6 +5,9 @@ import { Variants } from 'framer-motion';
  * Todas as animações respeitam prefers-reduced-motion para acessibilidade
  */
 
+const springEase = { type: 'spring' as const, stiffness: 300, damping: 28, mass: 0.85 };
+const springSoft = { type: 'spring' as const, stiffness: 260, damping: 26, mass: 0.9 };
+
 export const animations: {
   fadeInUp: Variants;
   fadeInDown: Variants;
@@ -14,48 +17,59 @@ export const animations: {
   staggerChildren: Variants;
 } = {
   fadeInUp: {
-    initial: { opacity: 0, y: 20 },
+    initial: { opacity: 0, y: 18 },
     animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 },
-    transition: { duration: 0.3, ease: 'easeOut' },
+    exit: { opacity: 0, y: -14 },
+    transition: springEase,
   },
 
   fadeInDown: {
-    initial: { opacity: 0, y: -20 },
+    initial: { opacity: 0, y: -18 },
     animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: 20 },
-    transition: { duration: 0.3, ease: 'easeOut' },
+    exit: { opacity: 0, y: 14 },
+    transition: springEase,
   },
 
   scaleIn: {
-    initial: { opacity: 0, scale: 0.9 },
+    initial: { opacity: 0, scale: 0.94 },
     animate: { opacity: 1, scale: 1 },
-    exit: { opacity: 0, scale: 0.9 },
-    transition: { type: 'spring', bounce: 0.4, duration: 0.5 },
+    exit: { opacity: 0, scale: 0.94 },
+    transition: { type: 'spring', bounce: 0.32, stiffness: 320, damping: 22 },
   },
 
   slideInRight: {
-    initial: { opacity: 0, x: 100 },
+    initial: { opacity: 0, x: 48 },
     animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: 100 },
-    transition: { type: 'spring', stiffness: 100, damping: 15 },
+    exit: { opacity: 0, x: 32 },
+    transition: springSoft,
   },
 
   slideInLeft: {
-    initial: { opacity: 0, x: -100 },
+    initial: { opacity: 0, x: -48 },
     animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -100 },
-    transition: { type: 'spring', stiffness: 100, damping: 15 },
+    exit: { opacity: 0, x: -32 },
+    transition: springSoft,
   },
 
   staggerChildren: {
+    initial: {},
     animate: {
       transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.1,
+        staggerChildren: 0.07,
+        delayChildren: 0.05,
+        when: 'beforeChildren',
       },
     },
+    exit: {},
   },
+};
+
+/** Transição das telas principais (App.tsx — troca de abas) */
+export const tabScreenTransition = {
+  type: 'spring' as const,
+  stiffness: 280,
+  damping: 28,
+  mass: 0.88,
 };
 
 /**
@@ -64,17 +78,17 @@ export const animations: {
 export const cardHover = {
   rest: {
     scale: 1,
-    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
-    transition: { type: 'spring', stiffness: 400, damping: 17 },
+    boxShadow: '0 8px 28px -8px rgba(99, 102, 241, 0.14)',
+    transition: { type: 'spring', stiffness: 420, damping: 28 },
   },
   hover: {
     scale: 1.02,
-    boxShadow: '0 20px 60px -15px hsl(var(--p) / 0.3)',
-    transition: { type: 'spring', stiffness: 400, damping: 17 },
+    boxShadow: '0 22px 52px -14px rgba(99, 102, 241, 0.28)',
+    transition: { type: 'spring', stiffness: 420, damping: 26 },
   },
   tap: {
-    scale: 0.98,
-    transition: { type: 'spring', stiffness: 400, damping: 17 },
+    scale: 0.99,
+    transition: { type: 'spring', stiffness: 500, damping: 32 },
   },
 };
 
@@ -82,20 +96,20 @@ export const cardHover = {
  * Variantes para toasts
  */
 export const toastVariants = {
-  initial: { opacity: 0, y: 50, scale: 0.3 },
+  initial: { opacity: 0, y: 36, scale: 0.92 },
   animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, scale: 0.5, y: -20 },
-  transition: { type: 'spring', stiffness: 300, damping: 30 },
+  exit: { opacity: 0, scale: 0.94, y: -16 },
+  transition: { type: 'spring', stiffness: 340, damping: 28, mass: 0.82 },
 };
 
 /**
  * Variantes para modais
  */
 export const modalVariants = {
-  initial: { opacity: 0, scale: 0.95, y: 20 },
+  initial: { opacity: 0, scale: 0.96, y: 24 },
   animate: { opacity: 1, scale: 1, y: 0 },
-  exit: { opacity: 0, scale: 0.95, y: 20 },
-  transition: { type: 'spring', bounce: 0.2, duration: 0.4 },
+  exit: { opacity: 0, scale: 0.96, y: 16 },
+  transition: { type: 'spring', stiffness: 300, damping: 28, mass: 0.9 },
 };
 
 /**
@@ -105,7 +119,7 @@ export const overlayVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1 },
   exit: { opacity: 0 },
-  transition: { duration: 0.2 },
+  transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
 };
 
 /**

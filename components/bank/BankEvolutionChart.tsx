@@ -42,7 +42,7 @@ const BankEvolutionChart: React.FC<BankEvolutionChartProps> = ({ data }) => {
       initial="initial"
       animate="animate"
       custom={11}
-      className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+      className="custom-card p-4 shadow-md shadow-primary/5 backdrop-blur-sm md:p-6"
     >
       <SectionHeader
         className="mb-4"

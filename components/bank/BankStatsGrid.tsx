@@ -75,7 +75,7 @@ const BankStatsGrid: React.FC<BankStatsGridProps> = ({ bankStats, startCustomInd
             initial="initial"
             animate="animate"
             custom={index + startCustomIndex}
-            className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+            className="custom-card p-4 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 md:p-6"
           >
             <div className="flex items-start justify-between mb-3">
               <div className={`p-3 rounded-xl ${styles.bg} border ${styles.border}`}>
