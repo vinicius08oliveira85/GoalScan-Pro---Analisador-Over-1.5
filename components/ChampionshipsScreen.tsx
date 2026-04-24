@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, Globe } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
@@ -8,6 +8,7 @@ import ChampionshipTableView from './ChampionshipTableView';
 import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
 import { animations } from '../utils/animations';
 import { cn } from '../utils/cn';
+import TableStatus, { getChampionshipDataFreshnessMs } from './ui/TableStatus';
 
 const ChampionshipCardSkeleton: React.FC = () => (
   <div className="rounded-3xl border border-white/10 bg-base-100/35 p-5 shadow-lg ring-1 ring-white/5 backdrop-blur-md dark:bg-base-100/20">
@@ -45,6 +46,11 @@ const ChampionshipsScreen: React.FC = () => {
     championship: Championship;
     tables: ChampionshipTable[];
   } | null>(null);
+
+  const tablePreviewFreshnessMs = useMemo(() => {
+    if (!viewingTables) return null;
+    return getChampionshipDataFreshnessMs(viewingTables.championship, viewingTables.tables);
+  }, [viewingTables]);
 
   const handleNewChampionship = () => {
     setEditingChampionship(null);
@@ -261,6 +267,20 @@ const ChampionshipsScreen: React.FC = () => {
                         </span>
                       )}
                     </div>
+                    {(championship.uploaded_at ??
+                      championship.updated_at ??
+                      championship.created_at) && (
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <TableStatus
+                          updatedAt={
+                            championship.uploaded_at ??
+                            championship.updated_at ??
+                            championship.created_at
+                          }
+                          className="shadow-inner"
+                        />
+                      </div>
+                    )}
                     <div className="space-y-1 text-[11px] leading-snug text-base-content/60 sm:text-xs">
                       <p>
                         Criado em{' '}
@@ -411,13 +431,36 @@ const ChampionshipsScreen: React.FC = () => {
               className={cn(modalShell, 'max-w-6xl')}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-base-100/90 px-4 py-3 backdrop-blur-xl dark:bg-base-200/85 sm:px-5">
-                <h2 className="min-w-0 truncate text-lg font-black sm:text-xl">
-                  Tabelas — {viewingTables.championship.nome}
-                </h2>
-                <button type="button" onClick={() => setViewingTables(null)} className="btn btn-sm btn-circle btn-ghost shrink-0" aria-label="Fechar">
-                  <X className="h-5 w-5" />
-                </button>
+              <div className="sticky top-0 z-10 border-b border-white/10 bg-base-100/90 px-4 py-3 backdrop-blur-xl dark:bg-base-200/85 sm:px-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-lg font-black tracking-tight sm:text-xl">
+                      Tabelas — {viewingTables.championship.nome}
+                    </h2>
+                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-base-content/45">
+                      Validade dos dados (motor Poisson)
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <TableStatus
+                        updatedAt={tablePreviewFreshnessMs ?? undefined}
+                        className="shadow-inner"
+                      />
+                      {!tablePreviewFreshnessMs && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-base-content/50">
+                          Sem data de referência
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setViewingTables(null)}
+                    className="btn btn-sm btn-circle btn-ghost shrink-0"
+                    aria-label="Fechar"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-6 p-4 sm:p-5">
                 {viewingTables.tables.length === 0 ? (

@@ -7,6 +7,7 @@ import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 import { updateChampionshipTableFormat } from '../services/championshipService';
 import { parseAndNormalizeLeagueStandingJson } from '../utils/leagueStandingJson';
 import { isExcelFile, parseExcelToJson } from '../utils/excelParser';
+import TableStatus, { getChampionshipDataFreshnessMs } from './ui/TableStatus';
 
 interface Props {
   championship: Championship;
@@ -151,26 +152,39 @@ export default function ChampionshipTableUpdateModal({
           </div>
         )}
 
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-base-100/60 px-4 py-3 backdrop-blur-md sm:px-5">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-secondary/20 ring-1 ring-white/10">
-              <FileJson className="h-5 w-5 text-secondary" aria-hidden />
+        <div className="sticky top-0 z-10 border-b border-white/10 bg-base-100/60 px-4 py-3 backdrop-blur-md sm:px-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-secondary/20 ring-1 ring-white/10">
+                <FileJson className="h-5 w-5 text-secondary" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-black tracking-tight sm:text-lg">
+                  Atualizar classificação
+                </h2>
+                <p className="truncate text-xs opacity-60">{championship.nome}</p>
+                <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-base-content/45">
+                  Dados atuais no servidor
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <TableStatus updatedAt={currentDataFreshnessMs ?? undefined} className="shadow-inner" />
+                  {!currentDataFreshnessMs && (
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-base-content/50">
+                      Sem referência de data
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h2 className="truncate text-base font-black tracking-tight sm:text-lg">
-                Atualizar classificação
-              </h2>
-              <p className="truncate text-xs opacity-60">{championship.nome}</p>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-sm btn-circle btn-ghost shrink-0 hover:bg-base-200/80"
+              aria-label="Fechar"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-sm btn-circle btn-ghost shrink-0 hover:bg-base-200/80"
-            aria-label="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         <div className="space-y-4 p-4 sm:p-5">
