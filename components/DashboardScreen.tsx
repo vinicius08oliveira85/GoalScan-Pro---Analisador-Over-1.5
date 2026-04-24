@@ -11,6 +11,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Hash,
+  Sparkles,
+  ChevronDown,
 } from 'lucide-react';
 import { formatTimestampInBrasilia } from '../utils/dateFormatter';
 import {
@@ -169,8 +171,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     },
   ];
 
+  const bankHeroMetricTitles = new Set(['Banca Atual', 'Lucro Total', 'Taxa de Acerto', 'ROI']);
   const statCardsFiltered = bankSettings
-    ? statCards.filter((c) => c.title !== 'Banca Atual')
+    ? statCards.filter((c) => !bankHeroMetricTitles.has(c.title))
     : statCards;
 
   type StatCardTone = 'primary' | 'success' | 'error' | 'warning' | 'info' | 'neutral';
@@ -188,26 +191,42 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return (tone in toneClasses ? tone : 'primary') as StatCardTone;
   };
 
-  const BankHero = bankSettings ? (
-    <motion.div
-      variants={animations.fadeInUp}
+  const bankHeroGlassCard =
+    'relative overflow-hidden rounded-3xl border border-white/10 bg-base-100/40 shadow-xl shadow-black/10 ring-1 ring-white/5 backdrop-blur-xl dark:border-white/10 dark:bg-base-100/25 dark:shadow-black/30';
+
+  const BankHeroMetricsGrid = bankSettings ? (
+    <motion.section
+      aria-label="Resumo da banca"
+      variants={animations.staggerChildren}
       initial="initial"
       animate="animate"
-      className="card border-2 border-primary/35 bg-gradient-to-br from-primary/22 via-base-100/90 to-base-100 p-6 shadow-2xl shadow-primary/20 ring-1 ring-white/10 backdrop-blur-xl dark:ring-white/10 md:p-10"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-5"
     >
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-        <div className="min-w-0 flex-1">
-          <p className="mb-2 text-xs font-black uppercase tracking-widest opacity-60 md:text-sm">Saldo da banca</p>
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 font-black text-primary leading-none">
-            <span className="text-3xl sm:text-4xl tabular-nums shrink-0">{getCurrencySymbol(bankSettings.currency)}</span>
-            <span className="text-5xl sm:text-6xl md:text-7xl tabular-nums tracking-tight break-all sm:break-normal">
-              {stats.currentBank.toFixed(2)}
-            </span>
+      <motion.div
+        variants={animations.fadeInUp}
+        className={cn(
+          bankHeroGlassCard,
+          'bg-gradient-to-br from-primary/12 via-base-100/35 to-transparent p-5 md:p-6'
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-primary/25 bg-primary/15 text-primary shadow-inner shadow-primary/10">
+                <Wallet className="h-7 w-7 md:h-8 md:w-8" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-widest text-base-content/60">Banca Atual</p>
+                <p className="mt-1 break-all text-2xl font-black tabular-nums leading-none text-primary sm:text-3xl md:break-normal">
+                  {getCurrencySymbol(bankSettings.currency)} {stats.currentBank.toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs font-medium leading-snug text-base-content/55 md:text-sm">Capital disponível</p>
           </div>
-          <p className="mt-3 text-sm font-medium opacity-60 md:text-base">Capital disponível para suas apostas</p>
         </div>
         {bankTrendData.length > 1 && (
-          <div className="w-full lg:w-[min(100%,280px)] h-[120px] shrink-0">
+          <div className="mt-4 h-[100px] w-full min-w-0 sm:h-[110px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={bankTrendData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                 <defs>
@@ -230,26 +249,118 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     return null;
                   }}
                 />
-                <Area type="monotone" dataKey="equity" stroke={chartColors.equity} strokeWidth={2} fill="url(#bankHeroTrend)" fillOpacity={1} />
+                <Area
+                  type="monotone"
+                  dataKey="equity"
+                  stroke={chartColors.equity}
+                  strokeWidth={2}
+                  fill="url(#bankHeroTrend)"
+                  fillOpacity={1}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
-      </div>
-    </motion.div>
+      </motion.div>
+
+      <motion.div
+        variants={animations.fadeInUp}
+        className={cn(
+          bankHeroGlassCard,
+          'via-base-100/35 to-transparent p-5 md:p-6 bg-gradient-to-br',
+          stats.totalProfit >= 0 ? 'from-success/12' : 'from-error/12'
+        )}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div
+            className={cn(
+              'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border shadow-inner',
+              stats.totalProfit >= 0
+                ? 'border-success/25 bg-success/15 text-success'
+                : 'border-error/25 bg-error/15 text-error'
+            )}
+          >
+            <DollarSign className="h-7 w-7 md:h-8 md:w-8" aria-hidden />
+          </div>
+          {stats.totalProfit > 0 ? (
+            <ArrowUpRight className="h-5 w-5 shrink-0 text-success" aria-hidden />
+          ) : stats.totalProfit < 0 ? (
+            <ArrowDownRight className="h-5 w-5 shrink-0 text-error" aria-hidden />
+          ) : null}
+        </div>
+        <p className="mt-4 text-xs font-black uppercase tracking-widest text-base-content/60">Lucro Total</p>
+        <p
+          className={cn(
+            'mt-2 text-2xl font-black tabular-nums leading-none sm:text-3xl',
+            stats.totalProfit > 0 ? 'text-success' : stats.totalProfit < 0 ? 'text-error' : 'text-base-content/80'
+          )}
+        >
+          {getCurrencySymbol(bankSettings.currency)} {stats.totalProfit.toFixed(2)}
+        </p>
+      </motion.div>
+
+      <motion.div
+        variants={animations.fadeInUp}
+        className={cn(
+          bankHeroGlassCard,
+          'bg-gradient-to-br from-secondary/12 via-base-100/35 to-transparent p-5 md:p-6'
+        )}
+      >
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-secondary/25 bg-secondary/15 text-secondary shadow-inner shadow-secondary/10">
+          <Target className="h-7 w-7 md:h-8 md:w-8" aria-hidden />
+        </div>
+        <p className="mt-4 text-xs font-black uppercase tracking-widest text-base-content/60">Taxa de Acerto</p>
+        <p className="mt-2 text-2xl font-black tabular-nums leading-none text-primary sm:text-3xl">{stats.winRate.toFixed(1)}%</p>
+        <p className="mt-2 text-xs font-medium text-base-content/55">Win rate</p>
+      </motion.div>
+
+      <motion.div
+        variants={animations.fadeInUp}
+        className={cn(
+          bankHeroGlassCard,
+          'via-base-100/35 to-transparent p-5 md:p-6 bg-gradient-to-br',
+          stats.roi >= 0 ? 'from-info/12' : 'from-error/12'
+        )}
+      >
+        <div
+          className={cn(
+            'flex h-14 w-14 items-center justify-center rounded-2xl border shadow-inner',
+            stats.roi >= 0 ? 'border-info/25 bg-info/15 text-info' : 'border-error/25 bg-error/15 text-error'
+          )}
+        >
+          <Percent className="h-7 w-7 md:h-8 md:w-8" aria-hidden />
+        </div>
+        <p className="mt-4 text-xs font-black uppercase tracking-widest text-base-content/60">ROI</p>
+        <p
+          className={cn(
+            'mt-2 text-2xl font-black tabular-nums leading-none sm:text-3xl',
+            stats.roi > 0 ? 'text-success' : stats.roi < 0 ? 'text-error' : 'text-base-content/80'
+          )}
+        >
+          {stats.roi > 0 ? '+' : ''}
+          {stats.roi.toFixed(1)}%
+        </p>
+        <p className="mt-2 text-xs font-medium text-base-content/55">Return on Investment</p>
+      </motion.div>
+    </motion.section>
   ) : null;
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
-      {bankSettings && savedMatches.length === 0 && BankHero}
+      {bankSettings && savedMatches.length === 0 && BankHeroMetricsGrid}
       {savedMatches.length > 0 ? (
         <>
-          {bankSettings && BankHero}
+          {bankSettings && BankHeroMetricsGrid}
           <div>
             <p className="mb-3 text-xs font-black uppercase tracking-widest opacity-60">Resumo rápido</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 md:gap-6">
-            {statCardsFiltered.map((card, index) => {
+          <motion.div
+            variants={animations.staggerChildren}
+            initial="initial"
+            animate="animate"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 md:gap-6"
+          >
+            {statCardsFiltered.map((card) => {
               const Icon = card.icon;
               const tone = getTone(card.color);
               const toneClass = toneClasses[tone];
@@ -264,10 +375,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <motion.div
                   key={card.title}
                   variants={animations.fadeInUp}
-                  initial="initial"
-                  animate="animate"
-                  custom={index}
-                  className="custom-card p-4 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 md:p-6"
+                  className="custom-card rounded-3xl border border-white/10 bg-base-100/35 p-4 shadow-lg shadow-black/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-xl hover:shadow-primary/10 dark:border-white/10 dark:bg-base-100/20 md:p-6"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}>
@@ -295,7 +403,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </motion.div>
               );
             })}
-          </div>
+          </motion.div>
 
           <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:gap-8 md:grid-cols-2">
             {showBankEvolutionChart && (
@@ -304,7 +412,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 initial="initial"
                 animate="animate"
                 className={cn(
-                  'custom-card min-w-0 w-full overflow-hidden p-3 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 sm:p-4 md:p-6',
+                  'min-w-0 w-full overflow-hidden rounded-3xl border border-white/10 bg-base-100/30 p-3 shadow-2xl shadow-primary/10 ring-1 ring-white/5 backdrop-blur-xl transition-shadow duration-300 hover:shadow-2xl hover:shadow-primary/15 dark:border-white/10 dark:bg-base-100/20 sm:p-4 md:p-6',
                   onlyOneMainChart && 'md:col-span-2 md:max-w-4xl md:justify-self-center'
                 )}
               >
@@ -373,7 +481,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 initial="initial"
                 animate="animate"
                 className={cn(
-                  'custom-card min-w-0 w-full overflow-visible p-3 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 sm:p-4 md:p-6',
+                  'min-w-0 w-full overflow-visible rounded-3xl border border-white/10 bg-base-100/30 p-3 shadow-2xl shadow-primary/10 ring-1 ring-white/5 backdrop-blur-xl transition-shadow duration-300 hover:shadow-2xl hover:shadow-primary/15 dark:border-white/10 dark:bg-base-100/20 sm:p-4 md:p-6',
                   onlyOneMainChart && 'md:col-span-2 md:max-w-4xl md:justify-self-center'
                 )}
               >
@@ -440,14 +548,14 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               variants={animations.fadeInUp}
               initial="initial"
               animate="animate"
-              className="custom-card p-4 transition-shadow duration-300 hover:shadow-xl hover:shadow-primary/10 md:p-6"
+              className="rounded-3xl border border-white/10 bg-base-100/30 p-4 shadow-xl shadow-black/5 ring-1 ring-white/5 backdrop-blur-xl dark:border-white/10 dark:bg-base-100/20 md:p-6"
             >
               <SectionHeader
                 className="mb-4 md:mb-6"
                 title="Partidas recentes"
                 subtitle="Abra cada jogo para ver detalhes — use o botão para ir à análise completa"
               />
-              <div className="flex flex-col gap-2 md:gap-3">
+              <div className="flex flex-col gap-3 md:gap-4">
                 {recentMatches.map((match) => {
                   const hasBet = match.betInfo && match.betInfo.betAmount > 0;
                   const profit =
@@ -458,39 +566,72 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         : 0;
                   const displayEv = getDisplayEV(match);
                   const isOpen = expandedMatchId === match.id;
+                  const betStatus = match.betInfo?.status;
+                  const statusBarClass =
+                    hasBet && betStatus === 'won'
+                      ? 'bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.65)]'
+                      : hasBet && betStatus === 'lost'
+                        ? 'bg-rose-500 shadow-[0_0_16px_rgba(244,63,94,0.55)]'
+                        : hasBet && (betStatus === 'pending' || betStatus === 'cancelled')
+                          ? 'bg-amber-400/90 shadow-[0_0_12px_rgba(251,191,36,0.45)]'
+                          : 'bg-base-content/20';
 
                   return (
-                    <div
+                    <motion.div
                       key={match.id}
-                      className="collapse collapse-arrow rounded-xl border border-base-content/15 bg-base-200/80 shadow-sm"
+                      className="overflow-hidden rounded-2xl border border-white/10 bg-base-200/50 shadow-md transition-all duration-200 hover:-translate-y-1 hover:border-primary/25 hover:bg-primary/5 hover:shadow-lg dark:border-white/10 dark:bg-base-200/40"
                     >
-                      <input
-                        type="checkbox"
-                        checked={isOpen}
-                        onChange={(e) => setExpandedMatchId(e.target.checked ? match.id : null)}
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMatchId(isOpen ? null : match.id)}
                         aria-expanded={isOpen}
                         aria-controls={`recent-match-${match.id}`}
-                        className="min-h-0"
-                      />
-                      <div className="collapse-title py-3 md:py-4 pr-10 text-left font-bold text-sm md:text-base leading-snug">
-                        <span className="line-clamp-2">
-                          {match.data.homeTeam}{' '}
-                          <span className="text-primary font-black">vs</span> {match.data.awayTeam}
-                        </span>
-                        <span className="mt-1 flex flex-wrap items-center gap-2 font-normal">
-                          <span className="text-xs text-base-content/60">{formatTimestampInBrasilia(match.timestamp)}</span>
-                          <span
-                            className={`badge badge-sm font-bold tabular-nums ${displayEv > 0 ? 'badge-success' : displayEv < 0 ? 'badge-error' : 'badge-ghost'}`}
-                          >
-                            EV {displayEv > 0 ? '+' : ''}
-                            {displayEv.toFixed(1)}%
-                          </span>
-                        </span>
-                      </div>
-                      <div className="collapse-content" id={`recent-match-${match.id}`}>
-                        <div className="pb-4 pt-0 border-t border-base-content/10 mt-0">
-                          <p className="text-xs text-base-content/65 mb-3">Resumo da análise salva</p>
-                          <div className="flex flex-wrap gap-2 mb-3">
+                        className="flex w-full min-w-0 items-stretch gap-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                      >
+                        <span
+                          className={cn('w-1.5 shrink-0 self-stretch rounded-full', statusBarClass)}
+                          aria-hidden
+                        />
+                        <div className="flex min-w-0 flex-1 flex-col gap-1 py-3 pl-3 pr-2 sm:flex-row sm:items-center sm:gap-3 sm:py-3.5 sm:pl-4">
+                          <div className="min-w-0 flex-1">
+                            <span className="line-clamp-2 text-sm font-bold leading-snug md:text-base">
+                              {match.data.homeTeam}{' '}
+                              <span className="font-black text-primary">vs</span> {match.data.awayTeam}
+                            </span>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <span className="text-xs text-base-content/60">{formatTimestampInBrasilia(match.timestamp)}</span>
+                              <span
+                                className={`badge badge-sm font-bold tabular-nums ${displayEv > 0 ? 'badge-success' : displayEv < 0 ? 'badge-error' : 'badge-ghost'}`}
+                              >
+                                EV {displayEv > 0 ? '+' : ''}
+                                {displayEv.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2 self-center sm:flex-col sm:items-end">
+                            {hasBet ? (
+                              <span
+                                className={`badge badge-sm font-black uppercase tracking-wide ${betStatus === 'won' ? 'border border-emerald-400/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : betStatus === 'lost' ? 'border border-rose-400/50 bg-rose-500/15 text-rose-600 dark:text-rose-400' : 'badge-warning'}`}
+                              >
+                                {betStatus === 'won' ? 'Ganhou' : betStatus === 'lost' ? 'Perdeu' : 'Pendente'}
+                              </span>
+                            ) : (
+                              <span className="badge badge-sm badge-ghost font-semibold">Sem aposta</span>
+                            )}
+                            <ChevronDown
+                              className={cn(
+                                'h-5 w-5 shrink-0 text-base-content/50 transition-transform duration-200',
+                                isOpen && 'rotate-180'
+                              )}
+                              aria-hidden
+                            />
+                          </div>
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-base-content/10 px-3 pb-4 pt-3 sm:px-4" id={`recent-match-${match.id}`}>
+                          <p className="mb-3 text-xs text-base-content/65">Resumo da análise salva</p>
+                          <div className="mb-3 flex flex-wrap gap-2">
                             <span className="badge badge-ghost badge-sm font-mono tabular-nums">
                               Odd {match.data.oddOver15?.toFixed(2) || '—'}
                             </span>
@@ -502,16 +643,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             </span>
                             {hasBet ? (
                               <span
-                                className={`badge badge-sm ${match.betInfo?.status === 'won' ? 'badge-success' : match.betInfo?.status === 'lost' ? 'badge-error' : 'badge-warning'}`}
+                                className={`badge badge-sm ${betStatus === 'won' ? 'badge-success' : betStatus === 'lost' ? 'badge-error' : 'badge-warning'}`}
                               >
-                                {match.betInfo?.status === 'won' ? 'Ganhou' : match.betInfo?.status === 'lost' ? 'Perdeu' : 'Pendente'}
+                                {betStatus === 'won' ? 'Ganhou' : betStatus === 'lost' ? 'Perdeu' : 'Pendente'}
                               </span>
                             ) : (
                               <span className="badge badge-sm badge-ghost">Sem aposta</span>
                             )}
                           </div>
                           <p
-                            className={`text-sm font-bold tabular-nums mb-4 ${profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : 'text-base-content/55'}`}
+                            className={`mb-4 text-sm font-bold tabular-nums ${profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : 'text-base-content/55'}`}
                           >
                             {profit !== 0
                               ? `${profit > 0 ? 'Lucro +' : 'Prejuízo '}${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${Math.abs(profit).toFixed(2)}`
@@ -525,8 +666,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             Abrir análise
                           </button>
                         </div>
-                      </div>
-                    </div>
+                      )}
+                    </motion.div>
                   );
                 })}
               </div>
@@ -538,13 +679,21 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          className="custom-card flex flex-col items-center justify-center border-2 border-dashed border-base-content/20 p-12 text-center opacity-80 shadow-inner backdrop-blur-sm md:p-16"
+          className="relative flex flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-base-content/15 bg-base-100/25 p-12 text-center shadow-inner shadow-primary/5 backdrop-blur-xl dark:border-base-content/20 dark:bg-base-100/15 md:p-16"
         >
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center mb-6">
-            <Activity className="w-12 h-12 md:w-16 md:h-16 text-primary opacity-60" />
+          <svg
+            className="pointer-events-none absolute inset-0 mx-auto w-[min(100%,28rem)] opacity-[0.07]"
+            viewBox="0 0 320 200"
+            aria-hidden
+          >
+            <ellipse cx="160" cy="100" rx="120" ry="72" fill="none" stroke="currentColor" strokeWidth="1" />
+            <ellipse cx="160" cy="100" rx="88" ry="52" fill="none" stroke="currentColor" strokeWidth="1" />
+          </svg>
+          <div className="relative mb-6 flex h-28 w-28 items-center justify-center rounded-full border border-primary/25 bg-gradient-to-br from-primary/12 to-secondary/10 shadow-lg shadow-primary/10 md:h-36 md:w-36">
+            <Sparkles className="h-14 w-14 text-primary opacity-35 md:h-[4.5rem] md:w-[4.5rem]" strokeWidth={1.25} aria-hidden />
           </div>
-          <h3 className="text-2xl md:text-3xl font-black mb-3 text-base-content">Nenhuma Partida Ainda</h3>
-          <p className="text-sm md:text-base text-base-content/70 max-w-md">
+          <h3 className="relative text-2xl font-black text-base-content md:text-3xl">Nenhuma Partida Ainda</h3>
+          <p className="relative mt-3 max-w-md text-sm text-base-content/70 md:text-base">
             Comece criando análises de partidas para ver estatísticas e gráficos aqui.
           </p>
         </motion.div>

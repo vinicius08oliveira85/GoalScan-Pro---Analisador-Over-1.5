@@ -451,7 +451,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-base-100/55 shadow-lg shadow-primary/5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/10 dark:bg-base-200/45 dark:shadow-primary/10 pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-base-100/65 shadow-lg shadow-primary/5 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-base-200/50 dark:shadow-primary/10 pt-[env(safe-area-inset-top)]">
         <div className="app-container py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-secondary/90 text-lg font-black italic text-primary-content shadow-lg shadow-primary/25 md:h-10 md:w-10 md:text-xl">
@@ -478,7 +478,7 @@ const App: React.FC = () => {
                 </div>
               )}
               {bankSettings && (
-                <div className="flex items-center gap-1 rounded-xl border border-secondary/20 bg-secondary/10 px-2 py-1 text-[10px] font-bold text-secondary shadow-sm shadow-secondary/10 backdrop-blur-sm">
+                <div className="flex items-center gap-1 rounded-xl border border-secondary/30 bg-secondary/15 px-2 py-1 text-[10px] font-bold text-secondary shadow-lg shadow-secondary/5 backdrop-blur-md">
                   <Wallet className="h-3 w-3 shrink-0" aria-hidden />
                   <span className="tabular-nums">{getCurrencySymbol(bankSettings.currency)}{bankSettings.totalBank.toFixed(0)}</span>
                 </div>
@@ -509,14 +509,14 @@ const App: React.FC = () => {
                 </div>
               )}
               {bankSettings && (
-                <div className="flex items-center gap-2 rounded-xl border border-secondary/20 bg-secondary/10 px-3 py-1.5 shadow-md shadow-secondary/15 backdrop-blur-sm">
+                <div className="flex items-center gap-2 rounded-2xl border border-secondary/30 bg-secondary/15 px-4 py-2 shadow-xl shadow-secondary/10 backdrop-blur-md transition-all hover:scale-105">
                   <Wallet className="h-3 w-3 text-secondary" />
-                  <span className="text-xs font-bold text-secondary">
+                  <span className="text-sm font-black text-secondary tracking-tight">
                     {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(0)}
                   </span>
                 </div>
               )}
-              <span className="badge badge-outline badge-sm border-white/15 font-black shadow-sm shadow-primary/10">v3.8.2 Elite Edition</span>
+              <span className="badge badge-primary badge-outline badge-sm border-white/20 font-black shadow-lg shadow-primary/5 px-3 py-3 uppercase tracking-tighter">v3.8.2 ELITE</span>
             </div>
           </div>
         </div>
