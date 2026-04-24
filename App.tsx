@@ -606,7 +606,7 @@ const App: React.FC = () => {
       <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
 
-      {/* Modal de Análise */}
+      {/* Modal de Análise — flex col + scroll isolado no filho (basis-0) para rolagem confiável em mobile/desktop */}
       <ModalShell
         isOpen={showAnalysisModal}
         onClose={handleCloseAnalysis}
@@ -615,11 +615,12 @@ const App: React.FC = () => {
         showCloseButton={false}
         bodyLayout="fill"
         overlayClassName="bg-black/55 backdrop-blur-md"
-        panelClassName="box-border flex min-h-0 min-w-0 h-[min(92vh,calc(100dvh-2rem))] w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-base-200/90 shadow-2xl shadow-primary/15 backdrop-blur-xl dark:border-white/10 md:h-[92vh] md:max-h-[92vh]"
+        containerClassName="box-border px-[max(0.75rem,env(safe-area-inset-left))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-4 md:px-6"
+        panelClassName="box-border flex h-[min(92dvh,calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] min-h-0 w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-base-200/90 shadow-2xl shadow-primary/15 backdrop-blur-xl dark:border-white/10 md:h-[min(92vh,calc(100dvh-2rem))] md:max-h-[min(92vh,calc(100dvh-2rem))]"
         bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0"
       >
-        {/* Header do Modal — fora da área com scroll; fundo opaco para não vazar conteúdo */}
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-base-200/95 p-4 backdrop-blur-xl dark:border-white/10 md:px-6">
+        {/* Header: shrink-0 + z acima do corpo rolável; blur sólido evita “vazamento” do glass por baixo */}
+        <div className="relative z-[5] flex shrink-0 items-center justify-between border-b border-white/10 bg-base-200/95 p-4 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               type="button"
@@ -645,9 +646,11 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Corpo: única região com scroll vertical; min-h-0 permite encolher dentro do flex pai */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [-webkit-overflow-scrolling:touch] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6">
-          <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-6xl flex-col gap-6">
+        {/* Corpo: única região com scroll (flex-1 + basis-0 + min-h-0); gutter estável + thumb visível (webkit / thin) */}
+        <div
+          className="relative z-0 flex min-h-0 min-w-0 flex-1 basis-0 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch] [scrollbar-color:rgb(148_163_184/0.45)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin] p-4 pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] md:p-6 md:pb-8 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-base-content/25 [&::-webkit-scrollbar-track]:bg-transparent dark:[scrollbar-color:rgb(148_163_184/0.35)_transparent]"
+        >
+          <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-6xl flex-col gap-6 pb-2">
               <div className="flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-lg font-black">
                   <span className="h-6 w-2 rounded-full bg-gradient-to-b from-secondary to-primary shadow-sm shadow-primary/20" />
@@ -705,11 +708,14 @@ const App: React.FC = () => {
               </div>
 
               {analysisModalTab === 'dados' && (
-                <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
+                <div className="min-h-0 w-full">
+                  <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
+                </div>
               )}
 
               {analysisResult && currentMatchData && (analysisModalTab === 'stats' || analysisModalTab === 'verdict') && (
                 <Suspense fallback={<AnalysisDashboardSkeleton />}>
+                  <div className="min-h-0 w-full">
                   <AnalysisDashboard
                     result={analysisResult}
                     data={currentMatchData}
@@ -726,6 +732,7 @@ const App: React.FC = () => {
                     savedMatch={selectedMatch}
                     analysisUiTab={analysisModalTab}
                   />
+                  </div>
                 </Suspense>
               )}
 
