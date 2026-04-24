@@ -96,7 +96,7 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
       </div>
 
       {/* Filtros sempre visíveis, lado a lado */}
-      <div className="custom-card min-w-0 border border-base-300/50 p-4 md:p-6">
+      <div className="custom-card min-w-0 border border-white/10 p-4 shadow-inner shadow-primary/5 backdrop-blur-md dark:border-white/10 md:p-6">
         <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end md:gap-6">
           {/* Filtro por Campeonato */}
           <div className="flex-1 min-w-0 w-full sm:w-auto">
@@ -107,7 +107,7 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
             <select
               value={filterState.championshipId || ''}
               onChange={(e) => handleFilterChange('championshipId', e.target.value || undefined)}
-              className="select select-bordered w-full bg-base-200/50 border-base-300/50 focus:border-primary"
+              className="select select-bordered h-11 min-h-[2.75rem] w-full border-white/15 bg-base-100/50 backdrop-blur-md dark:border-white/10"
             >
               <option value="">Todos os campeonatos</option>
               {championships.map((champ) => (
@@ -129,12 +129,12 @@ const MatchFilters: React.FC<MatchFiltersProps> = ({
                 type="date"
                 value={filterState.selectedDate || ''}
                 onChange={(e) => handleFilterChange('selectedDate', e.target.value || undefined)}
-                className="input input-bordered flex-1 bg-base-200/50 border-base-300/50 focus:border-primary"
+                className="input input-bordered h-11 min-h-[2.75rem] flex-1 border-white/15 bg-base-100/50 backdrop-blur-md dark:border-white/10"
               />
               {filterState.selectedDate && (
                 <button
                   onClick={() => handleFilterChange('selectedDate', undefined)}
-                  className="btn btn-sm btn-circle btn-ghost text-error hover:bg-error/10"
+                  className="btn btn-circle btn-ghost btn-sm text-error ui-hover-rise hover:bg-error/10"
                   aria-label="Limpar data"
                 >
                   <X className="w-4 h-4" />

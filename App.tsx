@@ -20,31 +20,23 @@ import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
+import { useBankTransactions } from './hooks/useBankTransactions';
 import { Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
 
 // Lazy loading de componentes pesados para code splitting
 const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 
+import { tabScreenTransition } from './utils/animations';
 import { performAnalysis } from './services/analysisEngine';
 import {
   MatchData,
   AnalysisResult,
   SavedAnalysis,
   BankSettings as BankSettingsType,
-  BetInfo,
   SelectedBet,
   MatchResultAnalysis,
 } from './types';
-import {
-  computeBankDifferenceForBetSave,
-  computeNextTotalBank,
-  ledgerForSignedDelta,
-  mergeBetInfoAfterRpc,
-  processBetTransactionAtomic,
-  updateBetAndBankEdgeFunctionMock,
-} from './services/bankService';
 import { getCurrencySymbol } from './utils/currency';
-import { canCoverPendingBetStake, roundMoney2, decimalMoney } from './utils/bankMoney';
 import { logger } from './utils/logger';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
 import { syncPendingBetInfoWithMatchOdd } from './utils/betFinancials';
@@ -74,6 +66,22 @@ const App: React.FC = () => {
   const [matchForAnalysis, setMatchForAnalysis] = useState<SavedAnalysis | null>(null);
   const [webSearchResults, setWebSearchResults] = useState<Array<{ content?: string; snippet?: string; url?: string }>>([]);
   const [analysisModalTab, setAnalysisModalTab] = useState<AnalysisUiTab>('dados');
+
+  const { handleSaveBetInfo, handleUpdateBetStatus } = useBankTransactions({
+    bankSettings,
+    selectedMatch,
+    setSelectedMatch,
+    currentMatchData,
+    setCurrentMatchData,
+    analysisResult,
+    setAnalysisResult,
+    saveMatch,
+    saveSettings,
+    showError,
+    showSuccess,
+    isUpdatingBetStatus,
+    setIsUpdatingBetStatus,
+  });
 
   // Funções de Navegação
   const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
@@ -213,250 +221,6 @@ const App: React.FC = () => {
       showSuccess('Configurações de banca salvas com sucesso!');
     } catch {
       showError('Erro ao salvar configurações de banca.');
-    }
-  };
-
-  const handleUpdateBetStatus = async (match: SavedAnalysis, status: 'won' | 'lost') => {
-    if (!match.betInfo || match.betInfo.betAmount === 0) {
-      showError('Esta partida não possui aposta registrada.');
-      return;
-    }
-
-    // Verificar se o status já é o mesmo - evitar processamento desnecessário
-    if (match.betInfo.status === status) {
-      return; // Status já é o mesmo, não precisa processar
-    }
-
-    // Proteção contra múltiplos cliques
-    if (isUpdatingBetStatus) {
-      return; // Já está processando outra atualização
-    }
-
-    try {
-      setIsUpdatingBetStatus(true);
-
-      const oldBetInfo = match.betInfo;
-      const financialsBase =
-        oldBetInfo.status === 'pending'
-          ? syncPendingBetInfoWithMatchOdd(oldBetInfo, match.data.oddOver15)
-          : oldBetInfo;
-      const updatedBetInfo: BetInfo = {
-        ...financialsBase,
-        status,
-        resultAt: Date.now(),
-      };
-
-      // Atualizar a partida com o novo betInfo
-      const updatedMatch: SavedAnalysis = {
-        ...match,
-        betInfo: updatedBetInfo,
-        timestamp: Date.now(),
-      };
-
-      // Se a partida está selecionada, atualizar o estado local também
-      if (selectedMatch && selectedMatch.id === match.id) {
-        setSelectedMatch(updatedMatch);
-        // Atualizar também currentMatchData e analysisResult se necessário
-        if (!currentMatchData) setCurrentMatchData(match.data);
-        if (!analysisResult) setAnalysisResult(match.result);
-      }
-
-      // handleSaveBetInfo persiste partida + banca (incl. RPC); evita segundo save que sobrescreve bet_info (ex.: dia da progressão).
-      await handleSaveBetInfo(updatedBetInfo, oldBetInfo);
-
-      showSuccess(`Aposta marcada como ${status === 'won' ? 'ganha' : 'perdida'}!`);
-    } catch {
-      showError('Erro ao atualizar status da aposta. Tente novamente.');
-    } finally {
-      setIsUpdatingBetStatus(false);
-    }
-  };
-
-  const handleSaveBetInfo = async (betInfo: BetInfo, providedOldBetInfo?: BetInfo) => {
-    // Proteção contra múltiplos cliques simultâneos (apenas se não veio de handleUpdateBetStatus)
-    // Se veio de handleUpdateBetStatus, a proteção já está lá
-    if (isUpdatingBetStatus && !providedOldBetInfo) {
-      return; // Já está processando outra atualização e não veio de handleUpdateBetStatus
-    }
-
-    let workingBet: BetInfo = { ...betInfo };
-
-    if (bankSettings && workingBet.status === 'pending' && workingBet.betAmount > 0) {
-      const oldBet = providedOldBetInfo || selectedMatch?.betInfo;
-      const prevPending = oldBet?.status === 'pending' ? oldBet.betAmount : 0;
-      if (!canCoverPendingBetStake(workingBet.betAmount, bankSettings.totalBank, prevPending)) {
-        const maxStake = roundMoney2(
-          decimalMoney(bankSettings.totalBank).plus(prevPending)
-        );
-        showError(
-          `Saldo insuficiente para registrar esta aposta. Stake máximo disponível: ${getCurrencySymbol(bankSettings.currency)} ${maxStake.toFixed(2)}`
-        );
-        return;
-      }
-    }
-
-    if (bankSettings && selectedMatch?.id) {
-      const dataForSave = currentMatchData ?? selectedMatch.data;
-      const resultForSave = analysisResult ?? selectedMatch.result;
-
-      const oldBetInfo = providedOldBetInfo || selectedMatch.betInfo;
-      const bankDifference = roundMoney2(
-        computeBankDifferenceForBetSave({ oldBetInfo, betInfo: workingBet })
-      );
-      const incrementLeverageProgressionDay =
-        oldBetInfo?.status === 'pending' &&
-        workingBet.status === 'won' &&
-        Boolean(workingBet.useLeverageProgression);
-
-      const useAtomicRpc =
-        Boolean(selectedMatch.id) && (bankDifference !== 0 || incrementLeverageProgressionDay);
-
-      let updatedMatch: SavedAnalysis = {
-        ...selectedMatch,
-        data: dataForSave,
-        result: resultForSave,
-        betInfo: workingBet,
-        timestamp: Date.now(),
-      };
-
-      if (useAtomicRpc) {
-        await saveMatch(updatedMatch);
-        const ledger = ledgerForSignedDelta(bankDifference, {
-          oldStatus: oldBetInfo?.status,
-          newStatus: workingBet.status,
-        });
-        const rpc = await processBetTransactionAtomic({
-          betId: selectedMatch.id,
-          signedDelta: bankDifference,
-          ledgerType: ledger.type,
-          ledgerAmount: ledger.amount,
-          betInfo: workingBet,
-          incrementLeverageProgressionDay,
-        });
-
-        if (rpc.ok) {
-          await saveSettings({
-            ...bankSettings,
-            totalBank: rpc.balanceAfter,
-            updatedAt: Date.now(),
-          });
-          workingBet = mergeBetInfoAfterRpc(workingBet, rpc.betInfoFromRpc);
-          updatedMatch = { ...updatedMatch, betInfo: workingBet };
-          logger.log('[BankService] RPC process_bet_transaction OK', rpc.balanceAfter);
-        } else if (rpc.error !== 'noop') {
-          if (bankDifference !== 0) {
-            const updatedBank = computeNextTotalBank(bankSettings.totalBank, bankDifference);
-            const newBankSettings: BankSettingsType = {
-              ...bankSettings,
-              totalBank: updatedBank,
-              updatedAt: Date.now(),
-            };
-            const edgeResult = await updateBetAndBankEdgeFunctionMock({
-              matchId: selectedMatch.id,
-              betInfo: workingBet,
-              totalBankBefore: bankSettings.totalBank,
-              bankDelta: bankDifference,
-              totalBankAfter: updatedBank,
-            });
-            if (edgeResult.ok) {
-              logger.log('[BankService] Fallback mock OK', edgeResult.requestId);
-            }
-            await saveSettings(newBankSettings);
-          } else {
-            logger.warn('[BankService] RPC falhou sem delta de banca', rpc.error);
-          }
-        }
-      } else if (bankDifference !== 0) {
-        const updatedBank = computeNextTotalBank(bankSettings.totalBank, bankDifference);
-        const newBankSettings: BankSettingsType = {
-          ...bankSettings,
-          totalBank: updatedBank,
-          updatedAt: Date.now(),
-        };
-        const edgeResult = await updateBetAndBankEdgeFunctionMock({
-          matchId: selectedMatch?.id ?? 'local_temp',
-          betInfo: workingBet,
-          totalBankBefore: bankSettings.totalBank,
-          bankDelta: bankDifference,
-          totalBankAfter: updatedBank,
-        });
-        if (edgeResult.ok) {
-          logger.log('[BankService] Edge mock OK', edgeResult.requestId);
-        }
-        await saveSettings(newBankSettings);
-      }
-
-      if (
-        (workingBet.status === 'won' || workingBet.status === 'lost') &&
-        !workingBet.resultAt
-      ) {
-        workingBet = { ...workingBet, resultAt: Date.now() };
-      }
-
-      updatedMatch = { ...updatedMatch, betInfo: workingBet };
-
-      try {
-        const savedMatch = await saveMatch(updatedMatch);
-        setSelectedMatch(savedMatch);
-        showSuccess('Aposta atualizada com sucesso!');
-      } catch {
-        showError('Erro ao salvar aposta. Tente novamente.');
-      }
-      return;
-    }
-
-    if (bankSettings && (!selectedMatch || !currentMatchData || !analysisResult)) {
-      const oldBetInfo = providedOldBetInfo || selectedMatch?.betInfo;
-      const bankDifference = roundMoney2(
-        computeBankDifferenceForBetSave({ oldBetInfo, betInfo: workingBet })
-      );
-      if (bankDifference !== 0) {
-        const updatedBank = computeNextTotalBank(bankSettings.totalBank, bankDifference);
-        await saveSettings({
-          ...bankSettings,
-          totalBank: updatedBank,
-          updatedAt: Date.now(),
-        });
-        await updateBetAndBankEdgeFunctionMock({
-          matchId: selectedMatch?.id ?? 'local_temp',
-          betInfo: workingBet,
-          totalBankBefore: bankSettings.totalBank,
-          bankDelta: bankDifference,
-          totalBankAfter: updatedBank,
-        });
-      }
-      if (
-        (workingBet.status === 'won' || workingBet.status === 'lost') &&
-        !workingBet.resultAt
-      ) {
-        workingBet = { ...workingBet, resultAt: Date.now() };
-      }
-    }
-
-    if (selectedMatch && currentMatchData && analysisResult) {
-      try {
-        const updatedMatch: SavedAnalysis = {
-          ...selectedMatch,
-          data: currentMatchData,
-          result: analysisResult,
-          betInfo: workingBet,
-          timestamp: Date.now(),
-        };
-        const savedMatch = await saveMatch(updatedMatch);
-        setSelectedMatch(savedMatch);
-        showSuccess('Aposta atualizada com sucesso!');
-      } catch {
-        showError('Erro ao salvar aposta. Tente novamente.');
-      }
-    } else if (currentMatchData && analysisResult) {
-      const tempMatch: SavedAnalysis = {
-        id: selectedMatch?.id || Math.random().toString(36).slice(2, 11),
-        timestamp: selectedMatch?.timestamp || Date.now(),
-        data: currentMatchData,
-        result: analysisResult,
-        betInfo: workingBet,
-      };
-      setSelectedMatch(tempMatch);
     }
   };
 
@@ -687,72 +451,72 @@ const App: React.FC = () => {
       </div>
 
       {/* Header */}
-      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-40 shadow-sm pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-base-100/55 shadow-lg shadow-primary/5 backdrop-blur-xl backdrop-saturate-150 dark:border-white/10 dark:bg-base-200/45 dark:shadow-primary/10 pt-[env(safe-area-inset-top)]">
         <div className="app-container py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-secondary/90 text-lg font-black italic text-primary-content shadow-lg shadow-primary/25 md:h-10 md:w-10 md:text-xl">
               G
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-[clamp(1.05rem,1rem+0.8vw,1.35rem)] md:text-xl font-black tracking-tighter leading-none truncate">
+              <h1 className="truncate text-[clamp(1.05rem,1rem+0.8vw,1.35rem)] font-black leading-none tracking-tighter md:text-xl">
                 GOALSCAN PRO
               </h1>
-              <span className="text-xs md:text-sm uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline leading-tight">
+              <span className="hidden text-xs font-black uppercase leading-tight tracking-widest text-primary opacity-60 sm:inline md:text-sm">
                 AI Goal Analysis Engine
               </span>
             </div>
-            <div className="flex md:hidden items-center gap-2 shrink-0">
+            <div className="flex shrink-0 items-center gap-2 md:hidden">
               {isLoading && (
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-info/10 border border-info/20 rounded-lg">
+                <div className="flex items-center gap-1.5 rounded-xl border border-info/20 bg-info/10 px-2 py-1 shadow-sm shadow-info/10 backdrop-blur-sm">
                   <span className="loading loading-spinner loading-xs text-info" aria-hidden />
                   <span className="text-[10px] font-bold text-info">…</span>
                 </div>
               )}
               {!isLoading && isUsingLocalData && (
-                <div className="flex items-center gap-1 px-2 py-1 bg-warning/10 border border-warning/20 rounded-lg" title="Usando dados locais">
-                  <div className="w-1.5 h-1.5 bg-warning rounded-full animate-pulse" />
+                <div className="flex items-center gap-1 rounded-xl border border-warning/25 bg-warning/10 px-2 py-1 shadow-sm shadow-warning/10 backdrop-blur-sm" title="Usando dados locais">
+                  <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-warning" />
                 </div>
               )}
               {bankSettings && (
-                <div className="flex items-center gap-1 px-2 py-1 bg-secondary/10 border border-secondary/20 rounded-lg text-[10px] font-bold text-secondary">
-                  <Wallet className="w-3 h-3 shrink-0" aria-hidden />
+                <div className="flex items-center gap-1 rounded-xl border border-secondary/20 bg-secondary/10 px-2 py-1 text-[10px] font-bold text-secondary shadow-sm shadow-secondary/10 backdrop-blur-sm">
+                  <Wallet className="h-3 w-3 shrink-0" aria-hidden />
                   <span className="tabular-nums">{getCurrencySymbol(bankSettings.currency)}{bankSettings.totalBank.toFixed(0)}</span>
                 </div>
               )}
               <button
                 type="button"
-                className="btn btn-ghost btn-circle btn-sm focus-ring-sm touch-target"
+                className="btn btn-circle btn-ghost btn-sm touch-target ui-hover-rise focus-ring-sm"
                 onClick={() => setActiveTab('settings')}
                 aria-label="Configurações"
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="h-5 w-5" />
               </button>
             </div>
-            <div className="hidden md:flex gap-4 items-center shrink-0">
+            <div className="hidden shrink-0 items-center gap-4 md:flex">
               {isLoading && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
+                <div className="flex items-center gap-2 rounded-xl border border-info/20 bg-info/10 px-3 py-1.5 shadow-md shadow-info/10 backdrop-blur-sm">
                   <span className="loading loading-spinner loading-xs text-info" aria-hidden />
                   <span className="text-xs font-bold text-info">Carregando...</span>
                 </div>
               )}
               {!isLoading && isUsingLocalData && (
                 <div
-                  className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg"
+                  className="flex items-center gap-2 rounded-xl border border-warning/25 bg-warning/10 px-3 py-1.5 shadow-md shadow-warning/10 backdrop-blur-sm"
                   title="Usando dados locais"
                 >
-                  <div className="w-2 h-2 bg-warning rounded-full animate-pulse" />
+                  <div className="h-2 w-2 animate-pulse rounded-full bg-warning" />
                   <span className="text-xs font-bold text-warning">Offline</span>
                 </div>
               )}
               {bankSettings && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/10 border border-secondary/20 rounded-lg">
-                  <Wallet className="w-3 h-3 text-secondary" />
+                <div className="flex items-center gap-2 rounded-xl border border-secondary/20 bg-secondary/10 px-3 py-1.5 shadow-md shadow-secondary/15 backdrop-blur-sm">
+                  <Wallet className="h-3 w-3 text-secondary" />
                   <span className="text-xs font-bold text-secondary">
                     {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(0)}
                   </span>
                 </div>
               )}
-              <span className="badge badge-outline badge-sm font-bold">v3.8.2 Elite Edition</span>
+              <span className="badge badge-outline badge-sm border-white/15 font-black shadow-sm shadow-primary/10">v3.8.2 Elite Edition</span>
             </div>
           </div>
         </div>
@@ -767,7 +531,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              transition={tabScreenTransition}
             >
               <DashboardScreen
                 savedMatches={savedMatches}
@@ -783,7 +547,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              transition={tabScreenTransition}
             >
               <MatchesScreen
                 savedMatches={savedMatches}
@@ -804,7 +568,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              transition={tabScreenTransition}
             >
               <ChampionshipsScreen />
             </motion.div>
@@ -815,7 +579,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              transition={tabScreenTransition}
             >
               <BankScreen
                 bankSettings={bankSettings}
@@ -831,7 +595,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              transition={tabScreenTransition}
             >
               <SettingsScreen />
             </motion.div>
@@ -850,17 +614,17 @@ const App: React.FC = () => {
         closeOnEscape
         showCloseButton={false}
         bodyLayout="fill"
-        overlayClassName="bg-black/50 backdrop-blur-sm"
-        panelClassName="box-border flex min-h-0 min-w-0 h-[min(92vh,calc(100dvh-2rem))] w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl bg-base-200 shadow-2xl md:h-[92vh] md:max-h-[92vh]"
+        overlayClassName="bg-black/55 backdrop-blur-md"
+        panelClassName="box-border flex min-h-0 min-w-0 h-[min(92vh,calc(100dvh-2rem))] w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-base-200/90 shadow-2xl shadow-primary/15 backdrop-blur-xl dark:border-white/10 md:h-[92vh] md:max-h-[92vh]"
         bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0"
       >
         {/* Header do Modal — fora da área com scroll; fundo opaco para não vazar conteúdo */}
-        <div className="flex shrink-0 items-center justify-between border-b border-base-300 bg-base-200 p-4 backdrop-blur-md md:px-6">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-base-200/95 p-4 backdrop-blur-xl dark:border-white/10 md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               type="button"
               onClick={handleCloseAnalysis}
-              className="btn btn-sm btn-ghost shrink-0 gap-2"
+              className="btn btn-ghost btn-sm shrink-0 gap-2 ui-hover-rise"
             >
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Voltar</span>
@@ -871,10 +635,10 @@ const App: React.FC = () => {
                 : 'Nova Análise'}
             </h2>
           </div>
-          <button
+            <button
             type="button"
             onClick={handleCloseAnalysis}
-            className="btn btn-sm btn-circle btn-ghost shrink-0"
+            className="btn btn-circle btn-ghost btn-sm shrink-0 ui-hover-rise"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
@@ -885,8 +649,8 @@ const App: React.FC = () => {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [-webkit-overflow-scrolling:touch] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:p-6">
           <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-6xl flex-col gap-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <span className="w-2 h-6 bg-secondary rounded-full"></span>
+                <h3 className="flex items-center gap-2 text-lg font-black">
+                  <span className="h-6 w-2 rounded-full bg-gradient-to-b from-secondary to-primary shadow-sm shadow-primary/20" />
                   Análise Manual
                 </h3>
                 {analysisResult && (
@@ -898,7 +662,7 @@ const App: React.FC = () => {
                       setSelectedMatch(null);
                       setAnalysisModalTab('dados');
                     }}
-                    className="btn btn-xs btn-ghost text-error"
+                    className="btn btn-ghost btn-xs text-error ui-hover-rise"
                   >
                     Limpar
                   </button>
@@ -907,13 +671,13 @@ const App: React.FC = () => {
               <div
                 role="tablist"
                 aria-label="Etapas da análise"
-                className="tabs tabs-boxed tabs-sm flex-wrap gap-1 p-1 bg-base-300/40 rounded-xl mb-4"
+                className="tabs tabs-boxed tabs-sm mb-4 flex-wrap gap-1 rounded-2xl border border-white/10 bg-base-300/35 p-1 shadow-inner shadow-primary/5 backdrop-blur-md dark:border-white/10"
               >
                 <button
                   type="button"
                   role="tab"
                   aria-selected={analysisModalTab === 'dados'}
-                  className={`tab rounded-lg ${analysisModalTab === 'dados' ? 'tab-active' : ''}`}
+                  className={`tab rounded-xl transition-all duration-200 ${analysisModalTab === 'dados' ? 'tab-active shadow-md shadow-primary/15' : 'ui-hover-rise'}`}
                   onClick={() => setAnalysisModalTab('dados')}
                 >
                   Dados do jogo
@@ -923,7 +687,7 @@ const App: React.FC = () => {
                   role="tab"
                   aria-selected={analysisModalTab === 'stats'}
                   disabled={!analysisResult || !currentMatchData}
-                  className={`tab rounded-lg ${!analysisResult ? 'opacity-40 pointer-events-none' : ''} ${analysisModalTab === 'stats' ? 'tab-active' : ''}`}
+                  className={`tab rounded-xl transition-all duration-200 ${!analysisResult ? 'pointer-events-none opacity-40' : ''} ${analysisModalTab === 'stats' ? 'tab-active shadow-md shadow-primary/15' : 'ui-hover-rise'}`}
                   onClick={() => analysisResult && currentMatchData && setAnalysisModalTab('stats')}
                 >
                   Estatísticas
@@ -933,7 +697,7 @@ const App: React.FC = () => {
                   role="tab"
                   aria-selected={analysisModalTab === 'verdict'}
                   disabled={!analysisResult || !currentMatchData}
-                  className={`tab rounded-lg ${!analysisResult ? 'opacity-40 pointer-events-none' : ''} ${analysisModalTab === 'verdict' ? 'tab-active' : ''}`}
+                  className={`tab rounded-xl transition-all duration-200 ${!analysisResult ? 'pointer-events-none opacity-40' : ''} ${analysisModalTab === 'verdict' ? 'tab-active shadow-md shadow-primary/15' : 'ui-hover-rise'}`}
                   onClick={() => analysisResult && currentMatchData && setAnalysisModalTab('verdict')}
                 >
                   Veredito da IA
@@ -966,7 +730,7 @@ const App: React.FC = () => {
               )}
 
               {analysisModalTab === 'dados' && !analysisResult && (
-                <div className="mt-6 custom-card p-8 md:p-12 flex flex-col items-center justify-center text-center opacity-50 border-dashed border-2">
+                <div className="custom-card mt-6 flex flex-col items-center justify-center border-2 border-dashed border-base-content/15 bg-gradient-to-br from-base-100/40 via-base-200/30 to-base-300/20 p-8 text-center opacity-60 shadow-inner backdrop-blur-sm md:p-12">
                   <div className="w-20 h-20 mb-4 rounded-full border-4 border-base-300 flex items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"

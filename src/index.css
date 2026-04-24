@@ -179,6 +179,29 @@ body::before {
 
 .btn {
   border-radius: var(--radius-field);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .btn:not(.btn-disabled):not(:disabled):not(.btn-link):hover {
+    filter: brightness(1.04);
+    box-shadow: 0 8px 24px -8px color-mix(in oklch, var(--color-primary) 14%, transparent);
+  }
+
+  .btn:not(.btn-disabled):not(:disabled):active {
+    transform: scale(0.98);
+  }
+
+  .btn-primary:not(.btn-disabled):not(:disabled):hover {
+    box-shadow: 0 10px 28px -6px color-mix(in oklch, var(--color-primary) 35%, transparent);
+  }
 }
 
 /* Botões padrão: área tocável confortável (AA); compactos ficam em .btn-sm/.btn-xs */
@@ -191,9 +214,28 @@ body::before {
 .select,
 .textarea {
   border-radius: var(--radius-field);
-  background-color: var(--color-base-200);
-  border: var(--border) solid var(--color-border-subtle);
+  background-color: color-mix(in oklch, var(--color-base-200) 88%, var(--color-base-100));
+  border: var(--border) solid color-mix(in oklch, var(--color-base-content) 10%, transparent);
   font-size: max(1rem, var(--text-body));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+[data-theme='dark'] .input,
+[data-theme='dark'] .select,
+[data-theme='dark'] .textarea {
+  background-color: color-mix(in oklch, var(--color-base-200) 72%, transparent);
+}
+
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: color-mix(in oklch, var(--color-primary) 28%, transparent);
 }
 
 .input:focus,
@@ -201,7 +243,34 @@ body::before {
 .textarea:focus {
   border-color: var(--color-primary);
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary) 22%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in oklch, var(--color-primary) 22%, transparent),
+    0 8px 24px -8px color-mix(in oklch, var(--color-primary) 14%, transparent);
+}
+
+/* DaisyUI toggle — visual premium, compatível light/dark */
+.toggle {
+  --tglbg: color-mix(in oklch, var(--color-base-300) 80%, var(--color-base-100));
+  border: var(--border) solid color-mix(in oklch, var(--color-base-content) 12%, transparent);
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.2s ease;
+}
+
+.toggle:hover {
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary) 12%, transparent);
+}
+
+.toggle:checked,
+.toggle[aria-checked='true'] {
+  box-shadow: 0 4px 14px -4px color-mix(in oklch, var(--color-primary) 35%, transparent);
+}
+
+.toggle-primary:checked,
+.toggle-primary[aria-checked='true'] {
+  border-color: color-mix(in oklch, var(--color-primary) 55%, transparent);
 }
 
 button:focus-visible,
@@ -220,6 +289,21 @@ a:focus-visible {
 
   .focus-ring-sm {
     @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 focus:ring-offset-base-100 rounded;
+  }
+
+  /* Micro-interação reutilizável (ícones, chips, linhas clicáveis) */
+  .ui-hover-rise {
+    @apply transition-transform duration-200 ease-out;
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .ui-hover-rise:hover {
+      transform: scale(1.02);
+    }
+
+    .ui-hover-rise:active {
+      transform: scale(0.98);
+    }
   }
 
   /* Alvo mínimo para ícones só (use com botões circle) */
@@ -246,18 +330,115 @@ a:focus-visible {
    * Mobile-first: padding base menor, sobe em md+.
    */
   .custom-card {
-    background-color: color-mix(in oklch, var(--color-base-100) 88%, var(--color-base-200));
-    border: var(--border) solid var(--color-border-subtle);
+    position: relative;
+    overflow: hidden;
+    background-image: linear-gradient(
+      145deg,
+      color-mix(in oklch, var(--color-base-100) 94%, var(--color-primary) 5%),
+      color-mix(in oklch, var(--color-base-100) 88%, var(--color-base-200)) 48%,
+      color-mix(in oklch, var(--color-base-200) 75%, var(--color-base-100))
+    );
+    background-color: color-mix(in oklch, var(--color-base-100) 82%, transparent);
+    border: var(--border) solid color-mix(in oklch, var(--color-base-content) 8%, transparent);
     border-radius: var(--radius-box);
-    box-shadow: var(--shadow-elev-1);
+    box-shadow:
+      var(--shadow-elev-1),
+      0 12px 40px -12px color-mix(in oklch, var(--color-primary) 10%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease,
+      border-color 0.25s ease;
   }
 
   [data-theme='dark'] .custom-card {
-    background-color: color-mix(in oklch, var(--color-base-200) 85%, var(--color-base-100));
+    background-image: linear-gradient(
+      155deg,
+      color-mix(in oklch, var(--color-base-200) 88%, var(--color-primary) 8%),
+      color-mix(in oklch, var(--color-base-100) 55%, transparent) 55%,
+      color-mix(in oklch, var(--color-base-200) 70%, transparent)
+    );
+    background-color: color-mix(in oklch, var(--color-base-200) 65%, transparent);
+    border-color: color-mix(in oklch, var(--color-base-content) 10%, transparent);
+    box-shadow:
+      var(--shadow-elev-1),
+      0 16px 48px -12px color-mix(in oklch, var(--color-primary) 14%, transparent);
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .custom-card:hover {
+      box-shadow:
+        var(--shadow-elev-2),
+        0 20px 50px -14px color-mix(in oklch, var(--color-primary) 16%, transparent);
+    }
+  }
+
+  /**
+   * Superfícies reutilizáveis (MetricCard, ProbabilityGauge, etc.)
+   */
+  .surface {
+    position: relative;
+    border-radius: var(--radius-box);
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--color-base-100) 92%, var(--color-primary) 6%),
+      color-mix(in oklch, var(--color-base-100) 85%, var(--color-base-200))
+    );
+    background-color: color-mix(in oklch, var(--color-base-100) 78%, transparent);
+    border: var(--border) solid color-mix(in oklch, var(--color-base-content) 8%, transparent);
+    box-shadow:
+      var(--shadow-elev-1),
+      0 10px 32px -10px color-mix(in oklch, var(--color-primary) 12%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  [data-theme='dark'] .surface {
+    background-image: linear-gradient(
+      145deg,
+      color-mix(in oklch, var(--color-base-200) 82%, var(--color-primary) 10%),
+      color-mix(in oklch, var(--color-base-100) 50%, transparent)
+    );
+    background-color: color-mix(in oklch, var(--color-base-200) 62%, transparent);
+    border-color: color-mix(in oklch, var(--color-base-content) 10%, transparent);
+    box-shadow:
+      var(--shadow-elev-1),
+      0 14px 40px -12px color-mix(in oklch, var(--color-primary) 18%, transparent);
+  }
+
+  .surface-hover {
+    transition:
+      transform 0.22s ease,
+      box-shadow 0.22s ease,
+      border-color 0.22s ease,
+      background-color 0.22s ease;
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .surface-hover:hover {
+      transform: scale(1.02) translateY(-1px);
+      box-shadow:
+        var(--shadow-elev-2),
+        0 18px 48px -12px color-mix(in oklch, var(--color-primary) 20%, transparent);
+      border-color: color-mix(in oklch, var(--color-primary) 22%, transparent);
+    }
+  }
+
+  .surface-muted {
+    border-radius: var(--radius-field);
+    background-color: color-mix(in oklch, var(--color-base-200) 70%, transparent);
+    border: var(--border) solid color-mix(in oklch, var(--color-base-content) 7%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  [data-theme='dark'] .surface-muted {
+    background-color: color-mix(in oklch, var(--color-base-300) 55%, transparent);
   }
 
   .kpi-label {
-    @apply text-xs md:text-sm font-bold uppercase tracking-widest text-base-content/70 leading-tight;
+    @apply text-xs font-black uppercase leading-tight tracking-widest opacity-60 md:text-sm;
   }
 
   .kpi-value {
@@ -272,13 +453,17 @@ a:focus-visible {
   .glass-effect {
     background-color: var(--glass-bg);
     border-color: var(--glass-border);
-    box-shadow: var(--shadow-elev-1);
-    @apply backdrop-blur-xl border rounded-2xl transition-all duration-200;
+    box-shadow:
+      var(--shadow-elev-1),
+      0 12px 36px -10px color-mix(in oklch, var(--color-primary) 12%, transparent);
+    @apply backdrop-blur-xl border border-white/10 dark:border-white/10 rounded-2xl transition-all duration-300;
   }
 
   .glass-effect:hover {
     background-color: var(--glass-bg-hover);
-    box-shadow: var(--shadow-elev-2);
+    box-shadow:
+      var(--shadow-elev-2),
+      0 18px 48px -12px color-mix(in oklch, var(--color-primary) 18%, transparent);
   }
 
   /* Container de página: largura máx + padding horizontal fluido */

@@ -22,16 +22,16 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       variant="default"
       padding="lg"
       className={cn(
-        'relative overflow-hidden border-dashed border-2 text-center flex flex-col items-center justify-center',
+        'relative flex flex-col items-center justify-center overflow-hidden border-2 border-dashed border-base-content/15 text-center shadow-inner shadow-primary/5',
         className
       )}
       {...props}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 opacity-60" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-secondary/8 opacity-70" />
 
       {icon ? (
         <div className="relative mb-6">
-          <div className="w-24 h-24 md:w-28 md:h-28 rounded-full border border-base-300/50 bg-base-300/30 flex items-center justify-center shadow-lg">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-base-300/35 shadow-lg shadow-primary/10 backdrop-blur-md md:h-28 md:w-28 dark:border-white/10">
             <div className="text-primary/80">{icon}</div>
           </div>
         </div>
@@ -40,7 +40,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <div className="relative max-w-xl">
         <h3 className="text-xl md:text-2xl font-black tracking-tight">{title}</h3>
         {description ? (
-          <p className="mt-2 text-sm md:text-base text-base-content/70 leading-relaxed">
+          <p className="mt-2 text-sm leading-relaxed opacity-60 md:text-base">
             {description}
           </p>
         ) : null}

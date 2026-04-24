@@ -70,7 +70,7 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, o
       }`}
     >
       <div
-        className="custom-card p-4 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary/10 border border-primary/30 shadow-2xl cursor-pointer hover:scale-[1.02] transition-transform"
+        className="custom-card cursor-pointer border border-primary/35 bg-gradient-to-br from-primary/25 via-base-100/45 to-secondary/15 p-4 shadow-2xl shadow-primary/25 backdrop-blur-xl transition-transform duration-200 hover:scale-[1.02]"
         onClick={handleClick}
       >
         <div className="flex items-start gap-3">
@@ -88,7 +88,7 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, o
                   e.stopPropagation();
                   handleClose();
                 }}
-                className="btn btn-xs btn-circle btn-ghost p-0 min-h-0 h-6 w-6 flex-shrink-0"
+                className="btn btn-circle btn-ghost btn-xs h-6 min-h-0 w-6 flex-shrink-0 p-0 ui-hover-rise"
               >
                 <X className="w-3 h-3" />
               </button>

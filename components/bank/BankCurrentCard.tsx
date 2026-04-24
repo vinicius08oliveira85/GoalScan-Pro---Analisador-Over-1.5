@@ -24,7 +24,7 @@ const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
-      className="card bg-base-100 shadow-sm border border-base-300/50 p-6 md:p-8"
+      className="custom-card p-6 shadow-lg shadow-primary/10 backdrop-blur-md md:p-8"
     >
       <div className="space-y-4">
         <div className="flex items-center gap-4 mb-4">

@@ -46,18 +46,17 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
   return (
     <div className="mb-6 min-w-0">
       {/* Desktop Tabs */}
-      <div className="hidden min-w-0 gap-2 rounded-2xl border border-base-300/50 bg-base-200/50 p-2 backdrop-blur-xl md:flex">
+      <div className="hidden min-w-0 gap-2 rounded-2xl border border-white/10 bg-base-200/45 p-2 shadow-inner shadow-primary/5 backdrop-blur-xl dark:border-white/10 md:flex">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={`
-              relative px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-medium transition-all duration-300
-              flex items-center gap-2
+              relative flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium transition-all duration-300 md:px-6 md:py-3
               ${
                 activeTab === tab.id
                   ? 'text-white'
-                  : 'text-base-content/60 hover:text-base-content/80'
+                  : 'text-base-content/60 hover:text-base-content hover:opacity-90'
               }
             `}
             aria-label={`${tab.label} (${tab.count} partidas)`}
@@ -67,8 +66,8 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
             {activeTab === tab.id && (
               <motion.div
                 layoutId="activeTab"
-                className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary via-primary to-secondary shadow-lg shadow-primary/25"
+                transition={{ type: 'spring', stiffness: 320, damping: 26 }}
               />
             )}
             <span className="relative z-10 flex items-center gap-2">
@@ -107,12 +106,11 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`
-                relative px-4 py-2.5 rounded-xl font-medium transition-all duration-300 whitespace-nowrap
-                flex items-center gap-2 flex-shrink-0
+                relative flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 font-medium transition-all duration-300
                 ${
                   activeTab === tab.id
                     ? 'text-white'
-                    : 'text-base-content/60 bg-base-200/50 border border-base-300/50'
+                    : 'border border-white/10 bg-base-200/45 text-base-content/60 shadow-sm backdrop-blur-md dark:border-white/10'
                 }
               `}
               aria-label={`${tab.label} (${tab.count} partidas)`}
@@ -122,8 +120,8 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="activeTabMobile"
-                  className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl"
-                  transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                  className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary via-primary to-secondary shadow-lg shadow-primary/25"
+                  transition={{ type: 'spring', stiffness: 320, damping: 26 }}
                 />
               )}
               <span className="relative z-10 flex items-center gap-2">

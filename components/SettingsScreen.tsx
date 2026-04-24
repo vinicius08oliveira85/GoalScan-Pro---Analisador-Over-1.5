@@ -90,7 +90,7 @@ const SettingsScreen: React.FC = () => {
         animate="animate"
         className="flex items-center gap-3 mb-6"
       >
-        <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+        <div className="p-3 rounded-2xl bg-primary/15 border border-primary/20 shadow-lg shadow-primary/5 backdrop-blur-sm">
           <Settings className="w-6 h-6 md:w-8 md:h-8 text-primary" />
         </div>
         <div>
@@ -109,10 +109,10 @@ const SettingsScreen: React.FC = () => {
             initial="initial"
             animate="animate"
             custom={sectionIndex}
-            className="custom-card p-4 md:p-6"
+            className="custom-card border-white/10 bg-gradient-to-b from-base-100/55 to-base-100/30 p-4 shadow-md shadow-primary/5 backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-primary/15 dark:border-white/10 md:p-6"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 shadow-inner">
                 <Icon className="w-5 h-5 text-primary" />
               </div>
               <div>
@@ -125,17 +125,17 @@ const SettingsScreen: React.FC = () => {
               {section.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-base-200/50 border border-base-300"
+                  className="group flex items-center justify-between rounded-xl border border-white/10 bg-base-300/30 p-4 shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-primary/20 hover:bg-base-300/50 hover:shadow-md dark:border-white/10"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm md:text-base mb-1">{item.label}</p>
+                    <p className="font-bold text-sm md:text-base mb-1 group-hover:text-primary transition-colors">{item.label}</p>
                     {item.description && <p className="text-xs opacity-60">{item.description}</p>}
                   </div>
 
                   {item.type === 'toggle' && (
                     <input
                       type="checkbox"
-                      className="toggle toggle-primary"
+                      className="toggle toggle-primary min-h-[2.75rem] min-w-[3.25rem]"
                       checked={item.value as boolean}
                       onChange={(e) => item.onChange?.(e.target.checked)}
                     />
@@ -143,7 +143,7 @@ const SettingsScreen: React.FC = () => {
 
                   {item.type === 'select' && (
                     <select
-                      className="select select-bordered select-sm w-32 md:w-40"
+                      className="select select-bordered select-sm h-11 min-h-[2.75rem] w-36 border-white/15 bg-base-100/55 backdrop-blur-md md:w-44 dark:border-white/10"
                       value={item.value as string}
                       onChange={(e) => item.onChange?.(e.target.value as 'light' | 'dark' | 'auto')}
                     >
@@ -172,7 +172,7 @@ const SettingsScreen: React.FC = () => {
           initial="initial"
           animate="animate"
           custom={settingsSections.length}
-          className="custom-card p-4 md:p-6 bg-info/10 border border-info/20"
+          className="custom-card p-4 md:p-6 bg-info/10 border border-info/20 hover:bg-info/15 transition-all"
         >
           <div className="flex items-center gap-3 mb-3">
             <Shield className="w-5 h-5 text-info" />
@@ -188,7 +188,7 @@ const SettingsScreen: React.FC = () => {
           initial="initial"
           animate="animate"
           custom={settingsSections.length + 1}
-          className="custom-card p-4 md:p-6 bg-secondary/10 border border-secondary/20"
+          className="custom-card p-4 md:p-6 bg-secondary/10 border border-secondary/20 hover:bg-secondary/15 transition-all"
         >
           <div className="flex items-center gap-3 mb-3">
             <Database className="w-5 h-5 text-secondary" />
@@ -206,7 +206,7 @@ const SettingsScreen: React.FC = () => {
         initial="initial"
         animate="animate"
         custom={settingsSections.length + 2}
-        className="custom-card p-4 md:p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20"
+        className="custom-card p-4 md:p-6 bg-gradient-to-br from-primary/15 via-base-100/50 to-secondary/15 border border-white/10 shadow-lg"
       >
         <div className="flex items-center gap-3 mb-3">
           <Sparkles className="w-5 h-5 text-primary" />

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { animations } from '../utils/animations';
 
 const SkeletonStatCard: React.FC = () => (
-  <div className="card border border-base-content/10 p-4 md:p-6 space-y-3">
+  <div className="custom-card space-y-3 p-4 shadow-inner md:p-6">
     <div className="flex items-start justify-between">
       <div className="skeleton h-12 w-12 rounded-xl shrink-0" />
       <div className="skeleton h-4 w-4 rounded-full shrink-0" />
@@ -16,7 +16,7 @@ const SkeletonStatCard: React.FC = () => (
 );
 
 const SkeletonChart: React.FC<{ hasSubtitle?: boolean }> = ({ hasSubtitle }) => (
-  <div className="card border border-base-content/10 p-4 md:p-6">
+  <div className="custom-card p-4 shadow-inner md:p-6">
     <div className="mb-4 space-y-2">
       <div className="skeleton h-5 w-40" />
       {hasSubtitle && <div className="skeleton h-3 w-56" />}
@@ -26,7 +26,7 @@ const SkeletonChart: React.FC<{ hasSubtitle?: boolean }> = ({ hasSubtitle }) => 
 );
 
 const SkeletonBankHero: React.FC = () => (
-  <div className="card border border-base-content/12 p-5 md:p-8 ring-1 ring-base-content/10">
+  <div className="custom-card p-5 shadow-lg shadow-primary/10 ring-1 ring-white/10 backdrop-blur-md dark:ring-white/10 md:p-8">
     <div className="flex flex-col lg:flex-row gap-6">
       <div className="flex-1 space-y-3">
         <div className="skeleton h-3 w-28" />
@@ -39,14 +39,14 @@ const SkeletonBankHero: React.FC = () => (
 );
 
 const SkeletonRecentCollapses: React.FC = () => (
-  <div className="card border border-base-content/10 p-4 md:p-6">
+  <div className="custom-card p-4 shadow-inner md:p-6">
     <div className="mb-4 md:mb-6 space-y-2">
       <div className="skeleton h-6 w-44" />
       <div className="skeleton h-3 w-64" />
     </div>
     <div className="flex flex-col gap-2">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-base-content/10 p-4 space-y-2">
+        <div key={i} className="space-y-2 rounded-xl border border-white/10 p-4 shadow-sm backdrop-blur-sm dark:border-white/10">
           <div className="skeleton h-4 w-full max-w-md" />
           <div className="skeleton h-3 w-36" />
           <div className="flex gap-2 pt-2">

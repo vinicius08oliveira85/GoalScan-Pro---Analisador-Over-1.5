@@ -90,17 +90,17 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
       bodyClassName="p-0 max-h-none overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-base-300/50">
-        <Search className="w-5 h-5 text-base-content/60" />
+      <div className="flex items-center gap-3 border-b border-white/10 bg-base-200/50 p-4 backdrop-blur-xl dark:border-white/10">
+        <Search className="h-5 w-5 opacity-60" />
         <input
           ref={inputRef}
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Buscar ações... (⌘K)"
-          className="flex-1 bg-transparent border-none outline-none text-base-content placeholder-base-content/40"
+          className="flex-1 border-none bg-transparent text-base-content outline-none placeholder:opacity-40"
         />
-        <button onClick={onClose} className="btn btn-xs btn-circle btn-ghost" aria-label="Fechar">
+        <button onClick={onClose} className="btn btn-circle btn-ghost btn-xs ui-hover-rise" aria-label="Fechar">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -121,13 +121,14 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
                 onClose();
               }}
               onMouseEnter={() => setSelectedIndex(index)}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 min-h-[56px] ${
+              className={`flex min-h-[56px] w-full items-center gap-3 rounded-xl border p-3 transition-all duration-200 ${
                 index === selectedIndex
-                  ? 'bg-primary/20 border border-primary/30 shadow-lg'
-                  : 'hover:bg-base-300/50 border border-transparent'
+                  ? 'border-primary/35 bg-primary/15 shadow-lg shadow-primary/15 backdrop-blur-sm'
+                  : 'border-transparent hover:border-white/10 hover:bg-base-300/45 dark:hover:border-white/10'
               }`}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
             >
               <div
                 className={`p-2 rounded-lg ${
@@ -137,16 +138,18 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
                 {action.icon}
               </div>
               <div className="flex-1 text-left">
-                <div className="font-semibold text-sm md:text-base leading-relaxed">{action.label}</div>
+                <div className="text-sm font-black leading-relaxed md:text-base">{action.label}</div>
                 {action.description && (
-                  <div className="text-xs md:text-sm text-base-content/70 mt-1 leading-relaxed">
+                  <div className="mt-1 text-xs leading-relaxed opacity-60 md:text-sm">
                     {action.description}
                   </div>
                 )}
               </div>
               {action.shortcut && (
-                <div className="flex items-center gap-1 text-xs text-base-content/40">
-                  <kbd className="px-2 py-1 bg-base-300 rounded border border-base-content/20">{action.shortcut}</kbd>
+                <div className="flex items-center gap-1 text-xs opacity-40">
+                  <kbd className="rounded border border-white/15 bg-base-300/80 px-2 py-1 font-mono text-[10px] shadow-inner dark:border-white/10">
+                    {action.shortcut}
+                  </kbd>
                 </div>
               )}
               {index === selectedIndex && <ArrowRight className="w-4 h-4 text-primary" />}
@@ -156,18 +159,18 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, action
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between p-3 border-t border-base-300/50 text-xs text-base-content/70">
+      <div className="flex items-center justify-between border-t border-white/10 bg-base-200/40 p-3 text-xs opacity-60 backdrop-blur-md dark:border-white/10">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">↑↓</kbd>
+            <kbd className="rounded border border-white/15 bg-base-300/80 px-1.5 py-0.5 dark:border-white/10">↑↓</kbd>
             <span>Navegar</span>
           </div>
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">↵</kbd>
+            <kbd className="rounded border border-white/15 bg-base-300/80 px-1.5 py-0.5 dark:border-white/10">↵</kbd>
             <span>Selecionar</span>
           </div>
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 bg-base-300 rounded border border-base-content/20">Esc</kbd>
+            <kbd className="rounded border border-white/15 bg-base-300/80 px-1.5 py-0.5 dark:border-white/10">Esc</kbd>
             <span>Fechar</span>
           </div>
         </div>

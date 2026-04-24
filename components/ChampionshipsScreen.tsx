@@ -114,11 +114,11 @@ const ChampionshipsScreen: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Trophy className="w-8 h-8 text-primary" />
+          <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight">
+            <Trophy className="h-8 w-8 text-primary opacity-90" />
             Campeonatos
           </h1>
-          <p className="text-base-content/60 mt-2">
+          <p className="mt-2 opacity-60">
             Gerencie seus campeonatos e tabelas de classificação
           </p>
         </div>
@@ -133,13 +133,13 @@ const ChampionshipsScreen: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2"
+          className="custom-card flex flex-col items-center justify-center border-2 border-dashed border-base-content/20 p-12 text-center shadow-inner backdrop-blur-sm md:p-16"
         >
           <div className="w-32 h-32 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center mb-6">
             <Trophy className="w-16 h-16 text-primary opacity-60" />
           </div>
-          <h3 className="text-2xl font-bold mb-2">Nenhum Campeonato Cadastrado</h3>
-          <p className="text-base-content/60 mb-6">
+          <h3 className="mb-2 text-2xl font-black tracking-tight">Nenhum Campeonato Cadastrado</h3>
+          <p className="mb-6 opacity-60">
             Comece criando seu primeiro campeonato e adicione as tabelas de classificação.
           </p>
           <button onClick={handleNewChampionship} className="btn btn-primary gap-2">
@@ -154,7 +154,7 @@ const ChampionshipsScreen: React.FC = () => {
               key={championship.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="custom-card p-6 hover:shadow-lg transition-shadow"
+              className="custom-card p-6 shadow-md transition-all duration-300 hover:shadow-xl hover:shadow-primary/15"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">

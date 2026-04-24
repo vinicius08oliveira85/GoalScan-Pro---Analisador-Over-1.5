@@ -82,7 +82,7 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
       animate="animate"
       exit="exit"
       transition={toastVariants.transition}
-      className={`relative overflow-hidden rounded-2xl p-4 mb-3 border-2 ${colorScheme.border} ${colorScheme.bg} backdrop-blur-xl shadow-xl flex items-start gap-3 min-w-[300px] max-w-md`}
+      className={`relative mb-3 flex min-w-[300px] max-w-md items-start gap-3 overflow-hidden rounded-2xl border-2 p-4 shadow-xl shadow-primary/10 backdrop-blur-xl ${colorScheme.border} ${colorScheme.bg}`}
       role="alert"
       aria-live="assertive"
     >

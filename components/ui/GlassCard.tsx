@@ -24,7 +24,7 @@ const paddingClasses: Record<GlassCardPadding, string> = {
 };
 
 const interactiveClasses =
-  'cursor-pointer hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99]';
+  'cursor-pointer transition-transform duration-200 ease-out hover:scale-[1.02] active:scale-[0.99]';
 
 const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
   ({ variant = 'default', padding = 'md', interactive = false, className, ...props }, ref) => {
