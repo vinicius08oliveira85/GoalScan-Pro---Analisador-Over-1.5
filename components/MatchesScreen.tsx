@@ -27,7 +27,6 @@ import {
 } from '../utils/matchFilters';
 import { getPrimaryProbability } from '../utils/probability';
 
-// Componente de Empty State por categoria
 const EmptyStateByCategory: React.FC<{
   category: TabCategory;
   onNewMatch: () => void;
@@ -82,7 +81,7 @@ const EmptyStateByCategory: React.FC<{
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onNewMatch}
-              className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl focus-ring"
+              className="btn btn-primary btn-lg gap-2 neumorphic"
             >
               <Plus className="w-5 h-5" aria-hidden="true" />
               {state.buttonLabel ?? 'Adicionar Partida'}
@@ -117,7 +116,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
 }) => {
   const categoryCounts = useMemo(() => getCategoryCounts(savedMatches), [savedMatches]);
 
-  // Estados iniciais com persistência no localStorage
   const [activeTab, setActiveTab] = useState<TabCategory>(() => {
     const counts = getCategoryCounts(savedMatches);
     return counts.pendentes > 0 ? 'pendentes' : 'todas';
@@ -128,9 +126,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch {
-        // Fallback para estado padrão
-      }
+      } catch {}
     }
     return {
       championshipId: undefined,
@@ -143,21 +139,17 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch {
-        // Fallback para estado padrão
-      }
+      } catch {}
     }
     return {
       field: 'date',
-      order: 'asc', // Menor para maior (horário mais cedo primeiro)
+      order: 'asc',
     };
   });
 
-  // Detectar se é mobile para escolher visualização automaticamente
   const windowSize = useWindowSize();
   const isMobile = windowSize.isMobile;
 
-  // Persistir estados no localStorage
   useEffect(() => {
     localStorage.setItem('matchesFilterState', JSON.stringify(filterState));
   }, [filterState]);
@@ -166,17 +158,10 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
     localStorage.setItem('matchesSortState', JSON.stringify(sortState));
   }, [sortState]);
 
-  // Filtrar e ordenar partidas
   const filteredMatches = useMemo(() => {
-    // Primeiro filtra por categoria (abas)
     let matches = filterMatchesByCategory(savedMatches, activeTab);
-
-    // Depois aplica filtros avançados
     matches = applyAllFilters(matches, filterState);
-
-    // Por fim ordena
     matches = sortMatches(matches, sortState.field, sortState.order);
-
     return matches;
   }, [savedMatches, activeTab, filterState, sortState]);
 
@@ -197,10 +182,8 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
-      {/* Sistema de Abas */}
       <MatchTabs activeTab={activeTab} onTabChange={setActiveTab} counts={categoryCounts} />
 
-      {/* Filtros e Visualização */}
       <div className="flex flex-col gap-4">
         <MatchFilters
           filterState={filterState}
@@ -214,7 +197,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
         />
       </div>
 
-      {/* Estatísticas Gerais */}
       {totalMatches > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
           <motion.div
@@ -222,9 +204,9 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
             initial="initial"
             animate="animate"
             custom={0}
-            className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
+            className="neumorphic rounded-lg p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
           >
-            <div className="p-1.5 md:p-2 rounded-lg bg-primary/10 border border-primary/20 flex-shrink-0">
+            <div className="neumorphic-inset p-1.5 md:p-2 rounded-lg flex-shrink-0">
               <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
             </div>
             <div className="min-w-0">
@@ -239,9 +221,9 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
             initial="initial"
             animate="animate"
             custom={1}
-            className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
+            className="neumorphic rounded-lg p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
           >
-            <div className="p-1.5 md:p-2 rounded-lg bg-success/10 border border-success/20 flex-shrink-0">
+            <div className="neumorphic-inset p-1.5 md:p-2 rounded-lg flex-shrink-0">
               <Target className="w-4 h-4 md:w-5 md:h-5 text-success" />
             </div>
             <div className="min-w-0">
@@ -256,9 +238,9 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
             initial="initial"
             animate="animate"
             custom={2}
-            className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
+            className="neumorphic rounded-lg p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
           >
-            <div className="p-1.5 md:p-2 rounded-lg bg-teal-500/10 border border-teal-500/20 flex-shrink-0">
+            <div className="neumorphic-inset p-1.5 md:p-2 rounded-lg flex-shrink-0">
               <TrendingUpIcon className="w-4 h-4 md:w-5 md:h-5 text-teal-400" />
             </div>
             <div className="min-w-0">
@@ -273,7 +255,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
         </div>
       )}
 
-      {/* Título e Botão Adicionar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
         <div className="min-w-0 flex-1">
           <h2 className="text-lg sm:text-xl font-black tracking-tighter mb-0.5">Partidas Salvas</h2>
@@ -281,7 +262,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
         </div>
         <button
           onClick={onNewMatch}
-          className="btn btn-primary btn-sm gap-1.5 shadow-lg hover:scale-105 transition-transform w-full sm:w-auto min-h-[36px] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary"
+          className="btn btn-primary btn-sm gap-1.5 neumorphic w-full sm:w-auto min-h-[36px] px-3 py-1.5"
           aria-label="Adicionar nova partida para análise"
         >
           <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" aria-hidden="true" />
@@ -290,7 +271,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
         </button>
       </div>
 
-      {/* Grid de Partidas */}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {Array.from({ length: 6 }).map((_, index) => (
@@ -316,7 +296,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
             exit="exit"
           >
             {filteredMatches.map((match, index) => {
-              // Desktop/Web: Lista | Mobile: Compacta
               if (isMobile) {
                 return (
                   <MatchCardCompact
@@ -343,7 +322,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               );
             })}
           </motion.div>
-        </AnimatePresence>
+        </AnPresence>
       )}
     </div>
   );

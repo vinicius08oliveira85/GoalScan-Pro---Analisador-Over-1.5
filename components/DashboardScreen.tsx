@@ -10,9 +10,6 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
-  CheckCircle,
-  XCircle,
-  Clock,
   Hash,
 } from 'lucide-react';
 import { formatTimestampInBrasilia } from '../utils/dateFormatter';
@@ -38,7 +35,6 @@ import {
 import { getCurrencySymbol } from '../utils/currency';
 import { animations } from '../utils/animations';
 import { useWindowSize } from '../hooks/useWindowSize';
-import { getDisplayProbability } from '../utils/probability';
 import { getDisplayEV } from '../utils/betMetrics';
 import { cn } from '../utils/cn';
 import {
@@ -46,7 +42,6 @@ import {
   chartColors,
   chartGridProps,
   chartTooltipClassName,
-  chartTooltipCompactClassName,
   getChartAxisTick,
 } from '../utils/chartTheme';
 import SectionHeader from './ui/SectionHeader';
@@ -153,21 +148,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     },
   ];
 
-  type StatCardTone = 'primary' | 'success' | 'error' | 'warning' | 'info' | 'neutral';
-
-  const toneClasses: Record<StatCardTone, { bg: string; border: string; text: string }> = {
-    primary: { bg: 'bg-primary/10', border: 'border-primary/20', text: 'text-primary' },
-    success: { bg: 'bg-success/10', border: 'border-success/20', text: 'text-success' },
-    error: { bg: 'bg-error/10', border: 'border-error/20', text: 'text-error' },
-    warning: { bg: 'bg-warning/10', border: 'border-warning/20', text: 'text-warning' },
-    info: { bg: 'bg-info/10', border: 'border-info/20', text: 'text-info' },
-    neutral: { bg: 'bg-neutral-content/10', border: 'border-neutral-content/20', text: 'text-neutral' }
-  };
-
-  const getTone = (tone: string): StatCardTone => {
-    return (tone in toneClasses ? tone : 'primary') as StatCardTone;
-  };
-
   return (
     <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
       {savedMatches.length > 0 ? (
@@ -175,14 +155,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
             {statCards.map((card, index) => {
               const Icon = card.icon;
-              const tone = getTone(card.color);
-              const toneClass = toneClasses[tone];
-              const valueColor = 
-                card.color === 'success' ? 'text-success' 
-                : card.color === 'error' ? 'text-error' 
-                : card.color === 'primary' ? 'text-primary'
-                : card.color === 'info' ? 'text-info'
-                : 'text-neutral';
 
               return (
                 <motion.div
@@ -191,11 +163,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   initial="initial"
                   animate="animate"
                   custom={index}
-                  className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+                  className="neumorphic rounded-lg p-4 md:p-6"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}>
-                      <Icon className={cn('w-5 h-5 md:w-6 md:h-6', toneClass.text)} />
+                    <div className={cn('neumorphic-inset p-2 md:p-3 rounded-xl')}>
+                      <Icon className={cn('w-5 h-5 md:w-6 md:h-6', `text-${card.color}`)} />
                     </div>
                     {card.title === 'Lucro Total' && (
                       <div>
@@ -211,7 +183,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <p className="text-xs md:text-sm font-semibold text-base-content/70 uppercase tracking-wide mb-1.5 leading-tight">
                       {card.title}
                     </p>
-                    <p className={`text-2xl md:text-3xl font-black leading-none ${valueColor}`}>
+                    <p className={`text-2xl md:text-3xl font-black leading-none text-${card.color}`}>
                       {card.value}
                     </p>
                     <p className="text-xs text-base-content/60 mt-1.5 leading-relaxed">{card.subtitle}</p>
@@ -227,7 +199,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 variants={animations.fadeInUp}
                 initial="initial"
                 animate="animate"
-                className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+                className="neumorphic rounded-lg p-4 md:p-6"
               >
                 <SectionHeader
                   className="mb-4"
@@ -278,7 +250,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 variants={animations.fadeInUp}
                 initial="initial"
                 animate="animate"
-                className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+                className="neumorphic rounded-lg p-4 md:p-6"
               >
                 <SectionHeader className="mb-4" title="Distribuição de Resultados" subtitle="Breakdown das apostas" />
                 <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
@@ -289,7 +261,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             const data = payload[0];
                             const percentage = totalBets > 0 ? (((data.value as number) / totalBets) * 100).toFixed(1) : '0';
                             return (
-                                <div className={chartTooltipCompactClassName}>
+                                <div className={chartTooltipClassName}>
                                     <span className="font-bold text-sm">{data.name}</span>: <span className="font-bold">{data.value}</span> ({percentage}%)
                                 </div>
                             );
@@ -327,9 +299,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               variants={animations.fadeInUp}
               initial="initial"
               animate="animate"
-              className="card bg-base-100 shadow-sm border border-base-300/50"
+              className="neumorphic rounded-lg"
             >
-              <SectionHeader className="p-4 md:p-6 border-b border-base-300/50" title="Partidas Recentes" subtitle="Suas últimas 10 análises" />
+              <SectionHeader className="p-4 md:p-6" title="Partidas Recentes" subtitle="Suas últimas 10 análises" />
               <div className="overflow-x-auto">
                 <table className="table w-full">
                   <thead>
@@ -383,9 +355,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          className="card bg-base-100 border-2 border-dashed border-base-300 p-12 md:p-16 flex flex-col items-center justify-center text-center"
+          className="neumorphic-inset rounded-lg p-12 md:p-16 flex flex-col items-center justify-center text-center"
         >
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center mb-6">
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center mb-6 neumorphic">
             <Activity className="w-12 h-12 md:w-16 md:h-16 text-primary opacity-60" />
           </div>
           <h3 className="text-2xl md:text-3xl font-black mb-3 text-base-content">Nenhuma Partida Ainda</h3>

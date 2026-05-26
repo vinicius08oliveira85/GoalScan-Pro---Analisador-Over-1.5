@@ -15,9 +15,9 @@ const BankEmptyState: React.FC<BankEmptyStateProps> = ({ show }) => {
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
-      className="card bg-base-200 text-center p-12 md:p-16 flex flex-col items-center justify-center border-dashed border-2 border-base-300/70"
+      className="neumorphic-inset rounded-lg text-center p-12 md:p-16 flex flex-col items-center justify-center"
     >
-      <div className="w-24 h-24 rounded-full border-4 border-primary/20 bg-primary/10 flex items-center justify-center mb-6">
+      <div className="w-24 h-24 rounded-full flex items-center justify-center mb-6 neumorphic">
         <Wallet className="w-12 h-12 text-primary opacity-70" />
       </div>
       <h3 className="text-2xl md:text-3xl font-black text-base-content mb-3">Configure sua Banca</h3>

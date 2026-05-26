@@ -90,7 +90,7 @@ const SettingsScreen: React.FC = () => {
         animate="animate"
         className="flex items-center gap-3 mb-6"
       >
-        <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+        <div className="p-3 rounded-xl neumorphic-inset">
           <Settings className="w-6 h-6 md:w-8 md:h-8 text-primary" />
         </div>
         <div>
@@ -109,10 +109,10 @@ const SettingsScreen: React.FC = () => {
             initial="initial"
             animate="animate"
             custom={sectionIndex}
-            className="custom-card p-4 md:p-6"
+            className="neumorphic rounded-lg p-4 md:p-6"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <div className="p-2 rounded-lg neumorphic-inset">
                 <Icon className="w-5 h-5 text-primary" />
               </div>
               <div>
@@ -125,7 +125,7 @@ const SettingsScreen: React.FC = () => {
               {section.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-base-200/50 border border-base-300"
+                  className="flex items-center justify-between p-4 rounded-lg neumorphic-inset"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm md:text-base mb-1">{item.label}</p>
@@ -135,7 +135,7 @@ const SettingsScreen: React.FC = () => {
                   {item.type === 'toggle' && (
                     <input
                       type="checkbox"
-                      className="toggle toggle-primary"
+                      className="toggle toggle-primary neumorphic"
                       checked={item.value as boolean}
                       onChange={(e) => item.onChange?.(e.target.checked)}
                     />
@@ -143,7 +143,7 @@ const SettingsScreen: React.FC = () => {
 
                   {item.type === 'select' && (
                     <select
-                      className="select select-bordered select-sm w-32 md:w-40"
+                      className="select select-bordered select-sm w-32 md:w-40 neumorphic-inset"
                       value={item.value as string}
                       onChange={(e) => item.onChange?.(e.target.value as 'light' | 'dark' | 'auto')}
                     >
@@ -172,7 +172,7 @@ const SettingsScreen: React.FC = () => {
           initial="initial"
           animate="animate"
           custom={settingsSections.length}
-          className="custom-card p-4 md:p-6 bg-info/10 border border-info/20"
+          className="neumorphic rounded-lg p-4 md:p-6"
         >
           <div className="flex items-center gap-3 mb-3">
             <Shield className="w-5 h-5 text-info" />
@@ -188,7 +188,7 @@ const SettingsScreen: React.FC = () => {
           initial="initial"
           animate="animate"
           custom={settingsSections.length + 1}
-          className="custom-card p-4 md:p-6 bg-secondary/10 border border-secondary/20"
+          className="neumorphic rounded-lg p-4 md:p-6"
         >
           <div className="flex items-center gap-3 mb-3">
             <Database className="w-5 h-5 text-secondary" />
@@ -206,7 +206,7 @@ const SettingsScreen: React.FC = () => {
         initial="initial"
         animate="animate"
         custom={settingsSections.length + 2}
-        className="custom-card p-4 md:p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20"
+        className="neumorphic rounded-lg p-4 md:p-6"
       >
         <div className="flex items-center gap-3 mb-3">
           <Sparkles className="w-5 h-5 text-primary" />

@@ -42,7 +42,7 @@ const BankEvolutionChart: React.FC<BankEvolutionChartProps> = ({ data }) => {
       initial="initial"
       animate="animate"
       custom={11}
-      className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+      className="neumorphic rounded-lg p-4 md:p-6"
     >
       <SectionHeader
         className="mb-4"
@@ -70,7 +70,7 @@ const BankEvolutionChart: React.FC<BankEvolutionChartProps> = ({ data }) => {
               if (active && payload && payload.length) {
                 const p = payload[0].payload as BankEvolutionPoint;
                 return (
-                  <div className={chartTooltipClassName}>
+                  <div className={`${chartTooltipClassName} neumorphic-inset`}>
                     <p className="text-xs text-base-content/70 mb-2">{p.date}</p>
                     <p className="text-xl font-bold text-primary mb-1">R$ {p.cash.toFixed(2)}</p>
                     <div className="text-xs text-base-content/80">

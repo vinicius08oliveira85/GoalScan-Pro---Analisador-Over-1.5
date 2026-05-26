@@ -5,11 +5,11 @@ import type { BankStatCard, StatColor } from './types';
 import type { BankStats } from '../../utils/dashboardStats';
 import { DollarSign, Percent, CheckCircle, XCircle, Clock, Target } from 'lucide-react';
 
-const colorMap: Record<StatColor, { text: string; bg: string; border: string }> = {
-  success: { text: 'text-success', bg: 'bg-success/10', border: 'border-success/20' },
-  error: { text: 'text-error', bg: 'bg-error/10', border: 'border-error/20' },
-  warning: { text: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/20' },
-  primary: { text: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
+const colorMap: Record<StatColor, { text: string }> = {
+  success: { text: 'text-success' },
+  error: { text: 'text-error' },
+  warning: { text: 'text-warning' },
+  primary: { text: 'text-primary' },
 };
 
 interface BankStatsGridProps {
@@ -75,10 +75,10 @@ const BankStatsGrid: React.FC<BankStatsGridProps> = ({ bankStats, startCustomInd
             initial="initial"
             animate="animate"
             custom={index + startCustomIndex}
-            className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+            className="neumorphic rounded-lg p-4 md:p-6"
           >
             <div className="flex items-start justify-between mb-3">
-              <div className={`p-3 rounded-xl ${styles.bg} border ${styles.border}`}>
+              <div className="neumorphic-inset p-3 rounded-xl">
                 <Icon className={`w-6 h-6 ${styles.text}`} />
               </div>
             </div>

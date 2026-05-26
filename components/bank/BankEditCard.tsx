@@ -41,7 +41,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
       initial="initial"
       animate="animate"
       custom={1}
-      className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+      className="neumorphic rounded-lg p-4 md:p-6"
     >
       <div className="mb-4">
         <h3 className="text-lg md:text-xl font-black text-base-content mb-1">Configurações da Banca</h3>
@@ -65,7 +65,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
               value={inputValue}
               onChange={onInputChange}
               onBlur={onInputBlur}
-              className={`input input-bordered w-full input-lg text-xl font-semibold tabular-nums pr-12 transition-all focus:ring-2 ${
+              className={`input w-full input-lg text-xl font-semibold tabular-nums pr-12 neumorphic-inset ${
                 validationState === 'valid' ? 'input-success' : validationState === 'invalid' ? 'input-error' : ''
               }`}
               placeholder="0,00"
@@ -96,7 +96,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
             value={leverageInput}
             onChange={onLeverageChange}
             onBlur={onLeverageBlur}
-            className="input input-bordered w-full"
+            className="input w-full neumorphic-inset"
             placeholder="1,00"
           />
            <label className="label">
@@ -110,7 +110,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
         <button
           onClick={onSave}
           disabled={isSaveDisabled || saveStatus === 'loading'}
-          className="btn btn-primary w-full btn-lg font-semibold"
+          className="btn btn-primary w-full btn-lg font-semibold neumorphic"
           type="button"
         >
           {saveStatus === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}

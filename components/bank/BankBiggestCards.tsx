@@ -19,13 +19,15 @@ const BankBiggestCards: React.FC<BankBiggestCardsProps> = ({ biggestWin, biggest
           initial="initial"
           animate="animate"
           custom={9}
-          className="card bg-success/10 border border-success/20 p-4 md:p-6"
+          className="neumorphic rounded-lg p-4 md:p-6"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <TrendingUp className="w-5 h-5 text-success" />
-            <h3 className="text-lg font-black text-success">Maior Ganho</h3>
+          <div className="neumorphic-inset p-4 rounded-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <TrendingUp className="w-5 h-5 text-success" />
+              <h3 className="text-lg font-black text-success">Maior Ganho</h3>
+            </div>
+            <p className="text-3xl font-black text-success">R$ {biggestWin.toFixed(2)}</p>
           </div>
-          <p className="text-3xl font-black text-success">R$ {biggestWin.toFixed(2)}</p>
         </motion.div>
       )}
 
@@ -35,13 +37,15 @@ const BankBiggestCards: React.FC<BankBiggestCardsProps> = ({ biggestWin, biggest
           initial="initial"
           animate="animate"
           custom={10}
-          className="card bg-error/10 border border-error/20 p-4 md:p-6"
+          className="neumorphic rounded-lg p-4 md:p-6"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <TrendingDown className="w-5 h-5 text-error" />
-            <h3 className="text-lg font-black text-error">Maior Perda</h3>
+          <div className="neumorphic-inset p-4 rounded-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <TrendingDown className="w-5 h-5 text-error" />
+              <h3 className="text-lg font-black text-error">Maior Perda</h3>
+            </div>
+            <p className="text-3xl font-black text-error">R$ {biggestLoss.toFixed(2)}</p>
           </div>
-          <p className="text-3xl font-black text-error">R$ {biggestLoss.toFixed(2)}</p>
         </motion.div>
       )}
     </div>

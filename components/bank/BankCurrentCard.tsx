@@ -24,11 +24,11 @@ const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
-      className="card bg-base-100 shadow-sm border border-base-300/50 p-6 md:p-8"
+      className="neumorphic rounded-lg p-6 md:p-8"
     >
       <div className="space-y-4">
         <div className="flex items-center gap-4 mb-4">
-          <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+          <div className="neumorphic-inset p-3 rounded-xl">
             <Wallet className="w-7 h-7 text-primary" />
           </div>
           <div>

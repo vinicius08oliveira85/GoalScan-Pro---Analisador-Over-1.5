@@ -320,7 +320,7 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
+    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8 bg-base-100">
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
@@ -341,7 +341,7 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-50 shadow-sm">
+      <header className="neumorphic sticky top-0 z-50">
         <div className="container mx-auto px-3 md:px-4 py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3 mb-4">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
@@ -357,14 +357,14 @@ const App: React.FC = () => {
             </div>
             <div className="hidden md:flex gap-4 items-center">
               {isLoading && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
+                <div className="neumorphic-inset flex items-center gap-2 px-3 py-1.5 rounded-lg">
                   <Loader className="w-3 h-3 text-info animate-spin" />
                   <span className="text-xs font-bold text-info">Carregando...</span>
                 </div>
               )}
               {!isLoading && isUsingLocalData && (
                 <div
-                  className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg"
+                  className="neumorphic-inset flex items-center gap-2 px-3 py-1.5 rounded-lg"
                   title="Usando dados locais"
                 >
                   <div className="w-2 h-2 bg-warning rounded-full animate-pulse" />
@@ -372,7 +372,7 @@ const App: React.FC = () => {
                 </div>
               )}
               {bankSettings && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/10 border border-secondary/20 rounded-lg">
+                <div className="neumorphic-inset flex items-center gap-2 px-3 py-1.5 rounded-lg">
                   <Wallet className="w-3 h-3 text-secondary" />
                   <span className="text-xs font-bold text-secondary">
                     {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(0)}
@@ -470,12 +470,12 @@ const App: React.FC = () => {
         showCloseButton={false}
         containerClassName="px-0 pt-0 items-stretch justify-stretch z-[200]"
         overlayClassName="bg-black/50 backdrop-blur-sm"
-        panelClassName="fixed inset-4 md:inset-8 lg:inset-16 max-w-none w-auto bg-base-200 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        panelClassName="neumorphic fixed inset-4 md:inset-8 lg:inset-16 max-w-none w-auto rounded-xl shadow-2xl overflow-hidden flex flex-col"
         bodyClassName="p-0 max-h-none overflow-hidden"
       >
-        <div className="bg-base-200/80 backdrop-blur-md border-b border-base-300 p-4 flex items-center justify-between">
+        <div className="neumorphic-inset p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2">
+            <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2 neumorphic">
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Voltar</span>
             </button>
@@ -485,7 +485,7 @@ const App: React.FC = () => {
                 : 'Nova Análise'}
             </h2>
           </div>
-          <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost">
+          <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost neumorphic">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -505,7 +505,7 @@ const App: React.FC = () => {
                       setCurrentMatchData(null);
                       setSelectedMatch(null);
                     }}
-                    className="btn btn-xs btn-ghost text-error"
+                    className="btn btn-xs btn-ghost text-error neumorphic"
                   >
                     Limpar
                   </button>
@@ -543,7 +543,7 @@ const App: React.FC = () => {
                   />
                 </Suspense>
               ) : (
-                <div className="custom-card p-12 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2">
+                <div className="neumorphic-inset p-12 flex flex-col items-center justify-center text-center">
                   <div className="w-24 h-24 mb-6 rounded-full border-4 border-current flex items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"

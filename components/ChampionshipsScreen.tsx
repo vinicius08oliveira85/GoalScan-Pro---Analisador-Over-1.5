@@ -7,12 +7,10 @@ import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
 import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
 import FbrefExtractionModal from './FbrefExtractionModal';
-import { animations } from '../utils/animations';
 
 const ChampionshipsScreen: React.FC = () => {
   const handleError = (message: string) => {
     console.error('[ChampionshipsScreen]', message);
-    // Você pode adicionar um toast aqui se necessário
   };
 
   const { championships, isLoading, isSaving, save, remove, loadTables, saveTable } =
@@ -64,11 +62,9 @@ const ChampionshipsScreen: React.FC = () => {
     tables: ChampionshipTable[]
   ) => {
     try {
-      // Salvar campeonato
       const savedChampionship = await save(championship);
 
       if (savedChampionship) {
-        // Salvar tabelas
         if (tables.length > 0) {
           for (const table of tables) {
             try {
@@ -114,7 +110,6 @@ const ChampionshipsScreen: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
@@ -125,27 +120,26 @@ const ChampionshipsScreen: React.FC = () => {
             Gerencie seus campeonatos e tabelas de classificação
           </p>
         </div>
-        <button onClick={handleNewChampionship} className="btn btn-primary gap-2">
+        <button onClick={handleNewChampionship} className="btn btn-primary gap-2 neumorphic">
           <Plus className="w-5 h-5" />
           Novo Campeonato
         </button>
       </div>
 
-      {/* Lista de Campeonatos */}
       {championships.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2"
+          className="neumorphic-inset p-12 md:p-16 flex flex-col items-center justify-center text-center"
         >
-          <div className="w-32 h-32 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center mb-6">
+          <div className="w-32 h-32 rounded-full flex items-center justify-center mb-6 neumorphic">
             <Trophy className="w-16 h-16 text-primary opacity-60" />
           </div>
           <h3 className="text-2xl font-bold mb-2">Nenhum Campeonato Cadastrado</h3>
           <p className="text-base-content/60 mb-6">
             Comece criando seu primeiro campeonato e adicione as tabelas de classificação.
           </p>
-          <button onClick={handleNewChampionship} className="btn btn-primary gap-2">
+          <button onClick={handleNewChampionship} className="btn btn-primary gap-2 neumorphic">
             <Plus className="w-5 h-5" />
             Criar Primeiro Campeonato
           </button>
@@ -157,11 +151,11 @@ const ChampionshipsScreen: React.FC = () => {
               key={championship.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="custom-card p-6 hover:shadow-lg transition-shadow"
+              className="neumorphic rounded-lg p-6"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full neumorphic-inset flex items-center justify-center">
                     <Trophy className="w-6 h-6 text-primary" />
                   </div>
                   <div>
@@ -211,7 +205,7 @@ const ChampionshipsScreen: React.FC = () => {
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => handleViewTables(championship)}
-                  className="btn btn-sm btn-ghost flex-1 gap-1"
+                  className="btn btn-sm btn-ghost flex-1 gap-1 neumorphic"
                   title="Visualizar Tabelas"
                 >
                   <Eye className="w-4 h-4" />
@@ -219,28 +213,28 @@ const ChampionshipsScreen: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setExtractingFbref(championship)}
-                  className="btn btn-sm btn-ghost gap-1"
+                  className="btn btn-sm btn-ghost gap-1 neumorphic"
                   title="Extrair Dados do FBref.com"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleUpdateTables(championship)}
-                  className="btn btn-sm btn-ghost gap-1"
+                  className="btn btn-sm btn-ghost gap-1 neumorphic"
                   title="Atualizar Tabelas (JSON)"
                 >
                   <Upload className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleEditChampionship(championship)}
-                  className="btn btn-sm btn-ghost gap-1"
+                  className="btn btn-sm btn-ghost gap-1 neumorphic"
                   title="Editar"
                 >
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDeleteChampionship(championship)}
-                  className="btn btn-sm btn-ghost text-error hover:bg-error/10 gap-1"
+                  className="btn btn-sm btn-ghost text-error hover:bg-error/10 gap-1 neumorphic"
                   title="Excluir"
                   disabled={isSaving}
                 >
@@ -252,7 +246,6 @@ const ChampionshipsScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Formulário */}
       <AnimatePresence>
         {showForm && (
           <motion.div
@@ -269,10 +262,10 @@ const ChampionshipsScreen: React.FC = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-base-100 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              className="neumorphic rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 bg-base-100 border-b border-base-300 p-4 flex items-center justify-between z-10">
+              <div className="sticky top-0 neumorphic-inset p-4 flex items-center justify-between z-10">
                 <h2 className="text-xl font-bold">
                   {editingChampionship ? 'Editar Campeonato' : 'Novo Campeonato'}
                 </h2>
@@ -281,7 +274,7 @@ const ChampionshipsScreen: React.FC = () => {
                     setShowForm(false);
                     setEditingChampionship(null);
                   }}
-                  className="btn btn-sm btn-ghost btn-circle"
+                  className="btn btn-sm btn-ghost btn-circle neumorphic"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -301,7 +294,6 @@ const ChampionshipsScreen: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Modal de Visualização de Tabelas */}
       <AnimatePresence>
         {viewingTables && (
           <motion.div
@@ -315,16 +307,16 @@ const ChampionshipsScreen: React.FC = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-base-100 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+              className="neumorphic rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 bg-base-100 border-b border-base-300 p-4 flex items-center justify-between z-10">
+              <div className="sticky top-0 neumorphic-inset p-4 flex items-center justify-between z-10">
                 <h2 className="text-xl font-bold">
                   Tabelas - {viewingTables.championship.nome}
                 </h2>
                 <button
                   onClick={() => setViewingTables(null)}
-                  className="btn btn-sm btn-ghost btn-circle"
+                  className="btn btn-sm btn-ghost btn-circle neumorphic"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -345,34 +337,27 @@ const ChampionshipsScreen: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Modal de Atualização de Tabelas */}
-      <AnimatePresence>
-        {updatingTables && (
-          <ChampionshipTableUpdateModal
-            championship={updatingTables.championship}
-            existingTables={updatingTables.tables}
-            onClose={() => setUpdatingTables(null)}
-            onSaveTable={saveTable}
-            onReloadTables={async () => {
-              const tables = await loadTables(updatingTables.championship.id);
-              // Atualizar estado do modal
-              setUpdatingTables({ championship: updatingTables.championship, tables });
-              // Se o modal de visualização estiver aberto para o mesmo campeonato, atualizar também
-              if (viewingTables?.championship.id === updatingTables.championship.id) {
-                setViewingTables({ championship: viewingTables.championship, tables });
-              }
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {updatingTables && (
+        <ChampionshipTableUpdateModal
+          championship={updatingTables.championship}
+          existingTables={updatingTables.tables}
+          onClose={() => setUpdatingTables(null)}
+          onSaveTable={saveTable}
+          onReloadTables={async () => {
+            const tables = await loadTables(updatingTables.championship.id);
+            setUpdatingTables({ championship: updatingTables.championship, tables });
+            if (viewingTables?.championship.id === updatingTables.championship.id) {
+              setViewingTables({ championship: viewingTables.championship, tables });
+            }
+          }}
+        />
+      )}
 
-      {/* Modal de Extração FBref */}
       {extractingFbref && (
         <FbrefExtractionModal
           championship={extractingFbref}
           onClose={() => setExtractingFbref(null)}
           onTableSaved={async () => {
-            // Recarregar tabelas após salvar
             if (viewingTables?.championship.id === extractingFbref.id) {
               const tables = await loadTables(extractingFbref.id);
               setViewingTables({ championship: extractingFbref, tables });
@@ -387,4 +372,3 @@ const ChampionshipsScreen: React.FC = () => {
 };
 
 export default ChampionshipsScreen;
-

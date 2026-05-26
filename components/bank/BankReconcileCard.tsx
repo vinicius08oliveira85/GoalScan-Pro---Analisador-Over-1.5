@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, Save, AlertCircle, Check, Loader2, RotateCcw } from 'lucide-react';
+import { Save, Loader2, RotateCcw } from 'lucide-react';
 import { animations } from '../../utils/animations';
 import type { SaveStatus } from './types';
 
@@ -41,7 +41,7 @@ const BankReconcileCard: React.FC<BankReconcileCardProps> = ({
       initial="initial"
       animate="animate"
       custom={2}
-      className="card bg-base-100 shadow-sm border border-base-300/50 p-4 md:p-6"
+      className="neumorphic rounded-lg p-4 md:p-6"
     >
       <div className="space-y-4">
         <div>
@@ -50,7 +50,7 @@ const BankReconcileCard: React.FC<BankReconcileCardProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 rounded-lg bg-base-200 border border-base-300/70">
+          <div className="neumorphic-inset rounded-lg p-4">
             <p className="text-xs font-bold text-base-content/70 uppercase">Resultado Líquido</p>
             <p className={`text-lg font-black tabular-nums ${netCashDelta > 0 ? 'text-success' : netCashDelta < 0 ? 'text-error' : 'text-base-content'}`}>
               {netCashDelta >= 0 ? '+' : ''}R$ {netCashDelta.toFixed(2)}
@@ -59,7 +59,7 @@ const BankReconcileCard: React.FC<BankReconcileCardProps> = ({
               <p className="text-xs text-base-content/60 mt-1">Pendentes: R$ {pendingExposure.toFixed(2)}</p>
             )}
           </div>
-          <div className="p-4 rounded-lg bg-base-200 border border-base-300/70">
+          <div className="neumorphic-inset rounded-lg p-4">
             <p className="text-xs font-bold text-base-content/70 uppercase">Base Sugerida</p>
             <p className="text-lg font-black text-base-content tabular-nums">R$ {suggestedBase.toFixed(2)}</p>
           </div>
@@ -77,15 +77,15 @@ const BankReconcileCard: React.FC<BankReconcileCardProps> = ({
               value={bankBaseInput}
               onChange={onBaseChange}
               onBlur={onBaseBlur}
-              className="input input-bordered w-full"
+              className="input w-full neumorphic-inset"
               placeholder="0,00"
             />
           </div>
           <div className="flex gap-2">
-            <button onClick={onUseSuggestedBase} className="btn btn-outline btn-sm flex-1" type="button">Usar Sugerida</button>
+            <button onClick={onUseSuggestedBase} className="btn btn-outline btn-sm flex-1 neumorphic" type="button">Usar Sugerida</button>
             <button
               onClick={onSaveBase}
-              className="btn btn-outline btn-sm flex-1"
+              className="btn btn-outline btn-sm flex-1 neumorphic"
               type="button"
               disabled={baseStatus === 'loading' || isSaveBaseDisabled}
             >
@@ -98,7 +98,7 @@ const BankReconcileCard: React.FC<BankReconcileCardProps> = ({
         <button
           onClick={onReconcile}
           disabled={reconcileStatus === 'loading' || isReconcileDisabled}
-          className="btn btn-secondary w-full btn-lg font-semibold"
+          className="btn btn-secondary w-full btn-lg font-semibold neumorphic"
           type="button"
         >
           {reconcileStatus === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : <RotateCcw className="w-5 h-5" />}
