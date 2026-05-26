@@ -322,7 +322,7 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
               );
             })}
           </motion.div>
-        </AnPresence>
+        </AnimatePresence>
       )}
     </div>
   );
