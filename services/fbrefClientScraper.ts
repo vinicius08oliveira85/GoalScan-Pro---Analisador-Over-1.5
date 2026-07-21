@@ -364,107 +364,127 @@ function parseAsHtml(html: string): FbrefExtractionResult {
 function parseAsText(text: string): FbrefExtractionResult {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
 
-  const overallIdx = lines.findIndex((l) => /^Overall\s*Home\/Away/i.test(l.trim()));
+  const SECTION_PATTERNS: Array<{ key: string; pattern: RegExp; requiredHeaders: RegExp[] }> = [
+    {
+      key: 'geral',
+      pattern: /^Overall\s*Home\/Away/i,
+      requiredHeaders: [/squad/i, /mp|pts/i],
+    },
+    {
+      key: 'standard',
+      pattern: /^Squad Standard Stats/i,
+      requiredHeaders: [/squad/i, /gls|goals/i],
+    },
+    {
+      key: 'goalkeeping',
+      pattern: /^Squad Goalkeeping/i,
+      requiredHeaders: [/squad/i, /ga|saves|cs/i],
+    },
+    {
+      key: 'shooting',
+      pattern: /^Squad Shooting/i,
+      requiredHeaders: [/squad/i, /shots?|sot/i],
+    },
+    {
+      key: 'playing_time',
+      pattern: /^Squad Playing Time/i,
+      requiredHeaders: [/squad/i, /min|starts|compl/i],
+    },
+    {
+      key: 'misc',
+      pattern: /^Squad Miscellaneous Stats/i,
+      requiredHeaders: [/squad/i, /crdy|crdr|fls|int|tklw/i],
+    },
+  ];
 
-  let headerLine = '';
-  let dataStartIdx = -1;
+  const allTables: Record<string, Record<string, string>[]> = {};
 
-  if (overallIdx >= 0) {
-    for (let i = overallIdx + 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.includes('Squad') && (line.includes('MP') || line.includes('Pts'))) {
-        headerLine = line;
-        dataStartIdx = i + 1;
-        break;
-      }
-    }
-  }
+  for (const section of SECTION_PATTERNS) {
+    let headerLine = '';
+    let dataStartIdx = -1;
 
-  if (!headerLine) {
     for (let i = 0; i < lines.length; i++) {
-      if (/^Rk\s/.test(lines[i]) && (lines[i].includes('Squad') || lines[i].includes('Team'))) {
-        headerLine = lines[i];
-        dataStartIdx = i + 1;
+      if (section.pattern.test(lines[i])) {
+        for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
+          const line = lines[j];
+          if (!line) continue;
+
+          const parts = line.split('\t').map((p) => p.trim()).filter(Boolean);
+          const hasHeaders = section.requiredHeaders.every((rh) =>
+            parts.some((p) => rh.test(p))
+          );
+
+          if (hasHeaders) {
+            headerLine = line;
+            dataStartIdx = j + 1;
+            break;
+          }
+        }
         break;
       }
     }
-  }
 
-  if (!headerLine || dataStartIdx < 0) {
-    return {
-      success: false,
-      error:
-        'Não foi possível encontrar a tabela de classificação. Copie a página inteira do FBref.',
-    };
-  }
+    if (!headerLine || dataStartIdx < 0) continue;
 
-  const headers = headerLine.split('\t').map((h) => h.trim()).filter(Boolean);
+    const headers = headerLine.split('\t').map((h) => h.trim()).filter(Boolean);
+    if (headers.length < 3) continue;
 
-  if (headers.length < 5) {
-    return {
-      success: false,
-      error: 'Cabeçalhos da tabela não reconhecidos. Copie a página inteira do FBref.',
-    };
-  }
+    const squadIdx = headers.findIndex((h) => /^squad$/i.test(h));
 
-  const squadIdx = headers.findIndex((h) => /squad|team/i.test(h));
-  const mpIdx = headers.findIndex((h) => /^MP$/i.test(h));
+    const rows: Record<string, string>[] = [];
 
-  if (squadIdx < 0 || mpIdx < 0) {
-    return {
-      success: false,
-      error: 'Colunas "Squad" e "MP" não encontradas. Copie a página inteira do FBref.',
-    };
-  }
+    for (let i = dataStartIdx; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
 
-  logger.log(`[FbrefClientScraper] Headers encontrados: ${headers.join(', ')}`);
+      if (/^Totals? may not be/i.test(line)) break;
+      if (/^View Player Stats|^Share & Export|^Modify|^Become a Stathead/i.test(line)) break;
+      if (/^Squad (Standard|Goalkeeping|Shooting|Playing Time|Miscellaneous)/i.test(line)) break;
+      if (/^Leaders|^Nationalities|^League Notes/i.test(line)) break;
 
-  const rows: Record<string, string>[] = [];
-  let stopMarkers = /^(?:Squad Standard Stats|Squad Goalkeeping|Squad Shooting|Squad Playing Time|Squad Miscellaneous|Leaders|Nationalities|League Notes|View Player Stats|Become a Stathead)/i;
+      const parts = line.split('\t').map((p) => p.trim());
 
-  for (let i = dataStartIdx; i < lines.length; i++) {
-    const line = lines[i].trim();
+      if (parts.length < 3) continue;
 
-    if (!line) continue;
-    if (stopMarkers.test(line)) break;
-    if (/^Totals? may not be/i.test(line)) break;
-    if (/^View Player Stats|^Share & Export|^Modify/i.test(line)) break;
+      const row: Record<string, string> = {};
+      for (let h = 0; h < headers.length; h++) {
+        let val = parts[h] ?? '';
 
-    const parts = line.split('\t').map((p) => p.trim());
+        if (h === squadIdx) {
+          val = val.replace(/^Club Crest\s*/i, '').trim();
+        }
 
-    if (parts.length < 5) continue;
-
-    const mp = parseInt(parts[mpIdx], 10);
-    if (isNaN(mp) || mp < 1 || mp > 100) continue;
-
-    const row: Record<string, string> = {};
-    for (let h = 0; h < headers.length; h++) {
-      let val = parts[h] ?? '';
-
-      if (h === squadIdx) {
-        val = val.replace(/^Club Crest\s*/i, '').trim();
+        row[headers[h]] = val;
       }
 
-      row[headers[h]] = val;
+      if (squadIdx >= 0 && row[headers[squadIdx]]) {
+        rows.push(row);
+      }
     }
 
-    rows.push(row);
+    if (rows.length > 0) {
+      allTables[section.key] = rows;
+    }
   }
 
-  if (rows.length === 0) {
+  if (Object.keys(allTables).length === 0) {
     return {
       success: false,
       error:
-        'Nenhuma linha de dados encontrada na tabela. Verifique se a seleção inclui a classificação.',
+        'Nenhuma tabela encontrada no conteúdo copiado. Copie a página inteira do FBref (seção Overall + todas as estatísticas).',
     };
   }
 
-  logger.log(`[FbrefClientScraper] Extraído: ${rows.length} linhas (geral) do texto colado`);
+  const counts = Object.entries(allTables)
+    .map(([k, v]) => `${k}: ${v.length}`)
+    .join(', ');
+
+  logger.log(`[FbrefClientScraper] Extraído do texto: ${counts}`);
 
   return {
     success: true,
     data: {
-      tables: { geral: rows },
+      tables: allTables as Record<'geral', unknown[]>,
       missingTables: [],
     },
   };

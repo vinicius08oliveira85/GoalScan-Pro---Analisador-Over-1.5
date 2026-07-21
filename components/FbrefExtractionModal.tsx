@@ -4,7 +4,7 @@ import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X, ClipboardP
 import ModalShell from './ui/ModalShell';
 import { extractFbrefData, extractFbrefDataClientSide, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
 import { parseFbrefHtml } from '../services/fbrefClientScraper';
-import { Championship, TableType } from '../types';
+import { Championship } from '../types';
 import { animations } from '../utils/animations';
 
 interface Props {
@@ -24,10 +24,8 @@ export default function FbrefExtractionModal({
   const extractTypes: ExtractType[] = ['table'];
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FbrefExtractionResult | null>(null);
-  const [previewTables, setPreviewTables] = useState<
-    Record<'geral' | 'home_away' | 'standard_for', unknown[]> | null
-  >(null);
-  const [activePreviewTable, setActivePreviewTable] = useState<TableType>('geral');
+  const [previewTables, setPreviewTables] = useState<Record<string, unknown[]> | null>(null);
+  const [activePreviewTable, setActivePreviewTable] = useState('geral');
   const [saving, setSaving] = useState(false);
   type ExtractionMode = 'client' | 'api' | 'selenium' | 'paste';
   const [mode, setMode] = useState<ExtractionMode>('paste');
@@ -82,12 +80,13 @@ export default function FbrefExtractionModal({
       setResult(extractionResult);
 
       if (extractionResult.success && extractionResult.data?.tables) {
-        setPreviewTables(extractionResult.data.tables);
+        setPreviewTables(extractionResult.data.tables as Record<string, unknown[]>);
 
-        // Selecionar a primeira tabela com dados para preview
-        const order: Array<TableType> = ['geral', 'home_away', 'standard_for'];
-        const firstWithData =
-          order.find((t) => (extractionResult.data?.tables?.[t]?.length ?? 0) > 0) || 'geral';
+        const keys = Object.keys(extractionResult.data.tables);
+        const firstWithData = keys.find((k) => {
+          const arr = extractionResult.data?.tables?.[k];
+          return Array.isArray(arr) && arr.length > 0;
+        }) || keys[0] || 'geral';
         setActivePreviewTable(firstWithData);
       } else {
         onError?.(extractionResult.error || 'Erro ao extrair dados');
@@ -394,96 +393,109 @@ export default function FbrefExtractionModal({
           )}
 
           {/* Preview */}
-          {previewTables && (
-            <motion.div
-              initial="initial"
-              animate="animate"
-              variants={animations.fadeInUp}
-              className="surface-muted p-4 rounded-xl"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-info" />
-                  <span className="font-bold">Preview das Tabelas</span>
-                </div>
-                <span className="badge badge-info">
-                  {(previewTables.geral?.length ?? 0)} times (geral)
-                </span>
-              </div>
+          {previewTables && (() => {
+            const tableKeys = Object.keys(previewTables);
+            const totalRows = tableKeys.reduce((sum, k) => sum + (Array.isArray(previewTables[k]) ? previewTables[k].length : 0), 0);
+            const LABELS: Record<string, string> = {
+              geral: 'Classificação',
+              standard: 'Stats Gerais',
+              goalkeeping: 'Goleiros',
+              shooting: 'Finalizações',
+              playing_time: 'Tempo de Jogo',
+              misc: 'Diversos',
+            };
 
-              <div role="tablist" className="tabs tabs-boxed tabs-sm mb-3">
-                {(['geral', 'home_away', 'standard_for'] as TableType[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    role="tab"
-                    className={`tab ${activePreviewTable === t ? 'tab-active' : ''}`}
-                    onClick={() => setActivePreviewTable(t)}
-                  >
-                    {t} ({(previewTables as any)[t]?.length ?? 0})
-                  </button>
-                ))}
-              </div>
-
-              {(() => {
-                const current = (previewTables as any)[activePreviewTable] as unknown[] | undefined;
-                const currentRows = Array.isArray(current) ? current : [];
-                if (currentRows.length === 0) {
-                  return <div className="text-sm opacity-70">Sem dados para esta tabela.</div>;
-                }
-
-                const first = (currentRows[0] as Record<string, unknown>) || {};
-                const keys = Object.keys(first).slice(0, 6);
-
-                return (
-                  <div className="max-h-64 overflow-y-auto">
-                    <table className="table table-xs table-zebra">
-                      <thead>
-                        <tr>
-                          {keys.map((key) => (
-                            <th key={key} className="text-xs">
-                              {key}
-                            </th>
-                          ))}
-                          <th className="text-xs">...</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentRows.slice(0, 6).map((row, idx) => (
-                          <tr key={idx}>
-                            {keys.map((k) => (
-                              <td key={k} className="text-xs">
-                                {String((row as Record<string, unknown>)[k] ?? '').substring(0, 24)}
-                              </td>
-                            ))}
-                            <td className="text-xs opacity-50">...</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })()}
-
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="btn btn-primary btn-sm w-full mt-4 gap-2"
+            return (
+              <motion.div
+                initial="initial"
+                animate="animate"
+                variants={animations.fadeInUp}
+                className="surface-muted p-4 rounded-xl"
               >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    Salvar Tabelas
-                  </>
-                )}
-              </button>
-            </motion.div>
-          )}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-info" />
+                    <span className="font-bold">Preview das Tabelas</span>
+                  </div>
+                  <span className="badge badge-info">
+                    {totalRows} linhas em {tableKeys.length} tabela(s)
+                  </span>
+                </div>
+
+                <div role="tablist" className="tabs tabs-boxed tabs-sm mb-3 flex-wrap">
+                  {tableKeys.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      role="tab"
+                      className={`tab ${activePreviewTable === t ? 'tab-active' : ''}`}
+                      onClick={() => setActivePreviewTable(t)}
+                    >
+                      {LABELS[t] || t} ({Array.isArray(previewTables[t]) ? previewTables[t].length : 0})
+                    </button>
+                  ))}
+                </div>
+
+                {(() => {
+                  const current = previewTables[activePreviewTable] as unknown[] | undefined;
+                  const currentRows = Array.isArray(current) ? current : [];
+                  if (currentRows.length === 0) {
+                    return <div className="text-sm opacity-70">Sem dados para esta tabela.</div>;
+                  }
+
+                  const first = (currentRows[0] as Record<string, unknown>) || {};
+                  const keys = Object.keys(first).slice(0, 6);
+
+                  return (
+                    <div className="max-h-64 overflow-y-auto">
+                      <table className="table table-xs table-zebra">
+                        <thead>
+                          <tr>
+                            {keys.map((key) => (
+                              <th key={key} className="text-xs">
+                                {key}
+                              </th>
+                            ))}
+                            <th className="text-xs">...</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentRows.slice(0, 6).map((row, idx) => (
+                            <tr key={idx}>
+                              {keys.map((k) => (
+                                <td key={k} className="text-xs">
+                                  {String((row as Record<string, unknown>)[k] ?? '').substring(0, 24)}
+                                </td>
+                              ))}
+                              <td className="text-xs opacity-50">...</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="btn btn-primary btn-sm w-full mt-4 gap-2"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Salvar Tabelas
+                    </>
+                  )}
+                </button>
+              </motion.div>
+            );
+          })()}
         </div>
       </div>
     </ModalShell>
