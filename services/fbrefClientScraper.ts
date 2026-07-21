@@ -297,59 +297,175 @@ export async function extractFbrefClientSide(
 }
 
 /**
- * Analisa HTML cru colado pelo usuário (modo "Colar HTML").
- * Não requer rede — parse puro com DOMParser.
+ * Analisa conteúdo colado pelo usuário (modo "Colar HTML").
+ * Suporta dois formatos:
+ *  1. HTML cru (View Source → Ctrl+A → Ctrl+C)
+ *  2. Texto visível (Ctrl+A no browser → Ctrl+C) — parse tabulado
+ * Não requer rede.
  */
 export function parseFbrefHtml(html: string): FbrefExtractionResult {
   try {
-    if (!html || html.trim().length < 1000) {
+    if (!html || html.trim().length < 200) {
       return {
         success: false,
-        error: 'HTML muito curto. Copie toda a página do FBref (Ctrl+A, Ctrl+C).',
+        error: 'Conteúdo muito curto. Copie toda a página do FBref.',
       };
     }
 
-    if (!html.includes('stats_table') && !html.includes('id="results')) {
-      return {
-        success: false,
-        error:
-          'O HTML não parece ser uma página do FBref. Certifique-se de copiar a página completa.',
-      };
+    const isHtml = html.includes('<table') || html.includes('<thead') || html.includes('<tbody');
+
+    if (isHtml) {
+      return parseAsHtml(html);
     }
 
-    logger.log(`[FbrefClientScraper] Analisando HTML colado (${html.length} bytes)`);
-
-    const doc = parseHtml(html);
-    const geral = processTable(doc, 'geral');
-
-    if (!geral || geral.rows.length === 0) {
-      return {
-        success: false,
-        error:
-          'Nenhuma tabela de classificação encontrada no HTML. Verifique se a página contém a seção "Overall" (classificação).',
-      };
-    }
-
-    const tables: Record<'geral', unknown[]> = {
-      geral: geral.rows,
-    };
-
-    logger.log(`[FbrefClientScraper] Extraído: ${geral.rows.length} linhas (geral) do HTML colado`);
-
-    return {
-      success: true,
-      data: {
-        tables,
-        missingTables: [],
-      },
-    };
+    return parseAsText(html);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro desconhecido';
-    logger.error('[FbrefClientScraper] Erro ao analisar HTML:', message);
+    logger.error('[FbrefClientScraper] Erro ao analisar conteúdo:', message);
 
     return {
       success: false,
-      error: `Erro ao analisar HTML: ${message}`,
+      error: `Erro ao analisar conteúdo: ${message}`,
     };
   }
+}
+
+function parseAsHtml(html: string): FbrefExtractionResult {
+  if (!html.includes('stats_table') && !html.includes('id="results')) {
+    return {
+      success: false,
+      error: 'O HTML não parece ser uma página do FBref.',
+    };
+  }
+
+  logger.log(`[FbrefClientScraper] Analisando HTML (${html.length} bytes)`);
+
+  const doc = parseHtml(html);
+  const geral = processTable(doc, 'geral');
+
+  if (!geral || geral.rows.length === 0) {
+    return {
+      success: false,
+      error: 'Nenhuma tabela de classificação encontrada no HTML.',
+    };
+  }
+
+  logger.log(`[FbrefClientScraper] Extraído: ${geral.rows.length} linhas (geral) do HTML`);
+
+  return {
+    success: true,
+    data: {
+      tables: { geral: geral.rows },
+      missingTables: [],
+    },
+  };
+}
+
+function parseAsText(text: string): FbrefExtractionResult {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+
+  const overallIdx = lines.findIndex((l) => /^Overall\s*Home\/Away/i.test(l.trim()));
+
+  let headerLine = '';
+  let dataStartIdx = -1;
+
+  if (overallIdx >= 0) {
+    for (let i = overallIdx + 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes('Squad') && (line.includes('MP') || line.includes('Pts'))) {
+        headerLine = line;
+        dataStartIdx = i + 1;
+        break;
+      }
+    }
+  }
+
+  if (!headerLine) {
+    for (let i = 0; i < lines.length; i++) {
+      if (/^Rk\s/.test(lines[i]) && (lines[i].includes('Squad') || lines[i].includes('Team'))) {
+        headerLine = lines[i];
+        dataStartIdx = i + 1;
+        break;
+      }
+    }
+  }
+
+  if (!headerLine || dataStartIdx < 0) {
+    return {
+      success: false,
+      error:
+        'Não foi possível encontrar a tabela de classificação. Copie a página inteira do FBref.',
+    };
+  }
+
+  const headers = headerLine.split('\t').map((h) => h.trim()).filter(Boolean);
+
+  if (headers.length < 5) {
+    return {
+      success: false,
+      error: 'Cabeçalhos da tabela não reconhecidos. Copie a página inteira do FBref.',
+    };
+  }
+
+  const squadIdx = headers.findIndex((h) => /squad|team/i.test(h));
+  const mpIdx = headers.findIndex((h) => /^MP$/i.test(h));
+
+  if (squadIdx < 0 || mpIdx < 0) {
+    return {
+      success: false,
+      error: 'Colunas "Squad" e "MP" não encontradas. Copie a página inteira do FBref.',
+    };
+  }
+
+  logger.log(`[FbrefClientScraper] Headers encontrados: ${headers.join(', ')}`);
+
+  const rows: Record<string, string>[] = [];
+  let stopMarkers = /^(?:Squad Standard Stats|Squad Goalkeeping|Squad Shooting|Squad Playing Time|Squad Miscellaneous|Leaders|Nationalities|League Notes|View Player Stats|Become a Stathead)/i;
+
+  for (let i = dataStartIdx; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (!line) continue;
+    if (stopMarkers.test(line)) break;
+    if (/^Totals? may not be/i.test(line)) break;
+    if (/^View Player Stats|^Share & Export|^Modify/i.test(line)) break;
+
+    const parts = line.split('\t').map((p) => p.trim());
+
+    if (parts.length < 5) continue;
+
+    const mp = parseInt(parts[mpIdx], 10);
+    if (isNaN(mp) || mp < 1 || mp > 100) continue;
+
+    const row: Record<string, string> = {};
+    for (let h = 0; h < headers.length; h++) {
+      let val = parts[h] ?? '';
+
+      if (h === squadIdx) {
+        val = val.replace(/^Club Crest\s*/i, '').trim();
+      }
+
+      row[headers[h]] = val;
+    }
+
+    rows.push(row);
+  }
+
+  if (rows.length === 0) {
+    return {
+      success: false,
+      error:
+        'Nenhuma linha de dados encontrada na tabela. Verifique se a seleção inclui a classificação.',
+    };
+  }
+
+  logger.log(`[FbrefClientScraper] Extraído: ${rows.length} linhas (geral) do texto colado`);
+
+  return {
+    success: true,
+    data: {
+      tables: { geral: rows },
+      missingTables: [],
+    },
+  };
 }

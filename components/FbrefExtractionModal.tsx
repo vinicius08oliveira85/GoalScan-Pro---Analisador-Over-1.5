@@ -266,11 +266,12 @@ export default function FbrefExtractionModal({
                   fbref.com
                 </a>
                 <br />
-                2. Pressione <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">A</kbd> (selecionar tudo)
+                2. Na seção de classificação (Overall), pressione{' '}
+                <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">A</kbd> para selecionar tudo
                 <br />
-                3. Pressione <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">C</kbd> (copiar)
+                3. Pressione <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">C</kbd> para copiar
                 <br />
-                4. Cole no campo abaixo com <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">V</kbd>
+                4. Cole aqui com <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">V</kbd>
               </div>
               <textarea
                 value={pasteHtml}
