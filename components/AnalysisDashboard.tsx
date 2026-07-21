@@ -6,20 +6,16 @@ import {
   TrendingDown,
   AlertCircle,
   Calculator,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Ban,
   Zap,
   Shield,
   Target,
   Sparkles,
-  Search,
 } from 'lucide-react';
 import BetManager from './BetManager';
 import ProbabilityGauge from './ProbabilityGauge';
 import MetricCard from './MetricCard';
-import { getCurrencySymbol } from '../utils/currency';
+import OverUnderGrid from './analysis/OverUnderGrid';
+import BetSummaryCard from './analysis/BetSummaryCard';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
 import { getEdgePp } from '../utils/betMetrics';
@@ -477,149 +473,20 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
       {/* Probabilidades Over/Under por Linha */}
       {(result.overUnderProbabilities || result.tableOverUnderProbabilities || result.statsOverUnderProbabilities) && (
-        <motion.div
-          className="surface surface-hover p-4 md:p-6"
-          variants={animations.fadeInUp}
-          initial="initial"
-          animate="animate"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-black uppercase tracking-tight">Probabilidades Over/Under</h3>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end">
-              <div role="tablist" className="tabs tabs-boxed tabs-sm">
-                {hasCombinedOU && (
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`tab ${overUnderTab === 'combined' ? 'tab-active' : ''}`}
-                    onClick={() => setOverUnderTab('combined')}
-                  >
-                    Combinada
-                  </button>
-                )}
-                {hasStatsOU && (
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`tab ${overUnderTab === 'stats' ? 'tab-active' : ''}`}
-                    onClick={() => setOverUnderTab('stats')}
-                  >
-                    Estatísticas
-                  </button>
-                )}
-                {hasTableOU && (
-                  <button
-                    type="button"
-                    role="tab"
-                    className={`tab ${overUnderTab === 'table' ? 'tab-active' : ''}`}
-                    onClick={() => setOverUnderTab('table')}
-                  >
-                    Tabela
-                  </button>
-                )}
-              </div>
-
-              {selectedBets.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedBets([])}
-                  className="btn btn-ghost btn-xs text-error"
-                  title="Limpar seleção"
-                >
-                  Limpar
-                </button>
-              )}
-            </div>
-          </div>
-
-          {overUnderTab !== 'combined' && (
-            <div className="text-xs opacity-70 mb-3 leading-relaxed">
-              Somente leitura. Use a aba <span className="font-bold">Combinada</span> para selecionar
-              apostas.
-            </div>
-          )}
-
-          {overUnderTab === 'combined' && selectedBets.length > 0 && (
-            <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
-              <div className="text-xs font-semibold opacity-70">
-                Seleção ativa:{' '}
-                <span className="font-black text-primary">{displayLabel}</span>
-              </div>
-              <div className="text-xs font-semibold opacity-70">
-                Prob.: <span className="font-black">{displayProbability.toFixed(1)}%</span>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3 lg:gap-4">
-            {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
-              const prob =
-                overUnderTab === 'combined'
-                  ? result.overUnderProbabilities?.[line]
-                  : overUnderTab === 'stats'
-                    ? result.statsOverUnderProbabilities?.[line]
-                    : result.tableOverUnderProbabilities?.[line];
-
-              if (!prob) return null;
-
-              const interactive = overUnderTab === 'combined';
-              const isOverSelected = interactive && isBetSelected(line, 'over');
-              const isUnderSelected = interactive && isBetSelected(line, 'under');
-              const rowBase = 'flex items-center justify-between p-2 rounded-lg border-2 transition-all';
-
-              return (
-                <div
-                  key={`${overUnderTab}-${line}`}
-                  className="surface-muted p-3 md:p-4 rounded-xl border border-base-300/60"
-                >
-                  <div className="text-xs font-bold opacity-70 uppercase tracking-wide mb-2">
-                    Linha {line}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div
-                      onClick={interactive ? () => handleBetClick(line, 'over', prob.over) : undefined}
-                      className={`${rowBase} ${
-                        interactive
-                          ? isOverSelected
-                            ? 'bg-success/20 border-success shadow-lg scale-[1.02] cursor-pointer'
-                            : 'border-transparent hover:bg-base-300/50 cursor-pointer'
-                          : 'bg-base-300/20 border-transparent cursor-default'
-                      }`}
-                      title={
-                        interactive ? (isOverSelected ? 'Clique para desmarcar' : 'Clique para selecionar') : undefined
-                      }
-                    >
-                      <span className="text-xs font-semibold text-success">Over</span>
-                      <span className="text-sm font-black">{prob.over.toFixed(1)}%</span>
-                    </div>
-
-                    <div
-                      onClick={interactive ? () => handleBetClick(line, 'under', prob.under) : undefined}
-                      className={`${rowBase} ${
-                        interactive
-                          ? isUnderSelected
-                            ? 'bg-error/20 border-error shadow-lg scale-[1.02] cursor-pointer'
-                            : 'border-transparent hover:bg-base-300/50 cursor-pointer'
-                          : 'bg-base-300/20 border-transparent cursor-default'
-                      }`}
-                      title={
-                        interactive ? (isUnderSelected ? 'Clique para desmarcar' : 'Clique para selecionar') : undefined
-                      }
-                    >
-                      <span className="text-xs font-semibold text-error">Under</span>
-                      <span className="text-sm font-black">{prob.under.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
+        <OverUnderGrid
+          result={result}
+          overUnderTab={overUnderTab}
+          onTabChange={setOverUnderTab}
+          selectedBets={selectedBets}
+          onBetClick={handleBetClick}
+          isBetSelected={isBetSelected}
+          hasCombinedOU={hasCombinedOU}
+          hasStatsOU={hasStatsOU}
+          hasTableOU={hasTableOU}
+          onClearSelection={() => setSelectedBets([])}
+          displayLabel={displayLabel}
+          displayProbability={displayProbability}
+        />
       )}
 
       {/* Combinações Recomendadas */}
@@ -668,201 +535,28 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
       {onBetSave && (
         <div>
           {!showBetManager ? (
-            <div className="surface surface-hover p-4 md:p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-                    <Calculator className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="text-xl font-black uppercase tracking-tight">Gerenciar Aposta</h3>
-                </div>
-                <button
-                  onClick={() => setShowBetManager(true)}
-                  className="btn btn-primary btn-md gap-2 hover:scale-105 transition-transform shadow-lg"
-                >
-                  {betInfo && betInfo.betAmount > 0 ? 'Editar Aposta' : 'Registrar Aposta'}
-                </button>
-              </div>
-
-              {betInfo && betInfo.betAmount > 0 ? (
-                <div className="surface-muted p-5">
-                  {/* Status Badge Destacado */}
-                  <div className="mb-6 flex items-center justify-between p-4 rounded-xl border border-base-300/60 bg-base-300/20">
-                    <span className="text-sm font-bold opacity-70 uppercase tracking-wide">
-                      Status da Aposta
-                    </span>
-                    <div
-                      className={`badge gap-2 px-5 py-3 font-black text-sm uppercase tracking-wider border-2 shadow-lg ${
-                        betInfo.status === 'won'
-                          ? 'bg-success/20 text-success border-success/40'
-                          : betInfo.status === 'lost'
-                            ? 'bg-error/20 text-error border-error/40'
-                            : betInfo.status === 'pending'
-                              ? 'bg-warning/20 text-warning border-warning/40'
-                              : 'bg-base-300/20 text-base-content/60 border-base-300/40'
-                      }`}
-                    >
-                      {betInfo.status === 'won' && <CheckCircle className="w-5 h-5" />}
-                      {betInfo.status === 'lost' && <XCircle className="w-5 h-5" />}
-                      {betInfo.status === 'pending' && <Clock className="w-5 h-5" />}
-                      {betInfo.status === 'cancelled' && <Ban className="w-5 h-5" />}
-                      <span>
-                        {betInfo.status === 'won'
-                          ? 'Ganhou'
-                          : betInfo.status === 'lost'
-                            ? 'Perdeu'
-                            : betInfo.status === 'pending'
-                              ? 'Pendente'
-                              : 'Cancelada'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Botões Rápidos para Marcar Resultado (apenas se pendente) */}
-                  {betInfo.status === 'pending' && onBetSave && (
-                    <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-xl">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <span className="text-sm font-bold opacity-80 uppercase tracking-wide">
-                          Marcar Resultado
-                        </span>
-                        <div className="flex gap-3 w-full sm:w-auto">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Verificar se o status já é o mesmo - evitar processamento desnecessário
-                              if (betInfo.status === 'won') {
-                                return; // Status já é won, não precisa processar
-                              }
-                              const updatedBetInfo: BetInfo = {
-                                ...betInfo,
-                                status: 'won',
-                                resultAt: Date.now(),
-                              };
-                              onBetSave(updatedBetInfo);
-                            }}
-                            disabled={isUpdatingBetStatus || betInfo.status === 'won'}
-                            className="btn btn-success btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <CheckCircle className="w-5 h-5" />
-                            {isUpdatingBetStatus ? 'Processando...' : 'Ganhou'}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Verificar se o status já é o mesmo - evitar processamento desnecessário
-                              if (betInfo.status === 'lost') {
-                                return; // Status já é lost, não precisa processar
-                              }
-                              const updatedBetInfo: BetInfo = {
-                                ...betInfo,
-                                status: 'lost',
-                                resultAt: Date.now(),
-                              };
-                              onBetSave(updatedBetInfo);
-                            }}
-                            disabled={isUpdatingBetStatus || betInfo.status === 'lost'}
-                            className="btn btn-error btn-md gap-2 min-h-[44px] flex-1 sm:flex-none shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <XCircle className="w-5 h-5" />
-                            {isUpdatingBetStatus ? 'Processando...' : 'Perdeu'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                    <div className="surface-muted p-4 rounded-xl">
-                      <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
-                        Valor Apostado
-                      </span>
-                      <p className="font-black text-xl font-mono">
-                        {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                        {betInfo.betAmount.toFixed(2)}
-                      </p>
-                    </div>
-                    {betInfo.status === 'pending' ? (
-                      <div className="surface-muted p-4 rounded-xl border border-primary/30">
-                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
-                          Retorno Potencial
-                        </span>
-                        <p className="font-black text-xl text-primary font-mono">
-                          {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                          {betInfo.potentialReturn.toFixed(2)}
-                        </p>
-                      </div>
-                    ) : betInfo.status === 'won' ? (
-                      <div className="bg-success/10 p-4 rounded-xl border-2 border-success/30">
-                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
-                          Ganho Realizado
-                        </span>
-                        <p className="font-black text-xl text-success font-mono">
-                          +{getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                          {betInfo.potentialProfit.toFixed(2)}
-                        </p>
-                      </div>
-                    ) : betInfo.status === 'lost' ? (
-                      <div className="bg-error/10 p-4 rounded-xl border-2 border-error/30">
-                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
-                          Perda
-                        </span>
-                        <p className="font-black text-xl text-error font-mono">
-                          -{getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                          {betInfo.betAmount.toFixed(2)}
-                        </p>
-                      </div>
-                    ) : null}
-                    {betInfo.status === 'pending' && (
-                      <div
-                        className={`p-4 rounded-xl border-2 ${betInfo.potentialProfit >= 0 ? 'bg-success/10 border-success/30' : 'bg-error/10 border-error/30'}`}
-                      >
-                        <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
-                          Lucro Potencial
-                        </span>
-                        <p
-                          className={`font-black text-xl font-mono ${betInfo.potentialProfit >= 0 ? 'text-success' : 'text-error'}`}
-                        >
-                          {betInfo.potentialProfit >= 0 ? '+' : ''}
-                          {getCurrencySymbol(bankSettings?.currency || 'BRL')}{' '}
-                          {betInfo.potentialProfit.toFixed(2)}
-                        </p>
-                      </div>
-                    )}
-                    <div className="surface-muted p-4 rounded-xl">
-                      <span className="text-xs font-semibold opacity-70 block mb-2 uppercase tracking-wide">
-                        % da Banca
-                      </span>
-                      <p className="font-black text-xl font-mono">
-                        {betInfo.bankPercentage.toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Botão Analisar Resultado para partidas finalizadas */}
-                  {(betInfo.status === 'won' || betInfo.status === 'lost') && onAnalyzeResult && savedMatch && (
-                    <div className="mt-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAnalyzeResult(savedMatch);
-                        }}
-                        className="btn btn-primary btn-md gap-2 w-full shadow-lg"
-                      >
-                        <Search className="w-5 h-5" />
-                        Analisar Resultado
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="surface-muted p-5 text-center">
-                  <p className="text-sm opacity-70 leading-relaxed">
-                    Clique em "Registrar Aposta" para adicionar informações sobre sua aposta nesta
-                    partida.
-                  </p>
-                </div>
-              )}
-            </div>
+            <BetSummaryCard
+              betInfo={betInfo!}
+              bankSettings={bankSettings}
+              odd={data.oddOver15 || 0}
+              probability={displayProbability}
+              onToggleEditor={() => setShowBetManager(true)}
+              onUpdateBetStatus={
+                onBetSave
+                  ? (status) => {
+                      const updatedBetInfo: BetInfo = {
+                        ...betInfo!,
+                        status,
+                        resultAt: Date.now(),
+                      };
+                      onBetSave(updatedBetInfo);
+                    }
+                  : undefined
+              }
+              isUpdatingBetStatus={isUpdatingBetStatus}
+              onAnalyzeResult={onAnalyzeResult && savedMatch ? () => onAnalyzeResult(savedMatch) : undefined}
+              savedMatch={savedMatch}
+            />
           ) : (
             <BetManager
               odd={data.oddOver15 || 0}

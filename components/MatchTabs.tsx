@@ -56,7 +56,7 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
               flex items-center gap-2
               ${
                 activeTab === tab.id
-                  ? 'text-white'
+                  ? 'text-primary-content'
                   : 'text-base-content/60 hover:text-base-content/80'
               }
             `}
@@ -82,7 +82,7 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                     px-2 py-0.5 rounded-full text-xs font-bold transition-all
                     ${
                       activeTab === tab.id
-                        ? 'bg-white/20 text-white'
+                        ? 'bg-primary-content/20 text-primary-content'
                         : tab.id === 'pendentes' && tab.count > 0
                           ? 'bg-warning/30 text-warning border border-warning/40 shadow-sm'
                           : tab.id === 'finalizadas' && tab.count > 0
@@ -111,7 +111,7 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                 flex items-center gap-2 flex-shrink-0
                 ${
                   activeTab === tab.id
-                    ? 'text-white'
+                    ? 'text-primary-content'
                     : 'text-base-content/60 bg-base-200/50 border border-base-300/50'
                 }
               `}
@@ -137,7 +137,7 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
                       px-2 py-0.5 rounded-full text-xs font-bold transition-all
                       ${
                         activeTab === tab.id
-                          ? 'bg-white/20 text-white'
+                          ? 'bg-primary-content/20 text-primary-content'
                           : tab.id === 'pendentes' && tab.count > 0
                             ? 'bg-warning/30 text-warning border border-warning/40 shadow-sm'
                             : tab.id === 'finalizadas' && tab.count > 0

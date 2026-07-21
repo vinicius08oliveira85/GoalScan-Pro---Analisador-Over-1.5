@@ -147,7 +147,8 @@ function combineOverUnderProbabilities(
     } else {
       // Fallback: valores padrão
       combined[lineKey] = { over: 50, under: 50   };
-}
+    }
+  }
 
   return combined;
 }
@@ -1291,6 +1292,7 @@ function calculateAdaptiveWeights(
  * Normaliza dados de MatchData garantindo valores padrão seguros para campos opcionais
  * Previne erros com dados antigos ou incompletos
  */
+/**
  * Calcula score de completude das tabelas (0-1)
  */
 function calculateTableCompletenessScore(data: MatchData): {

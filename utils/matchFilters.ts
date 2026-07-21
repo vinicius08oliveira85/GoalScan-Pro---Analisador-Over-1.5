@@ -1,4 +1,4 @@
-import { SavedAnalysis, RiskLevel } from '../types';
+import { SavedAnalysis } from '../types';
 import { getPrimaryProbability } from './probability';
 import { getMatchDateInBrasilia } from './dateFormatter';
 

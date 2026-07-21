@@ -161,12 +161,11 @@ function getFallbackOrderForVersion(startModel: string, apiVersion: GeminiApiVer
 function buildGenerateContentUrl(opts: {
   apiVersion: GeminiApiVersion;
   model: string;
-  apiKey: string;
 }): string {
-  const { apiVersion, model, apiKey } = opts;
+  const { apiVersion, model } = opts;
   return `https://generativelanguage.googleapis.com/${apiVersion}/models/${encodeURIComponent(
     normalizeGeminiModel(model)
-  )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  )}:generateContent`;
 }
 
 async function callGeminiOnce(opts: {
@@ -179,7 +178,10 @@ async function callGeminiOnce(opts: {
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': opts.apiKey,
+    },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: opts.prompt }] }],
       generationConfig: {

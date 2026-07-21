@@ -15,7 +15,7 @@ interface MatchCardCompactProps {
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
 }
 
-const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
+const MatchCardCompact: React.FC<MatchCardCompactProps> = React.memo(({
   match,
   index,
   onMatchClick,
@@ -207,6 +207,8 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
       </div>
     </motion.div>
   );
-};
+});
+
+MatchCardCompact.displayName = 'MatchCardCompact';
 
 export default MatchCardCompact;

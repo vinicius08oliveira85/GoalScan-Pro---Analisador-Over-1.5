@@ -198,7 +198,7 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
           <tbody>
             {filteredAndSortedRows.map((row) => {
               // Usar Squad como chave primária (identificador único da linha)
-              const squadKey = (row as Record<string, unknown>).Squad || `row-${Math.random()}`;
+              const squadKey = (row as Record<string, unknown>).Squad || `row-${Math.random().toString(36).slice(2, 11)}`;
               return (
                 <tr key={squadKey} className="hover:bg-base-200">
                   {columns.map((column) => {

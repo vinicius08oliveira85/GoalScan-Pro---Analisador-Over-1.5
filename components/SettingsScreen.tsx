@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Settings, Bell, Moon, Sun, Info, Shield, Database, Sparkles } from 'lucide-react';
 import { animations } from '../utils/animations';
+import { useTheme } from '../contexts/ThemeContext';
 
 const SettingsScreen: React.FC = () => {
+  const { mode: theme, setMode: setTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>('auto');
+
+  const isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   const settingsSections = [
     {
@@ -27,7 +30,7 @@ const SettingsScreen: React.FC = () => {
     {
       id: 'appearance',
       title: 'Aparência',
-      icon: theme === 'dark' ? Moon : Sun,
+      icon: isDark ? Moon : Sun,
       description: 'Personalize a aparência do aplicativo',
       items: [
         {
@@ -54,13 +57,7 @@ const SettingsScreen: React.FC = () => {
         {
           id: 'version',
           label: 'Versão',
-          description: 'v3.8.2 Elite Edition',
-          type: 'info' as const,
-        },
-        {
-          id: 'build',
-          label: 'Build',
-          description: '2024.12.30',
+          description: 'v3.8.3',
           type: 'info' as const,
         },
       ],

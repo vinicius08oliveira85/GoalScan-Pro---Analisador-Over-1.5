@@ -105,7 +105,7 @@ class ErrorBoundary extends Component<Props, State> {
             <p className="text-sm opacity-70 mb-6">
               Ocorreu um erro inesperado. Por favor, tente recarregar a página.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <details className="mb-6 text-left">
                 <summary className="cursor-pointer text-xs opacity-60 mb-2">
                   Detalhes do erro (modo desenvolvimento)

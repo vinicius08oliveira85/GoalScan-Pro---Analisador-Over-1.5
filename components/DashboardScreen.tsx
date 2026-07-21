@@ -48,17 +48,20 @@ import {
   getChartAxisTick,
 } from '../utils/chartTheme';
 import SectionHeader from './ui/SectionHeader';
+import { SkeletonMetricCard, SkeletonCard } from './Skeleton';
 
 interface DashboardScreenProps {
   savedMatches: SavedAnalysis[];
   bankSettings?: BankSettings;
   onMatchClick?: (match: SavedAnalysis) => void;
+  isLoading?: boolean;
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({
   savedMatches,
   bankSettings,
   onMatchClick,
+  isLoading = false,
 }) => {
   const windowSize = useWindowSize();
   const stats = useMemo(
@@ -163,6 +166,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return (tone in toneClasses ? tone : 'primary') as StatCardTone;
   };
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6 md:space-y-8 pb-16 md:pb-8 animate-in">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <SkeletonMetricCard key={i} />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <SkeletonCard lines={8} />
+          <SkeletonCard lines={8} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
       {/* Grid de Estatísticas */}
@@ -260,7 +279,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <YAxis
                   tick={getChartAxisTick(windowSize.isMobile)}
                   tickLine={chartAxisTickLine}
-                  tickFormatter={(value) => `R$ ${value.toFixed(0)}`}
+                  tickFormatter={(value) => `${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${value.toFixed(0)}`}
                 />
                 <Tooltip
                   content={({ active, payload }) => {
@@ -287,7 +306,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           <div className="mb-2">
                             <p className="text-xs opacity-70 mb-1">{p.date}</p>
                             <div className="flex items-baseline gap-2">
-                              <p className="text-2xl font-black text-primary">R$ {p.cash.toFixed(2)}</p>
+                              <p className="text-2xl font-black text-primary">{getCurrencySymbol(bankSettings?.currency || 'BRL')} {p.cash.toFixed(2)}</p>
                               {cashChange !== null && (
                                 <span
                                   className={`text-sm font-bold flex items-center gap-1 ${
@@ -311,7 +330,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             <div className="mt-2 text-xs opacity-80">
                               <div className="flex items-center justify-between gap-3">
                                 <span className="opacity-70">Equity</span>
-                                <span className="font-bold">R$ {p.equity.toFixed(2)}</span>
+                                <span className="font-bold">{getCurrencySymbol(bankSettings?.currency || 'BRL')} {p.equity.toFixed(2)}</span>
                               </div>
                               {equityChange !== null && (
                                 <div className="flex items-center justify-between gap-3 mt-1">

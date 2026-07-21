@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '../lib/supabase';
 import { ChampionshipTable, TableType } from '../types';
 import { logger } from '../utils/logger';
+import { createLocalStorageCache } from '../utils/localStorageCache';
 
 export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
 
@@ -32,45 +33,12 @@ export interface FbrefExtractionResult {
   };
 }
 
-const CACHE_KEY_PREFIX = 'fbref_extraction_';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora
 
-// Cache helper
+const { getCache, setCache } = createLocalStorageCache<FbrefExtractionResult>('fbref_extraction_');
+
 function getCacheKey(url: string, extractTypes: ExtractType[]): string {
-  return `${CACHE_KEY_PREFIX}${url}_${extractTypes.join('_')}`;
-}
-
-function getCachedResult(key: string): FbrefExtractionResult | null {
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return null;
-
-    const { result, timestamp } = JSON.parse(cached);
-    const now = Date.now();
-
-    if (now - timestamp > CACHE_TTL_MS) {
-      localStorage.removeItem(key);
-      return null;
-    }
-
-    return result;
-  } catch {
-    return null;
-  }
-}
-
-function setCachedResult(key: string, result: FbrefExtractionResult): void {
-  try {
-    localStorage.setItem(
-      key,
-      JSON.stringify({
-        result,
-        timestamp: Date.now(),
-      })
-    );
-  } catch (error) {
-    logger.warn('[FBrefService] Erro ao salvar cache:', error);
-  }
+  return `${url}_${extractTypes.join('_')}`;
 }
 
 /**
@@ -90,7 +58,7 @@ export const extractFbrefData = async (
 
     // Verificar cache
     const cacheKey = getCacheKey(request.championshipUrl, request.extractTypes);
-    const cached = getCachedResult(cacheKey);
+    const cached = getCache(cacheKey);
     if (cached) {
       logger.log('[FBrefService] Usando dados do cache');
       return cached;
@@ -143,7 +111,7 @@ export const extractFbrefData = async (
 
     // Salvar no cache se bem-sucedido
     if (result.success) {
-      setCachedResult(cacheKey, result);
+      setCache(cacheKey, result, CACHE_TTL_MS);
     }
 
     return result;
@@ -249,7 +217,7 @@ export const extractFbrefDataWithSelenium = async (
 
     // Cache com sufixo diferente para Selenium
     const cacheKey = `${getCacheKey(request.championshipUrl, request.extractTypes)}_selenium`;
-    const cached = getCachedResult(cacheKey);
+    const cached = getCache(cacheKey);
     if (cached) {
       logger.log('[FBrefService] Usando dados do cache (Selenium)');
       return cached;
@@ -312,7 +280,7 @@ export const extractFbrefDataWithSelenium = async (
 
     // Salvar no cache se bem-sucedido
     if (result.success) {
-      setCachedResult(cacheKey, result);
+      setCache(cacheKey, result, CACHE_TTL_MS);
     }
 
     return result;

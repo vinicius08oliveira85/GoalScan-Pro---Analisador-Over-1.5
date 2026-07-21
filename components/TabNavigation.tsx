@@ -9,7 +9,7 @@ interface TabNavigationProps {
   onTabChange: (tab: TabType) => void;
 }
 
-const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange }) => {
+const TabNavigation: React.FC<TabNavigationProps> = React.memo(({ activeTab, onTabChange }) => {
   const tabs: Array<{ id: TabType; label: string; icon: React.ReactNode }> = [
     {
       id: 'dashboard',
@@ -76,6 +76,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onTabChange })
       </div>
     </div>
   );
-};
+});
+
+TabNavigation.displayName = 'TabNavigation';
 
 export default TabNavigation;

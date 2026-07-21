@@ -305,7 +305,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
       }
       
       const championshipToSave: Championship = {
-        id: championship?.id || Math.random().toString(36).slice(2, 11),
+        id: championship?.id || crypto.randomUUID(),
         nome: nome.trim(),
         fbrefUrl: fbrefUrlTrimmed ? fbrefUrlTrimmed : null,
         table_format: finalFormat,
