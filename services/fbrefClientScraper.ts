@@ -341,21 +341,48 @@ function parseAsHtml(html: string): FbrefExtractionResult {
   logger.log(`[FbrefClientScraper] Analisando HTML (${html.length} bytes)`);
 
   const doc = parseHtml(html);
-  const geral = processTable(doc, 'geral');
 
-  if (!geral || geral.rows.length === 0) {
+  const TABLE_TYPES: Array<{ key: string; patterns: RegExp[] }> = [
+    { key: 'geral', patterns: [/results.*_overall/i, /stats.*_overall/i] },
+    { key: 'standard', patterns: [/standard_for/i] },
+    { key: 'goalkeeping', patterns: [/keeperas/i] },
+    { key: 'shooting', patterns: [/shooting/i] },
+    { key: 'playing_time', patterns: [/playing_time/i] },
+    { key: 'misc', patterns: [/misc/i] },
+  ];
+
+  const allTables: Record<string, Record<string, string>[]> = {};
+
+  for (const { key, patterns } of TABLE_TYPES) {
+    for (const pattern of patterns) {
+      const found = findTableById(doc, pattern);
+      if (found) {
+        const processed = processTable(doc, key);
+        if (processed && processed.rows.length > 0) {
+          allTables[key] = processed.rows;
+          break;
+        }
+      }
+    }
+  }
+
+  if (Object.keys(allTables).length === 0) {
     return {
       success: false,
       error: 'Nenhuma tabela de classificação encontrada no HTML.',
     };
   }
 
-  logger.log(`[FbrefClientScraper] Extraído: ${geral.rows.length} linhas (geral) do HTML`);
+  const counts = Object.entries(allTables)
+    .map(([k, v]) => `${k}: ${v.length}`)
+    .join(', ');
+
+  logger.log(`[FbrefClientScraper] Extraído do HTML: ${counts}`);
 
   return {
     success: true,
     data: {
-      tables: { geral: geral.rows },
+      tables: allTables as Record<'geral', unknown[]>,
       missingTables: [],
     },
   };
@@ -364,83 +391,88 @@ function parseAsHtml(html: string): FbrefExtractionResult {
 function parseAsText(text: string): FbrefExtractionResult {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
 
-  const SECTION_PATTERNS: Array<{ key: string; pattern: RegExp; requiredHeaders: RegExp[] }> = [
-    {
-      key: 'geral',
-      pattern: /^Overall\s*Home\/Away/i,
-      requiredHeaders: [/squad/i, /mp|pts/i],
-    },
-    {
-      key: 'standard',
-      pattern: /^Squad Standard Stats/i,
-      requiredHeaders: [/squad/i, /gls|goals/i],
-    },
-    {
-      key: 'goalkeeping',
-      pattern: /^Squad Goalkeeping/i,
-      requiredHeaders: [/squad/i, /ga|saves|cs/i],
-    },
-    {
-      key: 'shooting',
-      pattern: /^Squad Shooting/i,
-      requiredHeaders: [/squad/i, /shots?|sot/i],
-    },
-    {
-      key: 'playing_time',
-      pattern: /^Squad Playing Time/i,
-      requiredHeaders: [/squad/i, /min|starts|compl/i],
-    },
-    {
-      key: 'misc',
-      pattern: /^Squad Miscellaneous Stats/i,
-      requiredHeaders: [/squad/i, /crdy|crdr|fls|int|tklw/i],
-    },
+  logger.log(`[FbrefClientScraper] parseAsText: ${lines.length} linhas`);
+
+  const SECTION_PATTERNS: Array<{ key: string; headerPattern: RegExp }> = [
+    { key: 'geral', headerPattern: /Squad.*(?:MP|Pts)/i },
+    { key: 'standard', headerPattern: /Squad.*(?:Gls|Goals|G+A)/i },
+    { key: 'goalkeeping', headerPattern: /Squad.*(?:GA|Saves|CS|Save%)/i },
+    { key: 'shooting', headerPattern: /Squad.*(?:Shots|SoT|Dist)/i },
+    { key: 'playing_time', headerPattern: /Squad.*(?:Min|Starts|Compl|90s)/i },
+    { key: 'misc', headerPattern: /Squad.*(?:CrdY|CrdR|FLS|Int)/i },
   ];
+
+  function isHeaderCode(line: string): boolean {
+    const parts = line.split('\t').map((p) => p.trim()).filter(Boolean);
+    if (parts.length < 4) return false;
+    return SECTION_PATTERNS.some((s) => s.headerPattern.test(parts.join(' ')));
+  }
+
+  function isDataRow(line: string): boolean {
+    const parts = line.split('\t').map((p) => p.trim()).filter(Boolean);
+    if (parts.length < 3) return false;
+    if (/^[A-Z][a-z]/.test(parts[0]) || /^[0-9]+/.test(parts[0])) return true;
+    if (/\d/.test(parts[0])) return true;
+    return false;
+  }
+
+  const headerIndices: Array<{ lineIdx: number; sectionKey: string }> = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    for (const section of SECTION_PATTERNS) {
+      if (section.headerPattern.test(line)) {
+        const parts = line.split('\t').map((p) => p.trim()).filter(Boolean);
+        const hasAllRequired = parts.length >= 4 &&
+          parts.some((p) => /squad/i.test(p));
+        if (hasAllRequired) {
+          headerIndices.push({ lineIdx: i, sectionKey: section.key });
+          break;
+        }
+      }
+    }
+  }
+
+  if (headerIndices.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      if (isHeaderCode(lines[i])) {
+        const parts = lines[i].split('\t').map((p) => p.trim()).filter(Boolean);
+        const first = parts[0]?.toLowerCase() || '';
+        if (first.includes('overall') || first.includes('squad')) {
+          headerIndices.push({ lineIdx: i, sectionKey: 'geral' });
+          break;
+        }
+      }
+    }
+  }
+
+  logger.log(`[FbrefClientScraper] Headers encontrados: ${headerIndices.map((h) => `${h.sectionKey}@${h.lineIdx}`).join(', ')}`);
 
   const allTables: Record<string, Record<string, string>[]> = {};
 
-  for (const section of SECTION_PATTERNS) {
-    let headerLine = '';
-    let dataStartIdx = -1;
-
-    for (let i = 0; i < lines.length; i++) {
-      if (section.pattern.test(lines[i])) {
-        for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
-          const line = lines[j];
-          if (!line) continue;
-
-          const parts = line.split('\t').map((p) => p.trim()).filter(Boolean);
-          const hasHeaders = section.requiredHeaders.every((rh) =>
-            parts.some((p) => rh.test(p))
-          );
-
-          if (hasHeaders) {
-            headerLine = line;
-            dataStartIdx = j + 1;
-            break;
-          }
-        }
-        break;
-      }
-    }
-
-    if (!headerLine || dataStartIdx < 0) continue;
-
+  for (let idx = 0; idx < headerIndices.length; idx++) {
+    const { lineIdx, sectionKey } = headerIndices[idx];
+    const headerLine = lines[lineIdx];
     const headers = headerLine.split('\t').map((h) => h.trim()).filter(Boolean);
+
     if (headers.length < 3) continue;
 
     const squadIdx = headers.findIndex((h) => /^squad$/i.test(h));
 
+    const nextHeaderIdx = idx + 1 < headerIndices.length ? headerIndices[idx + 1].lineIdx : lines.length;
+    const endIdx = Math.min(nextHeaderIdx, lineIdx + 200);
+
     const rows: Record<string, string>[] = [];
 
-    for (let i = dataStartIdx; i < lines.length; i++) {
+    for (let i = lineIdx + 1; i < endIdx; i++) {
       const line = lines[i].trim();
       if (!line) continue;
 
       if (/^Totals? may not be/i.test(line)) break;
       if (/^View Player Stats|^Share & Export|^Modify|^Become a Stathead/i.test(line)) break;
-      if (/^Squad (Standard|Goalkeeping|Shooting|Playing Time|Miscellaneous)/i.test(line)) break;
       if (/^Leaders|^Nationalities|^League Notes/i.test(line)) break;
+      if (/^Squad (Standard|Goalkeeping|Shooting|Playing Time|Miscellaneous)/i.test(line)) break;
+      if (/^Opponent Stats/i.test(line)) break;
 
       const parts = line.split('\t').map((p) => p.trim());
 
@@ -463,11 +495,13 @@ function parseAsText(text: string): FbrefExtractionResult {
     }
 
     if (rows.length > 0) {
-      allTables[section.key] = rows;
+      allTables[sectionKey] = rows;
     }
   }
 
   if (Object.keys(allTables).length === 0) {
+    const tabLines = lines.filter((l) => l.includes('\t')).length;
+    logger.log(`[FbrefClientScraper] Nenhuma tabela encontrada. Linhas com tab: ${tabLines}`);
     return {
       success: false,
       error:

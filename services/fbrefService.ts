@@ -19,8 +19,8 @@ export interface FbrefExtractionRequest {
 export interface FbrefExtractionResult {
   success: boolean;
   data?: {
-    tables?: Record<'geral', unknown[]>;
-    missingTables?: Array<'geral'>;
+    tables?: Record<string, unknown[]>;
+    missingTables?: string[];
     matches?: unknown[];
     teamStats?: unknown[];
   };
@@ -127,6 +127,7 @@ export const extractFbrefData = async (
 
 const TABLE_NAME_BY_TYPE: Record<TableType, string> = {
   geral: 'Geral',
+  complement: 'Complemento',
 };
 
 /**
@@ -186,13 +187,15 @@ export const saveExtractedTable = async (
  */
 export const saveExtractedTables = async (
   championshipId: string,
-  tablesByType: Record<'geral', unknown[]>
+  tablesByType: Record<string, unknown[]>
 ): Promise<ChampionshipTable[]> => {
   const saved: ChampionshipTable[] = [];
 
-  for (const tableType of Object.keys(tablesByType) as Array<keyof typeof tablesByType>) {
-    const rows = tablesByType[tableType];
+  for (const [tableType, rows] of Object.entries(tablesByType)) {
     if (!Array.isArray(rows) || rows.length === 0) continue;
+
+    const validTypes: TableType[] = ['geral', 'complement'];
+    if (!validTypes.includes(tableType as TableType)) continue;
 
     const res = await saveExtractedTable(championshipId, tableType as TableType, rows);
     if (res) saved.push(res);

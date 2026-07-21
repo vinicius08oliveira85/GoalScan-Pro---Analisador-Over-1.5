@@ -123,21 +123,21 @@ export default function FbrefExtractionModal({
     setSaving(true);
 
     try {
-      // Passar dados diretamente - saveExtractedTables já faz a normalização
-      const tablesToSave = {
-        geral: previewTables.geral || [],
-        home_away: previewTables.home_away || [],
-        standard_for: previewTables.standard_for || [],
-      };
-
-      const totalRows =
-        tablesToSave.geral.length +
-        tablesToSave.home_away.length +
-        tablesToSave.standard_for.length;
-
-      if (totalRows === 0) {
+      const allRows = Object.values(previewTables).flat();
+      if (allRows.length === 0) {
         throw new Error('Nenhum dado válido encontrado para salvar');
       }
+
+      const tablesToSave = {
+        geral: previewTables.geral || [],
+        complement: [
+          ...(previewTables.standard || []),
+          ...(previewTables.goalkeeping || []),
+          ...(previewTables.shooting || []),
+          ...(previewTables.playing_time || []),
+          ...(previewTables.misc || []),
+        ],
+      };
 
       await saveExtractedTables(championship.id, tablesToSave);
 
