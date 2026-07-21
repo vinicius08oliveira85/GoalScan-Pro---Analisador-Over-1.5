@@ -235,13 +235,9 @@ function parseHtml(html: string): Document {
   return doc;
 }
 
-function processTable(
-  doc: Document,
-  type: string
+function extractTableData(
+  tableEl: HTMLTableElement
 ): { rows: Record<string, string>[]; headers: string[] } | null {
-  const tableEl = findTable(doc, type);
-  if (!tableEl) return null;
-
   let headers = extractHeaders(tableEl);
   if (headers.length === 0) {
     const firstRow = tableEl.querySelector('tr');
@@ -266,6 +262,15 @@ function processTable(
   });
 
   return { rows: cleaned, headers };
+}
+
+function processTable(
+  doc: Document,
+  type: string
+): { rows: Record<string, string>[]; headers: string[] } | null {
+  const tableEl = findTable(doc, type);
+  if (!tableEl) return null;
+  return extractTableData(tableEl);
 }
 
 export async function extractFbrefClientSide(
@@ -345,7 +350,7 @@ function parseAsHtml(html: string): FbrefExtractionResult {
   const TABLE_TYPES: Array<{ key: string; patterns: RegExp[] }> = [
     { key: 'geral', patterns: [/results.*_overall/i, /stats.*_overall/i] },
     { key: 'standard', patterns: [/standard_for/i] },
-    { key: 'goalkeeping', patterns: [/keeperas/i] },
+    { key: 'goalkeeping', patterns: [/keeper/i] },
     { key: 'shooting', patterns: [/shooting/i] },
     { key: 'playing_time', patterns: [/playing_time/i] },
     { key: 'misc', patterns: [/misc/i] },
@@ -357,9 +362,10 @@ function parseAsHtml(html: string): FbrefExtractionResult {
     for (const pattern of patterns) {
       const found = findTableById(doc, pattern);
       if (found) {
-        const processed = processTable(doc, key);
+        const processed = extractTableData(found);
         if (processed && processed.rows.length > 0) {
           allTables[key] = processed.rows;
+          logger.log(`[FbrefClientScraper] Tabela '${key}' extraída: ${processed.rows.length} linhas`);
           break;
         }
       }
