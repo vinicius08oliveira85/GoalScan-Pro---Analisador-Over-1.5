@@ -2,6 +2,7 @@ import { getSupabaseClient } from '../lib/supabase';
 import { ChampionshipTable, TableType } from '../types';
 import { logger } from '../utils/logger';
 import { createLocalStorageCache } from '../utils/localStorageCache';
+import { extractFbrefClientSide } from './fbrefClientScraper';
 
 export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
 
@@ -201,6 +202,44 @@ export const saveExtractedTables = async (
 };
 
 /**
+ * Extrai dados do fbref.com via client-side (CORS proxy + DOMParser)
+ * Não requer backend - roda inteiro no navegador
+ */
+export const extractFbrefDataClientSide = async (
+  request: FbrefExtractionRequest
+): Promise<FbrefExtractionResult> => {
+  try {
+    if (!request.championshipUrl || !request.championshipUrl.includes('fbref.com')) {
+      return {
+        success: false,
+        error: 'URL inválida. Apenas URLs do fbref.com são permitidas.',
+      };
+    }
+
+    const cacheKey = `${getCacheKey(request.championshipUrl, request.extractTypes)}_client`;
+    const cached = getCache(cacheKey);
+    if (cached) {
+      logger.log('[FBrefService] Usando dados do cache (Client-Side)');
+      return cached;
+    }
+
+    const result = await extractFbrefClientSide(request.championshipUrl);
+
+    if (result.success) {
+      setCache(cacheKey, result, CACHE_TTL_MS);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[FBrefService] Erro inesperado (Client-Side):', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido na extração client-side',
+    };
+  }
+};
+
+/**
  * Extrai dados do fbref.com via Selenium (para páginas com JavaScript dinâmico)
  */
 export const extractFbrefDataWithSelenium = async (
@@ -300,7 +339,7 @@ export const clearFbrefCache = (): void => {
   try {
     const keys = Object.keys(localStorage);
     keys.forEach((key) => {
-      if (key.startsWith(CACHE_KEY_PREFIX)) {
+      if (key.startsWith('fbref_extraction_')) {
         localStorage.removeItem(key);
       }
     });

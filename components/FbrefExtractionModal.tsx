@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
-import { extractFbrefData, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
+import { extractFbrefData, extractFbrefDataClientSide, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
 import { Championship, TableType } from '../types';
 import { animations } from '../utils/animations';
 
@@ -28,7 +28,8 @@ export default function FbrefExtractionModal({
   >(null);
   const [activePreviewTable, setActivePreviewTable] = useState<TableType>('geral');
   const [saving, setSaving] = useState(false);
-  const [useSelenium, setUseSelenium] = useState(false);
+  type ExtractionMode = 'client' | 'api' | 'selenium';
+  const [mode, setMode] = useState<ExtractionMode>('client');
 
   const handleExtract = async () => {
     if (!url.trim()) {
@@ -46,18 +47,27 @@ export default function FbrefExtractionModal({
     setPreviewTables(null);
 
     try {
-      // Usa Selenium se marcado, senão usa a API padrão
-      const extractionResult = useSelenium
-        ? await extractFbrefDataWithSelenium({
-            championshipUrl: url.trim(),
-            championshipId: championship.id,
-            extractTypes,
-          })
-        : await extractFbrefData({
-            championshipUrl: url.trim(),
-            championshipId: championship.id,
-            extractTypes,
-          });
+      let extractionResult: FbrefExtractionResult;
+
+      if (mode === 'client') {
+        extractionResult = await extractFbrefDataClientSide({
+          championshipUrl: url.trim(),
+          championshipId: championship.id,
+          extractTypes,
+        });
+      } else if (mode === 'selenium') {
+        extractionResult = await extractFbrefDataWithSelenium({
+          championshipUrl: url.trim(),
+          championshipId: championship.id,
+          extractTypes,
+        });
+      } else {
+        extractionResult = await extractFbrefData({
+          championshipUrl: url.trim(),
+          championshipId: championship.id,
+          extractTypes,
+        });
+      }
 
       setResult(extractionResult);
 
@@ -189,23 +199,61 @@ export default function FbrefExtractionModal({
             <span className="font-semibold">standard_for</span>.
           </div>
 
-          {/* Selenium Toggle */}
+          {/* Extraction Mode Selector */}
           <div className="form-control">
-            <label className="label cursor-pointer justify-start gap-3">
-              <input
-                type="checkbox"
-                checked={useSelenium}
-                onChange={(e) => setUseSelenium(e.target.checked)}
-                className="checkbox checkbox-primary"
-                disabled={loading || saving}
-              />
-              <div className="label-text">
-                <div className="font-bold">Usar Selenium</div>
-                <div className="text-xs opacity-70">
-                  Use quando a página tiver JavaScript dinâmico ou proteções anti-scraping. Pode ser mais lento.
-                </div>
-              </div>
+            <label className="label">
+              <span className="label-text font-bold">Modo de Extração</span>
             </label>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-base-300/50 cursor-pointer hover:bg-base-200/50 transition-colors">
+                <input
+                  type="radio"
+                  name="extraction-mode"
+                  className="radio radio-primary radio-sm mt-0.5"
+                  checked={mode === 'client'}
+                  onChange={() => setMode('client')}
+                  disabled={loading || saving}
+                />
+                <div>
+                  <div className="font-bold text-sm">Rápido (Recomendado)</div>
+                  <div className="text-xs opacity-70">
+                    Proxy serverless + parse no navegador. Rápido e confiável.
+                  </div>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-base-300/50 cursor-pointer hover:bg-base-200/50 transition-colors">
+                <input
+                  type="radio"
+                  name="extraction-mode"
+                  className="radio radio-primary radio-sm mt-0.5"
+                  checked={mode === 'api'}
+                  onChange={() => setMode('api')}
+                  disabled={loading || saving}
+                />
+                <div>
+                  <div className="font-bold text-sm">Completo (Backend Python)</div>
+                  <div className="text-xs opacity-70">
+                    API Python no Vercel com BeautifulSoup. Mais completo, mas mais lento.
+                  </div>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-base-300/50 cursor-pointer hover:bg-base-200/50 transition-colors">
+                <input
+                  type="radio"
+                  name="extraction-mode"
+                  className="radio radio-primary radio-sm mt-0.5"
+                  checked={mode === 'selenium'}
+                  onChange={() => setMode('selenium')}
+                  disabled={loading || saving}
+                />
+                <div>
+                  <div className="font-bold text-sm">Selenium (Headless Chrome)</div>
+                  <div className="text-xs opacity-70">
+                    Para páginas com JavaScript dinâmico. Mais lento, requer backend.
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
           {/* Extract Button */}
@@ -217,12 +265,12 @@ export default function FbrefExtractionModal({
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                {useSelenium ? 'Extraindo com Selenium...' : 'Extraindo dados...'}
+                {mode === 'client' ? 'Extraindo...' : mode === 'selenium' ? 'Extraindo com Selenium...' : 'Extraindo via Python...'}
               </>
             ) : (
               <>
                 <ExternalLink className="w-5 h-5" />
-                Extrair Dados {useSelenium && '(Selenium)'}
+                Extrair Dados
               </>
             )}
           </button>
