@@ -284,33 +284,7 @@ export async function extractFbrefClientSide(
     const html = await fetchViaProxy(url);
     logger.log(`[FbrefClientScraper] HTML recebido (${html.length} bytes)`);
 
-    const doc = parseHtml(html);
-    const geral = processTable(doc, 'geral');
-
-    if (!geral || geral.rows.length === 0) {
-      return {
-        success: false,
-        error:
-          'Nenhuma tabela de classificação encontrada na página. Verifique se a URL está correta.',
-      };
-    }
-
-    const tables: Record<'geral', unknown[]> = {
-      geral: geral.rows,
-    };
-
-    const missingTables: string[] = [];
-    if (geral.rows.length === 0) missingTables.push('geral');
-
-    logger.log(`[FbrefClientScraper] Extraído: ${geral.rows.length} linhas (geral)`);
-
-    return {
-      success: true,
-      data: {
-        tables,
-        missingTables: missingTables as 'geral'[],
-      },
-    };
+    return parseFbrefHtml(html);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro desconhecido';
     logger.error('[FbrefClientScraper] Erro:', message);
@@ -318,6 +292,64 @@ export async function extractFbrefClientSide(
     return {
       success: false,
       error: `Erro na extração client-side: ${message}`,
+    };
+  }
+}
+
+/**
+ * Analisa HTML cru colado pelo usuário (modo "Colar HTML").
+ * Não requer rede — parse puro com DOMParser.
+ */
+export function parseFbrefHtml(html: string): FbrefExtractionResult {
+  try {
+    if (!html || html.trim().length < 1000) {
+      return {
+        success: false,
+        error: 'HTML muito curto. Copie toda a página do FBref (Ctrl+A, Ctrl+C).',
+      };
+    }
+
+    if (!html.includes('stats_table') && !html.includes('id="results')) {
+      return {
+        success: false,
+        error:
+          'O HTML não parece ser uma página do FBref. Certifique-se de copiar a página completa.',
+      };
+    }
+
+    logger.log(`[FbrefClientScraper] Analisando HTML colado (${html.length} bytes)`);
+
+    const doc = parseHtml(html);
+    const geral = processTable(doc, 'geral');
+
+    if (!geral || geral.rows.length === 0) {
+      return {
+        success: false,
+        error:
+          'Nenhuma tabela de classificação encontrada no HTML. Verifique se a página contém a seção "Overall" (classificação).',
+      };
+    }
+
+    const tables: Record<'geral', unknown[]> = {
+      geral: geral.rows,
+    };
+
+    logger.log(`[FbrefClientScraper] Extraído: ${geral.rows.length} linhas (geral) do HTML colado`);
+
+    return {
+      success: true,
+      data: {
+        tables,
+        missingTables: [],
+      },
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido';
+    logger.error('[FbrefClientScraper] Erro ao analisar HTML:', message);
+
+    return {
+      success: false,
+      error: `Erro ao analisar HTML: ${message}`,
     };
   }
 }

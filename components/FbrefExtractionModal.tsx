@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
+import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X, ClipboardPaste } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
 import { extractFbrefData, extractFbrefDataClientSide, extractFbrefDataWithSelenium, saveExtractedTables, ExtractType, FbrefExtractionResult } from '../services/fbrefService';
+import { parseFbrefHtml } from '../services/fbrefClientScraper';
 import { Championship, TableType } from '../types';
 import { animations } from '../utils/animations';
 
@@ -28,18 +29,25 @@ export default function FbrefExtractionModal({
   >(null);
   const [activePreviewTable, setActivePreviewTable] = useState<TableType>('geral');
   const [saving, setSaving] = useState(false);
-  type ExtractionMode = 'client' | 'api' | 'selenium';
-  const [mode, setMode] = useState<ExtractionMode>('client');
+  type ExtractionMode = 'client' | 'api' | 'selenium' | 'paste';
+  const [mode, setMode] = useState<ExtractionMode>('paste');
+  const [pasteHtml, setPasteHtml] = useState('');
 
   const handleExtract = async () => {
-    if (!url.trim()) {
-      onError?.('Por favor, insira a URL do campeonato no fbref.com');
-      return;
-    }
-
-    if (!url.includes('fbref.com')) {
-      onError?.('URL inválida. Apenas URLs do fbref.com são permitidas.');
-      return;
+    if (mode === 'paste') {
+      if (!pasteHtml.trim()) {
+        onError?.('Cole o HTML da página do FBref');
+        return;
+      }
+    } else {
+      if (!url.trim()) {
+        onError?.('Por favor, insira a URL do campeonato no fbref.com');
+        return;
+      }
+      if (!url.includes('fbref.com')) {
+        onError?.('URL inválida. Apenas URLs do fbref.com são permitidas.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -49,7 +57,9 @@ export default function FbrefExtractionModal({
     try {
       let extractionResult: FbrefExtractionResult;
 
-      if (mode === 'client') {
+      if (mode === 'paste') {
+        extractionResult = parseFbrefHtml(pasteHtml);
+      } else if (mode === 'client') {
         extractionResult = await extractFbrefDataClientSide({
           championshipUrl: url.trim(),
           championshipId: championship.id,
@@ -96,15 +106,14 @@ export default function FbrefExtractionModal({
 
   // Auto-extrair se a URL já estiver preenchida ao abrir o modal
   React.useEffect(() => {
-    if (url.trim() && url.includes('fbref.com') && !loading && !result && !previewTables) {
-      // Pequeno delay para garantir que o modal está renderizado
+    if (mode !== 'paste' && url.trim() && url.includes('fbref.com') && !loading && !result && !previewTables) {
       const timer = setTimeout(() => {
         handleExtract();
       }, 300);
       return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Executa apenas uma vez ao montar
+  }, [mode]);
 
   const handleSave = async () => {
     if (!previewTables) {
@@ -172,33 +181,6 @@ export default function FbrefExtractionModal({
 
         {/* Form */}
         <div className="space-y-4">
-          {/* URL Input */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-bold">URL do Campeonato no FBref.com</span>
-            </label>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://fbref.com/en/comps/..."
-              className="input input-bordered"
-              disabled={loading || saving}
-            />
-            <label className="label">
-              <span className="label-text-alt opacity-70">
-                Cole a URL completa da página do campeonato no fbref.com
-              </span>
-            </label>
-          </div>
-
-          <div className="text-sm opacity-70">
-            Este modo extrai automaticamente as tabelas:{' '}
-            <span className="font-semibold">geral</span>,{' '}
-            <span className="font-semibold">home_away</span> e{' '}
-            <span className="font-semibold">standard_for</span>.
-          </div>
-
           {/* Extraction Mode Selector */}
           <div className="form-control">
             <label className="label">
@@ -210,14 +192,30 @@ export default function FbrefExtractionModal({
                   type="radio"
                   name="extraction-mode"
                   className="radio radio-primary radio-sm mt-0.5"
+                  checked={mode === 'paste'}
+                  onChange={() => setMode('paste')}
+                  disabled={loading || saving}
+                />
+                <div>
+                  <div className="font-bold text-sm">Colar HTML (Recomendado)</div>
+                  <div className="text-xs opacity-70">
+                    Abra o FBref no browser, Ctrl+A, Ctrl+C, e cole aqui. 100% confiável, sem backend.
+                  </div>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-base-300/50 cursor-pointer hover:bg-base-200/50 transition-colors">
+                <input
+                  type="radio"
+                  name="extraction-mode"
+                  className="radio radio-primary radio-sm mt-0.5"
                   checked={mode === 'client'}
                   onChange={() => setMode('client')}
                   disabled={loading || saving}
                 />
                 <div>
-                  <div className="font-bold text-sm">Rápido (Recomendado)</div>
+                  <div className="font-bold text-sm">Automático via URL</div>
                   <div className="text-xs opacity-70">
-                    Proxy serverless + parse no navegador. Rápido e confiável.
+                    Proxy serverless + parse no navegador. Pode falhar se o FBref bloquear.
                   </div>
                 </div>
               </label>
@@ -231,9 +229,9 @@ export default function FbrefExtractionModal({
                   disabled={loading || saving}
                 />
                 <div>
-                  <div className="font-bold text-sm">Completo (Backend Python)</div>
+                  <div className="font-bold text-sm">Backend Python</div>
                   <div className="text-xs opacity-70">
-                    API Python no Vercel com BeautifulSoup. Mais completo, mas mais lento.
+                    API Python no Vercel com BeautifulSoup.
                   </div>
                 </div>
               </label>
@@ -249,23 +247,92 @@ export default function FbrefExtractionModal({
                 <div>
                   <div className="font-bold text-sm">Selenium (Headless Chrome)</div>
                   <div className="text-xs opacity-70">
-                    Para páginas com JavaScript dinâmico. Mais lento, requer backend.
+                    Para páginas com JavaScript dinâmico. Mais lento.
                   </div>
                 </div>
               </label>
             </div>
           </div>
 
+          {/* Paste HTML - shown only in paste mode */}
+          {mode === 'paste' && (
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-bold">Cole o HTML da página do FBref</span>
+              </label>
+              <div className="text-xs opacity-70 mb-2">
+                1. Abra a página do campeonato no{' '}
+                <a href="https://fbref.com" target="_blank" rel="noopener" className="link link-primary">
+                  fbref.com
+                </a>
+                <br />
+                2. Pressione <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">A</kbd> (selecionar tudo)
+                <br />
+                3. Pressione <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">C</kbd> (copiar)
+                <br />
+                4. Cole no campo abaixo com <kbd className="kbd kbd-xs">Ctrl</kbd>+<kbd className="kbd kbd-xs">V</kbd>
+              </div>
+              <textarea
+                value={pasteHtml}
+                onChange={(e) => setPasteHtml(e.target.value)}
+                placeholder="<table class=&quot;stats_table&quot; ...> ou toda a página HTML do FBref"
+                className="textarea textarea-bordered h-40 font-mono text-xs resize-y"
+                disabled={loading || saving}
+              />
+              {pasteHtml.length > 0 && (
+                <label className="label">
+                  <span className="label-text-alt opacity-50">
+                    {pasteHtml.length.toLocaleString()} caracteres
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
+          {/* URL Input - hidden in paste mode */}
+          {mode !== 'paste' && (
+            <>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-bold">URL do Campeonato no FBref.com</span>
+                </label>
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://fbref.com/en/comps/..."
+                  className="input input-bordered"
+                  disabled={loading || saving}
+                />
+                <label className="label">
+                  <span className="label-text-alt opacity-70">
+                    Cole a URL completa da página do campeonato no fbref.com
+                  </span>
+                </label>
+              </div>
+
+              <div className="text-sm opacity-70">
+                Este modo extrai automaticamente a tabela:{' '}
+                <span className="font-semibold">geral</span> (classificação).
+              </div>
+            </>
+          )}
+
           {/* Extract Button */}
           <button
             onClick={handleExtract}
-            disabled={loading || saving || !url.trim()}
+            disabled={loading || saving || (mode === 'paste' ? !pasteHtml.trim() : !url.trim())}
             className="btn btn-primary w-full gap-2"
           >
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                {mode === 'client' ? 'Extraindo...' : mode === 'selenium' ? 'Extraindo com Selenium...' : 'Extraindo via Python...'}
+                {mode === 'paste' ? 'Analisando HTML...' : 'Extraindo...'}
+              </>
+            ) : mode === 'paste' ? (
+              <>
+                <ClipboardPaste className="w-5 h-5" />
+                Analisar HTML Colado
               </>
             ) : (
               <>
