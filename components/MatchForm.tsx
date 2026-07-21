@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MatchData, TeamStatistics, GolsStats, Championship, TableRowGeral } from '../types';
+import { MatchData, Championship, TableRowGeral } from '../types';
 import { validateMatchData } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
@@ -9,7 +9,6 @@ import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, Championsh
 import { ExternalLink, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import FbrefExtractionModal from './FbrefExtractionModal';
 import InfoIcon from './match-form/InfoIcon';
-import TeamStatsSection from './match-form/TeamStatsSection';
 import { logger } from '../utils/logger';
 
 interface MatchFormProps {
@@ -39,16 +38,6 @@ const createEmptyMatchData = (): MatchData => ({
   keyAbsences: 'none',
   homeHistory: [],
   awayHistory: [],
-});
-
-const createEmptyGols = (): GolsStats => ({
-  avgScored: 0,
-  avgConceded: 0,
-  avgTotal: 0,
-  cleanSheetPct: 0,
-  noGoalsPct: 0,
-  over25Pct: 0,
-  under25Pct: 0,
 });
 
 const MatchForm: React.FC<MatchFormProps> = ({
@@ -128,9 +117,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }
   }, [selectedAwaySquad, selectedChampionshipId]);
 
-  // Função para sincronizar dados da tabela
-  // IMPORTANTE: Esta função apenas preenche dados da tabela (homeTableData/awayTableData) para análise da IA.
-  // NÃO afeta as Estatísticas Globais (homeTeamStats/awayTeamStats), que são inseridas manualmente.
+  // Função para sincronizar dados da tabela (geral + complemento)
   const handleSyncWithTable = async () => {
     if (!selectedChampionshipId || !selectedHomeSquad || !selectedAwaySquad) {
       if (onError) {
@@ -153,10 +140,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
         selectedAwaySquad
       );
 
-      // Validação: Verificar que Estatísticas Globais não serão afetadas
-      const previousHomeStats = formData.homeTeamStats;
-      const previousAwayStats = formData.awayTeamStats;
-
       logger.log('[MatchForm] Sincronização concluída:', {
         homeTableData: !!homeTableData,
         awayTableData: !!awayTableData,
@@ -168,8 +151,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
         hasPreviousAwayStats: !!previousAwayStats,
       });
 
-      // Apenas preencher dados da tabela e média da competição
-      // NÃO modificar homeTeamStats/awayTeamStats (Estatísticas Globais são manuais)
       setFormData((prev) => {
         const updated = {
           ...prev,
@@ -181,16 +162,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
           competitionComplementAvg: competitionComplementAvg || undefined,
           // Preencher automaticamente a média da competição calculada da tabela
           competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
-          // homeTeamStats e awayTeamStats permanecem inalterados (inseridos manualmente)
         };
-
-        // Validação: Garantir que Estatísticas Globais não foram alteradas
-        if (updated.homeTeamStats !== previousHomeStats || updated.awayTeamStats !== previousAwayStats) {
-          logger.warn('[MatchForm] ATENÇÃO: Estatísticas Globais foram alteradas durante sincronização!', {
-            homeStatsChanged: updated.homeTeamStats !== previousHomeStats,
-            awayStatsChanged: updated.awayTeamStats !== previousAwayStats,
-          });
-        }
 
         return updated;
       });
@@ -260,131 +232,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
               ? undefined
               : Number(value),
     }));
-  };
-
-  // Função para atualizar estatísticas de gols
-  // team: 'home' = time da casa, 'away' = time visitante
-  // context: 'home' = jogando em casa, 'away' = jogando fora, 'global' = global
-  const updateTeamStats = (
-    team: 'home' | 'away',
-    context: 'home' | 'away' | 'global',
-    field: keyof GolsStats,
-    value: number | undefined
-  ) => {
-    setFormData((prev) => {
-      const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
-      const currentStats = prev[teamKey] || {
-        percurso: {
-          home: {
-            winStreak: 0,
-            drawStreak: 0,
-            lossStreak: 0,
-            withoutWin: 0,
-            withoutDraw: 0,
-            withoutLoss: 0,
-          },
-          away: {
-            winStreak: 0,
-            drawStreak: 0,
-            lossStreak: 0,
-            withoutWin: 0,
-            withoutDraw: 0,
-            withoutLoss: 0,
-          },
-          global: {
-            winStreak: 0,
-            drawStreak: 0,
-            lossStreak: 0,
-            withoutWin: 0,
-            withoutDraw: 0,
-            withoutLoss: 0,
-          },
-        },
-        gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() },
-      };
-
-      const newStats: TeamStatistics = {
-        ...currentStats,
-        gols: {
-          ...currentStats.gols,
-          [context]: {
-            ...currentStats.gols[context],
-            [field]: value === '' ? 0 : (value ?? 0),
-          },
-        },
-      };
-
-      return {
-        ...prev,
-        [teamKey]: newStats,
-      };
-    });
-  };
-
-  const processPastedStats = (text: string, team: 'home' | 'away') => {
-    const lines = text.trim().split('\n');
-    if (lines.length < 1) return;
-
-    const newStats = {
-      home: createEmptyGols(),
-      away: createEmptyGols(),
-      global: createEmptyGols()
-    };
-    
-    let found = false;
-
-    const parseVal = (v: string) => {
-      if (!v) return 0;
-      return parseFloat(v.replace('%', '').replace(',', '.').trim()) || 0;
-    };
-
-    lines.forEach(line => {
-      // Tenta dividir por tabulação primeiro
-      let cols = line.trim().split(/\t/);
-      // Se não tiver colunas suficientes, tenta por múltiplos espaços
-      if (cols.length < 4) {
-        cols = line.trim().split(/\s{2,}/);
-      }
-      
-      if (cols.length >= 4) {
-        const label = cols[0].toLowerCase();
-        let field: keyof GolsStats | null = null;
-
-        if (label.includes('marcados por jogo')) field = 'avgScored';
-        else if (label.includes('sofridos por jogo')) field = 'avgConceded';
-        else if (label.includes('marcados+sofridos') || label.includes('marcados + sofridos')) field = 'avgTotal';
-        else if (label.includes('sem sofrer')) field = 'cleanSheetPct';
-        else if (label.includes('sem marcar')) field = 'noGoalsPct';
-        else if (label.includes('mais de 2,5')) field = 'over25Pct';
-        else if (label.includes('menos de 2,5')) field = 'under25Pct';
-
-        if (field) {
-          found = true;
-          // Index 1: Casa, Index 2: Fora, Index 3: Global
-          newStats.home[field] = parseVal(cols[1]);
-          newStats.away[field] = parseVal(cols[2]);
-          newStats.global[field] = parseVal(cols[3]);
-        }
-      }
-    });
-
-    if (found) {
-      setFormData(prev => {
-        const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
-        const emptyPercurso = {
-          winStreak: 0, drawStreak: 0, lossStreak: 0,
-          withoutWin: 0, withoutDraw: 0, withoutLoss: 0,
-        };
-        const currentStats = prev[teamKey] || { 
-          percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso }, 
-          gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() } 
-        };
-        
-        return { ...prev, [teamKey]: { ...currentStats, gols: newStats } };
-      });
-    } else {
-      logger.warn('Nenhum dado reconhecido. Verifique o formato.');
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -723,24 +570,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
           aria-label="Odd do mercado Over 1.5"
         />
       </div>
-
-      {/* Estatísticas Globais - Time Casa */}
-      <TeamStatsSection
-        teamLabel={formData.homeTeam || 'Time Casa'}
-        teamStats={formData.homeTeamStats || { percurso: { home: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 }, away: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 }, global: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 } }, gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() } }}
-        context="home"
-        onStatChange={(statCtx, field, value) => updateTeamStats('home', statCtx, field, value)}
-        onProcessPaste={processPastedStats}
-      />
-
-      {/* Estatísticas Globais - Time Visitante */}
-      <TeamStatsSection
-        teamLabel={formData.awayTeam || 'Time Visitante'}
-        teamStats={formData.awayTeamStats || { percurso: { home: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 }, away: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 }, global: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 } }, gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() } }}
-        context="away"
-        onStatChange={(statCtx, field, value) => updateTeamStats('away', statCtx, field, value)}
-        onProcessPaste={processPastedStats}
-      />
 
       <button
         type="submit"
