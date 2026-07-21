@@ -1,5 +1,7 @@
 import { ExternalLineupsSignal } from '../types';
 import { logger } from '../utils/logger';
+import { createLocalStorageCache } from '../utils/localStorageCache';
+import { normalizeText } from '../utils/textUtils';
 
 type TheSportsDbTeam = {
   idTeam?: string;
@@ -37,46 +39,10 @@ type TheSportsDbEvent = Record<string, unknown> & {
   strAwayLineupForward?: string;
 };
 
-type CacheEntry<T> = { value: T; expiresAt: number };
-
-const LS_PREFIX = 'goalscan_thesportsdb_cache_';
 const TTL_TEAM_MS = 14 * 24 * 60 * 60 * 1000; // 14 dias
 const TTL_EVENT_MS = 6 * 60 * 60 * 1000; // 6 horas
 
-function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
-function getCache<T>(key: string): T | null {
-  try {
-    const raw = localStorage.getItem(`${LS_PREFIX}${key}`);
-    if (!raw) return null;
-    const entry = JSON.parse(raw) as CacheEntry<T>;
-    if (!entry?.expiresAt || Date.now() > entry.expiresAt) {
-      localStorage.removeItem(`${LS_PREFIX}${key}`);
-      return null;
-    }
-    return entry.value ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function setCache<T>(key: string, value: T, ttlMs: number): void {
-  try {
-    const entry: CacheEntry<T> = { value, expiresAt: Date.now() + ttlMs };
-    localStorage.setItem(`${LS_PREFIX}${key}`, JSON.stringify(entry));
-  } catch {
-    // ignore
-  }
-}
+const { getCache, setCache } = createLocalStorageCache<unknown>('goalscan_thesportsdb_cache_');
 
 function getApiKey(): string | null {
   const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};

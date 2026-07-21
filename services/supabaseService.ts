@@ -9,6 +9,7 @@ import {
   validateBetInfo,
   validateBankSettings,
 } from '../utils/validation';
+import { isServiceUnavailable, setServiceUnavailable, isTemporaryError } from '../utils/serviceStatus';
 
 export interface SavedAnalysisRow {
   id: string;
@@ -183,6 +184,7 @@ export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnal
         match_data: analysis.data,
         analysis_result: analysis.result,
         bet_info: analysis.betInfo,
+        selected_bets: analysis.selectedBets,
       })
       .eq('id', analysis.id)
       .select()

@@ -49,20 +49,20 @@ import {
   getChartAxisTick,
 } from '../utils/chartTheme';
 import SectionHeader from './ui/SectionHeader';
-import DashboardLoadingSkeleton from './DashboardLoadingSkeleton';
+import { SkeletonMetricCard, SkeletonCard } from './Skeleton';
 
 interface DashboardScreenProps {
   savedMatches: SavedAnalysis[];
   bankSettings?: BankSettings;
   onMatchClick?: (match: SavedAnalysis) => void;
-  isLoading: boolean;
+  isLoading?: boolean;
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({
   savedMatches,
   bankSettings,
   onMatchClick,
-  isLoading,
+  isLoading = false,
 }) => {
   const windowSize = useWindowSize();
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
@@ -191,8 +191,76 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return (tone in toneClasses ? tone : 'primary') as StatCardTone;
   };
 
-  const bankHeroGlassCard =
-    'relative overflow-hidden rounded-3xl border border-white/10 bg-base-100/40 shadow-xl shadow-black/10 ring-1 ring-white/5 backdrop-blur-xl dark:border-white/10 dark:bg-base-100/25 dark:shadow-black/30';
+  if (isLoading) {
+    return (
+      <div className="space-y-6 md:space-y-8 pb-16 md:pb-8 animate-in">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <SkeletonMetricCard key={i} />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <SkeletonCard lines={8} />
+          <SkeletonCard lines={8} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
+      {/* Grid de Estatísticas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
+        {statCards.map((card, index) => {
+          const Icon = card.icon;
+          const tone = getTone(card.color);
+          const toneClass = toneClasses[tone];
+          return (
+            <motion.div
+              key={card.title}
+              variants={animations.fadeInUp}
+              initial="initial"
+              animate="animate"
+              custom={index}
+              className="custom-card p-4 md:p-6"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div
+                  className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}
+                >
+                  <Icon className={cn('w-5 h-5 md:w-6 md:h-6', toneClass.text)} />
+                </div>
+                {card.title === 'Lucro Total' && (
+                  <div>
+                    {stats.totalProfit > 0 ? (
+                      <ArrowUpRight className="w-4 h-4 text-success" />
+                    ) : stats.totalProfit < 0 ? (
+                      <ArrowDownRight className="w-4 h-4 text-error" />
+                    ) : null}
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="text-xs md:text-sm font-semibold opacity-70 uppercase tracking-wide mb-1.5 leading-tight">
+                  {card.title}
+                </p>
+                <p
+                  className={`text-2xl md:text-3xl font-black leading-none ${
+                    card.color === 'success'
+                      ? 'text-success'
+                      : card.color === 'error'
+                        ? 'text-error'
+                        : 'text-primary'
+                  }`}
+                >
+                  {card.value}
+                </p>
+                <p className="text-xs opacity-60 mt-1.5 leading-relaxed">{card.subtitle}</p>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
 
   const BankHeroMetricsGrid = bankSettings ? (
     <motion.section
@@ -235,14 +303,71 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <stop offset="95%" stopColor={chartColors.equity} stopOpacity={0} />
                   </linearGradient>
                 </defs>
+                <CartesianGrid {...chartGridProps} />
+                <XAxis
+                  dataKey="date"
+                  tick={getChartAxisTick(windowSize.isMobile)}
+                  tickLine={chartAxisTickLine}
+                />
+                <YAxis
+                  tick={getChartAxisTick(windowSize.isMobile)}
+                  tickLine={chartAxisTickLine}
+                  tickFormatter={(value) => `${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${value.toFixed(0)}`}
+                />
                 <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload?.length) {
                       const p = payload[0].payload as { date: string; equity: number };
                       return (
-                        <div className={chartTooltipCompactClassName}>
-                          <span className="font-bold">{p.date}</span>
-                          <span className="ml-2 tabular-nums">R$ {p.equity.toFixed(2)}</span>
+                        <div className={chartTooltipClassName}>
+                          <div className="mb-2">
+                            <p className="text-xs opacity-70 mb-1">{p.date}</p>
+                            <div className="flex items-baseline gap-2">
+                              <p className="text-2xl font-black text-primary">{getCurrencySymbol(bankSettings?.currency || 'BRL')} {p.cash.toFixed(2)}</p>
+                              {cashChange !== null && (
+                                <span
+                                  className={`text-sm font-bold flex items-center gap-1 ${
+                                    cashChange > 0
+                                      ? 'text-success'
+                                      : cashChange < 0
+                                        ? 'text-error'
+                                        : ''
+                                  }`}
+                                >
+                                  {cashChange > 0 ? (
+                                    <TrendingUp className="w-3 h-3" />
+                                  ) : cashChange < 0 ? (
+                                    <ArrowDownRight className="w-3 h-3" />
+                                  ) : null}
+                                  {cashChange > 0 ? '+' : ''}
+                                  {cashChange.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2 text-xs opacity-80">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="opacity-70">Equity</span>
+                                <span className="font-bold">{getCurrencySymbol(bankSettings?.currency || 'BRL')} {p.equity.toFixed(2)}</span>
+                              </div>
+                              {equityChange !== null && (
+                                <div className="flex items-center justify-between gap-3 mt-1">
+                                  <span className="opacity-70">Δ</span>
+                                  <span
+                                    className={`font-bold ${
+                                      equityChange > 0
+                                        ? 'text-success'
+                                        : equityChange < 0
+                                          ? 'text-error'
+                                          : ''
+                                    }`}
+                                  >
+                                    {equityChange > 0 ? '+' : ''}
+                                    {equityChange.toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       );
                     }

@@ -5,9 +5,10 @@ import { Upload, X, Check, FileJson, Sparkles, Zap } from 'lucide-react';
 import { animations } from '../utils/animations';
 import ChampionshipTableView from './ChampionshipTableView';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
-import { parseAndNormalizeLeagueStandingJson } from '../utils/leagueStandingJson';
-import { isExcelFile, parseExcelToJson } from '../utils/excelParser';
-import { cn } from '../utils/cn';
+import { parseComplementToJson, isComplementFile, validateComplementData } from '../utils/complementParser';
+import { saveChampionshipComplement } from '../services/championshipService';
+import { TableRowComplement } from '../types';
+import { ChampionshipTablePasteArea } from './ChampionshipTablePasteArea';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -43,20 +44,174 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
     const detected = detectTableFormatFromData(rows);
     setTableFormat(detected);
 
+      // Verificar se é arquivo Excel
+      if (isExcelFile(file)) {
+        // Processar Excel
+        jsonData = await parseExcelToJson(file);
+      } else {
+        // Processar JSON
+        const reader = new FileReader();
+        const content = await new Promise<string>((resolve, reject) => {
+          reader.onload = (e) => {
+            resolve(e.target?.result as string);
+          };
+          reader.onerror = () => {
+            reject(new Error('Erro ao ler arquivo'));
+          };
+          reader.readAsText(file);
+        });
+
+        const parsed = JSON.parse(content);
+        if (!Array.isArray(parsed)) {
+          setErrors((prev) => ({
+            ...prev,
+            [tableType]: 'O JSON deve ser um array de objetos.',
+          }));
+          return;
+        }
+        jsonData = parsed as TableRowGeral[];
+      }
+
+      // Validar estrutura básica (chave de união por Squad)
+      if (jsonData.length > 0) {
+        const firstRow = jsonData[0] as Partial<TableRowGeral>;
+        if (!firstRow.Squad) {
+          setErrors((prev) => ({
+            ...prev,
+            [tableType]: 'O arquivo deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team").',
+          }));
+          return;
+        }
+      }
+
+      // Detectar formato automaticamente se estiver em modo automático
+      if (tableFormat === 'auto' && jsonData.length > 0) {
+        const detectedFormat = detectTableFormatFromData(jsonData);
+        setTableFormat(detectedFormat);
+      }
+
+      const table: ChampionshipTable = {
+        id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
+        championship_id: championship?.id || '',
+        table_type: tableType,
+        table_name: TABLE_TYPES.find((t) => t.type === tableType)?.name || tableType,
+        table_data: jsonData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setTables((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(tableType, table);
+        return newMap;
+      });
+
+      setErrors((prev => {
+        const newErrors = { ...prev };
+        delete newErrors[tableType];
+        return newErrors;
+      }));
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao processar arquivo. Verifique se o arquivo é válido.';
+      setErrors((prev) => ({
+        ...prev,
+        [tableType]: errorMessage,
+      }));
+    }
+  };
+
+  const handleTableImport = (data: TableRowGeral[]) => {
+    const tableType: TableType = 'geral';
+    
+    if (tableFormat === 'auto' && data.length > 0) {
+      const detectedFormat = detectTableFormatFromData(data);
+      setTableFormat(detectedFormat);
+    }
+
     const table: ChampionshipTable = {
-      id: `${championship?.id || 'new'}_${GERAL_TABLE_TYPE}_${Date.now()}`,
+      id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
       championship_id: championship?.id || '',
-      table_type: GERAL_TABLE_TYPE,
-      table_name: 'Classificação (JSON)',
-      table_data: rows,
+      table_type: tableType,
+      table_name: 'Geral',
+      table_data: data,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setGeralTable(table);
+
+    setTables((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(tableType, table);
+      return newMap;
+    });
+
     setErrors((prev) => {
-      const next = { ...prev };
-      delete next.geral;
-      return next;
+      const newErrors = { ...prev };
+      delete newErrors[tableType];
+      return newErrors;
+    });
+  };
+
+  const handleJsonPaste = (tableType: TableType, jsonText: string) => {
+    try {
+      const jsonData = JSON.parse(jsonText);
+
+      if (!Array.isArray(jsonData)) {
+        setErrors((prev) => ({
+          ...prev,
+          [tableType]: 'O JSON deve ser um array de objetos.',
+        }));
+        return;
+      }
+
+      // Validar estrutura básica (chave de união por Squad)
+      if (jsonData.length > 0) {
+        const firstRow = jsonData[0] as Partial<TableRowGeral>;
+        if (!firstRow.Squad) {
+          setErrors((prev) => ({
+            ...prev,
+            [tableType]: 'O JSON deve conter objetos com o campo "Squad".',
+          }));
+          return;
+        }
+      }
+
+      const table: ChampionshipTable = {
+        id: `${championship?.id || 'new'}_${tableType}_${Date.now()}`,
+        championship_id: championship?.id || '',
+        table_type: tableType,
+        table_name: TABLE_TYPES.find((t) => t.type === tableType)?.name || tableType,
+        table_data: jsonData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setTables((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(tableType, table);
+        return newMap;
+      });
+
+      setErrors((prev => {
+        const newErrors = { ...prev };
+        delete newErrors[tableType];
+        return newErrors;
+      }));
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        [tableType]: 'Erro ao processar JSON. Verifique se o texto é válido.',
+      }));
+    }
+  };
+
+  const removeTable = (tableType: TableType) => {
+    setTables((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(tableType);
+      return newMap;
     });
   };
 
@@ -144,7 +299,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
           : tableFormat;
 
       const championshipToSave: Championship = {
-        id: championship?.id || Math.random().toString(36).slice(2, 11),
+        id: championship?.id || crypto.randomUUID(),
         nome: nome.trim(),
         fbrefUrl: null,
         table_format: finalFormat,
@@ -252,8 +407,115 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
           Envie o arquivo da liga ou cole o JSON — a normalização roda localmente antes do envio ao servidor.
         </p>
 
-        <div className="rounded-2xl border border-white/10 bg-base-100/35 p-3 backdrop-blur-md dark:bg-base-100/20 sm:p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      {/* Upload de Tabelas (opcional) */}
+      <div className="space-y-6">
+        <h3 className="text-xl font-bold">Tabelas</h3>
+
+        {TABLE_TYPES.map(({ type, name, required }) => {
+          const table = tables.get(type);
+          const hasError = errors[type];
+
+          return (
+            <div key={type} className="border border-base-300 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{name}</span>
+                  {required && <span className="text-error">*</span>}
+                  {table && (
+                    <span className="badge badge-success gap-1">
+                      <Check className="w-3 h-3" />
+                      Carregada
+                    </span>
+                  )}
+                </div>
+                {table && (
+                  <button
+                    type="button"
+                    onClick={() => removeTable(type)}
+                    className="btn btn-sm btn-ghost"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {!table ? (
+                <div className="space-y-3">
+                  <div className="form-control">
+                    <label className="label cursor-pointer">
+                      <span className="label-text font-bold flex items-center gap-2">
+                        Upload de arquivo Excel ou JSON
+                        <FileSpreadsheet className="w-4 h-4 text-primary" />
+                        <FileJson className="w-4 h-4 text-secondary" />
+                      </span>
+                    </label>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,.json,application/json"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleFileUpload(type, file);
+                        }
+                      }}
+                      className="file-input file-input-bordered w-full file-input-primary"
+                    />
+                    <label className="label">
+                      <span className="label-text-alt text-xs opacity-70">
+                        <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls), CSV (.csv) ou JSON (.json)
+                        <br />
+                        <strong>Requisito:</strong> A planilha deve conter uma coluna "Squad" (ou "Equipe", "Time", "Team")
+                      </span>
+                    </label>
+                  </div>
+
+                  {type === 'geral' && (
+                    <>
+                      <div className="divider">OU</div>
+                      <ChampionshipTablePasteArea onImport={handleTableImport} />
+                    </>
+                  )}
+
+                  <div className="divider">OU</div>
+
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-bold">Colar JSON diretamente</span>
+                    </label>
+                    <textarea
+                      className="textarea textarea-bordered h-32 font-mono text-sm"
+                      placeholder='[{"Squad": "Inter", "MP": "18", "W": "12", ...}]'
+                      onBlur={(e) => {
+                        if (e.target.value.trim()) {
+                          handleJsonPaste(type, e.target.value);
+                        }
+                      }}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt text-xs opacity-70">
+                        Cole aqui o conteúdo de um arquivo JSON válido
+                      </span>
+                    </label>
+                  </div>
+
+                  {hasError && <span className="text-error text-sm">{hasError}</span>}
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <ChampionshipTableView table={table} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+      </div>
+
+      {/* Upload de Tabela de Complemento */}
+      <div className="space-y-6">
+        <h3 className="text-xl font-bold">Tabela de Complemento</h3>
+        <div className="border border-base-300 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className="text-sm font-black sm:text-base">Classificação (JSON ou Excel)</span>
               {geralTable && (

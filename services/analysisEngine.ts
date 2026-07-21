@@ -1,25 +1,4 @@
-import {
-  MatchData,
-  AnalysisResult,
-  CompetitionComplementAverages,
-  TableRowComplement,
-  TableRowGeral,
-  RecentMatch,
-} from '../types';
-import { stripImportExtrasFromRow } from '../utils/leagueStandingJson';
-import { calculateEVPercent } from '../utils/evDecimal';
-import { DEFAULT_TOTAL_TEAMS } from '../utils/constants';
-import { parseNumeric } from '../utils/numbers';
-import {
-  blendAttackRate,
-  blendHistoricWithFormSnapshot,
-  finishingLambdaFactor,
-  normalizeGolsStatsSlice,
-  resolveGlobalGolsSlice,
-  volumeOffenseFactor,
-  weightedRecentGoalsPerGame,
-  xgFinishDelta,
-} from './matchDataSignals';
+import { MatchData, AnalysisResult, CompetitionComplementAverages } from '../types';
 
 /**
  * Função sigmoid suavizada para ajustes progressivos
@@ -83,52 +62,27 @@ function poissonCumulative(k: number, lambda: number): number {
 const DIXON_COLES_RHO_DEFAULT = -0.13;
 
 /**
- * Fator tau(i,j) de Dixon–Coles para placares baixos (i,j ∈ {0,1}).
- * @see Dixon & Coles (1997)
+ * Calcula a probabilidade de Under 1.5 (0 ou 1 gol) usando o ajuste de Dixon-Coles.
+ * Corrige a interdependência entre gols em placares baixos (0-0, 1-0, 0-1).
+ * @param lambdaHome Média de gols esperados para o time da casa
+ * @param lambdaAway Média de gols esperados para o time visitante
+ * @param rho Fator de correlação (padrão -0.13 para futebol, ajusta a subestimação de empates 0-0)
  */
-function dixonColesTau(i: number, j: number, lambdaHome: number, lambdaAway: number, rho: number): number {
-  if (i === 0 && j === 0) return 1 - lambdaHome * lambdaAway * rho;
-  if (i === 1 && j === 0) return 1 + lambdaHome * rho;
-  if (i === 0 && j === 1) return 1 + lambdaAway * rho;
-  if (i === 1 && j === 1) return 1 - rho;
-  return 1;
-}
-
-function dixonColesJointScoreProbability(
-  i: number,
-  j: number,
-  lambdaHome: number,
-  lambdaAway: number,
-  rho: number
-): number {
-  const base = poissonProbability(i, lambdaHome) * poissonProbability(j, lambdaAway);
-  const tau = dixonColesTau(i, j, lambdaHome, lambdaAway, rho);
-  return Math.max(0, base * tau);
-}
-
-/**
- * Probabilidade de Under 1.5 (≤1 gol): P(0-0)+P(1-0)+P(0-1) com τ de Dixon–Coles.
- * Os quatro placares baixos (0-0, 1-0, 0-1, 1-1) compartilham a mesma família τ; a linha 1.5 exclui 1-1 por definição (2 gols).
- */
-function calculateDixonColesUnder15(
-  lambdaHome: number,
-  lambdaAway: number,
-  rho: number = DIXON_COLES_RHO_DEFAULT
-): number {
-  const lh = Math.max(0, lambdaHome);
-  const la = Math.max(0, lambdaAway);
-  const p00 = dixonColesJointScoreProbability(0, 0, lh, la, rho);
-  const p10 = dixonColesJointScoreProbability(1, 0, lh, la, rho);
-  const p01 = dixonColesJointScoreProbability(0, 1, lh, la, rho);
-  // 1-1: tau(1,1)=1−ρ — usar dixonColesJointScoreProbability(1,1,...) em extensões (ex.: BTTS bivariado)
+function calculateDixonColesUnder15(lambdaHome: number, lambdaAway: number, rho: number = -0.1): number {
+  // P(0,0) com correção: aumenta probabilidade de 0-0 (comum em jogos travados)
+  const p00 = poissonProbability(0, lambdaHome) * poissonProbability(0, lambdaAway) * (1 - lambdaHome * lambdaAway * rho);
+  
+  // P(1,0) com correção
+  const p10 = poissonProbability(1, lambdaHome) * poissonProbability(0, lambdaAway) * (1 + lambdaHome * rho);
+  
+  // P(0,1) com correção
+  const p01 = poissonProbability(0, lambdaHome) * poissonProbability(1, lambdaAway) * (1 + lambdaAway * rho);
+  
   return Math.max(0, Math.min(1, p00 + p10 + p01));
 }
 
 /**
- * Calcula probabilidades Over/Under para múltiplas linhas usando Poisson **univariado** em T = gols totais.
- * Pressuposto: T ~ Poisson(λ_total) com λ_total = λ_home + λ_away (somas independentes).
- * Válido para linhas sobre **total de gols**; não substitui Dixon–Coles na linha 1.5 final (placares baixos).
- *
+ * Calcula probabilidades Over/Under para múltiplas linhas usando distribuição Poisson
  * @param lambdaTotal - Média total de gols esperados no jogo (lambdaHome + lambdaAway)
  * @returns Objeto com probabilidades Over/Under para linhas 0.5, 1.5, 2.5, 3.5, 4.5, 5.5
  */
@@ -809,396 +763,13 @@ function createDefaultComplementAvg(): CompetitionComplementAverages {
   };
 }
 
-function parseStandingCell(v: unknown): number {
-  if (v == null) return 0;
-  const t = String(v).trim().replace(/,/g, '').replace(/^\+/, '');
-  const n = Number.parseFloat(t);
-  return Number.isFinite(n) ? n : 0;
-}
-
 /**
- * Time decay nas Estatísticas Globais (até 10 jogos): os 5 mais recentes pesam 1,2× face aos 5 anteriores.
- * Se não houver jogos 6–10, usa a média ponderada (home/away/global) como proxy da janela “mais antiga”.
- */
-const TIME_DECAY_RECENT_WINDOW_WEIGHT = 1.2;
-const TIME_DECAY_OLDER_WINDOW_WEIGHT = 1;
-const MIN_GAMES_FOR_RECENCY_BLEND = 3;
-const MAX_RECENCY_GAMES = 5;
-
-type OpponentTableSlice = 'aggregate' | 'homeSlice' | 'awaySlice';
-
-/** Gols marcados/sofridos por jogo nos últimos `maxGames` (índice 0 = mais recente). */
-function recentAttackDefensePerGame(
-  history: RecentMatch[],
-  maxGames: number,
-  perspectiveHomeTeam: boolean
-): { scored: number; conceded: number; n: number } {
-  if (!history?.length) return { scored: 0, conceded: 0, n: 0 };
-  const slice = history.slice(0, Math.min(maxGames, history.length));
-  const n = slice.length;
-  let s = 0;
-  let c = 0;
-  for (const m of slice) {
-    if (perspectiveHomeTeam) {
-      s += m.homeScore ?? 0;
-      c += m.awayScore ?? 0;
-    } else {
-      s += m.awayScore ?? 0;
-      c += m.homeScore ?? 0;
-    }
-  }
-  return { scored: n > 0 ? s / n : 0, conceded: n > 0 ? c / n : 0, n };
-}
-
-/** Mistura janela recente (até 5) vs janela mais antiga (6–10) com pesos 1,2 : 1; fallback da API como “antiga” se necessário. */
-function blendRecentFiveVsOlderFive(
-  weightedScored: number,
-  weightedConceded: number,
-  history: RecentMatch[],
-  perspectiveHome: boolean
-): { scored: number; conceded: number; active: boolean } {
-  if (!history?.length) {
-    return { scored: weightedScored, conceded: weightedConceded, active: false };
-  }
-  const recentSlice = history.slice(0, Math.min(MAX_RECENCY_GAMES, history.length));
-  const olderSlice = history.slice(5, 10);
-  const r = recentAttackDefensePerGame(recentSlice, recentSlice.length, perspectiveHome);
-  if (r.n < MIN_GAMES_FOR_RECENCY_BLEND) {
-    return { scored: weightedScored, conceded: weightedConceded, active: false };
-  }
-  const wR = TIME_DECAY_RECENT_WINDOW_WEIGHT;
-  const wO = TIME_DECAY_OLDER_WINDOW_WEIGHT;
-  const wSum = wR + wO;
-  if (olderSlice.length > 0) {
-    const o = recentAttackDefensePerGame(olderSlice, olderSlice.length, perspectiveHome);
-    return {
-      scored: (wR * r.scored + wO * o.scored) / wSum,
-      conceded: (wR * r.conceded + wO * o.conceded) / wSum,
-      active: true,
-    };
-  }
-  return {
-    scored: (wR * r.scored + wO * weightedScored) / wSum,
-    conceded: (wR * r.conceded + wO * weightedConceded) / wSum,
-    active: true,
-  };
-}
-
-function tableStandingNumeric(row: Record<string, unknown> | undefined, keys: string[]): number {
-  if (!row) return 0;
-  for (const k of keys) {
-    const v = row[k];
-    if (v == null || v === '') continue;
-    const t = String(v).trim().replace(/,/g, '').replace(/^\+/, '');
-    const n = Number.parseFloat(t);
-    if (Number.isFinite(n)) return n;
-  }
-  return 0;
-}
-
-function complementPer90Goals(complement?: TableRowComplement | null): number {
-  if (!complement) return 0;
-  const raw =
-    complement['Per 90 Minutes Gls'] ??
-    (complement as { per_90_gls?: string }).per_90_gls;
-  if (raw == null || raw === '') return 0;
-  const n = Number.parseFloat(String(raw).replace(',', '.'));
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-}
-
-/** Prioriza GF/xG por contexto (Home/Away) e cruza com Per 90 do complemento quando existir. */
-function blendOffensiveStandingWithComplement(
-  tableRow: Record<string, unknown> | undefined,
-  context: 'home' | 'away',
-  complement?: TableRowComplement | null
-): number {
-  if (!tableRow) return 0;
-  const mpKeys = context === 'home' ? ['Home MP', 'MP'] : ['Away MP', 'MP'];
-  const gfKeys = context === 'home' ? ['Home GF', 'GF'] : ['Away GF', 'GF'];
-  const xgKeys = context === 'home' ? ['Home xG', 'xG'] : ['Away xG', 'xG'];
-  const mp = tableStandingNumeric(tableRow, mpKeys);
-  const gf = tableStandingNumeric(tableRow, gfKeys);
-  const xg = tableStandingNumeric(tableRow, xgKeys);
-  const rates: number[] = [];
-  if (mp > 0) {
-    rates.push(gf / mp);
-    if (xg > 0) rates.push(xg / mp);
-  }
-  const p90 = complementPer90Goals(complement);
-  if (p90 > 0) rates.push(p90);
-  if (rates.length === 0) return 0;
-  return rates.reduce((a, b) => a + b, 0) / rates.length;
-}
-
-/** GA/xGA por contexto casa (mandante) ou fora (visitante). */
-function blendDefensiveStanding(
-  tableRow: Record<string, unknown> | undefined,
-  context: 'home' | 'away'
-): number {
-  if (!tableRow) return 0;
-  const mpKeys = context === 'home' ? ['Home MP', 'MP'] : ['Away MP', 'MP'];
-  const gaKeys = context === 'home' ? ['Home GA', 'GA'] : ['Away GA', 'GA'];
-  const xgaKeys = context === 'home' ? ['Home xGA', 'xGA'] : ['Away xGA', 'xGA'];
-  const mp = tableStandingNumeric(tableRow, mpKeys);
-  const ga = tableStandingNumeric(tableRow, gaKeys);
-  const xga = tableStandingNumeric(tableRow, xgaKeys);
-  const rates: number[] = [];
-  if (mp > 0) {
-    rates.push(ga / mp);
-    if (xga > 0) rates.push(xga / mp);
-  }
-  if (rates.length === 0) return 0;
-  return rates.reduce((a, b) => a + b, 0) / rates.length;
-}
-
-function advancedMetricsFromStandingAndComplement(data: MatchData): {
-  offensiveVolume: number | null;
-  defensiveLeaking: number | null;
-} {
-  const homeRow = data.homeTableData as Record<string, unknown> | undefined;
-  const awayRow = data.awayTableData as Record<string, unknown> | undefined;
-  const ho = blendOffensiveStandingWithComplement(homeRow, 'home', data.homeComplementData);
-  const ao = blendOffensiveStandingWithComplement(awayRow, 'away', data.awayComplementData);
-  const hd = blendDefensiveStanding(homeRow, 'home');
-  const ad = blendDefensiveStanding(awayRow, 'away');
-
-  const offParts = [ho, ao].filter((x) => x > 0);
-  const defParts = [hd, ad].filter((x) => x > 0);
-  if (offParts.length === 0 && defParts.length === 0) {
-    return { offensiveVolume: null, defensiveLeaking: null };
-  }
-  const offAvg = offParts.length
-    ? offParts.reduce((a, b) => a + b, 0) / offParts.length
-    : null;
-  const defAvg = defParts.length
-    ? defParts.reduce((a, b) => a + b, 0) / defParts.length
-    : null;
-  return {
-    offensiveVolume:
-      offAvg != null ? Math.min(100, Math.max(0, (offAvg / 3) * 100)) : null,
-    defensiveLeaking:
-      defAvg != null ? Math.min(100, Math.max(0, defAvg * 50)) : null,
-  };
-}
-
-function computeRecentLambdaAttackTrend(
-  data: MatchData,
-  homeSeasonScored: number,
-  awaySeasonScored: number
-): { trend: NonNullable<AnalysisResult['recentLambdaTrend']>; delta: number } {
-  const hHist = data.homeHistory || [];
-  const aHist = data.awayHistory || [];
-  const hr = recentAttackDefensePerGame(hHist, MAX_RECENCY_GAMES, true);
-  const ar = recentAttackDefensePerGame(aHist, MAX_RECENCY_GAMES, false);
-  if (hr.n < MIN_GAMES_FOR_RECENCY_BLEND || ar.n < MIN_GAMES_FOR_RECENCY_BLEND) {
-    return { trend: 'unknown', delta: 0 };
-  }
-  const dHome = hr.scored - homeSeasonScored;
-  const dAway = ar.scored - awaySeasonScored;
-  const delta = Math.round(((dHome + dAway) / 2) * 100) / 100;
-  const eps = 0.04;
-  if (delta > eps) return { trend: 'up', delta };
-  if (delta < -eps) return { trend: 'down', delta };
-  return { trend: 'flat', delta };
-}
-
-function computeRecentFormConfidenceIndex(
-  data: MatchData,
-  homeW: ReturnType<typeof getWeightedTeamStats>,
-  awayW: ReturnType<typeof getWeightedTeamStats>
-): number {
-  const hHist = data.homeHistory || [];
-  const aHist = data.awayHistory || [];
-  if (hHist.length < MIN_GAMES_FOR_RECENCY_BLEND || aHist.length < MIN_GAMES_FOR_RECENCY_BLEND) {
-    return 28;
-  }
-  const hr = recentAttackDefensePerGame(hHist, MAX_RECENCY_GAMES, true);
-  const ar = recentAttackDefensePerGame(aHist, MAX_RECENCY_GAMES, false);
-  if (hr.n < MIN_GAMES_FOR_RECENCY_BLEND || ar.n < MIN_GAMES_FOR_RECENCY_BLEND) {
-    return 28;
-  }
-  const offAlign =
-    1 -
-    Math.min(
-      1,
-      (Math.abs(hr.scored - homeW.avgScored) + Math.abs(ar.scored - awayW.avgScored)) / 4
-    );
-  const defAlign =
-    1 -
-    Math.min(
-      1,
-      (Math.abs(hr.conceded - homeW.avgConceded) + Math.abs(ar.conceded - awayW.avgConceded)) / 4
-    );
-  const sliceH = hHist.slice(0, Math.min(MAX_RECENCY_GAMES, hHist.length));
-  const sliceA = aHist.slice(0, Math.min(MAX_RECENCY_GAMES, aHist.length));
-  const totals: number[] = [];
-  for (const m of sliceH) totals.push((m.homeScore ?? 0) + (m.awayScore ?? 0));
-  for (const m of sliceA) totals.push((m.homeScore ?? 0) + (m.awayScore ?? 0));
-  if (totals.length === 0) return 30;
-  const mean = totals.reduce((a, b) => a + b, 0) / totals.length;
-  const varSum = totals.reduce((s, t) => s + (t - mean) ** 2, 0);
-  const std = Math.sqrt(varSum / totals.length);
-  const stability = 1 - Math.min(1, std / 2.5);
-  const raw = 38 + 32 * ((offAlign + defAlign) / 2) + 30 * stability;
-  return Math.max(0, Math.min(100, Math.round(raw)));
-}
-
-/** Classificação agregada da temporada (sem colunas Home MP / Away MP). */
-function isAggregateStandingRow(row: TableRowGeral | null | undefined): boolean {
-  if (!row) return false;
-  const hasHome = row['Home MP'] != null && String(row['Home MP']).trim() !== '';
-  const hasAway = row['Away MP'] != null && String(row['Away MP']).trim() !== '';
-  const mp = parseStandingCell(row.MP);
-  return !hasHome && !hasAway && mp > 0;
-}
-
-/**
- * Probabilidade da tabela quando só há totais da temporada (JSON agregado).
- * Vantagem de campo explícita; sem complemento/xG por time.
- */
-function calculateAggregateStandingTableProbability(data: MatchData): {
-  probability: number;
-  lambdaTotal: number;
-  lambdaHome: number;
-  lambdaAway: number;
-  overUnderProbabilities: { [line: string]: { over: number; under: number } };
-} | null {
-  const h = data.homeTableData!;
-  const a = data.awayTableData!;
-  const homeMp = parseStandingCell(h.MP);
-  const awayMp = parseStandingCell(a.MP);
-  const homeGf = parseStandingCell(h.GF);
-  const homeGa = parseStandingCell(h.GA);
-  const awayGf = parseStandingCell(a.GF);
-  const awayGa = parseStandingCell(a.GA);
-  if (homeMp <= 0 || awayMp <= 0) return null;
-
-  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-  const safeDiv = (num: number, den: number, fallback: number) => (den > 0 ? num / den : fallback);
-
-  const homeAttackPerMatch = homeGf / homeMp;
-  const homeDefensePerMatch = homeGa / homeMp;
-  const awayAttackPerMatch = awayGf / awayMp;
-  const awayDefensePerMatch = awayGa / awayMp;
-
-  const rawCompetitionAvg = typeof data.competitionAvg === 'number' ? data.competitionAvg : 0;
-  const competitionAvgGoals =
-    Number.isFinite(rawCompetitionAvg) && rawCompetitionAvg > 0 && rawCompetitionAvg <= 10
-      ? rawCompetitionAvg
-      : 0;
-
-  const fallbackAvgGoals = clamp(
-    (homeAttackPerMatch + homeDefensePerMatch + awayAttackPerMatch + awayDefensePerMatch) / 2,
-    1.6,
-    4.2
-  );
-  const leagueAvgTotalGoals = competitionAvgGoals > 0 ? competitionAvgGoals : fallbackAvgGoals;
-  const leagueAvgTeamGoals = leagueAvgTotalGoals / 2;
-
-  const minMp = Math.min(homeMp, awayMp);
-  const tableReliability = clamp(minMp / 12, 0, 1);
-
-  const homeAttackStrength = safeDiv(homeAttackPerMatch, leagueAvgTeamGoals, 1);
-  const awayAttackStrength = safeDiv(awayAttackPerMatch, leagueAvgTeamGoals, 1);
-  const homeDefenseStrength = safeDiv(homeDefensePerMatch, leagueAvgTeamGoals, 1);
-  const awayDefenseStrength = safeDiv(awayDefensePerMatch, leagueAvgTeamGoals, 1);
-
-  const shrinkToAvg = (strength: number) => 1 + (strength - 1) * tableReliability;
-  const homeAttack = shrinkToAvg(homeAttackStrength);
-  const awayAttack = shrinkToAvg(awayAttackStrength);
-  const homeDefense = shrinkToAvg(homeDefenseStrength);
-  const awayDefense = shrinkToAvg(awayDefenseStrength);
-
-  let lambdaHome = leagueAvgTeamGoals * homeAttack * awayDefense;
-  let lambdaAway = leagueAvgTeamGoals * awayAttack * homeDefense;
-
-  const HOME_FIELD_ADV = 1.08;
-  lambdaHome *= HOME_FIELD_ADV;
-  lambdaAway *= 2 / (1 + HOME_FIELD_ADV);
-
-  lambdaHome = clamp(lambdaHome, 0.15, 4.25);
-  lambdaAway = clamp(lambdaAway, 0.15, 4.25);
-
-  const homeRk = parseStandingCell(h.Rk);
-  const awayRk = parseStandingCell(a.Rk);
-  const totalTeams = DEFAULT_TOTAL_TEAMS;
-  if (homeRk > 0 && homeRk <= 5) lambdaHome *= 1.05;
-  else if (homeRk > 0 && homeRk <= 10) lambdaHome *= 1.02;
-  if (awayRk > 0 && awayRk <= 5) lambdaAway *= 1.05;
-  else if (awayRk > 0 && awayRk <= 10) lambdaAway *= 1.02;
-
-  const homeGd = parseStandingCell(h.GD);
-  const awayGd = parseStandingCell(a.GD);
-  const homeGdPerGame = homeMp > 0 ? homeGd / homeMp : 0;
-  const awayGdPerGame = awayMp > 0 ? awayGd / awayMp : 0;
-  if (homeGdPerGame > 0.5) lambdaHome *= 1 + Math.min(0.03, homeGdPerGame * 0.02);
-  if (awayGdPerGame > 0.5) lambdaAway *= 1 + Math.min(0.03, awayGdPerGame * 0.02);
-
-  const homePtsPerGame = parseStandingCell(h['Pts/MP']);
-  const awayPtsPerGame = parseStandingCell(a['Pts/MP']);
-  const homeFormFactor =
-    homePtsPerGame > 0 ? Math.min(1.03, 1 + (homePtsPerGame - 1.5) * 0.01) : 1;
-  const awayFormFactor =
-    awayPtsPerGame > 0 ? Math.min(1.03, 1 + (awayPtsPerGame - 1.5) * 0.01) : 1;
-  lambdaHome *= homeFormFactor;
-  lambdaAway *= awayFormFactor;
-
-  if (homeRk > 0 && awayRk > 0) {
-    lambdaHome *= 1 + ((awayRk - homeRk) / totalTeams) * 0.05;
-    lambdaAway *= 1 + ((homeRk - awayRk) / totalTeams) * 0.05;
-  }
-
-  const lambdaTotal = lambdaHome + lambdaAway;
-  const over15Prob = 1 - poissonCumulative(1, lambdaTotal);
-  let tableProb = Math.max(10, Math.min(98, over15Prob * 100));
-
-  let formAdjustment = 0;
-  if (h['Last 5'] || a['Last 5']) {
-    const parseRecentForm = (last5: string | undefined): number => {
-      if (!last5 || last5.trim() === '') return 0;
-      let offensiveTrend = 0;
-      const compact = last5.trim().toUpperCase().replace(/\s+/g, '');
-      const matches = compact.split('');
-      for (const match of matches) {
-        if (match === 'W') offensiveTrend += 1;
-        else if (match === 'D') offensiveTrend += 0;
-        else if (match === 'L') offensiveTrend -= 0.5;
-      }
-      return matches.length > 0 ? offensiveTrend / matches.length : 0;
-    };
-    const homeForm = parseRecentForm(h['Last 5']);
-    const awayForm = parseRecentForm(a['Last 5']);
-    formAdjustment = ((homeForm + awayForm) / 2) * 3;
-  }
-
-  const finalProb = Math.max(10, Math.min(98, tableProb + formAdjustment));
-  const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
-
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] Tabela agregada (JSON): lambdas e prob.', {
-      lambdaHome,
-      lambdaAway,
-      lambdaTotal,
-      finalProb,
-    });
-  }
-
-  return {
-    probability: finalProb,
-    lambdaTotal,
-    lambdaHome,
-    lambdaAway,
-    overUnderProbabilities,
-  };
-}
-
-/**
- * Calcula probabilidade Over 1.5 baseada nos dados da tabela do campeonato.
- * Fluxo atual: tabela geral (agregada JSON ou legado Home/Away). Se existirem dados **legados**
- * de complemento (parcial ou completo), lambdas podem ser ajustados — o app novo não importa mais complemento.
+ * Calcula probabilidade Over 1.5 baseada apenas nos dados da tabela do campeonato.
+ * Usa fatores avançados: GF/GA, xG/xGA, posição na tabela, GD, xGD, Pts/MP e força do oponente.
+ * SEMPRE usa a tabela geral (obrigatória) e a tabela complemento quando disponível (mesmo parcialmente).
  *
- * @param data - Dados da partida (homeTableData, awayTableData; complemento opcional / legado)
- * @returns Probabilidade Over 1.5 e overUnderProbabilities, ou null se dados insuficientes
+ * @param data - Dados da partida incluindo homeTableData, awayTableData, homeComplementData, awayComplementData
+ * @returns Objeto com probabilidade Over 1.5 e overUnderProbabilities, ou null se dados insuficientes
  */
 function calculateTableProbability(data: MatchData): {
   probability: number;
@@ -1349,7 +920,8 @@ function calculateTableProbability(data: MatchData): {
   lambdaHome = clamp(lambdaHome, 0.15, 4.25);
   lambdaAway = clamp(lambdaAway, 0.15, 4.25);
 
-  // 3b. Legado — championship_complement: ajuste fino (posse, per 90, idade, minutos) se ainda houver dados salvos
+  // 3b. Complemento (championship_complement): ajustar baseado em Playing Time, Performance e Per 90 Minutes
+  // Usar complemento mesmo parcialmente - se houver pelo menos um dos dados, tentar usar
   const hasHomeComplement = !!data.homeComplementData;
   const hasAwayComplement = !!data.awayComplementData;
   const hasCompetitionAvg = !!data.competitionComplementAvg;
@@ -1357,7 +929,7 @@ function calculateTableProbability(data: MatchData): {
   const hasPartialComplement = hasHomeComplement || hasAwayComplement;
 
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] calculateTableProbability — dados de complemento (legado, opcional):', {
+    console.log('[AnalysisEngine] calculateTableProbability - Verificando complemento:', {
       hasHomeComplement,
       hasAwayComplement,
       hasCompetitionAvg,
@@ -1375,6 +947,15 @@ function calculateTableProbability(data: MatchData): {
   if (hasPartialComplement) {
     // Se não houver média calculada, tentar calcular a partir dos dados disponíveis
     if (!avg) {
+      const parseNum = (value: unknown): number => {
+        if (value == null) return 0;
+        const raw = String(value).trim();
+        if (!raw) return 0;
+        const normalized = raw.replace(/,/g, '');
+        const n = Number.parseFloat(normalized);
+        return Number.isFinite(n) ? n : 0;
+      };
+
       const allRows: Array<Record<string, unknown>> = [];
       if (hasHomeComplement) allRows.push(data.homeComplementData as unknown as Record<string, unknown>);
       if (hasAwayComplement) allRows.push(data.awayComplementData as unknown as Record<string, unknown>);
@@ -1390,22 +971,22 @@ function calculateTableProbability(data: MatchData): {
         let playingTime90sCount = 0;
 
         for (const row of allRows) {
-          const poss = parseNumeric(row.Poss);
+          const poss = parseNum(row.Poss);
           if (poss > 0) {
             possSum += poss;
             possCount++;
           }
-          const per90Gls = parseNumeric(row['Per 90 Minutes Gls']);
+          const per90Gls = parseNum(row['Per 90 Minutes Gls']);
           if (per90Gls > 0) {
             per90GlsSum += per90Gls;
             per90GlsCount++;
           }
-          const age = parseNumeric(row.Age);
+          const age = parseNum(row.Age);
           if (age > 0) {
             ageSum += age;
             ageCount++;
           }
-          const playingTime90s = parseNumeric(row['Playing Time 90s']);
+          const playingTime90s = parseNum(row['Playing Time 90s']);
           if (playingTime90s > 0) {
             playingTime90sSum += playingTime90s;
             playingTime90sCount++;
@@ -1430,7 +1011,7 @@ function calculateTableProbability(data: MatchData): {
         };
 
         if (import.meta.env.DEV) {
-          console.log('[AnalysisEngine] ✅ Média legada de complemento inferida a partir de dados parciais:', avg);
+          console.log('[AnalysisEngine] ✅ Média básica de complemento calculada a partir de dados parciais:', avg);
         }
       }
     }
@@ -1440,14 +1021,20 @@ function calculateTableProbability(data: MatchData): {
     
     if (!avg) {
       if (import.meta.env.DEV) {
-        console.log(
-          '[AnalysisEngine] Complemento legado: média da competição ausente — usando defaults para fatores opcionais'
-        );
+        console.warn('[AnalysisEngine] ⚠️ Usando valores padrão para média de complemento (dados parciais disponíveis mas média não calculada)');
       }
     }
 
     // SEMPRE aplicar ajustes quando houver dados parciais (não depende mais de avg ser não-nulo)
     // Este código está dentro do if (hasPartialComplement) da linha 779
+    const parseNum = (value: unknown): number => {
+      if (value == null) return 0;
+      const raw = String(value).trim();
+      if (!raw) return 0;
+      const normalized = raw.replace(/,/g, '');
+      const n = Number.parseFloat(normalized);
+      return Number.isFinite(n) ? n : 0;
+    };
 
     // Usar dados parciais - se não houver um dos times, usar valores neutros
     const homeRow = hasHomeComplement 
@@ -1458,8 +1045,8 @@ function calculateTableProbability(data: MatchData): {
       : ({} as Record<string, unknown>);
 
     // 1. Ajuste por Possession (posse de bola) - times com mais posse tendem a ter mais oportunidades
-    const homePoss = hasHomeComplement ? parseNumeric(homeRow.Poss) : avgToUse.poss;
-    const awayPoss = hasAwayComplement ? parseNumeric(awayRow.Poss) : avgToUse.poss;
+    const homePoss = hasHomeComplement ? parseNum(homeRow.Poss) : avgToUse.poss;
+    const awayPoss = hasAwayComplement ? parseNum(awayRow.Poss) : avgToUse.poss;
     const homePossRatio = avgToUse.poss > 0 && homePoss > 0 ? homePoss / avgToUse.poss : 1;
     const awayPossRatio = avgToUse.poss > 0 && awayPoss > 0 ? awayPoss / avgToUse.poss : 1;
     
@@ -1468,10 +1055,10 @@ function calculateTableProbability(data: MatchData): {
     const awayPossFactor = clamp(1 + (awayPossRatio - 1) * 0.1, 0.95, 1.05);
 
     // 2. Ajuste por Performance metrics (Gls, Ast, G+A por 90)
-    const homePer90Gls = hasHomeComplement ? parseNumeric(homeRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
-    const homePer90GA = hasHomeComplement ? parseNumeric(homeRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
-    const awayPer90Gls = hasAwayComplement ? parseNumeric(awayRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
-    const awayPer90GA = hasAwayComplement ? parseNumeric(awayRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
+    const homePer90Gls = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
+    const homePer90GA = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
+    const awayPer90Gls = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
+    const awayPer90GA = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
     
     const homePer90Ratio = avgToUse.per90Gls > 0 && homePer90Gls > 0 ? homePer90Gls / avgToUse.per90Gls : 1;
     const awayPer90Ratio = avgToUse.per90Gls > 0 && awayPer90Gls > 0 ? awayPer90Gls / avgToUse.per90Gls : 1;
@@ -1481,8 +1068,8 @@ function calculateTableProbability(data: MatchData): {
     const awayPer90Factor = clamp(1 + (awayPer90Ratio - 1) * 0.12, 0.94, 1.06);
 
     // 3. Ajuste por Age (idade média) - times mais jovens podem ser mais ofensivos
-    const homeAge = hasHomeComplement ? parseNumeric(homeRow.Age) : avgToUse.age;
-    const awayAge = hasAwayComplement ? parseNumeric(awayRow.Age) : avgToUse.age;
+    const homeAge = hasHomeComplement ? parseNum(homeRow.Age) : avgToUse.age;
+    const awayAge = hasAwayComplement ? parseNum(awayRow.Age) : avgToUse.age;
     const avgAge = avgToUse.age;
     
     // Times mais jovens (até 2 anos abaixo da média) têm pequeno bônus ofensivo (até +2%)
@@ -1495,8 +1082,8 @@ function calculateTableProbability(data: MatchData): {
 
     // 4. Ajuste por Playing Time (normalização por minutos jogados)
     // Times com mais minutos jogados podem ter mais consistência
-    const home90s = hasHomeComplement ? parseNumeric(homeRow['Playing Time 90s']) : avgToUse.playingTime90s;
-    const away90s = hasAwayComplement ? parseNumeric(awayRow['Playing Time 90s']) : avgToUse.playingTime90s;
+    const home90s = hasHomeComplement ? parseNum(homeRow['Playing Time 90s']) : avgToUse.playingTime90s;
+    const away90s = hasAwayComplement ? parseNum(awayRow['Playing Time 90s']) : avgToUse.playingTime90s;
     const avg90s = avgToUse.playingTime90s;
     
     // Mais minutos = mais consistência (até +1%)
@@ -1515,7 +1102,7 @@ function calculateTableProbability(data: MatchData): {
     lambdaAway *= awayComplementFactor;
 
     if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ✅ Ajuste legado (complemento) aplicado aos lambdas:', {
+      console.log('[AnalysisEngine] ✅ Ajuste complemento aplicado (TABELA COMPLEMENTO SENDO USADA):', {
         hasFullComplement,
         hasPartialComplement,
         usandoValoresPadrao: !avg,
@@ -1633,15 +1220,15 @@ function calculateTableProbability(data: MatchData): {
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] ===== Prob. Tabela (geral + complemento legado opcional) =====');
-    console.log('[AnalysisEngine] Fontes aplicadas:', {
+    console.log('[AnalysisEngine] ===== Prob. Tabela calculada (com todas as tabelas) =====');
+    console.log('[AnalysisEngine] ✅ TABELAS APLICADAS NA ANÁLISE:', {
       tabelaGeral: {
-        aplicada: true,
+        aplicada: true, // Sempre aplicada (base para cálculo)
         homeTableData: !!data.homeTableData,
         awayTableData: !!data.awayTableData,
-        impacto: 'Base para lambda (Home/Away ou agregado)',
+        impacto: 'Alto - base para cálculo de lambda',
       },
-      complementoLegado: {
+      tabelaComplemento: {
         aplicada: hasPartialComplement,
         completo: hasFullComplement,
         parcial: hasPartialComplement && !hasFullComplement,
@@ -1649,10 +1236,9 @@ function calculateTableProbability(data: MatchData): {
         awayComplementData: hasAwayComplement,
         competitionComplementAvg: hasCompetitionAvg,
         usandoValoresPadrao: hasPartialComplement && !avg,
-        impacto: hasPartialComplement
-          ? 'Ajuste fino (dados antigos); fluxo novo não importa complemento'
-          : 'Não aplicável',
+        impacto: hasPartialComplement ? 'Médio-Alto - ajuste de posse, performance e idade' : 'Não aplicada',
       },
+      'ambasTabelasAplicadas': true && hasPartialComplement,
     });
     console.log('[AnalysisEngine] Resultados:', {
       lambdaHome,
@@ -1670,17 +1256,22 @@ function calculateTableProbability(data: MatchData): {
     });
     
     if (!hasPartialComplement) {
-      console.log('[AnalysisEngine] Complemento legado ausente — análise baseada na classificação/tabela geral.');
-    } else if (!hasFullComplement) {
-      console.log('[AnalysisEngine] Complemento legado parcial — alguns fatores usam médias/default:', {
+      console.warn('[AnalysisEngine] ⚠️ Tabela complemento NÃO foi aplicada (nenhum dado disponível):', {
         hasHomeComplement,
         hasAwayComplement,
         hasCompetitionAvg,
-        mediaInferida: !!avg && !data.competitionComplementAvg,
-        usandoValoresPadrao: !avg,
+        'recomendacao': 'Adicione a tabela de complemento para aumentar a precisão',
+      });
+    } else if (!hasFullComplement) {
+      console.warn('[AnalysisEngine] ⚠️ Tabela complemento aplicada PARCIALMENTE:', {
+        hasHomeComplement,
+        hasAwayComplement,
+        hasCompetitionAvg,
+        'médiaCalculada': !!avg && !data.competitionComplementAvg,
+        'usandoValoresPadrao': !avg,
       });
     } else {
-      console.log('[AnalysisEngine] Complemento legado completo — ajustes extras aplicados aos lambdas.');
+      console.log('[AnalysisEngine] ✅✅✅ TODAS AS TABELAS (GERAL + COMPLEMENTO) FORAM APLICADAS COMPLETAMENTE NO CÁLCULO DA PROBABILIDADE!');
     }
   }
 
@@ -1735,6 +1326,11 @@ function combineStatisticsAndTable(
   // Avaliar disponibilidade e qualidade dos dados
   const hasTeamStats = !!(data.homeTeamStats && data.awayTeamStats);
   const hasTableData = !!(data.homeTableData && data.awayTableData);
+  const hasComplement = !!(
+    data.homeComplementData &&
+    data.awayComplementData &&
+    data.competitionComplementAvg
+  );
 
   // 1) Peso base por confiabilidade da tabela (MP)
   const homeMp = hasTableData ? parseFloat(data.homeTableData!.MP || '0') : 0;
@@ -1747,6 +1343,12 @@ function combineStatisticsAndTable(
   // Estatísticas são mais recentes, mas a tabela ganha peso conforme MP aumenta
   let tableWeight = 0.25 + 0.15 * tableReliability; // 0.25..0.40
   let statsWeight = 1 - tableWeight; // 0.60..0.75
+
+  // Pequeno bônus quando há complemento presente (mais contexto)
+  if (hasComplement && hasTableData) {
+    tableWeight = clamp(tableWeight + 0.03, 0, 0.45);
+    statsWeight = 1 - tableWeight;
+  }
 
   // 2) Disponibilidade
   if (hasTeamStats && !hasTableData) {
@@ -1828,9 +1430,11 @@ function calculateAdaptiveWeights(
 }
 
 /**
- * Calcula score de completude das tabelas (0-1).
- * Normaliza dados de MatchData garantindo valores padrão seguros para campos opcionais.
- * Previne erros com dados antigos ou incompletos.
+ * Normaliza dados de MatchData garantindo valores padrão seguros para campos opcionais
+ * Previne erros com dados antigos ou incompletos
+ */
+/**
+ * Calcula score de completude das tabelas (0-1)
  */
 function calculateTableCompletenessScore(data: MatchData): {
   score: number;
@@ -1846,16 +1450,27 @@ function calculateTableCompletenessScore(data: MatchData): {
     missingTables.push('geral');
   }
 
-  const hasFullComplement =
-    !!data.homeComplementData &&
-    !!data.awayComplementData &&
-    !!data.competitionComplementAvg;
-  if (hasFullComplement) {
+  if (
+    data.homeComplementData &&
+    data.awayComplementData &&
+    data.competitionComplementAvg
+  ) {
     availableTables.push('complement');
+  } else {
+    missingTables.push('complement');
   }
 
-  // Confiança do produto: depende só da tabela geral; complemento entra só como metadado legado.
-  const score = availableTables.includes('geral') ? 1 : 0;
+  if (
+    data.homeComplementData &&
+    data.awayComplementData &&
+    data.competitionComplementAvg
+  ) {
+    availableTables.push('complement');
+  } else {
+    missingTables.push('complement');
+  }
+
+  const score = availableTables.length / 2; // 0.0 a 1.0 (geral e complement)
 
   return { score, availableTables, missingTables };
 }
@@ -1867,13 +1482,23 @@ function getTableImpactSummary(data: MatchData): {
   geral: { available: boolean; impact: string };
 } {
   const hasGeral = !!(data.homeTableData && data.awayTableData);
+  const hasComplement =
+    !!data.homeComplementData &&
+    !!data.awayComplementData &&
+    !!data.competitionComplementAvg;
 
   return {
     geral: {
       available: hasGeral,
-      impact: hasGeral
-        ? 'Alto (classificação da liga — agregado ou legado casa/fora)'
-        : 'Não disponível',
+      impact: hasGeral ? 'Alto (base para cálculo de lambda)' : 'Não disponível',
+    },
+    homeAway: {
+      available: false,
+      impact: 'Não disponível',
+    },
+    standardFor: {
+      available: hasComplement,
+      impact: hasComplement ? 'Médio-Alto (ajuste de posse, performance e idade)' : 'Não disponível',
     },
   };
 }
@@ -1913,7 +1538,7 @@ function validateTableDataIntegrity(data: MatchData): {
     const geralSquad = String(data.homeTableData.Squad || '').trim();
     const complementSquad = String((data.homeComplementData as { Squad?: string })?.Squad || '').trim();
     if (geralSquad && complementSquad && geralSquad !== complementSquad) {
-      warnings.push(`Divergência de Squad: tabela geral vs complemento legado (casa): "${geralSquad}" vs "${complementSquad}"`);
+      warnings.push(`Divergência de Squad na tabela geral vs complemento (casa): "${geralSquad}" vs "${complementSquad}"`);
     }
   }
 
@@ -1921,12 +1546,13 @@ function validateTableDataIntegrity(data: MatchData): {
     const geralSquad = String(data.awayTableData.Squad || '').trim();
     const complementSquad = String((data.awayComplementData as { Squad?: string })?.Squad || '').trim();
     if (geralSquad && complementSquad && geralSquad !== complementSquad) {
-      warnings.push(`Divergência de Squad: tabela geral vs complemento legado (visitante): "${geralSquad}" vs "${complementSquad}"`);
+      warnings.push(`Divergência de Squad na tabela geral vs complemento (visitante): "${geralSquad}" vs "${complementSquad}"`);
     }
   }
 
+  // Verificar se tabela complemento tem competitionAvg quando necessário
   if (data.homeComplementData && data.awayComplementData && !data.competitionComplementAvg) {
-    warnings.push('Complemento legado: há linhas dos dois times mas falta competitionComplementAvg');
+    warnings.push('Tabela complemento presente mas competitionComplementAvg ausente');
   }
 
   return {
@@ -1947,16 +1573,19 @@ function normalizeMatchData(data: MatchData): MatchData {
       ? data.competitionAvg
       : 0;
 
-  const hasGeral = !!(data.homeTableData && data.awayTableData);
-  const hasComplementFull =
+  // Verificar se todas as 2 tabelas estão presentes antes de normalizar
+  const hasAllTables =
+    !!data.homeTableData &&
+    !!data.awayTableData &&
     !!data.homeComplementData &&
     !!data.awayComplementData &&
     !!data.competitionComplementAvg;
 
   if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] normalizeMatchData — tabela geral e complemento (legado):', {
-      geral: hasGeral,
-      complementoCompleto: hasComplementFull,
+    console.log('[AnalysisEngine] normalizeMatchData - Verificando dados das 2 tabelas:', {
+      geral: !!(data.homeTableData && data.awayTableData),
+      complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
+      todasPresentes: hasAllTables,
     });
   }
 
@@ -1987,9 +1616,9 @@ function normalizeMatchData(data: MatchData): MatchData {
     h2hOver15Freq: data.h2hOver15Freq ?? 0,
     matchImportance: data.matchImportance ?? 0,
     keyAbsences: data.keyAbsences ?? 'none',
-    // Preservar tabela geral e complemento legado; importExtras não entra no cálculo Poisson
-    homeTableData: stripImportExtrasFromRow(data.homeTableData),
-    awayTableData: stripImportExtrasFromRow(data.awayTableData),
+    // PRESERVAR TODOS OS DADOS DAS 2 TABELAS (spread operator já faz isso, mas garantindo explicitamente)
+    homeTableData: data.homeTableData,
+    awayTableData: data.awayTableData,
     homeComplementData: data.homeComplementData,
     awayComplementData: data.awayComplementData,
     competitionComplementAvg: data.competitionComplementAvg,
@@ -2023,11 +1652,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       awayTeam: data.awayTeam,
       tabelas: {
         geral: !!(data.homeTableData && data.awayTableData),
-        complementoLegadoCompleto: !!(
-          data.homeComplementData &&
-          data.awayComplementData &&
-          data.competitionComplementAvg
-        ),
+        complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
       },
     });
   }
@@ -2040,6 +1665,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     console.log('[AnalysisEngine] Dados normalizados (APÓS normalizar):', {
       tabelas: {
         geral: !!(normalizedData.homeTableData && normalizedData.awayTableData),
+        complement: !!(normalizedData.homeComplementData && normalizedData.awayComplementData && normalizedData.competitionComplementAvg),
       },
     });
   }
@@ -2056,6 +1682,12 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const competitionAvg = normalizedData.competitionAvg || 0;
   const hasCompetitionAvg = competitionAvg > 0;
 
+  // Validação das 2 tabelas do campeonato
+  const hasComplement =
+    !!normalizedData.homeComplementData &&
+    !!normalizedData.awayComplementData &&
+    !!normalizedData.competitionComplementAvg;
+
   // Validar completude dos dados essenciais
   const dataCompleteness = {
     hasHomeTeamStats,
@@ -2063,6 +1695,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     hasHomeTableData,
     hasAwayTableData,
     hasCompetitionAvg,
+    hasComplement,
   };
 
   const missingData: string[] = [];
@@ -2073,6 +1706,9 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const missingTables: string[] = [];
   if (!hasHomeTableData || !hasAwayTableData) {
     missingTables.push('geral');
+  }
+  if (!hasComplement) {
+    missingTables.push('complement');
   }
 
   // Calcular resumo de impacto das tabelas
@@ -2122,7 +1758,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
         '[AnalysisEngine] A análise usará o que estiver disponível (estatísticas manuais e/ou dados parciais da liga).'
       );
       console.warn(
-        '[AnalysisEngine] Recomendação: importe o JSON de classificação em Campeonatos e sincronize a partida.'
+        '[AnalysisEngine] Recomendação: Extraia todas as 2 tabelas (geral, complement) do fbref.com para análise completa.'
       );
     } else {
       console.log('[AnalysisEngine] ✅ Dados de classificação da liga disponíveis para ambos os times.');
@@ -2887,9 +2523,10 @@ export function performAnalysis(data: MatchData): AnalysisResult {
         homeTableData: !!normalizedData.homeTableData,
         awayTableData: !!normalizedData.awayTableData,
       },
-      complementoLegado: {
-        parcial: hasPartialComplement && !hasFullComplement,
+      tabelaComplemento: {
+        disponivel: hasPartialComplement,
         completo: hasFullComplement,
+        parcial: hasPartialComplement && !hasFullComplement,
         homeComplementData: hasHomeComplement,
         awayComplementData: hasAwayComplement,
         competitionComplementAvg: hasCompetitionComplementAvg,
@@ -2923,10 +2560,10 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       tableLambdaAway,
       tabelasUsadas: {
         geral: hasGeralTable,
-        complementoLegadoParcial: hasPartialComplement,
-        complementoLegadoCompleto: hasFullComplement,
+        complemento: hasPartialComplement,
+        complementoCompleto: hasFullComplement,
       },
-      baseLigaCompleta: hasGeralTable,
+      'análiseCompleta': hasGeralTable && hasPartialComplement,
     });
   } else if (import.meta.env.DEV && !tableResult) {
     console.warn('[AnalysisEngine] ⚠️ calculateTableProbability retornou null - tabela geral pode estar incompleta');
@@ -3114,18 +2751,15 @@ export function performAnalysis(data: MatchData): AnalysisResult {
 
   const finalHasHomeTableData = !!normalizedData.homeTableData;
   const finalHasAwayTableData = !!normalizedData.awayTableData;
-  const finalHasFullComplement =
+  const finalHasComplement =
     !!normalizedData.homeComplementData &&
     !!normalizedData.awayComplementData &&
     !!normalizedData.competitionComplementAvg;
-  const finalHasPartialComplement =
-    !!normalizedData.homeComplementData || !!normalizedData.awayComplementData;
-
   if (finalHasHomeTableData && finalHasAwayTableData) {
     tablesUsedInAnalysis.push('geral');
   }
-  if (finalHasPartialComplement) {
-    tablesUsedInAnalysis.push('complement_legado');
+  if (finalHasComplement) {
+    tablesUsedInAnalysis.push('complement');
   }
 
   if (import.meta.env.DEV) {
@@ -3140,10 +2774,11 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     });
 
     if (tableResult) {
-      console.log('[AnalysisEngine] Lambdas vindos da tabela:', {
-        tableLambdaHome,
-        tableLambdaAway,
-        tableLambdaTotal,
+      console.log('[AnalysisEngine] Impacto das tabelas nos lambdas finais:', {
+        tableLambdaHome: tableLambdaHome,
+        tableLambdaAway: tableLambdaAway,
+        tableLambdaTotal: tableLambdaTotal,
+        'complement aplicado': finalHasComplement,
       });
     }
   }

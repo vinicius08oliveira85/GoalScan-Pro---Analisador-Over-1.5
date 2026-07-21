@@ -142,11 +142,11 @@ export const matchDataSchema = z.object({
 
   // Novos campos
   championshipId: z.string().optional(),
-  homeTableData: z.record(z.string(), z.unknown()).optional(),
-  awayTableData: z.record(z.string(), z.unknown()).optional(),
-  homeComplementData: z.record(z.string(), z.unknown()).optional(),
-  awayComplementData: z.record(z.string(), z.unknown()).optional(),
-  competitionComplementAvg: z.record(z.string(), z.unknown()).optional(),
+  homeTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
+  awayTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
+  homeComplementData: z.any().optional(), // Tabela complemento (TableRowComplement)
+  awayComplementData: z.any().optional(), // Tabela complemento (TableRowComplement)
+  competitionComplementAvg: z.any().optional(), // Médias do campeonato para normalização (CompetitionComplementAverages)
 });
 
 // Schema para validação de BetInfo

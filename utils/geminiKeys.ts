@@ -135,8 +135,9 @@ export async function callWithFallback<T>(
       
       // Se chegou aqui, a chamada foi bem-sucedida
       if (i > 0 && options.onKeySwitch) {
-        // Informar que usou fallback (mas não precisa trocar, já funcionou)
-        console.log(`[Gemini] Chave principal falhou, usando fallback (chave ${i + 1}/${keys.length})`);
+        if (import.meta.env.DEV) {
+          console.log(`[Gemini] Chave principal falhou, usando fallback (chave ${i + 1}/${keys.length})`);
+        }
       }
       
       return result;
@@ -161,10 +162,12 @@ export async function callWithFallback<T>(
                          error.status === 403 ? 'acesso negado' :
                          'erro de API';
         
-        console.warn(
-          `[Gemini] Chave ${i + 1} falhou (${errorType}). ` +
-          `Tentando chave fallback ${i + 2}/${keys.length}...`
-        );
+        if (import.meta.env.DEV) {
+          console.warn(
+            `[Gemini] Chave ${i + 1} falhou (${errorType}). ` +
+            `Tentando chave fallback ${i + 2}/${keys.length}...`
+          );
+        }
         
         if (options.onKeySwitch) {
           options.onKeySwitch(currentKey, nextKey);

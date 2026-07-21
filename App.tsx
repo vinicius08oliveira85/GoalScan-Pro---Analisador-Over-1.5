@@ -14,12 +14,14 @@ import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
-import { useBankTransactions } from './hooks/useBankTransactions';
-import { Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
-import { APP_VERSION, APP_EDITION } from './utils/constants';
-import { tabScreenTransition } from './utils/animations';
+import { useAnalysisActions } from './hooks/useAnalysisActions';
+import { useBankActions } from './hooks/useBankActions';
+import { Loader, Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
+
+// Lazy loading de componentes pesados para code splitting
+const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
+
 import {
-  MatchData,
   SavedAnalysis,
   BankSettings as BankSettingsType,
   MatchResultAnalysis,
@@ -52,47 +54,47 @@ const App: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
-  const [isUpdatingBetStatus, setIsUpdatingBetStatus] = useState<boolean>(false);
   const [showResultAnalysisModal, setShowResultAnalysisModal] = useState<boolean>(false);
   const [matchForAnalysis, setMatchForAnalysis] = useState<SavedAnalysis | null>(null);
   const [webSearchResults, setWebSearchResults] = useState<Array<{ content?: string; snippet?: string; url?: string }>>([]);
 
   const {
-    showAnalysisModal,
     analysisResult,
     currentMatchData,
     selectedMatch,
-    analysisModalTab,
-    setAnalysisModalTab,
-    setSelectedMatch,
-    setCurrentMatchData,
+    showAnalysisModal,
     setAnalysisResult,
+    setCurrentMatchData,
+    setSelectedMatch,
     handleNavigateToAnalysis,
     handleCloseAnalysis,
+    handleNewMatch,
     handleAnalyze,
     handleOddChange,
     handleSaveMatch,
-  } = useAnalysisModal({ showError, showSuccess, saveMatch });
-
-  const { handleSaveBetInfo, handleUpdateBetStatus } = useBankTransactions({
-    bankSettings,
-    selectedMatch,
-    setSelectedMatch,
-    currentMatchData,
-    setCurrentMatchData,
-    analysisResult,
-    setAnalysisResult,
+  } = useAnalysisActions({
     saveMatch,
-    saveSettings,
-    showError,
     showSuccess,
-    isUpdatingBetStatus,
-    setIsUpdatingBetStatus,
+    showError,
+    setActiveTab,
   });
 
-  const handleNewMatch = () => {
-    handleNavigateToAnalysis(null);
-  };
+  const {
+    isUpdatingBetStatus,
+    handleSaveBankSettings,
+    handleUpdateBetStatus,
+    handleSaveBetInfo,
+  } = useBankActions({
+    bankSettings,
+    selectedMatch,
+    currentMatchData,
+    analysisResult,
+    saveSettings,
+    saveMatch,
+    setSelectedMatch,
+    showSuccess,
+    showError,
+  });
 
   const handleRemoveNotification = (matchId: string) => {
     removeNotification(matchId);
@@ -100,15 +102,6 @@ const App: React.FC = () => {
 
   const handleNotificationClick = (match: SavedAnalysis) => {
     handleNavigateToAnalysis(match);
-  };
-
-  const handleSaveBankSettings = async (settings: BankSettingsType) => {
-    try {
-      await saveSettings(settings);
-      showSuccess('Configurações de banca salvas com sucesso!');
-    } catch {
-      showError('Erro ao salvar configurações de banca.');
-    }
   };
 
   const handleDeleteSaved = async (e: React.MouseEvent, id: string) => {
@@ -179,30 +172,6 @@ const App: React.FC = () => {
     setMatchForAnalysis(match);
     setShowResultAnalysisModal(true);
     setWebSearchResults([]); // Limpar resultados anteriores
-    
-    // Fazer busca web automaticamente quando o modal abrir
-    // A busca será feita pelo assistente usando a ferramenta web_search
-    const { homeTeam, awayTeam, matchDate } = match.data;
-    const searchQuery = `${homeTeam} vs ${awayTeam} ${matchDate || ''} resultado placar`.trim();
-    
-    try {
-      // Fazer busca web usando handleWebSearch (com cache e fallback)
-      const searchResults = await handleWebSearch(searchQuery);
-      
-      // Converter os resultados para o formato esperado pelo modal
-      const formattedResults = (searchResults.results || []).map((result: { content?: string; snippet?: string; url?: string }) => ({
-        content: result.content || result.snippet || '',
-        snippet: result.snippet || result.content || '',
-        url: result.url || '',
-      }));
-      
-      // Armazenar os resultados no estado para que o modal possa usá-los
-      setWebSearchResults(formattedResults);
-      console.log('[App] Resultados da busca armazenados:', formattedResults);
-    } catch (error) {
-      console.error('[App] Erro ao buscar informações:', error);
-      showError(`Erro ao buscar na web: ${error instanceof Error ? error.message : String(error)}`);
-    }
   };
 
   const handleCloseResultAnalysis = () => {
@@ -403,7 +372,7 @@ const App: React.FC = () => {
                   </span>
                 </div>
               )}
-              <span className="badge badge-primary badge-outline badge-sm border-white/20 font-black shadow-lg shadow-primary/5 px-3 py-3 uppercase tracking-tighter">v{APP_VERSION} {APP_EDITION}</span>
+              <span className="badge badge-outline badge-sm font-bold">v3.8.3</span>
             </div>
           </div>
         </div>
