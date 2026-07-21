@@ -1,17 +1,34 @@
 """
 Leve proxy que retorna o HTML bruto do FBref para parse client-side (DOMParser).
+Usa headers anti-detecção idênticos ao fbref-extract.py para evitar 403.
 Roda como Vercel Serverless Function.
 """
 import json
 import random
 import time
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import urljoin
 
 try:
     import requests
 except ImportError:
     pass
+
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0',
+    'DNT': '1',
+    'Viewport-Width': '1920',
+    'Width': '1920',
+}
 
 
 class handler(BaseHTTPRequestHandler):
@@ -34,32 +51,27 @@ class handler(BaseHTTPRequestHandler):
                 self._send_error(400, 'URL inválida. Apenas URLs do fbref.com são permitidas.')
                 return
 
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Cache-Control': 'max-age=0',
-            }
-
+            session = requests.Session()
+            session.headers.update(HEADERS)
             last_error = None
-            for attempt in range(3):
-                if attempt > 0:
-                    delay = (2 ** attempt) + random.uniform(0.5, 1.5)
-                    time.sleep(delay)
 
+            for attempt in range(3):
                 try:
-                    resp = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
+                    if attempt > 0:
+                        delay = (2 ** attempt) + random.uniform(0.5, 1.5)
+                        time.sleep(delay)
+                    else:
+                        time.sleep(random.uniform(1.0, 2.0))
+
+                    resp = session.get(url, timeout=45, allow_redirects=True)
 
                     if resp.status_code == 403:
                         last_error = '403: Acesso negado pelo FBref'
-                        headers['Referer'] = 'https://fbref.com/'
+                        session.headers['Referer'] = 'https://fbref.com/'
                         continue
 
                     if resp.status_code >= 400:
-                        last_error = f'HTTP {resp.status_code}'
+                        last_error = f'HTTP {resp.status_code}: {resp.reason}'
                         continue
 
                     if resp.encoding is None or resp.encoding == 'ISO-8859-1':
@@ -68,7 +80,7 @@ class handler(BaseHTTPRequestHandler):
                     html = resp.text
 
                     if len(html) < 10000:
-                        last_error = f'Resposta muito curta ({len(html)} bytes)'
+                        last_error = f'Resposta curta ({len(html)} bytes)'
                         continue
 
                     if 'stats_table' not in html and 'id="results' not in html:
@@ -79,11 +91,13 @@ class handler(BaseHTTPRequestHandler):
                     return
 
                 except requests.exceptions.Timeout:
-                    last_error = 'Timeout'
+                    last_error = 'Timeout (45s)'
                 except requests.exceptions.ConnectionError:
                     last_error = 'Erro de conexão'
+                except requests.exceptions.RequestException as e:
+                    last_error = str(e)
 
-            self._send_error(502, f'Falha ao acessar FBref: {last_error}')
+            self._send_error(502, f'Falha ao acessar FBref após 3 tentativas: {last_error}')
 
         except json.JSONDecodeError:
             self._send_error(400, 'JSON inválido')
