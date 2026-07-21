@@ -1,14 +1,16 @@
 import React, { useState, lazy, Suspense } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import { tabScreenTransition } from './utils/animations';
 import MatchForm from './components/MatchForm';
 import InAppNotification from './components/InAppNotification';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
-import { TabType } from './components/navTypes';
-import MobileBottomNav from './components/layout/MobileBottomNav';
-import DesktopSidebar from './components/layout/DesktopSidebar';
-import AnalysisDashboardSkeleton from './components/analysis/AnalysisDashboardSkeleton';
+import TabNavigation, { TabType } from './components/TabNavigation';
+import DashboardScreen from './components/DashboardScreen';
+import MatchesScreen from './components/MatchesScreen';
+import ChampionshipsScreen from './components/ChampionshipsScreen';
+import BankScreen from './components/BankScreen';
+import SettingsScreen from './components/SettingsScreen';
 import ModalShell from './components/ui/ModalShell';
 import MatchResultAnalysisModal from './components/MatchResultAnalysisModal';
 import { useToast } from './hooks/useToast';
@@ -25,18 +27,13 @@ const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 import {
   SavedAnalysis,
   BankSettings as BankSettingsType,
+  BetInfo,
+  SelectedBet,
   MatchResultAnalysis,
 } from './types';
 import { getCurrencySymbol } from './utils/currency';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
 
-
-// Lazy loading para code splitting
-const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
-const MatchesScreen = lazy(() => import('./components/MatchesScreen'));
-const ChampionshipsScreen = lazy(() => import('./components/ChampionshipsScreen'));
-const BankScreen = lazy(() => import('./components/BankScreen'));
-const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
@@ -282,9 +279,8 @@ const App: React.FC = () => {
 
   // Renderizar tela principal com abas
   return (
-    <div className="min-h-[100dvh] flex flex-col md:flex-row md:items-stretch pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8">
-      <DesktopSidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <div className="flex flex-1 flex-col min-w-0 min-h-0">
+    <MotionConfig reducedMotion="user">
+    <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
       {/* Command Palette */}
       <CommandPalette
         isOpen={showCommandPalette}
@@ -309,67 +305,40 @@ const App: React.FC = () => {
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-base-100/65 shadow-lg shadow-primary/5 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-base-200/50 dark:shadow-primary/10 pt-[env(safe-area-inset-top)]">
-        <div className="app-container py-3 md:py-4">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-secondary/90 text-lg font-black italic text-primary-content shadow-lg shadow-primary/25 md:h-10 md:w-10 md:text-xl">
+      <header className="bg-base-200/80 backdrop-blur-md border-b border-base-300/50 sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-3 md:px-4 py-3 md:py-4">
+          <div className="flex items-center gap-2 md:gap-3 mb-4">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center text-primary-content font-black italic text-lg md:text-xl shadow-lg flex-shrink-0">
               G
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-[clamp(1.05rem,1rem+0.8vw,1.35rem)] font-black leading-none tracking-tighter md:text-xl">
+              <h1 className="text-lg md:text-xl font-black tracking-tighter leading-none truncate">
                 GOALSCAN PRO
               </h1>
-              <span className="hidden text-xs font-black uppercase leading-tight tracking-widest text-primary opacity-60 sm:inline md:text-sm">
+              <span className="text-xs md:text-sm uppercase font-bold tracking-widest text-primary opacity-80 hidden sm:inline leading-tight">
                 AI Goal Analysis Engine
               </span>
             </div>
-            <div className="flex shrink-0 items-center gap-2 md:hidden">
+            <div className="hidden md:flex gap-4 items-center">
               {isLoading && (
-                <div className="flex items-center gap-1.5 rounded-xl border border-info/20 bg-info/10 px-2 py-1 shadow-sm shadow-info/10 backdrop-blur-sm">
-                  <span className="loading loading-spinner loading-xs text-info" aria-hidden />
-                  <span className="text-[10px] font-bold text-info">…</span>
-                </div>
-              )}
-              {!isLoading && isUsingLocalData && (
-                <div className="flex items-center gap-1 rounded-xl border border-warning/25 bg-warning/10 px-2 py-1 shadow-sm shadow-warning/10 backdrop-blur-sm" title="Usando dados locais">
-                  <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-warning" />
-                </div>
-              )}
-              {bankSettings && (
-                <div className="flex items-center gap-1 rounded-xl border border-secondary/30 bg-secondary/15 px-2 py-1 text-[10px] font-bold text-secondary shadow-lg shadow-secondary/5 backdrop-blur-md">
-                  <Wallet className="h-3 w-3 shrink-0" aria-hidden />
-                  <span className="tabular-nums">{getCurrencySymbol(bankSettings.currency)}{bankSettings.totalBank.toFixed(0)}</span>
-                </div>
-              )}
-              <button
-                type="button"
-                className="btn btn-circle btn-ghost btn-sm touch-target ui-hover-rise focus-ring-sm"
-                onClick={() => setActiveTab('settings')}
-                aria-label="Configurações"
-              >
-                <Settings className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="hidden shrink-0 items-center gap-4 md:flex">
-              {isLoading && (
-                <div className="flex items-center gap-2 rounded-xl border border-info/20 bg-info/10 px-3 py-1.5 shadow-md shadow-info/10 backdrop-blur-sm">
-                  <span className="loading loading-spinner loading-xs text-info" aria-hidden />
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 border border-info/20 rounded-lg">
+                  <Loader className="w-3 h-3 text-info animate-spin" />
                   <span className="text-xs font-bold text-info">Carregando...</span>
                 </div>
               )}
               {!isLoading && isUsingLocalData && (
                 <div
-                  className="flex items-center gap-2 rounded-xl border border-warning/25 bg-warning/10 px-3 py-1.5 shadow-md shadow-warning/10 backdrop-blur-sm"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg"
                   title="Usando dados locais"
                 >
-                  <div className="h-2 w-2 animate-pulse rounded-full bg-warning" />
+                  <div className="w-2 h-2 bg-warning rounded-full animate-pulse" />
                   <span className="text-xs font-bold text-warning">Offline</span>
                 </div>
               )}
               {bankSettings && (
-                <div className="flex items-center gap-2 rounded-2xl border border-secondary/30 bg-secondary/15 px-4 py-2 shadow-xl shadow-secondary/10 backdrop-blur-md transition-all hover:scale-105">
-                  <Wallet className="h-3 w-3 text-secondary" />
-                  <span className="text-sm font-black text-secondary tracking-tight">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/10 border border-secondary/20 rounded-lg">
+                  <Wallet className="w-3 h-3 text-secondary" />
+                  <span className="text-xs font-bold text-secondary">
                     {getCurrencySymbol(bankSettings.currency)} {bankSettings.totalBank.toFixed(0)}
                   </span>
                 </div>
@@ -377,12 +346,13 @@ const App: React.FC = () => {
               <span className="badge badge-outline badge-sm font-bold">v3.8.3</span>
             </div>
           </div>
+          {/* Tab Navigation */}
+          <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
       </header>
 
       {/* Main Content - Renderizar tela baseada na aba ativa */}
-      <main className="app-container flex-1 w-full pt-4 md:pt-6 pb-6 md:pb-8">
-        <Suspense fallback={<div className="flex items-center justify-center h-64"><span className="loading loading-spinner loading-lg text-primary" /></div>}>
+      <main className="container mx-auto px-4 pt-6">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <motion.div
@@ -390,7 +360,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={tabScreenTransition}
+              transition={{ duration: 0.2 }}
             >
               <DashboardScreen
                 savedMatches={savedMatches}
@@ -406,7 +376,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={tabScreenTransition}
+              transition={{ duration: 0.2 }}
             >
               <MatchesScreen
                 savedMatches={savedMatches}
@@ -417,7 +387,6 @@ const App: React.FC = () => {
                 onAnalyzeResult={handleOpenResultAnalysis}
                 isLoading={isLoading}
                 isUpdatingBetStatus={isUpdatingBetStatus}
-                bankCurrency={bankSettings?.currency}
               />
             </motion.div>
           )}
@@ -427,7 +396,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={tabScreenTransition}
+              transition={{ duration: 0.2 }}
             >
               <ChampionshipsScreen />
             </motion.div>
@@ -438,7 +407,7 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={tabScreenTransition}
+              transition={{ duration: 0.2 }}
             >
               <BankScreen
                 bankSettings={bankSettings}
@@ -454,128 +423,86 @@ const App: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={tabScreenTransition}
+              transition={{ duration: 0.2 }}
             >
               <SettingsScreen />
             </motion.div>
           )}
         </AnimatePresence>
-        </Suspense>
       </main>
 
-      <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
-
-      {/* Modal de Análise — flex col + scroll isolado no filho (basis-0) para rolagem confiável em mobile/desktop */}
+      {/* Modal de Análise */}
       <ModalShell
         isOpen={showAnalysisModal}
         onClose={handleCloseAnalysis}
         closeOnOverlayClick
         closeOnEscape
         showCloseButton={false}
-        bodyLayout="fill"
-        overlayClassName="bg-black/55 backdrop-blur-md"
-        containerClassName="box-border px-[max(0.75rem,env(safe-area-inset-left))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-4 md:px-6"
-        panelClassName="box-border flex h-[min(92dvh,calc(100svh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem))] min-h-0 w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-base-200/90 shadow-2xl shadow-primary/15 backdrop-blur-xl dark:border-white/10 md:h-[min(92vh,calc(100dvh-2rem))] md:max-h-[min(92vh,calc(100dvh-2rem))]"
-        bodyClassName="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-0"
+        containerClassName="px-0 pt-0 items-stretch justify-stretch z-[200]"
+        overlayClassName="bg-black/50 backdrop-blur-sm"
+        panelClassName="fixed inset-4 md:inset-8 lg:inset-16 max-w-none w-auto bg-base-200 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        bodyClassName="p-0 max-h-none overflow-hidden"
       >
-        {/* Header: shrink-0 + z acima do corpo rolável; blur sólido evita “vazamento” do glass por baixo */}
-        <div className="relative z-[5] flex shrink-0 items-center justify-between border-b border-white/10 bg-base-200/95 p-4 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 md:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <button
-              type="button"
-              onClick={handleCloseAnalysis}
-              className="btn btn-ghost btn-sm shrink-0 gap-2 ui-hover-rise"
-            >
-              <ArrowLeft className="h-4 w-4" />
+        {/* Header do Modal */}
+        <div className="bg-base-200/80 backdrop-blur-md border-b border-base-300 p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2">
+              <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Voltar</span>
             </button>
-            <h2 className="min-w-0 truncate text-lg font-black md:text-xl">
+            <h2 className="text-lg md:text-xl font-black">
               {currentMatchData
                 ? `${currentMatchData.homeTeam} vs ${currentMatchData.awayTeam}`
                 : 'Nova Análise'}
             </h2>
           </div>
-            <button
-            type="button"
-            onClick={handleCloseAnalysis}
-            className="btn btn-circle btn-ghost btn-sm shrink-0 ui-hover-rise"
-            aria-label="Fechar"
-          >
-            <X className="h-5 w-5" />
+          <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Corpo: única região com scroll (flex-1 + basis-0 + min-h-0); gutter estável + thumb visível (webkit / thin) */}
-        <div
-          className="relative z-0 flex min-h-0 min-w-0 flex-1 basis-0 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch] [scrollbar-color:rgb(148_163_184/0.45)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin] p-4 pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] md:p-6 md:pb-8 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-base-content/25 [&::-webkit-scrollbar-track]:bg-transparent dark:[scrollbar-color:rgb(148_163_184/0.35)_transparent]"
-        >
-          <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-6xl flex-col gap-6 pb-2">
+        {/* Conteúdo do Modal */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            {/* Sidebar: Entry Form */}
+            <aside className="xl:col-span-4 flex flex-col gap-6">
               <div className="flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-lg font-black">
-                  <span className="h-6 w-2 rounded-full bg-gradient-to-b from-secondary to-primary shadow-sm shadow-primary/20" />
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <span className="w-2 h-6 bg-secondary rounded-full"></span>
                   Análise Manual
                 </h3>
                 {analysisResult && (
                   <button
-                    type="button"
                     onClick={() => {
                       setAnalysisResult(null);
                       setCurrentMatchData(null);
                       setSelectedMatch(null);
-                      setAnalysisModalTab('dados');
                     }}
-                    className="btn btn-ghost btn-xs text-error ui-hover-rise"
+                    className="btn btn-xs btn-ghost text-error"
                   >
                     Limpar
                   </button>
                 )}
               </div>
-              <div
-                role="tablist"
-                aria-label="Etapas da análise"
-                className="tabs tabs-boxed tabs-sm mb-4 flex-wrap gap-1 rounded-2xl border border-white/10 bg-base-300/35 p-1 shadow-inner shadow-primary/5 backdrop-blur-md dark:border-white/10"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={analysisModalTab === 'dados'}
-                  className={`tab rounded-xl transition-all duration-200 ${analysisModalTab === 'dados' ? 'tab-active shadow-md shadow-primary/15' : 'ui-hover-rise'}`}
-                  onClick={() => setAnalysisModalTab('dados')}
-                >
-                  Dados do jogo
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={analysisModalTab === 'stats'}
-                  disabled={!analysisResult || !currentMatchData}
-                  className={`tab rounded-xl transition-all duration-200 ${!analysisResult ? 'pointer-events-none opacity-40' : ''} ${analysisModalTab === 'stats' ? 'tab-active shadow-md shadow-primary/15' : 'ui-hover-rise'}`}
-                  onClick={() => analysisResult && currentMatchData && setAnalysisModalTab('stats')}
-                >
-                  Estatísticas
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={analysisModalTab === 'verdict'}
-                  disabled={!analysisResult || !currentMatchData}
-                  className={`tab rounded-xl transition-all duration-200 ${!analysisResult ? 'pointer-events-none opacity-40' : ''} ${analysisModalTab === 'verdict' ? 'tab-active shadow-md shadow-primary/15' : 'ui-hover-rise'}`}
-                  onClick={() => analysisResult && currentMatchData && setAnalysisModalTab('verdict')}
-                >
-                  Veredito da IA
-                </button>
+              <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
+            </aside>
+
+            {/* Main Content: Results */}
+            <section className="xl:col-span-8 flex flex-col gap-6">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-6 bg-primary rounded-full"></span>
+                <h3 className="text-lg font-bold">Painel de Resultados e EV</h3>
               </div>
 
-              {analysisModalTab === 'dados' && (
-                <div className="min-h-0 w-full">
-                  <MatchForm onAnalyze={handleAnalyze} initialData={currentMatchData} />
-                </div>
-              )}
-
-              {analysisResult && currentMatchData && (analysisModalTab === 'stats' || analysisModalTab === 'verdict') && (
-                <Suspense fallback={<AnalysisDashboardSkeleton />}>
-                  <div className="min-h-0 w-full">
+              {analysisResult && currentMatchData ? (
+                <Suspense
+                  fallback={
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <Loader className="w-12 h-12 text-primary animate-spin mb-4" />
+                      <p className="text-sm opacity-60">Carregando análise...</p>
+                    </div>
+                  }
+                >
                   <AnalysisDashboard
                     result={analysisResult}
                     data={currentMatchData}
@@ -590,22 +517,17 @@ const App: React.FC = () => {
                     initialSelectedBets={selectedMatch?.selectedBets}
                     onAnalyzeResult={handleOpenResultAnalysis}
                     savedMatch={selectedMatch}
-                    analysisUiTab={analysisModalTab}
                   />
-                  </div>
                 </Suspense>
-              )}
-
-              {analysisModalTab === 'dados' && !analysisResult && (
-                <div className="custom-card mt-6 flex flex-col items-center justify-center border-2 border-dashed border-base-content/15 bg-gradient-to-br from-base-100/40 via-base-200/30 to-base-300/20 p-8 text-center opacity-60 shadow-inner backdrop-blur-sm md:p-12">
-                  <div className="w-20 h-20 mb-4 rounded-full border-4 border-base-300 flex items-center justify-center">
+              ) : (
+                <div className="custom-card p-12 flex flex-col items-center justify-center text-center opacity-40 border-dashed border-2">
+                  <div className="w-24 h-24 mb-6 rounded-full border-4 border-current flex items-center justify-center">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-10 w-10 text-base-content/40"
+                      className="h-12 w-12"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
-                      aria-hidden
                     >
                       <path
                         strokeLinecap="round"
@@ -615,12 +537,14 @@ const App: React.FC = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold">Próximo passo</h3>
-                  <p className="max-w-sm mx-auto mt-2 text-sm text-base-content/70">
-                    Preencha os dados do jogo e toque em analisar. Depois, abra as abas Estatísticas ou Veredito da IA.
+                  <h3 className="text-2xl font-bold">Aguardando Análise</h3>
+                  <p className="max-w-xs mx-auto mt-2 italic">
+                    Insira os dados e as odds para descobrir o valor esperado (EV) e a confiança
+                    matemática da partida.
                   </p>
                 </div>
               )}
+            </section>
           </div>
         </div>
       </ModalShell>
@@ -634,6 +558,7 @@ const App: React.FC = () => {
         webSearch={handleWebSearch}
       />
     </div>
+    </MotionConfig>
   );
 };
 

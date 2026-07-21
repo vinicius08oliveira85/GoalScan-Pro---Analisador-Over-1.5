@@ -48,6 +48,7 @@ import {
   getChartAxisTick,
 } from '../utils/chartTheme';
 import SectionHeader from './ui/SectionHeader';
+import EmptyState from './ui/EmptyState';
 import { SkeletonMetricCard, SkeletonCard } from './Skeleton';
 
 interface DashboardScreenProps {
@@ -168,7 +169,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   if (isLoading) {
     return (
-      <div className="space-y-6 md:space-y-8 pb-16 md:pb-8 animate-in">
+      <div className="space-y-6 md:space-y-8 pb-20 md:pb-8 animate-in">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
           {Array.from({ length: 7 }).map((_, i) => (
             <SkeletonMetricCard key={i} />
@@ -183,7 +184,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-16 md:pb-8">
+    <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
       {/* Grid de Estatísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 md:gap-6">
         {statCards.map((card, index) => {
@@ -219,15 +220,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <p className="text-xs md:text-sm font-semibold opacity-70 uppercase tracking-wide mb-1.5 leading-tight">
                   {card.title}
                 </p>
-                <p
-                  className={`text-2xl md:text-3xl font-black leading-none ${
-                    card.color === 'success'
-                      ? 'text-success'
-                      : card.color === 'error'
-                        ? 'text-error'
-                        : 'text-primary'
-                  }`}
-                >
+                <p className={`text-2xl md:text-3xl font-black leading-none ${toneClass.text}`}>
                   {card.value}
                 </p>
                 <p className="text-xs opacity-60 mt-1.5 leading-relaxed">{card.subtitle}</p>
@@ -660,20 +653,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
       {/* Empty State */}
       {savedMatches.length === 0 && (
-        <motion.div
-          variants={animations.fadeInUp}
-          initial="initial"
-          animate="animate"
-          className="custom-card p-12 md:p-16 flex flex-col items-center justify-center text-center border-dashed border-2"
-        >
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center mb-6">
-            <Activity className="w-12 h-12 md:w-16 md:h-16 text-primary opacity-60" />
-          </div>
-          <h3 className="text-2xl md:text-3xl font-black mb-3">Nenhuma Partida Ainda</h3>
-          <p className="text-sm md:text-base opacity-70 max-w-md">
-            Comece criando análises de partidas para ver estatísticas e gráficos aqui.
-          </p>
-        </motion.div>
+        <EmptyState
+          icon={<Activity className="w-12 h-12 md:w-14 md:h-14" aria-hidden="true" />}
+          title="Nenhuma Partida Ainda"
+          description="Comece criando análises de partidas para ver estatísticas e gráficos aqui."
+        />
       )}
     </div>
   );

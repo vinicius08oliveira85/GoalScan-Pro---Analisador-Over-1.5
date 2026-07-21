@@ -188,23 +188,19 @@ const BetManager: React.FC<BetManagerProps> = ({
 
       if (onError) {
         onError(`Erro ao validar aposta: ${errorMessage}`);
-      } else {
-        alert(`Erro ao validar aposta: ${errorMessage}`);
       }
     }
   };
 
   const handleRemove = () => {
-    if (window.confirm('Deseja remover esta aposta?')) {
-      onSave({
-        betAmount: 0,
-        odd,
-        potentialReturn: 0,
-        potentialProfit: 0,
-        bankPercentage: 0,
-        status: 'cancelled',
-      });
-    }
+    onSave({
+      betAmount: 0,
+      odd,
+      potentialReturn: 0,
+      potentialProfit: 0,
+      bankPercentage: 0,
+      status: 'cancelled',
+    });
   };
 
   return (
@@ -478,7 +474,7 @@ const BetManager: React.FC<BetManagerProps> = ({
         )}
 
         {/* Informações da Odd */}
-        <div className="bg-base-100/50 p-4 rounded-xl border border-white/5">
+        <div className="bg-base-100/50 p-4 rounded-xl border border-base-content/10">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-xs opacity-60">Odd</span>
@@ -490,7 +486,7 @@ const BetManager: React.FC<BetManagerProps> = ({
             </div>
           </div>
           {ev !== 0 && (
-            <div className="mt-3 pt-3 border-t border-white/5">
+            <div className="mt-3 pt-3 border-t border-base-content/10">
               <div className="flex items-center justify-between">
                 <span className="text-xs opacity-60">Expected Value (EV)</span>
                 <span className={`font-bold text-sm ${ev > 0 ? 'text-success' : 'text-error'}`}>
@@ -507,7 +503,7 @@ const BetManager: React.FC<BetManagerProps> = ({
 
         {/* Cálculos Automáticos */}
         {betAmount > 0 && (
-          <div className="bg-base-100/50 p-4 rounded-xl border border-white/5 space-y-3">
+          <div className="bg-base-100/50 p-4 rounded-xl border border-base-content/10 space-y-3">
             <h4 className="font-bold text-sm uppercase opacity-60 mb-3">Cálculos Automáticos</h4>
 
             <div className="flex items-center justify-between">
@@ -544,7 +540,7 @@ const BetManager: React.FC<BetManagerProps> = ({
             </div>
 
             {bankSettings && bankSettings.totalBank > 0 && (
-              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between pt-2 border-t border-base-content/10">
                 <span className="text-sm opacity-80">% da Banca:</span>
                 <span className={`font-bold text-lg ${insufficientBank ? 'text-error' : ''}`}>
                   {fmtMoney(rawBankPercentage)}%

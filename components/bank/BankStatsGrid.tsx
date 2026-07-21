@@ -21,7 +21,7 @@ const BankStatsGrid: React.FC<BankStatsGridProps> = ({ bankStats, startCustomInd
   const cards: BankStatCard[] = [
     {
       title: 'Lucro Total',
-      value: `R$ ${bankStats.totalProfit.toFixed(2)}`,
+      value: `${bankStats.totalProfit.toFixed(2)}`,
       icon: DollarSign,
       color: bankStats.totalProfit > 0 ? 'success' : bankStats.totalProfit < 0 ? 'error' : 'primary',
       subtitle: bankStats.totalProfit > 0 ? 'Ganhos acumulados' : bankStats.totalProfit < 0 ? 'Prejuízo acumulado' : 'Sem movimentação',

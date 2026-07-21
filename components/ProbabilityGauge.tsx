@@ -109,7 +109,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Target className="w-4 h-4 text-teal-400" />
+          <Target className="w-4 h-4 text-info" />
           <h3 className="kpi-label">Probabilidade {displayLabel}</h3>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-base-content/50">
@@ -165,7 +165,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
               <linearGradient id="probabilityGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="hsl(var(--p))" />
                 <stop offset="50%" stopColor="hsl(var(--s))" />
-                <stop offset="100%" stopColor="#2dd4bf" />
+                <stop offset="100%" stopColor="hsl(var(--in))" />
               </linearGradient>
             </defs>
           </svg>
@@ -201,7 +201,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
         >
           <div className="flex items-baseline gap-1">
             <motion.span
-              className="text-4xl sm:text-5xl md:text-6xl font-black font-mono text-teal-400 leading-none tracking-tight"
+              className="text-4xl sm:text-5xl md:text-6xl font-black font-mono text-info leading-none tracking-tight"
               key={displayProbability}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -209,7 +209,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
             >
               {displayProbability.toFixed(1)}
             </motion.span>
-            <span className="text-lg md:text-xl font-bold text-teal-400 opacity-80">%</span>
+            <span className="text-lg md:text-xl font-bold text-info opacity-80">%</span>
           </div>
           <span className="text-xs md:text-sm font-bold text-base-content/75 mt-2 uppercase tracking-widest leading-tight inline-flex items-center gap-1">
             Probabilidade
@@ -224,7 +224,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
       </div>
 
       {/* Odd and EV */}
-      <div className="flex justify-between w-full mt-4 px-2 pt-4 border-t border-white/10 gap-4">
+      <div className="flex justify-between w-full mt-4 px-2 pt-4 border-t border-base-300/50 gap-4">
         <div
           className={`text-center flex-1 surface-muted p-3 ${isEditingOdd ? '' : 'cursor-pointer hover:bg-base-300/50 transition-colors'}`}
           title={isEditingOdd ? 'Pressione Enter para salvar ou Escape para cancelar' : 'Clique para editar a odd. Usada para calcular EV e Edge.'}
