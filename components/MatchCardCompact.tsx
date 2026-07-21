@@ -20,7 +20,7 @@ interface MatchCardCompactProps {
   bankCurrency?: string;
 }
 
-const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
+const MatchCardCompact: React.FC<MatchCardCompactProps> = React.memo(({
   match,
   index,
   onMatchClick,
@@ -240,6 +240,8 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = ({
       </div>
     </motion.div>
   );
-};
+});
+
+MatchCardCompact.displayName = 'MatchCardCompact';
 
 export default MatchCardCompact;

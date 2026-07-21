@@ -39,3 +39,10 @@ ios/
 !android/app/src/main/AndroidManifest.xml
 !android/app/src/main/java/com/goalscanpro/app/MainActivity.java
 !android/app/src/main/res/values/strings.xml
+
+# Diretórios auxiliares / dados de teste
+Cur Sor/
+Tabela teste/
+Jsons/
+requirements.txt
+Modelfile

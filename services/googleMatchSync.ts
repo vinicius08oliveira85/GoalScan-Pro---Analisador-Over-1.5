@@ -2,6 +2,8 @@
  * Serviço de sincronização de placar e tempo de jogos via Google Search
  */
 
+import { createLocalStorageCache } from '../utils/localStorageCache';
+
 export interface MatchScore {
   homeScore: number | null;
   awayScore: number | null;
@@ -19,22 +21,17 @@ export interface GoogleMatchSyncResult {
 /**
  * Cache local para evitar buscas excessivas
  */
-const CACHE_KEY_PREFIX = 'goalscan_score_cache_';
 const CACHE_TTL_LIVE = 2 * 60 * 1000; // 2 minutos para jogos ao vivo
 const CACHE_TTL_FINISHED = 30 * 60 * 1000; // 30 minutos para jogos finalizados
 const RATE_LIMIT_MS = 30 * 1000; // 30 segundos entre buscas do mesmo jogo
 
-interface CacheEntry {
-  score: MatchScore;
-  timestamp: number;
-}
+const { getCache, setCache } = createLocalStorageCache<MatchScore>('goalscan_score_cache_');
 
 /**
  * Gera chave de cache baseada nos times
  */
 function getCacheKey(homeTeam: string, awayTeam: string): string {
-  const normalized = `${homeTeam.toLowerCase()}_${awayTeam.toLowerCase()}`.replace(/[^a-z0-9_]/g, '_');
-  return `${CACHE_KEY_PREFIX}${normalized}`;
+  return `${homeTeam.toLowerCase()}_${awayTeam.toLowerCase()}`.replace(/[^a-z0-9_]/g, '_');
 }
 
 /**
@@ -43,26 +40,18 @@ function getCacheKey(homeTeam: string, awayTeam: string): string {
 function getCachedScore(homeTeam: string, awayTeam: string): MatchScore | null {
   try {
     const cacheKey = getCacheKey(homeTeam, awayTeam);
-    const cached = localStorage.getItem(cacheKey);
+    const cached = getCache<MatchScore & { timestamp: number }>(cacheKey);
     if (!cached) return null;
 
-    const entry: CacheEntry = JSON.parse(cached);
     const now = Date.now();
-    const age = now - entry.timestamp;
-
-    // Verificar TTL baseado no status
-    const ttl = entry.score.status === 'live' ? CACHE_TTL_LIVE : CACHE_TTL_FINISHED;
-    if (age > ttl) {
-      localStorage.removeItem(cacheKey);
-      return null;
-    }
+    const age = now - cached.timestamp;
 
     // Verificar rate limiting
     if (age < RATE_LIMIT_MS) {
-      return entry.score;
+      return cached;
     }
 
-    return entry.score;
+    return cached;
   } catch {
     return null;
   }
@@ -72,16 +61,9 @@ function getCachedScore(homeTeam: string, awayTeam: string): MatchScore | null {
  * Salva score no cache
  */
 function setCachedScore(homeTeam: string, awayTeam: string, score: MatchScore): void {
-  try {
-    const cacheKey = getCacheKey(homeTeam, awayTeam);
-    const entry: CacheEntry = {
-      score,
-      timestamp: Date.now()
-    };
-    localStorage.setItem(cacheKey, JSON.stringify(entry));
-  } catch {
-    // Ignorar erros de localStorage
-  }
+  const cacheKey = getCacheKey(homeTeam, awayTeam);
+  const ttl = score.status === 'live' ? CACHE_TTL_LIVE : CACHE_TTL_FINISHED;
+  setCache(cacheKey, { ...score, timestamp: Date.now() } as MatchScore & { timestamp: number }, ttl);
 }
 
 /**

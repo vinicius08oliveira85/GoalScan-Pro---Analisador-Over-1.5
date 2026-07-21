@@ -1,7 +1,7 @@
 {
   "name": "goalscan-pro---analisador-over-1.5",
   "private": true,
-  "version": "0.0.0",
+  "version": "3.8.3",
   "type": "module",
   "scripts": {
     "dev": "vite",

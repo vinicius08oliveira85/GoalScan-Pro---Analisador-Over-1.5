@@ -166,6 +166,60 @@
   }
 }
 
+/* Light theme overrides */
+[data-theme="goalscan_light"] {
+  --color-base-100: oklch(97% 0.008 247);
+  --color-base-200: oklch(94% 0.01 247);
+  --color-base-300: oklch(90% 0.012 247);
+  --color-base-content: oklch(20% 0.03 240);
+  --color-primary: oklch(45% 0.12 264);
+  --color-primary-content: oklch(98% 0.003 264);
+  --color-secondary: oklch(50% 0.22 302);
+  --color-secondary-content: oklch(97% 0.014 302);
+  --color-accent: oklch(50% 0.22 302);
+  --color-accent-content: oklch(97% 0.014 302);
+  --color-neutral: oklch(92% 0.008 247);
+  --color-neutral-content: oklch(25% 0.03 247);
+  --color-info: oklch(55% 0.18 237);
+  --color-info-content: oklch(97% 0.013 237);
+  --color-success: oklch(55% 0.17 162);
+  --color-success-content: oklch(98% 0.014 162);
+  --color-warning: oklch(62% 0.19 65);
+  --color-warning-content: oklch(25% 0.06 65);
+  --color-error: oklch(55% 0.22 25);
+  --color-error-content: oklch(96% 0.015 25);
+
+  --glass-bg: oklch(94% 0.01 247 / 0.7);
+  --glass-bg-hover: oklch(92% 0.012 247 / 0.8);
+  --glass-border: oklch(20% 0.03 240 / 0.1);
+  --shadow-elev-1: 0 8px 20px -8px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.04) inset;
+  --shadow-elev-2: 0 16px 48px -12px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.06) inset;
+  --noise-opacity: 0.04;
+}
+
+body {
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+  font-family: 'Inter', sans-serif;
+  /* Background com gradientes sutis + noise (Glass Modern controlado) */
+  background-image:
+    radial-gradient(1200px circle at 10% 10%, oklch(44% 0.043 257.281 / 0.18) 0%, transparent 55%),
+    radial-gradient(900px circle at 90% 20%, oklch(55% 0.288 302.321 / 0.12) 0%, transparent 50%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  line-height: 1.6;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+[data-theme="goalscan_light"] body {
+  background-image:
+    radial-gradient(1200px circle at 10% 10%, oklch(45% 0.12 264 / 0.08) 0%, transparent 55%),
+    radial-gradient(900px circle at 90% 20%, oklch(50% 0.22 302 / 0.06) 0%, transparent 50%);
+}
+
+/* Noise overlay (controlado por token) */
 body::before {
   content: '';
   position: fixed;
@@ -497,4 +551,74 @@ a:focus-visible {
   .custom-card {
     box-shadow: var(--shadow-elev-2);
   }
+}
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-base-300);
+  border-radius: 10px;
+}
+
+/* Tooltips com múltiplas linhas e largura adequada */
+.tooltip::before {
+  max-width: 280px !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  text-align: left !important;
+  padding: 8px 12px !important;
+  line-height: 1.4 !important;
+}
+
+/* Light theme visual polish */
+[data-theme="goalscan_light"] .gradient-pending {
+  background-color: oklch(92% 0.06 65 / 0.5);
+  box-shadow: 0 0 16px oklch(62% 0.19 65 / 0.15);
+}
+[data-theme="goalscan_light"] .gradient-win {
+  background-color: oklch(92% 0.05 162 / 0.5);
+  box-shadow: 0 0 16px oklch(55% 0.17 162 / 0.15);
+}
+[data-theme="goalscan_light"] .gradient-loss {
+  background-color: oklch(92% 0.05 25 / 0.5);
+  box-shadow: 0 0 16px oklch(55% 0.22 25 / 0.15);
+}
+[data-theme="goalscan_light"] .shadow-glow-primary {
+  box-shadow:
+    0 0 24px oklch(45% 0.12 264 / 0.12),
+    0 8px 32px -8px rgba(0, 0, 0, 0.08);
+}
+[data-theme="goalscan_light"] .shadow-glow-success {
+  box-shadow:
+    0 0 24px oklch(55% 0.17 162 / 0.12),
+    0 8px 32px -8px rgba(0, 0, 0, 0.08);
+}
+[data-theme="goalscan_light"] .shadow-glow-warning {
+  box-shadow:
+    0 0 24px oklch(62% 0.19 65 / 0.12),
+    0 8px 32px -8px rgba(0, 0, 0, 0.08);
+}
+[data-theme="goalscan_light"] .shadow-glow-error {
+  box-shadow:
+    0 0 24px oklch(55% 0.22 25 / 0.12),
+    0 8px 32px -8px rgba(0, 0, 0, 0.08);
 }

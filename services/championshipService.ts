@@ -1669,13 +1669,43 @@ export const syncTeamStatsFromTable = async (
     // Calcular média de gols do campeonato usando todos os times
     const competitionAvg = calculateCompetitionAverageGoalsFromTeams(teams);
 
+    // Complemento (championship_complement) - opcional
+    const complementData = await loadChampionshipComplement(championshipId);
+    const homeComplement = complementData.find((c) => c.squad === homeSquad) || null;
+    const awayComplement = complementData.find((c) => c.squad === awaySquad) || null;
+    
+    const homeComplementData = homeComplement
+      ? convertChampionshipComplementToTableRow(homeComplement)
+      : null;
+    const awayComplementData = awayComplement
+      ? convertChampionshipComplementToTableRow(awayComplement)
+      : null;
+    
+    // Sempre calcular média se houver dados de complemento (mesmo que parcial)
+    // Isso garante que a análise possa usar a tabela complemento mesmo quando não há média completa
+    let competitionComplementAvg = calculateCompetitionComplementAverages(complementData);
+    
+    // Se não houver média calculada mas houver dados parciais dos times, calcular média básica
+    if (!competitionComplementAvg && (homeComplement || awayComplement)) {
+      const partialData: ChampionshipComplement[] = [];
+      if (homeComplement) partialData.push(homeComplement);
+      if (awayComplement) partialData.push(awayComplement);
+      
+      // Calcular média apenas com os dados disponíveis dos times da partida
+      competitionComplementAvg = calculateCompetitionComplementAverages(partialData);
+      
+      if (import.meta.env.DEV && competitionComplementAvg) {
+        console.log('[ChampionshipService] Média de complemento calculada a partir de dados parciais dos times da partida');
+      }
+    }
+
     return {
       homeTableData: homeData,
       awayTableData: awayData,
       competitionAvg: competitionAvg || undefined,
-      homeComplementData: null,
-      awayComplementData: null,
-      competitionComplementAvg: undefined,
+      homeComplementData,
+      awayComplementData,
+      competitionComplementAvg: competitionComplementAvg || undefined,
     };
   } catch (error: unknown) {
     logger.error('[ChampionshipService] Erro ao sincronizar dados da tabela:', error);
@@ -2212,11 +2242,22 @@ export const checkChampionshipTablesAvailability = async (
         teams.some((t) => squadMatchKey(t.squad) === ak) ||
         geralRows.some((r) => squadMatchKey(String(r.Squad ?? '')) === ak);
     }
-
-    // Construir diagnóstico (fluxo atual: só tabela geral / standing agregado; complemento legado não é exigido)
+    
+    // Verificar tabela de complemento (championship_complement)
+    const complementData = await loadChampionshipComplement(championshipId);
+    const hasComplementData = complementData.length > 0;
+    let hasHomeComplement = true;
+    let hasAwayComplement = true;
+    if (homeSquad) {
+      hasHomeComplement = complementData.some((c) => c.squad === homeSquad);
+    }
+    if (awaySquad) {
+      hasAwayComplement = complementData.some((c) => c.squad === awaySquad);
+    }
+    
+    // Construir diagnóstico
     const diagnostic: ChampionshipTablesDiagnostic = {
-      allTablesExist:
-        hasGeralData && (!homeSquad || hasHomeSquad) && (!awaySquad || hasAwaySquad),
+      allTablesExist: hasGeralData && hasComplementData,
       missingTables: [],
       emptyTables: [],
       tables: {
@@ -2226,9 +2267,9 @@ export const checkChampionshipTablesAvailability = async (
           rowCount: teams.length || geralRows.length,
         },
         complement: {
-          exists: false,
-          hasData: false,
-          rowCount: 0,
+          exists: hasComplementData,
+          hasData: hasComplementData && (hasHomeComplement && hasAwayComplement),
+          rowCount: complementData.length,
         },
       },
     };
@@ -2240,6 +2281,12 @@ export const checkChampionshipTablesAvailability = async (
       diagnostic.emptyTables.push('geral');
     }
     
+    if (!hasComplementData) {
+      diagnostic.missingTables.push('complement');
+    } else if (!hasHomeComplement || !hasAwayComplement) {
+      diagnostic.emptyTables.push('complement');
+    }
+    
     return diagnostic;
   } catch (error: unknown) {
     if (import.meta.env.DEV) {
@@ -2249,7 +2296,7 @@ export const checkChampionshipTablesAvailability = async (
     // Retornar diagnóstico vazio em caso de erro
     return {
       allTablesExist: false,
-      missingTables: ['geral'],
+      missingTables: ['geral', 'complement'],
       emptyTables: [],
       tables: {
         geral: { exists: false, hasData: false },

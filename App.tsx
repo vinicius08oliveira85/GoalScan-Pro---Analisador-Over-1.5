@@ -8,38 +8,35 @@ import { TabType } from './components/navTypes';
 import MobileBottomNav from './components/layout/MobileBottomNav';
 import DesktopSidebar from './components/layout/DesktopSidebar';
 import AnalysisDashboardSkeleton from './components/analysis/AnalysisDashboardSkeleton';
-import type { AnalysisUiTab } from './components/AnalysisDashboard';
-import DashboardScreen from './components/DashboardScreen';
-import MatchesScreen from './components/MatchesScreen';
-import ChampionshipsScreen from './components/ChampionshipsScreen';
-import BankScreen from './components/BankScreen';
-import SettingsScreen from './components/SettingsScreen';
 import ModalShell from './components/ui/ModalShell';
 import MatchResultAnalysisModal from './components/MatchResultAnalysisModal';
 import { useToast } from './hooks/useToast';
 import { useSavedMatches } from './hooks/useSavedMatches';
 import { useBankSettings } from './hooks/useBankSettings';
 import { useNotifications } from './hooks/useNotifications';
-import { useBankTransactions } from './hooks/useBankTransactions';
-import { Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
+import { useAnalysisActions } from './hooks/useAnalysisActions';
+import { useBankActions } from './hooks/useBankActions';
+import { Loader, Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
 
 // Lazy loading de componentes pesados para code splitting
 const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 
-import { tabScreenTransition } from './utils/animations';
-import { performAnalysis } from './services/analysisEngine';
 import {
-  MatchData,
-  AnalysisResult,
   SavedAnalysis,
   BankSettings as BankSettingsType,
-  SelectedBet,
   MatchResultAnalysis,
 } from './types';
 import { getCurrencySymbol } from './utils/currency';
-import { logger } from './utils/logger';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
-import { syncPendingBetInfoWithMatchOdd } from './utils/betFinancials';
+import { useAnalysisModal } from './hooks/useAnalysisModal';
+
+// Lazy loading para code splitting
+const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
+const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
+const MatchesScreen = lazy(() => import('./components/MatchesScreen'));
+const ChampionshipsScreen = lazy(() => import('./components/ChampionshipsScreen'));
+const BankScreen = lazy(() => import('./components/BankScreen'));
+const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
@@ -56,60 +53,48 @@ const App: React.FC = () => {
     useNotifications(savedMatches);
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const [showAnalysisModal, setShowAnalysisModal] = useState<boolean>(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [currentMatchData, setCurrentMatchData] = useState<MatchData | null>(null);
-  const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
-  const [isUpdatingBetStatus, setIsUpdatingBetStatus] = useState<boolean>(false);
   const [showResultAnalysisModal, setShowResultAnalysisModal] = useState<boolean>(false);
   const [matchForAnalysis, setMatchForAnalysis] = useState<SavedAnalysis | null>(null);
   const [webSearchResults, setWebSearchResults] = useState<Array<{ content?: string; snippet?: string; url?: string }>>([]);
-  const [analysisModalTab, setAnalysisModalTab] = useState<AnalysisUiTab>('dados');
 
-  const { handleSaveBetInfo, handleUpdateBetStatus } = useBankTransactions({
-    bankSettings,
-    selectedMatch,
-    setSelectedMatch,
-    currentMatchData,
-    setCurrentMatchData,
+  const {
     analysisResult,
+    currentMatchData,
+    selectedMatch,
+    showAnalysisModal,
     setAnalysisResult,
+    setCurrentMatchData,
+    setSelectedMatch,
+    handleNavigateToAnalysis,
+    handleCloseAnalysis,
+    handleNewMatch,
+    handleAnalyze,
+    handleOddChange,
+    handleSaveMatch,
+  } = useAnalysisActions({
     saveMatch,
-    saveSettings,
-    showError,
     showSuccess,
-    isUpdatingBetStatus,
-    setIsUpdatingBetStatus,
+    showError,
+    setActiveTab,
   });
 
-  // Funções de Navegação
-  const handleNavigateToAnalysis = (match: SavedAnalysis | null = null) => {
-    if (match) {
-      setSelectedMatch(match);
-      setCurrentMatchData(match.data);
-      setAnalysisResult(match.result);
-      setAnalysisModalTab('verdict');
-    } else {
-      setSelectedMatch(null);
-      setCurrentMatchData(null);
-      setAnalysisResult(null);
-      setAnalysisModalTab('dados');
-    }
-    setShowAnalysisModal(true);
-  };
-
-  const handleCloseAnalysis = () => {
-    setShowAnalysisModal(false);
-    setAnalysisResult(null);
-    setCurrentMatchData(null);
-    setSelectedMatch(null);
-    setAnalysisModalTab('dados');
-  };
-
-  const handleNewMatch = () => {
-    handleNavigateToAnalysis(null);
-  };
+  const {
+    isUpdatingBetStatus,
+    handleSaveBankSettings,
+    handleUpdateBetStatus,
+    handleSaveBetInfo,
+  } = useBankActions({
+    bankSettings,
+    selectedMatch,
+    currentMatchData,
+    analysisResult,
+    saveSettings,
+    saveMatch,
+    setSelectedMatch,
+    showSuccess,
+    showError,
+  });
 
   const handleRemoveNotification = (matchId: string) => {
     removeNotification(matchId);
@@ -117,111 +102,6 @@ const App: React.FC = () => {
 
   const handleNotificationClick = (match: SavedAnalysis) => {
     handleNavigateToAnalysis(match);
-  };
-
-  const handleAnalyze = async (data: MatchData) => {
-    // Log: verificar dados recebidos antes de analisar
-    if (import.meta.env.DEV) {
-      console.log('[App] ===== handleAnalyze - Dados recebidos do MatchForm =====');
-      console.log('[App] Times:', {
-        homeTeam: data.homeTeam,
-        awayTeam: data.awayTeam,
-      });
-      console.log('[App] Status das tabelas:', {
-        geral: !!(data.homeTableData && data.awayTableData),
-      });
-
-      const hasGeral = !!(data.homeTableData && data.awayTableData);
-      if (hasGeral) {
-        console.log('[App] ✅ Tabela geral (classificação) presente — análise com dados de liga habilitada');
-      } else {
-        console.warn('[App] ⚠️ Tabela geral ausente — análise usará apenas estatísticas manuais / contexto limitado');
-      }
-    }
-    
-    // Executar análise estatística (combina estatísticas + tabela)
-    const result = performAnalysis(data);
-    setAnalysisResult(result);
-    setCurrentMatchData(data);
-    setAnalysisModalTab('verdict');
-  };
-
-
-  const handleOddChange = (newOdd: number) => {
-    if (currentMatchData) {
-      // Atualizar odd no currentMatchData
-      const updatedData = { ...currentMatchData, oddOver15: newOdd };
-      setCurrentMatchData(updatedData);
-
-      // Recalcular análise com nova odd (EV será recalculado automaticamente)
-      if (analysisResult) {
-        const updatedResult = performAnalysis(updatedData);
-        
-        // Manter as probabilidades Over/Under e combinações existentes
-        updatedResult.overUnderProbabilities = analysisResult.overUnderProbabilities;
-        updatedResult.recommendedCombinations = analysisResult.recommendedCombinations;
-        
-        setAnalysisResult(updatedResult);
-      }
-    }
-  };
-
-  const handleSaveMatch = async (selectedBets?: SelectedBet[]) => {
-    if (analysisResult && currentMatchData) {
-      try {
-        let matchToSave: SavedAnalysis;
-
-        // Se já existe uma partida selecionada, atualizar ela
-        const betInfoToSave =
-          selectedMatch?.betInfo &&
-          selectedMatch.betInfo.betAmount > 0 &&
-          selectedMatch.betInfo.status === 'pending'
-            ? syncPendingBetInfoWithMatchOdd(selectedMatch.betInfo, currentMatchData.oddOver15)
-            : selectedMatch?.betInfo;
-
-        if (selectedMatch) {
-          matchToSave = {
-            ...selectedMatch,
-            data: currentMatchData,
-            result: analysisResult,
-            betInfo: betInfoToSave,
-            selectedBets: selectedBets, // Incluir apostas selecionadas
-            timestamp: Date.now(), // Atualizar timestamp
-          };
-        } else {
-          // Criar nova partida
-          matchToSave = {
-            id: Math.random().toString(36).slice(2, 11),
-            timestamp: Date.now(),
-            data: currentMatchData,
-            result: analysisResult,
-            betInfo: betInfoToSave,
-            selectedBets: selectedBets, // Incluir apostas selecionadas
-          };
-        }
-
-        // Salvar usando o hook
-        await saveMatch(matchToSave);
-        showSuccess('Partida salva com sucesso!');
-
-        // Fechar modal após salvar
-        setTimeout(() => {
-          handleCloseAnalysis();
-          setActiveTab('matches');
-        }, 300);
-      } catch {
-        showError('Erro ao salvar partida. Tente novamente.');
-      }
-    }
-  };
-
-  const handleSaveBankSettings = async (settings: BankSettingsType) => {
-    try {
-      await saveSettings(settings);
-      showSuccess('Configurações de banca salvas com sucesso!');
-    } catch {
-      showError('Erro ao salvar configurações de banca.');
-    }
   };
 
   const handleDeleteSaved = async (e: React.MouseEvent, id: string) => {
@@ -292,30 +172,6 @@ const App: React.FC = () => {
     setMatchForAnalysis(match);
     setShowResultAnalysisModal(true);
     setWebSearchResults([]); // Limpar resultados anteriores
-    
-    // Fazer busca web automaticamente quando o modal abrir
-    // A busca será feita pelo assistente usando a ferramenta web_search
-    const { homeTeam, awayTeam, matchDate } = match.data;
-    const searchQuery = `${homeTeam} vs ${awayTeam} ${matchDate || ''} resultado placar`.trim();
-    
-    try {
-      // Fazer busca web usando a ferramenta web_search
-      const searchResults = await web_search({ search_term: searchQuery });
-      
-      // Converter os resultados para o formato esperado pelo modal
-      const formattedResults = (searchResults.results || []).map((result: any) => ({
-        content: result.content || result.snippet || result.text || '',
-        snippet: result.snippet || result.content || result.text || '',
-        url: result.url || result.link || '',
-      }));
-      
-      // Armazenar os resultados no estado para que o modal possa usá-los
-      setWebSearchResults(formattedResults);
-      console.log('[App] Resultados da busca armazenados:', formattedResults);
-    } catch (error) {
-      console.error('[App] Erro ao buscar informações:', error);
-      showError(`Erro ao buscar na web: ${error instanceof Error ? error.message : String(error)}`);
-    }
   };
 
   const handleCloseResultAnalysis = () => {
@@ -516,7 +372,7 @@ const App: React.FC = () => {
                   </span>
                 </div>
               )}
-              <span className="badge badge-primary badge-outline badge-sm border-white/20 font-black shadow-lg shadow-primary/5 px-3 py-3 uppercase tracking-tighter">v3.8.2 ELITE</span>
+              <span className="badge badge-outline badge-sm font-bold">v3.8.3</span>
             </div>
           </div>
         </div>
@@ -524,6 +380,7 @@ const App: React.FC = () => {
 
       {/* Main Content - Renderizar tela baseada na aba ativa */}
       <main className="app-container flex-1 w-full pt-4 md:pt-6 pb-6 md:pb-8">
+        <Suspense fallback={<div className="flex items-center justify-center h-64"><span className="loading loading-spinner loading-lg text-primary" /></div>}>
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <motion.div
@@ -601,6 +458,7 @@ const App: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
+        </Suspense>
       </main>
 
       <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />

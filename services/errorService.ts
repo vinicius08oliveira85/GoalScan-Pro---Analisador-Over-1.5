@@ -87,34 +87,12 @@ class ErrorService {
 
   /**
    * Envia erros para serviço de tracking externo
-   * (Implementar quando integrar Sentry ou similar)
-   *
-   * Para integrar Sentry:
-   * 1. npm install @sentry/react
-   * 2. Configurar em index.tsx:
-   *    import * as Sentry from "@sentry/react";
-   *    Sentry.init({ dsn: import.meta.env.VITE_SENTRY_DSN });
-   * 3. Descomentar código abaixo
    */
   private sendToErrorTracking(error: Error, context: ErrorContext): void {
-    // Integração com Sentry (quando configurado)
-    // @ts-expect-error Sentry may not be defined
-    if (typeof window !== 'undefined' && window.Sentry) {
-      // @ts-expect-error Sentry may not be defined
-      window.Sentry.captureException(error, {
-        extra: context,
-        tags: {
-          component: context.component,
-          action: context.action,
-        },
-      });
-    }
-
-    // Em produção, também pode enviar para endpoint próprio
-    if (process.env.NODE_ENV === 'production' && typeof fetch !== 'undefined') {
+    if (import.meta.env.PROD && typeof fetch !== 'undefined') {
       // Opcional: enviar para endpoint de logging próprio
       // fetch('/api/logs', { method: 'POST', body: JSON.stringify({ error, context }) })
-      //   .catch(() => {}); // Falha silenciosa
+      //   .catch(() => {});
     }
   }
 }

@@ -37,7 +37,7 @@ interface MatchCardListProps {
   bankCurrency?: string;
 }
 
-const MatchCardList: React.FC<MatchCardListProps> = ({
+const MatchCardList: React.FC<MatchCardListProps> = React.memo(({
   match,
   index,
   onMatchClick,
@@ -312,6 +312,8 @@ const MatchCardList: React.FC<MatchCardListProps> = ({
       </div>
     </motion.div>
   );
-};
+});
+
+MatchCardList.displayName = 'MatchCardList';
 
 export default MatchCardList;

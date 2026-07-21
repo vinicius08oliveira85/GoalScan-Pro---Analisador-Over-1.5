@@ -5,13 +5,17 @@ import {
   TrendingUp,
   TrendingDown,
   AlertCircle,
+  Calculator,
+  Zap,
+  Shield,
+  Target,
   Sparkles,
-  HelpCircle,
 } from 'lucide-react';
 import BetManager from './BetManager';
 import ProbabilityGauge from './ProbabilityGauge';
 import MetricCard from './MetricCard';
-import { getCurrencySymbol } from '../utils/currency';
+import OverUnderGrid from './analysis/OverUnderGrid';
+import BetSummaryCard from './analysis/BetSummaryCard';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
 import { getEdgePp, calculateEVPercent } from '../utils/betMetrics';
@@ -277,210 +281,23 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     </>
   );
 
-  const statsSection = (
-    <div className="flex min-w-0 flex-col">
-      {/* Métricas + “Probabilidades por linha” na mesma grid: última linha col-span-full evita overlap (mesmo padrão do veredito) */}
-      <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        <MetricCard
-          title={
-            <span className="inline-flex items-center gap-0.5 flex-wrap">
-              Mais de {overLine} gols
-              <TooltipHint tip="Chance estimada de sair mais gols que a linha (Over), com base no modelo." label="Ajuda Over" />
-            </span>
-          }
-          value={`${result.overUnderProbabilities?.[overLine]?.over.toFixed(1) ?? '-'}%`}
-          icon={TrendingUp}
-          color="success"
+      {/* Probabilidades Over/Under por Linha */}
+      {(result.overUnderProbabilities || result.tableOverUnderProbabilities || result.statsOverUnderProbabilities) && (
+        <OverUnderGrid
+          result={result}
+          overUnderTab={overUnderTab}
+          onTabChange={setOverUnderTab}
+          selectedBets={selectedBets}
+          onBetClick={handleBetClick}
+          isBetSelected={isBetSelected}
+          hasCombinedOU={hasCombinedOU}
+          hasStatsOU={hasStatsOU}
+          hasTableOU={hasTableOU}
+          onClearSelection={() => setSelectedBets([])}
+          displayLabel={displayLabel}
+          displayProbability={displayProbability}
         />
-        <MetricCard
-          title={
-            <span className="inline-flex items-center gap-0.5 flex-wrap">
-              Menos de {underLine} gols
-              <TooltipHint tip="Chance estimada de sair menos gols que a linha (Under)." label="Ajuda Under" />
-            </span>
-          }
-          value={`${result.overUnderProbabilities?.[underLine]?.under.toFixed(1) ?? '-'}%`}
-          icon={TrendingDown}
-          color="error"
-        />
-        <MetricCard
-          title={
-            <span className="inline-flex items-center gap-0.5 flex-wrap">
-              Ambas marcam (BTTS)
-              <TooltipHint tip={bttsTip} label="Ajuda BTTS" />
-            </span>
-          }
-          value={result.bttsProbability != null ? `${result.bttsProbability.toFixed(1)}%` : '—'}
-          icon={Sparkles}
-          color="accent"
-        />
-        <MetricCard
-          title={
-            <span className="inline-flex items-center gap-0.5 flex-wrap">
-              Edge (pontos %)
-              <TooltipHint
-                tip="Diferença entre a probabilidade do modelo e a implícita na odd da casa (após margem). Valores positivos sugerem possível valor."
-                label="Ajuda Edge"
-              />
-            </span>
-          }
-          value={edgePp == null ? '—' : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`}
-          icon={TrendingUp}
-          color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
-        />
-        <MetricCard
-          title={
-            <span className="inline-flex items-center gap-0.5 flex-wrap">
-              Índice de Confiança Baseado em Forma Recente
-              <TooltipHint
-                tip="Mede alinhamento entre os últimos jogos e as médias ponderadas, e estabilidade dos totais de gols. Mais alto = forma recente mais coerente com o histórico."
-                label="Ajuda índice de forma"
-              />
-            </span>
-          }
-          value={
-            result.recentFormConfidenceIndex != null
-              ? `${result.recentFormConfidenceIndex}`
-              : '—'
-          }
-          icon={Sparkles}
-          color="accent"
-        />
-        <MetricCard
-          title={
-            <span className="inline-flex items-center gap-0.5 flex-wrap">
-              Confiança Recente
-              <TooltipHint
-                tip="Compara o ritmo de gols marcados nos últimos 5 jogos com a média da temporada (estatísticas ponderadas). Reflete se o λ de ataque recente está subindo ou descendo em relação ao histórico."
-                label="Ajuda confiança recente"
-              />
-            </span>
-          }
-          value={(() => {
-            const d = result.recentLambdaTrendDelta;
-            const suffix =
-              d != null && result.recentLambdaTrend && result.recentLambdaTrend !== 'unknown'
-                ? ` (${d > 0 ? '+' : ''}${d.toFixed(2)} g/j)`
-                : '';
-            if (result.recentLambdaTrend === 'up') return `λ em alta${suffix}`;
-            if (result.recentLambdaTrend === 'down') return `λ em queda${suffix}`;
-            if (result.recentLambdaTrend === 'flat') return `λ estável${suffix}`;
-            return '—';
-          })()}
-          icon={TrendingUp}
-          color={
-            result.recentLambdaTrend === 'up'
-              ? 'success'
-              : result.recentLambdaTrend === 'down'
-                ? 'error'
-                : result.recentLambdaTrend === 'flat'
-                  ? 'warning'
-                  : 'accent'
-          }
-        />
-
-        {(hasCombinedOU || hasStatsOU || hasTableOU) && (
-          <div className="col-span-full min-w-0 w-full">
-            {splitMode ? (
-              <div className={lineProbabilitiesCardShell}>{lineProbabilitiesCardContent}</div>
-            ) : (
-              <motion.div
-                className={lineProbabilitiesCardShell}
-                variants={animations.fadeInUp}
-                initial="initial"
-                animate="animate"
-              >
-                {lineProbabilitiesCardContent}
-              </motion.div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const verdictSection = (
-    <div className="relative z-0 flex min-h-0 min-w-0 flex-col">
-      <div className="isolate flex min-h-0 min-w-0 flex-col gap-6 md:gap-8">
-        <motion.div
-          className={cn(
-            'card min-w-0 border-4 bg-gradient-to-br from-primary/20 via-base-100 to-base-100 p-6 text-center transition-shadow duration-300 md:p-10',
-            evSemaphoreFrame
-          )}
-          variants={animations.scaleIn}
-          initial={splitMode ? false : 'initial'}
-          animate="animate"
-        >
-          <div className="mb-4 space-y-2 text-center md:mb-5">
-            <p className="text-sm font-bold uppercase tracking-wide text-base-content/80">
-              Resultado principal
-            </p>
-            <p className="flex flex-wrap items-center justify-center gap-1 px-1 text-xs font-semibold normal-case tracking-normal text-base-content/70 sm:text-sm">
-              <span className="min-w-0 break-words">{displayLabel}</span>
-              <TooltipHint
-                tip="Probabilidade: chance estimada pelo modelo para este mercado (Over/Under), com base nos dados do jogo. Não é previsão certa de placar."
-                label="Ajuda probabilidade"
-              />
-            </p>
-          </div>
-          <p className="text-5xl font-black tabular-nums leading-tight text-primary md:text-6xl md:leading-tight">
-            {displayProbability.toFixed(1)}
-            <span className="text-3xl md:text-4xl align-top">%</span>
-          </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            <span className={`badge ${verdictUi.badgeClass} badge-lg font-bold border-2`}>{verdictUi.label}</span>
-            <span
-              className={`badge badge-lg font-bold border-2 ${displayRiskLevel === 'Baixo' ? 'badge-success badge-outline' : displayRiskLevel === 'Moderado' ? 'badge-warning badge-outline' : 'badge-error badge-outline'}`}
-            >
-              <AlertCircle className="w-4 h-4 mr-1 inline" aria-hidden />
-              Risco {displayRiskLevel}
-            </span>
-          </div>
-          <p className="text-xs text-base-content/70 mt-3 max-w-md mx-auto font-medium">
-            Estimativa do modelo (Poisson + dados). Não é garantia de resultado.
-          </p>
-          <p
-            className={cn(
-              'mt-3 text-sm font-black tabular-nums',
-              displayEv > 0 ? 'text-success' : displayEv < 0 ? 'text-error' : 'text-warning'
-            )}
-          >
-            EV com esta odd: {displayEv > 0 ? '+' : ''}
-            {displayEv.toFixed(1)}%
-            <TooltipHint
-              tip="EV verde = modelo vê valor na odd; vermelho = odd abaixo do que o modelo sugere; amarelo = neutro."
-              label="Semáforo EV"
-            />
-          </p>
-          {kellyBankPercent != null && (
-            <p className="mt-2 text-xs text-base-content/80 max-w-md mx-auto flex flex-wrap items-center justify-center gap-2">
-              <span>
-                Sugestão Kelly (¼ + teto 10%, ajustada pela confiança):{' '}
-                <span className="font-bold tabular-nums">
-                  {kellyBankPercent > 0 ? `${kellyBankPercent.toFixed(2)}%` : '0%'}
-                </span>{' '}
-                da banca
-              </span>
-              {kellyDashboardLevel && (
-                <span
-                  className={`badge badge-sm font-bold ${
-                    kellyDashboardLevel === 'Alto'
-                      ? 'badge-success'
-                      : kellyDashboardLevel === 'Médio'
-                        ? 'badge-warning'
-                        : 'badge-ghost border border-base-content/25'
-                  }`}
-                >
-                  Confiança Kelly: {kellyDashboardLevel}
-                </span>
-              )}
-              <TooltipHint
-                tip="O Kelly integral costuma ser agressivo; aqui usamos Kelly fracionário (25%) e teto de 10% da banca, ponderado pelo score de confiança do modelo. O selo Baixo/Médio/Alto reflete a força do Kelly integral (edge). Valor orientativo."
-                label="Ajuda Kelly"
-              />
-            </p>
-          )}
-        </motion.div>
+      )}
 
         <div
           className={cn(
@@ -490,132 +307,81 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               : 'grid-cols-1 md:grid-cols-2 md:gap-8 lg:grid-cols-3'
           )}
         >
-            <motion.div
-              className={cn('min-h-0 min-w-0', !splitMode && 'lg:col-span-1')}
-              variants={animations.scaleIn}
-              initial={splitMode ? false : 'initial'}
-              animate="animate"
-            >
-              <div className="origin-top scale-[0.99] opacity-90">
-                <ProbabilityGauge
-                  probability={primaryProb}
-                  selectedProbability={displayProbability}
-                  selectedLabel={displayLabel}
-                  odd={data.oddOver15}
-                  ev={displayEv}
-                  onOddChange={onOddChange}
-                />
-              </div>
-            </motion.div>
-            <motion.div
-              className={cn(
-                /* sem min-h-0: evita célula de grid encolher abaixo do conteúdo e “Sua aposta” (irmão) cobrir a recomendação */
-                'card min-w-0 border border-base-content/12 bg-base-100 p-4 shadow-sm md:p-6',
-                !splitMode && 'lg:col-span-2'
-              )}
-              variants={animations.fadeInUp}
-              initial={splitMode ? false : 'initial'}
-              animate="animate"
-            >
-              <div className="flex flex-col gap-4 md:gap-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-base-content">
-                      {data.homeTeam} <span className="text-primary/70 mx-1">vs</span> {data.awayTeam}
-                    </h3>
-                    <p className="text-xs sm:text-sm font-semibold text-base-content/70 uppercase tracking-wide">
-                      Veredito e valor esperado (EV)
-                      <TooltipHint
-                        tip="EV (valor esperado): quanto o modelo sugere de retorno médio por unidade apostada nesta odd, usando a probabilidade exibida."
-                        label="Ajuda EV"
-                      />
-                    </p>
-                  </div>
-                  <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
-                    {onSave && (
-                      <button
-                        type="button"
-                        onClick={() => onSave(selectedBets.length > 0 ? selectedBets : undefined)}
-                        className="btn btn-primary btn-md shadow-lg w-full sm:w-auto"
-                      >
-                        Salvar análise
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="custom-card border-l-4 border-primary/60 p-4 shadow-md shadow-primary/10 backdrop-blur-md">
-                  <p className="text-xs font-bold text-base-content/60 uppercase mb-1">Recomendação</p>
-                  <p className="text-sm md:text-base text-base-content/95 leading-relaxed">&ldquo;{result.recommendation}&rdquo;</p>
-                </div>
-
-                {/* Dentro do mesmo fluxo flex que a recomendação — impossível sobrepor por altura errada do grid */}
-                {onBetSave && (
-                  <div className="border-t border-base-content/15 pt-4 md:pt-6">
-                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-lg font-black text-base-content">Sua aposta</h3>
-                      {!showBetManager && (
-                        <button
-                          type="button"
-                          onClick={() => setShowBetManager(true)}
-                          className="btn btn-primary btn-sm min-h-[2.75rem] w-full sm:w-auto"
-                        >
-                          {betInfo?.betAmount > 0 ? 'Editar' : 'Registrar aposta'}
-                        </button>
-                      )}
-                    </div>
-                    {showBetManager ? (
-                      <BetManager
-                        odd={data.oddOver15 || 0}
-                        probability={displayProbability}
-                        betInfo={betInfo}
-                        bankSettings={bankSettings}
-                        onSave={(newBetInfo) => {
-                          onBetSave(newBetInfo);
-                          setShowBetManager(false);
-                        }}
-                        onError={onError}
-                        onCancel={() => setShowBetManager(false)}
-                      />
-                    ) : betInfo?.betAmount > 0 ? (
-                      <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:grid-cols-3 md:gap-4">
-                        <div>
-                          <div className="text-xs font-bold text-base-content/70">Status</div>
-                          <div
-                            className={`badge ${betInfo.status === 'won' ? 'badge-success' : betInfo.status === 'lost' ? 'badge-error' : 'badge-warning'}`}
-                          >
-                            {betInfo.status}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-base-content/70">Apostado</div>
-                          <div className="font-bold text-base-content">
-                            {getCurrencySymbol(bankSettings?.currency)}
-                            {betInfo.betAmount.toFixed(2)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-base-content/70">Retorno</div>
-                          <div
-                            className={`font-bold ${betInfo.status === 'won' ? 'text-success' : betInfo.status === 'lost' ? 'text-error' : 'text-primary'}`}
-                          >
-                            {betSummaryMoney
-                              ? betInfo.status === 'won'
-                                ? `+${betSummaryMoney.potentialProfit.toFixed(2)}`
-                                : betInfo.status === 'lost'
-                                  ? `-${betInfo.betAmount.toFixed(2)}`
-                                  : betSummaryMoney.potentialReturn.toFixed(2)
-                              : null}
-                          </div>
-                        </div>
+          <div className="flex items-center gap-2 mb-4">
+            <Zap className="w-5 h-5 text-success" />
+            <h3 className="text-lg font-black uppercase tracking-tight">
+              Combinações Recomendadas (Over E Under ≥ 75%)
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {result.recommendedCombinations
+              .sort((a, b) => b.combinedProb - a.combinedProb)
+              .map((combo, index) => (
+                <div
+                  key={index}
+                  className="surface-muted p-4 rounded-xl border border-success/30 bg-success/5"
+                >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="text-sm font-black mb-1">
+                        Over {combo.overLine} ({combo.overProb.toFixed(1)}%) E Under{' '}
+                        {combo.underLine} ({combo.underProb.toFixed(1)}%)
                       </div>
-                    ) : (
-                      <p className="text-sm text-base-content/70">Nenhuma aposta registrada para esta análise.</p>
-                    )}
+                      <div className="text-xs opacity-70">
+                        Probabilidade Combinada: <span className="font-bold">{combo.combinedProb.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="badge badge-success badge-lg font-black">
+                      {combo.combinedProb.toFixed(0)}%
+                    </div>
                   </div>
-                )}
-              </div>
-            </motion.div>
+                </div>
+              ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Seção de Aposta - Design Moderno e Compacto */}
+      {onBetSave && (
+        <div>
+          {!showBetManager ? (
+            <BetSummaryCard
+              betInfo={betInfo!}
+              bankSettings={bankSettings}
+              odd={data.oddOver15 || 0}
+              probability={displayProbability}
+              onToggleEditor={() => setShowBetManager(true)}
+              onUpdateBetStatus={
+                onBetSave
+                  ? (status) => {
+                      const updatedBetInfo: BetInfo = {
+                        ...betInfo!,
+                        status,
+                        resultAt: Date.now(),
+                      };
+                      onBetSave(updatedBetInfo);
+                    }
+                  : undefined
+              }
+              isUpdatingBetStatus={isUpdatingBetStatus}
+              onAnalyzeResult={onAnalyzeResult && savedMatch ? () => onAnalyzeResult(savedMatch) : undefined}
+              savedMatch={savedMatch}
+            />
+          ) : (
+            <BetManager
+              odd={data.oddOver15 || 0}
+              probability={displayProbability}
+              betInfo={betInfo}
+              bankSettings={bankSettings}
+              savedMatches={savedMatches}
+              onSave={(newBetInfo) => {
+                onBetSave(newBetInfo);
+                setShowBetManager(false);
+              }}
+              onError={onError}
+              onCancel={() => setShowBetManager(false)}
+            />
+          )}
         </div>
       </div>
     </div>

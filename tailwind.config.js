@@ -107,6 +107,44 @@ export default {
           '--btn-text-case': 'none',
         },
       },
+      {
+        goalscan_light: {
+          // Base surfaces (Light glass morphism)
+          'base-100': 'oklch(97% 0.008 247)',
+          'base-200': 'oklch(94% 0.01 247)',
+          'base-300': 'oklch(90% 0.012 247)',
+          'base-content': 'oklch(20% 0.03 240)',
+
+          // Brand (slightly lighter primary for contrast on white)
+          primary: 'oklch(45% 0.12 264)',
+          'primary-content': 'oklch(98% 0.003 264)',
+          secondary: 'oklch(50% 0.22 302)',
+          'secondary-content': 'oklch(97% 0.014 302)',
+          accent: 'oklch(50% 0.22 302)',
+          'accent-content': 'oklch(97% 0.014 302)',
+
+          // Neutral
+          neutral: 'oklch(92% 0.008 247)',
+          'neutral-content': 'oklch(25% 0.03 247)',
+
+          // Semantic
+          info: 'oklch(55% 0.18 237)',
+          'info-content': 'oklch(97% 0.013 237)',
+          success: 'oklch(55% 0.17 162)',
+          'success-content': 'oklch(98% 0.014 162)',
+          warning: 'oklch(62% 0.19 65)',
+          'warning-content': 'oklch(25% 0.06 65)',
+          error: 'oklch(55% 0.22 25)',
+          'error-content': 'oklch(96% 0.015 25)',
+
+          // Shape & borders
+          '--rounded-box': '2rem',
+          '--rounded-btn': '2rem',
+          '--rounded-badge': '2rem',
+          '--border-btn': '1px',
+          '--tab-border': '1px',
+        },
+      },
     ],
     base: true,
     styled: true,
