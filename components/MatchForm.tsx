@@ -6,9 +6,8 @@ import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, ChampionshipTablesDiagnostic } from '../services/championshipService';
-import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import FbrefExtractionModal from './FbrefExtractionModal';
-import { parseGlobalStatsExcel, isGlobalStatsFile } from '../utils/globalStatsParser';
 import InfoIcon from './match-form/InfoIcon';
 import TeamStatsSection from './match-form/TeamStatsSection';
 import { logger } from '../utils/logger';
@@ -65,8 +64,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const [selectedAwaySquad, setSelectedAwaySquad] = useState<string>('');
   const [tablesDiagnostic, setTablesDiagnostic] = useState<ChampionshipTablesDiagnostic | null>(null);
   const [showFbrefModal, setShowFbrefModal] = useState(false);
-  const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   useEffect(() => {
@@ -390,68 +387,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }
   };
 
-  // Handler para importar Estatísticas Globais do Excel
-  const handleGlobalStatsImport = async (file: File) => {
-    setIsImporting(true);
-    setImportFeedback(null);
-
-    try {
-      // Validar tipo de arquivo
-      if (!isGlobalStatsFile(file)) {
-        throw new Error('Arquivo inválido. Use arquivos .xlsx, .xls ou .csv');
-      }
-
-      // Processar arquivo
-      const { homeTeamStats, awayTeamStats } = await parseGlobalStatsExcel(file);
-
-      // Atualizar formData com as estatísticas importadas
-      setFormData((prev) => ({
-        ...prev,
-        homeTeamStats,
-        awayTeamStats,
-      }));
-
-      // Feedback de sucesso
-      setImportFeedback({
-        type: 'success',
-        message: 'Estatísticas Globais importadas com sucesso!',
-      });
-
-      // Limpar feedback após 5 segundos
-      setTimeout(() => {
-        setImportFeedback(null);
-      }, 5000);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido ao importar arquivo';
-      
-      setImportFeedback({
-        type: 'error',
-        message: errorMessage,
-      });
-
-      if (onError) {
-        onError(`Erro ao importar Estatísticas Globais: ${errorMessage}`);
-      }
-
-      // Limpar feedback após 8 segundos em caso de erro
-      setTimeout(() => {
-        setImportFeedback(null);
-      }, 8000);
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleGlobalStatsImport(file);
-    }
-    // Limpar input para permitir selecionar o mesmo arquivo novamente
-    e.target.value = '';
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAttemptedSubmit(true);
@@ -722,42 +657,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
         </div>
       </div>
 
-      {/* Informações Básicas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="form-control">
-          <label htmlFor="homeTeam" className="label ml-2">
-            <span className="label-text font-bold">Time Casa</span>
-          </label>
-          <input
-            id="homeTeam"
-            name="homeTeam"
-            value={formData.homeTeam}
-            onChange={handleChange}
-            className={`input w-full min-h-[44px] text-base focus:outline-none focus:ring-2 focus:ring-primary ${attemptedSubmit && !formData.homeTeam ? 'border-error' : ''}`}
-            placeholder="Ex: Man City"
-            required
-            aria-required="true"
-            aria-label="Nome do time da casa"
-          />
-        </div>
-        <div className="form-control">
-          <label htmlFor="awayTeam" className="label ml-2">
-            <span className="label-text font-bold">Time Visitante</span>
-          </label>
-          <input
-            id="awayTeam"
-            name="awayTeam"
-            value={formData.awayTeam}
-            onChange={handleChange}
-            className={`input w-full min-h-[44px] text-base focus:outline-none focus:ring-2 focus:ring-primary ${attemptedSubmit && !formData.awayTeam ? 'border-error' : ''}`}
-            placeholder="Ex: Real Madrid"
-            required
-            aria-required="true"
-            aria-label="Nome do time visitante"
-          />
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="form-control">
           <label className="label ml-2 flex items-center">
@@ -823,47 +722,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
           placeholder="Ex: 1.50"
           aria-label="Odd do mercado Over 1.5"
         />
-      </div>
-
-      {/* Importação de Estatísticas Globais */}
-      <div className="bg-info/5 p-4 rounded-3xl border border-info/10 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-info" />
-            <span className="text-sm font-bold">Importar Estatísticas Globais</span>
-            <InfoIcon text="Importe um arquivo Excel (xlsx) ou CSV com as estatísticas dos 10 últimos jogos do campeonato para ambos os times. O arquivo deve conter seções 'Time Casa' e 'Time Fora' com dados para Casa, Fora e Global." />
-          </div>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <label className="btn btn-outline btn-sm btn-primary cursor-pointer">
-            <Upload className="w-4 h-4 mr-2" />
-            {isImporting ? 'Importando...' : 'Selecionar Arquivo'}
-            <input
-              type="file"
-              accept=".xlsx,.xls,.xlsm,.csv"
-              onChange={handleFileInputChange}
-              disabled={isImporting}
-              className="hidden"
-              aria-label="Importar Estatísticas Globais"
-            />
-          </label>
-          
-          {importFeedback && (
-            <div
-              className={`flex items-center gap-2 text-sm ${
-                importFeedback.type === 'success' ? 'text-success' : 'text-error'
-              }`}
-            >
-              {importFeedback.type === 'success' ? (
-                <CheckCircle className="w-4 h-4" />
-              ) : (
-                <XCircle className="w-4 h-4" />
-              )}
-              <span>{importFeedback.message}</span>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Estatísticas Globais - Time Casa */}
