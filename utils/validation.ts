@@ -23,7 +23,7 @@ export const matchDataSchema = z.object({
       ])
       .optional()
   ),
-  competitionAvg: z.number().min(0).max(100).optional(),
+  competitionAvg: z.number().min(0).max(10).optional(),
   oddOver15: z.number().min(1.01, 'Odd deve ser maior que 1.00').max(50).optional(),
 
   // Médias de gols

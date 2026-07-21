@@ -1622,14 +1622,15 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   
   // Fallback: usar dados da tabela se Estatísticas Globais não estiverem disponíveis
   if (homeAvgTotal === 0 && normalizedData.homeTableData) {
-    const mp = parseFloat(normalizedData.homeTableData.MP || '0');
-    const gf = parseFloat(normalizedData.homeTableData.GF || '0');
-    const ga = parseFloat(normalizedData.homeTableData.GA || '0');
+    const mp = parseFloat(normalizedData.homeTableData['Home MP'] || normalizedData.homeTableData.MP || '0');
+    const gf = parseFloat(normalizedData.homeTableData['Home GF'] || normalizedData.homeTableData.GF || '0');
+    const ga = parseFloat(normalizedData.homeTableData['Home GA'] || normalizedData.homeTableData.GA || '0');
     if (mp > 0) {
       const avgScored = gf / mp;
       const avgConceded = ga / mp;
       homeAvgTotal = avgScored + avgConceded;
       logger.log('[AnalysisEngine] Usando dados da tabela como fallback para time da casa:', {
+        mp, gf, ga,
         avgScored,
         avgConceded,
         avgTotal: homeAvgTotal,
@@ -1638,14 +1639,15 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   }
   
   if (awayAvgTotal === 0 && normalizedData.awayTableData) {
-    const mp = parseFloat(normalizedData.awayTableData.MP || '0');
-    const gf = parseFloat(normalizedData.awayTableData.GF || '0');
-    const ga = parseFloat(normalizedData.awayTableData.GA || '0');
+    const mp = parseFloat(normalizedData.awayTableData['Away MP'] || normalizedData.awayTableData.MP || '0');
+    const gf = parseFloat(normalizedData.awayTableData['Away GF'] || normalizedData.awayTableData.GF || '0');
+    const ga = parseFloat(normalizedData.awayTableData['Away GA'] || normalizedData.awayTableData.GA || '0');
     if (mp > 0) {
       const avgScored = gf / mp;
       const avgConceded = ga / mp;
       awayAvgTotal = avgScored + avgConceded;
       logger.log('[AnalysisEngine] Usando dados da tabela como fallback para time visitante:', {
+        mp, gf, ga,
         avgScored,
         avgConceded,
         avgTotal: awayAvgTotal,

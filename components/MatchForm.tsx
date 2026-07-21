@@ -1,15 +1,141 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MatchData, Championship, TableRowGeral } from '../types';
+import { MatchData, Championship, TableRowGeral, TableRowComplement } from '../types';
 import { validateMatchData } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, ChampionshipTablesDiagnostic } from '../services/championshipService';
-import { ExternalLink, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Loader2, Info } from 'lucide-react';
 import FbrefExtractionModal from './FbrefExtractionModal';
 import InfoIcon from './match-form/InfoIcon';
 import { logger } from '../utils/logger';
+
+interface SyncResult {
+  homeTableData: TableRowGeral | null;
+  awayTableData: TableRowGeral | null;
+  competitionAvg?: number;
+  homeComplementData?: TableRowComplement | null;
+  awayComplementData?: TableRowComplement | null;
+  competitionComplementAvg?: unknown;
+}
+
+interface SyncFeedback {
+  status: 'success' | 'partial' | 'error';
+  homeTeamFound: boolean;
+  awayTeamFound: boolean;
+  hasGeralTable: boolean;
+  hasComplementTable: boolean;
+  competitionAvg: number | null;
+  homeXG: number | null;
+  awayXG: number | null;
+  homeGoalsPerGame: number | null;
+  awayGoalsPerGame: number | null;
+  homeConcededPerGame: number | null;
+  awayConcededPerGame: number | null;
+  homeMP: number | null;
+  awayMP: number | null;
+  tableFormat: 'completa' | 'basica' | null;
+}
+
+const parseNum = (v: unknown): number => {
+  if (v == null) return 0;
+  const raw = String(v).trim();
+  if (!raw) return 0;
+  return Number.parseFloat(raw.replace(/,/g, '')) || 0;
+};
+
+function extractSyncFeedback(result: SyncResult): SyncFeedback {
+  const home = result.homeTableData;
+  const away = result.awayTableData;
+  const hasGeralTable = !!(home && away);
+  const hasComplementTable = !!(result.homeComplementData && result.awayComplementData);
+
+  const homeMP = hasGeralTable ? parseNum(home!['Home MP'] || home!.MP) : null;
+  const awayMP = hasGeralTable ? parseNum(away!['Away MP'] || away!.MP) : null;
+
+  const homeGF = hasGeralTable ? parseNum(home!['Home GF'] || home!.GF) : 0;
+  const homeGA = hasGeralTable ? parseNum(home!['Home GA'] || home!.GA) : 0;
+  const awayGF = hasGeralTable ? parseNum(away!['Away GF'] || away!.GF) : 0;
+  const awayGA = hasGeralTable ? parseNum(away!['Away GA'] || away!.GA) : 0;
+
+  const homeGoalsPerGame = homeMP && homeMP > 0 ? homeGF / homeMP : null;
+  const awayGoalsPerGame = awayMP && awayMP > 0 ? awayGF / awayMP : null;
+  const homeConcededPerGame = homeMP && homeMP > 0 ? homeGA / homeMP : null;
+  const awayConcededPerGame = awayMP && awayMP > 0 ? awayGA / awayMP : null;
+
+  let homeXG: number | null = null;
+  let awayXG: number | null = null;
+  if (hasGeralTable) {
+    const hxg = parseNum(home!['Home xG'] || home!.xG);
+    const axg = parseNum(away!['Away xG'] || away!.xG);
+    homeXG = hxg > 0 ? hxg : null;
+    awayXG = axg > 0 ? axg : null;
+  }
+
+  let tableFormat: 'completa' | 'basica' | null = null;
+  if (hasGeralTable) {
+    tableFormat = (homeXG != null && homeXG > 0) || (awayXG != null && awayXG > 0) ? 'completa' : 'basica';
+  }
+
+  return {
+    status: hasGeralTable ? 'success' : 'error',
+    homeTeamFound: !!home,
+    awayTeamFound: !!away,
+    hasGeralTable,
+    hasComplementTable,
+    competitionAvg: result.competitionAvg ?? null,
+    homeXG,
+    awayXG,
+    homeGoalsPerGame,
+    awayGoalsPerGame,
+    homeConcededPerGame,
+    awayConcededPerGame,
+    homeMP,
+    awayMP,
+    tableFormat,
+  };
+}
+
+function createMatchDataFromTables(
+  data: MatchData,
+  result: SyncResult
+): Partial<MatchData> {
+  const home = result.homeTableData;
+  const away = result.awayTableData;
+  if (!home || !away) return {};
+
+  const homeMP = parseNum(home['Home MP'] || home.MP);
+  const awayMP = parseNum(away['Away MP'] || away.MP);
+  const homeGF = parseNum(home['Home GF'] || home.GF);
+  const homeGA = parseNum(home['Home GA'] || home.GA);
+  const awayGF = parseNum(away['Away GF'] || away.GF);
+  const awayGA = parseNum(away['Away GA'] || away.GA);
+
+  const homeXG = parseNum(home['Home xG'] || home.xG);
+  const awayXG = parseNum(away['Away xG'] || away.xG);
+
+  const updates: Partial<MatchData> = {};
+
+  if (homeMP > 0) {
+    updates.homeGoalsScoredAvg = homeGF / homeMP;
+    updates.homeGoalsConcededAvg = homeGA / homeMP;
+  }
+  if (awayMP > 0) {
+    updates.awayGoalsScoredAvg = awayGF / awayMP;
+    updates.awayGoalsConcededAvg = awayGA / awayMP;
+  }
+  if (homeXG > 0) updates.homeXG = homeXG;
+  if (awayXG > 0) updates.awayXG = awayXG;
+
+  if (result.homeComplementData) {
+    const hComp = result.homeComplementData;
+    const poss = parseNum(hComp.Poss);
+    if (poss > 0) updates.homeBTTSFreq = poss;
+  }
+
+  return updates;
+}
 
 interface MatchFormProps {
   onAnalyze: (data: MatchData) => void | Promise<void>;
@@ -54,6 +180,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const [tablesDiagnostic, setTablesDiagnostic] = useState<ChampionshipTablesDiagnostic | null>(null);
   const [showFbrefModal, setShowFbrefModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<SyncFeedback | null>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -77,6 +205,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         setAvailableSquads([]);
         setTablesDiagnostic(null);
       }
+      setSyncFeedback(null);
     };
     loadSquads();
   }, [selectedChampionshipId, getSquads]);
@@ -126,67 +255,41 @@ const MatchForm: React.FC<MatchFormProps> = ({
       return;
     }
 
+    setSyncing(true);
+    setSyncFeedback(null);
+
     try {
-      const {
-        homeTableData,
-        awayTableData,
-        competitionAvg,
-        homeComplementData,
-        awayComplementData,
-        competitionComplementAvg,
-      } = await syncTeamStatsFromTable(
+      const syncResult = await syncTeamStatsFromTable(
         selectedChampionshipId,
         selectedHomeSquad,
         selectedAwaySquad
       );
 
+      const feedback = extractSyncFeedback(syncResult);
+      setSyncFeedback(feedback);
+
+      // Auto-preencher campos do MatchData a partir dos dados da tabela
+      const tableUpdates = createMatchDataFromTables(formData, syncResult);
+
+      setFormData((prev) => ({
+        ...prev,
+        ...tableUpdates,
+        championshipId: selectedChampionshipId,
+        homeTableData: syncResult.homeTableData || undefined,
+        awayTableData: syncResult.awayTableData || undefined,
+        homeComplementData: syncResult.homeComplementData || undefined,
+        awayComplementData: syncResult.awayComplementData || undefined,
+        competitionComplementAvg: syncResult.competitionComplementAvg || undefined,
+        competitionAvg: syncResult.competitionAvg !== undefined ? syncResult.competitionAvg : prev.competitionAvg,
+      }));
+
       logger.log('[MatchForm] Sincronização concluída:', {
-        homeTableData: !!homeTableData,
-        awayTableData: !!awayTableData,
-        competitionAvg,
-        homeComplementData: !!homeComplementData,
-        awayComplementData: !!awayComplementData,
-        competitionComplementAvg: !!competitionComplementAvg,
-        hasPreviousHomeStats: !!previousHomeStats,
-        hasPreviousAwayStats: !!previousAwayStats,
-      });
-
-      setFormData((prev) => {
-        const updated = {
-          ...prev,
-          championshipId: selectedChampionshipId,
-          homeTableData: homeTableData || undefined,
-          awayTableData: awayTableData || undefined,
-          homeComplementData: homeComplementData || undefined,
-          awayComplementData: awayComplementData || undefined,
-          competitionComplementAvg: competitionComplementAvg || undefined,
-          // Preencher automaticamente a média da competição calculada da tabela
-          competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
-        };
-
-        return updated;
-      });
-
-      // Verificar se a tabela geral foi carregada
-      const hasGeralTable = !!(homeTableData && awayTableData);
-
-      // Detectar formato da tabela (básica vs completa)
-      let tableFormat: 'completa' | 'basica' | null = null;
-      if (hasGeralTable && homeTableData && awayTableData) {
-        const hasXg = !!(homeTableData['Home xG'] || homeTableData['Away xG'] || 
-                        awayTableData['Home xG'] || awayTableData['Away xG']);
-        tableFormat = hasXg ? 'completa' : 'basica';
-      }
-
-      // Log detalhado para diagnóstico
-      logger.log('[MatchForm] Resultado da sincronização:', {
-        geral: {
-          home: !!homeTableData,
-          away: !!awayTableData,
-          loaded: hasGeralTable,
-        },
-        tableFormat,
-        competitionAvg,
+        geral: feedback.hasGeralTable,
+        complement: feedback.hasComplementTable,
+        format: feedback.tableFormat,
+        competitionAvg: feedback.competitionAvg,
+        homeXG: feedback.homeXG,
+        awayXG: feedback.awayXG,
       });
 
       // Atualizar diagnóstico após sincronização
@@ -199,21 +302,35 @@ const MatchForm: React.FC<MatchFormProps> = ({
         setTablesDiagnostic(updatedDiagnostic);
       }
 
-      // Mostrar feedback sobre tabela carregada
-      if (hasGeralTable) {
-        logger.log('[MatchForm] ✅ Tabela geral carregada com sucesso!');
-      } else {
-        logger.warn('[MatchForm] ⚠️ Tabela geral não foi carregada.');
-        // Nenhuma tabela carregada
+      if (!feedback.hasGeralTable) {
         if (onError) {
           onError('Nenhuma tabela foi encontrada. Verifique se as equipes existem no campeonato e se as tabelas foram extraídas do fbref.com.');
         }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao sincronizar';
+      setSyncFeedback({
+        status: 'error',
+        homeTeamFound: false,
+        awayTeamFound: false,
+        hasGeralTable: false,
+        hasComplementTable: false,
+        competitionAvg: null,
+        homeXG: null,
+        awayXG: null,
+        homeGoalsPerGame: null,
+        awayGoalsPerGame: null,
+        homeConcededPerGame: null,
+        awayConcededPerGame: null,
+        homeMP: null,
+        awayMP: null,
+        tableFormat: null,
+      });
       if (onError) {
         onError(`Erro ao sincronizar com tabela: ${errorMessage}`);
       }
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -341,10 +458,17 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <button
               type="button"
               onClick={handleSyncWithTable}
-              disabled={!selectedChampionshipId || !selectedHomeSquad || !selectedAwaySquad}
-              className="btn btn-primary w-full md:w-auto"
+              disabled={!selectedChampionshipId || !selectedHomeSquad || !selectedAwaySquad || syncing}
+              className="btn btn-primary w-full md:w-auto gap-2"
             >
-              Sincronizar com Tabela
+              {syncing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Sincronizando...
+                </>
+              ) : (
+                'Sincronizar com Tabela'
+              )}
             </button>
             {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.tables.geral?.exists && (
               <button
@@ -395,112 +519,123 @@ const MatchForm: React.FC<MatchFormProps> = ({
             </div>
           )}
 
-          {/* Status da Tabela Sincronizada: Mostrar após sincronização */}
-          {(formData.homeTableData && formData.awayTableData) || (formData.homeComplementData && formData.awayComplementData) ? (
-            <div className="mt-4 p-4 bg-base-300/50 rounded-lg border border-base-content/10 space-y-3">
-              <div className="font-semibold text-sm mb-3">Status das Tabelas Sincronizadas:</div>
-              
-              <div className="space-y-2">
+          {/* Feedback detalhado da sincronização */}
+          {syncFeedback && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`mt-4 p-4 rounded-xl border ${
+                syncFeedback.status === 'success'
+                  ? 'bg-success/5 border-success/20'
+                  : syncFeedback.status === 'partial'
+                    ? 'bg-warning/5 border-warning/20'
+                    : 'bg-error/5 border-error/20'
+              }`}
+            >
+              <div className="font-semibold text-sm mb-3 flex items-center gap-2">
+                {syncFeedback.status === 'success' && <CheckCircle className="w-4 h-4 text-success" />}
+                {syncFeedback.status === 'partial' && <AlertTriangle className="w-4 h-4 text-warning" />}
+                {syncFeedback.status === 'error' && <XCircle className="w-4 h-4 text-error" />}
+                <span>Resultado da Sincronização</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 {/* Tabela Geral */}
-                {formData.homeTableData && formData.awayTableData && (
-                  <div className="flex items-start gap-2 text-xs">
-                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">✅ Tabela Geral</div>
-                      <div className="opacity-70 text-xs mt-0.5">Alto impacto - base para cálculo</div>
-                      {(() => {
-                        const tableInfo = tablesDiagnostic?.tables.geral;
-                        const squadIssue = tableInfo?.squadFound && (!tableInfo.squadFound.home || !tableInfo.squadFound.away);
-                        if (squadIssue) {
-                          return (
-                            <div className="text-warning text-xs mt-1">
-                              {!tableInfo.squadFound?.home && `Time da casa não encontrado`}
-                              {!tableInfo.squadFound?.home && !tableInfo.squadFound?.away && ' e '}
-                              {!tableInfo.squadFound?.away && `Time visitante não encontrado`}
-                              {tableInfo.availableSquads && tableInfo.availableSquads.length > 0 && (
-                                <div className="opacity-70 mt-1">
-                                  Squads disponíveis: {tableInfo.availableSquads.slice(0, 3).join(', ')}
-                                  {tableInfo.availableSquads.length > 3 && '...'}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
+                <div className={`p-2 rounded-lg ${syncFeedback.hasGeralTable ? 'bg-success/10' : 'bg-error/10'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {syncFeedback.hasGeralTable ? (
+                      <CheckCircle className="w-3 h-3 text-success" />
+                    ) : (
+                      <XCircle className="w-3 h-3 text-error" />
+                    )}
+                    <span className="font-medium">Tabela Geral</span>
+                    {syncFeedback.tableFormat && (
+                      <span className={`badge badge-xs ${syncFeedback.tableFormat === 'completa' ? 'badge-success' : 'badge-warning'}`}>
+                        {syncFeedback.tableFormat}
+                      </span>
+                    )}
+                  </div>
+                  {syncFeedback.hasGeralTable && (
+                    <div className="ml-5 space-y-0.5 opacity-80">
+                      <div>{selectedHomeSquad}: {syncFeedback.homeMP} jogos</div>
+                      <div>{selectedAwaySquad}: {syncFeedback.awayMP} jogos</div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Tabela de Complemento */}
-                {formData.homeComplementData && formData.awayComplementData && (
-                  <div className="flex items-start gap-2 text-xs">
-                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">✅ Tabela de Complemento</div>
-                      <div className="opacity-70 text-xs mt-0.5">Playing Time, Performance, Per 90 Minutes - aumenta precisão</div>
-                    </div>
+                {/* Tabela Complemento */}
+                <div className={`p-2 rounded-lg ${syncFeedback.hasComplementTable ? 'bg-success/10' : 'bg-base-300/50'}`}>
+                  <div className="flex items-center gap-2">
+                    {syncFeedback.hasComplementTable ? (
+                      <CheckCircle className="w-3 h-3 text-success" />
+                    ) : (
+                      <Info className="w-3 h-3 opacity-40" />
+                    )}
+                    <span className="font-medium">Tabela Complemento</span>
                   </div>
-                )}
-              </div>
+                  <div className="ml-5 mt-1 opacity-70">
+                    {syncFeedback.hasComplementTable ? 'Posse, Performance, Per 90' : 'Não disponível'}
+                  </div>
+                </div>
 
-              <div className="mt-3 pt-3 border-t border-base-content/10 space-y-2">
-                {/* Mensagem consolidada de status */}
-                {formData.homeTableData && formData.awayTableData && formData.homeComplementData && formData.awayComplementData && (
-                  <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                    ✅ Ambas as tabelas carregadas! Análise com máxima precisão disponível.
+                {/* Média da Competição */}
+                <div className={`p-2 rounded-lg ${syncFeedback.competitionAvg ? 'bg-primary/10' : 'bg-base-300/50'}`}>
+                  <div className="font-medium mb-1">Média da Competição</div>
+                  <div className="ml-1 text-lg font-bold">
+                    {syncFeedback.competitionAvg ? `${syncFeedback.competitionAvg.toFixed(2)} gols/jogo` : '—'}
                   </div>
-                )}
-                {formData.homeTableData && formData.awayTableData && !formData.homeComplementData && (
-                  <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                    ✅ Tabela geral carregada! Análise pronta.
-                  </div>
-                )}
-                {!formData.homeTableData && formData.homeComplementData && formData.awayComplementData && (
-                  <div className="p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs font-medium">
-                    ⚠️ Apenas tabela de complemento disponível. Adicione a tabela geral para análise completa.
-                  </div>
-                )}
+                </div>
 
-                {/* Aviso sobre formato BÁSICO com contexto do complemento */}
-                {formData.homeTableData && formData.awayTableData && (
-                  (() => {
-                    const hasXg = !!(formData.homeTableData?.['Home xG'] || formData.homeTableData?.['Away xG'] || 
-                                   formData.awayTableData?.['Home xG'] || formData.awayTableData?.['Away xG']);
-                    const hasComplement = !!(formData.homeComplementData && formData.awayComplementData);
-                    
-                    if (!hasXg) {
-                      if (hasComplement) {
-                        return (
-                          <div className="p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs font-medium">
-                            ⚠️ Formato BÁSICO detectado (sem xG). A análise usará gols reais (GF/GA).
-                            <br />
-                            <span className="opacity-90">💡 A tabela de complemento compensa parcialmente, adicionando dados de posse, performance e tempo de jogo para maior precisão.</span>
-                          </div>
-                        );
-                      } else {
-                        return (
-                          <div className="p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs font-medium">
-                            ⚠️ Formato BÁSICO detectado (sem xG). A análise usará apenas gols reais (GF/GA), o que pode reduzir ligeiramente a precisão.
-                            <br />
-                            <span className="opacity-90">💡 Adicione a tabela de complemento para aumentar a precisão mesmo sem xG.</span>
-                          </div>
-                        );
-                      }
-                    }
-                    return (
-                      <div className="p-2 bg-info/10 border border-info/30 rounded text-info text-xs font-medium">
-                        ℹ️ Formato COMPLETO detectado (com xG). Análise com máxima precisão.
-                        {hasComplement && (
-                          <span className="block mt-1 opacity-90">+ Tabela de complemento ativa - precisão ainda maior!</span>
-                        )}
+                {/* Métricas Extraídas */}
+                {syncFeedback.hasGeralTable && (
+                  <div className="p-2 rounded-lg bg-base-300/50">
+                    <div className="font-medium mb-1">Métricas Extraídas</div>
+                    <div className="ml-1 space-y-0.5">
+                      <div>
+                        <span className="opacity-70">xG:</span>{' '}
+                        {syncFeedback.homeXG != null ? syncFeedback.homeXG.toFixed(2) : '—'} /{' '}
+                        {syncFeedback.awayXG != null ? syncFeedback.awayXG.toFixed(2) : '—'}
                       </div>
-                    );
-                  })()
+                      <div>
+                        <span className="opacity-70">Gols/jogo:</span>{' '}
+                        {syncFeedback.homeGoalsPerGame != null ? syncFeedback.homeGoalsPerGame.toFixed(2) : '—'} /{' '}
+                        {syncFeedback.awayGoalsPerGame != null ? syncFeedback.awayGoalsPerGame.toFixed(2) : '—'}
+                      </div>
+                      <div>
+                        <span className="opacity-70">Sofridos/jogo:</span>{' '}
+                        {syncFeedback.homeConcededPerGame != null ? syncFeedback.homeConcededPerGame.toFixed(2) : '—'} /{' '}
+                        {syncFeedback.awayConcededPerGame != null ? syncFeedback.awayConcededPerGame.toFixed(2) : '—'}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-          ) : null}
+
+              {/* Resumo de impacto na análise */}
+              <div className="mt-3 pt-3 border-t border-base-content/10">
+                {syncFeedback.hasGeralTable && syncFeedback.hasComplementTable && (
+                  <div className="p-2 bg-success/10 border border-success/20 rounded text-success text-xs font-medium">
+                    ✅ Análise com máxima precisão disponível (tabela geral + complemento + xG).
+                  </div>
+                )}
+                {syncFeedback.hasGeralTable && !syncFeedback.hasComplementTable && syncFeedback.tableFormat === 'completa' && (
+                  <div className="p-2 bg-success/10 border border-success/20 rounded text-success text-xs font-medium">
+                    ✅ Tabela geral com xG carregada. Análise precisa.
+                  </div>
+                )}
+                {syncFeedback.hasGeralTable && !syncFeedback.hasComplementTable && syncFeedback.tableFormat === 'basica' && (
+                  <div className="p-2 bg-warning/10 border border-warning/20 rounded text-warning text-xs font-medium">
+                    ⚠️ Formato básico (sem xG). A análise usará gols reais (GF/GA). Adicione a tabela de complemento para maior precisão.
+                  </div>
+                )}
+                {!syncFeedback.hasGeralTable && (
+                  <div className="p-2 bg-error/10 border border-error/20 rounded text-error text-xs font-medium">
+                    ❌ Tabela geral não encontrada. Extraia as tabelas do fbref.com primeiro.
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
 
@@ -535,11 +670,16 @@ const MatchForm: React.FC<MatchFormProps> = ({
         </div>
       </div>
 
-      {/* Competição (Média) */}
+      {/* Competição (Média) - Auto-preenchida pelo sync */}
       <div className="form-control">
         <label className="label ml-2 flex items-center">
-          <span className="label-text font-bold">Competição (Média)</span>
-          <InfoIcon text="Média da competição." />
+          <span className="label-text font-bold">
+            Competição (Média)
+            {formData.competitionAvg && formData.competitionAvg > 0 && (
+              <span className="badge badge-success badge-sm ml-2">auto</span>
+            )}
+          </span>
+          <InfoIcon text="Média de gols por jogo da competição. Calculada automaticamente ao sincronizar com a tabela." />
         </label>
         <input
           type="number"
@@ -548,9 +688,16 @@ const MatchForm: React.FC<MatchFormProps> = ({
           value={formData.competitionAvg || ''}
           onChange={handleChange}
           className="input w-full"
-          placeholder="Ex: 76.87"
-          aria-label="Média da competição"
+          placeholder="Calculada ao sincronizar (ex: 2.65)"
+          aria-label="Média de gols por jogo da competição"
         />
+        {formData.competitionAvg && formData.competitionAvg > 0 && (
+          <label className="label">
+            <span className="label-text-alt text-success text-xs">
+              {formData.competitionAvg.toFixed(2)} gols por jogo
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Odd Over 1.5 */}
