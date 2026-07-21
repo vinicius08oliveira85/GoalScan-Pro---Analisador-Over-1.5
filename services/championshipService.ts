@@ -1556,39 +1556,63 @@ export const syncTeamStatsFromTable = async (
 ): Promise<{
   homeTableData: TableRowGeral | null;
   awayTableData: TableRowGeral | null;
-  competitionAvg?: number; // Média de gols do campeonato calculada automaticamente
+  competitionAvg?: number;
   homeComplementData?: TableRowComplement | null;
   awayComplementData?: TableRowComplement | null;
   competitionComplementAvg?: CompetitionComplementAverages | null;
 }> => {
   try {
-    // Carregar times normalizados da tabela championship_teams
-    const teams = await loadChampionshipTeams(championshipId);
+    let teams = await loadChampionshipTeams(championshipId);
+    let homeData: TableRowGeral | null = null;
+    let awayData: TableRowGeral | null = null;
 
-    const homeTeam = teams.find((t) => t.squad === homeSquad) || null;
-    const awayTeam = teams.find((t) => t.squad === awaySquad) || null;
+    // Se championship_teams retornou times, usar o fluxo normal
+    if (teams.length > 0) {
+      const homeTeam = teams.find((t) => t.squad === homeSquad) || null;
+      const awayTeam = teams.find((t) => t.squad === awaySquad) || null;
 
-    // Validação: verificar se times foram encontrados
-    if (!homeTeam) {
-      if (import.meta.env.DEV) {
-        logger.warn(
-          `[ChampionshipService] Time da casa "${homeSquad}" não encontrado no campeonato ${championshipId}`
-        );
-      }
-    }
-    if (!awayTeam) {
-      if (import.meta.env.DEV) {
-        logger.warn(
-          `[ChampionshipService] Time visitante "${awaySquad}" não encontrado no campeonato ${championshipId}`
-        );
-      }
+      homeData = homeTeam ? convertChampionshipTeamToTableRowGeral(homeTeam, true) : null;
+      awayData = awayTeam ? convertChampionshipTeamToTableRowGeral(awayTeam, false) : null;
+
+      logger.log('[ChampionshipService] Dados carregados de championship_teams:', {
+        homeFound: !!homeTeam,
+        awayFound: !!awayTeam,
+      });
     }
 
-    // Converter ChampionshipTeam para TableRowGeral
-    // Para time da casa: usar campos Home do próprio time
-    // Para time visitante: usar campos Away do próprio time
-    const homeData = homeTeam ? convertChampionshipTeamToTableRowGeral(homeTeam, true) : null;
-    const awayData = awayTeam ? convertChampionshipTeamToTableRowGeral(awayTeam, false) : null;
+    // Fallback: ler diretamente de championship_tables (JSONB) se não encontrou nos times normalizados
+    if (!homeData || !awayData) {
+      logger.log('[ChampionshipService] Fallback: lendo de championship_tables (JSONB)...');
+      const tables = await loadChampionshipTables(championshipId);
+      const geralTable = tables.find((t) => t.table_type === 'geral');
+      
+      if (geralTable && Array.isArray(geralTable.table_data)) {
+        const rows = geralTable.table_data as TableRowGeral[];
+        
+        if (!homeData) {
+          const homeRow = rows.find((r) => r.Squad === homeSquad);
+          if (homeRow) {
+            homeData = homeRow;
+            logger.log('[ChampionshipService] Time da casa encontrado na tabela geral JSONB:', homeSquad);
+          }
+        }
+        
+        if (!awayData) {
+          const awayRow = rows.find((r) => r.Squad === awaySquad);
+          if (awayRow) {
+            awayData = awayRow;
+            logger.log('[ChampionshipService] Time visitante encontrado na tabela geral JSONB:', awaySquad);
+          }
+        }
+      }
+    }
+
+    if (!homeData) {
+      logger.warn(`[ChampionshipService] Time da casa "${homeSquad}" não encontrado`);
+    }
+    if (!awayData) {
+      logger.warn(`[ChampionshipService] Time visitante "${awaySquad}" não encontrado`);
+    }
 
     // Validação: verificar se dados obrigatórios estão presentes
     if (homeData) {
@@ -1597,11 +1621,9 @@ export const syncTeamStatsFromTable = async (
       const homeGa = parseFloat(homeData['Home GA'] || homeData.GA || '0');
       
       if (homeMp === 0 || (homeGf === 0 && homeGa === 0)) {
-        if (import.meta.env.DEV) {
-          logger.warn(
-            `[ChampionshipService] Dados incompletos para time da casa "${homeSquad}": MP=${homeMp}, GF=${homeGf}, GA=${homeGa}`
-          );
-        }
+        logger.warn(
+          `[ChampionshipService] Dados incompletos para time da casa "${homeSquad}": MP=${homeMp}, GF=${homeGf}, GA=${homeGa}`
+        );
       }
     }
     
@@ -1611,19 +1633,90 @@ export const syncTeamStatsFromTable = async (
       const awayGa = parseFloat(awayData['Away GA'] || awayData.GA || '0');
       
       if (awayMp === 0 || (awayGf === 0 && awayGa === 0)) {
-        if (import.meta.env.DEV) {
-          logger.warn(
-            `[ChampionshipService] Dados incompletos para time visitante "${awaySquad}": MP=${awayMp}, GF=${awayGf}, GA=${awayGa}`
-          );
+        logger.warn(
+          `[ChampionshipService] Dados incompletos para time visitante "${awaySquad}": MP=${awayMp}, GF=${awayGf}, GA=${awayGa}`
+        );
+      }
+    }
+
+    // Calcular média de gols do campeonato
+    // Usar teams do championship_teams se disponível, senão calcular da tabela geral JSONB
+    let competitionAvg: number | undefined;
+    if (teams.length > 0) {
+      competitionAvg = calculateCompetitionAverageGoalsFromTeams(teams) ?? undefined;
+    } else {
+      // Calcular da tabela geral JSONB
+      const tables = await loadChampionshipTables(championshipId);
+      const geralTable = tables.find((t) => t.table_type === 'geral');
+      if (geralTable && Array.isArray(geralTable.table_data)) {
+        const rows = geralTable.table_data as TableRowGeral[];
+        let totalGoals = 0;
+        let totalMatches = 0;
+        for (const row of rows) {
+          const gf = parseFloat(row['Home GF'] || row.GF || '0');
+          const mp = parseFloat(row['Home MP'] || row.MP || '0');
+          if (mp > 0) {
+            totalGoals += gf;
+            totalMatches += mp;
+          }
+        }
+        if (totalMatches > 0) {
+          competitionAvg = parseFloat(((2 * totalGoals) / totalMatches).toFixed(2));
+          logger.log('[ChampionshipService] Média calculada da tabela geral JSONB:', competitionAvg);
         }
       }
     }
 
-    // Calcular média de gols do campeonato usando todos os times
-    const competitionAvg = calculateCompetitionAverageGoalsFromTeams(teams);
-
     // Complemento (championship_complement) - opcional
-    const complementData = await loadChampionshipComplement(championshipId);
+    let complementData = await loadChampionshipComplement(championshipId);
+    
+    // Fallback: ler complemento de championship_tables (JSONB) se vazio
+    if (complementData.length === 0) {
+      logger.log('[ChampionshipService] Fallback: lendo complemento de championship_tables (JSONB)...');
+      const tables = await loadChampionshipTables(championshipId);
+      const complementTable = tables.find((t) => t.table_type === 'complement');
+      
+      if (complementTable && Array.isArray(complementTable.table_data)) {
+        const complementRows = complementTable.table_data as Array<Record<string, unknown>>;
+        
+        // Converter rows JSONB para formato ChampionshipComplement
+        complementData = complementRows
+          .filter((row) => {
+            const squad = row.Squad || row.squad;
+            return squad === homeSquad || squad === awaySquad;
+          })
+          .map((row) => ({
+            squad: String(row.Squad || row.squad || ''),
+            championship_id: championshipId,
+            table_name: complementTable.table_name,
+            pl: row.Pl != null ? String(row.Pl) : undefined,
+            age: row.Age != null ? String(row.Age) : undefined,
+            poss: row.Poss != null ? String(row.Poss) : undefined,
+            playing_time_mp: row['Playing Time MP'] != null ? String(row['Playing Time MP']) : undefined,
+            playing_time_starts: row['Playing Time Starts'] != null ? String(row['Playing Time Starts']) : undefined,
+            playing_time_min: row['Playing Time Min'] != null ? String(row['Playing Time Min']) : undefined,
+            playing_time_90s: row['Playing Time 90s'] != null ? String(row['Playing Time 90s']) : undefined,
+            performance_gls: row['Performance Gls'] != null ? String(row['Performance Gls']) : undefined,
+            performance_ast: row['Performance Ast'] != null ? String(row['Performance Ast']) : undefined,
+            performance_g_a: row['Performance G+A'] != null ? String(row['Performance G+A']) : undefined,
+            performance_g_pk: row['Performance G-PK'] != null ? String(row['Performance G-PK']) : undefined,
+            performance_pk: row['Performance PK'] != null ? String(row['Performance PK']) : undefined,
+            performance_pkatt: row['Performance PKatt'] != null ? String(row['Performance PKatt']) : undefined,
+            performance_crdy: row['Performance CrdY'] != null ? String(row['Performance CrdY']) : undefined,
+            performance_crdr: row['Performance CrdR'] != null ? String(row['Performance CrdR']) : undefined,
+            per_90_gls: row['Per 90 Minutes Gls'] != null ? String(row['Per 90 Minutes Gls']) : undefined,
+            per_90_ast: row['Per 90 Minutes Ast'] != null ? String(row['Per 90 Minutes Ast']) : undefined,
+            per_90_g_a: row['Per 90 Minutes G+A'] != null ? String(row['Per 90 Minutes G+A']) : undefined,
+            per_90_g_pk: row['Per 90 Minutes G-PK'] != null ? String(row['Per 90 Minutes G-PK']) : undefined,
+            per_90_g_a_pk: row['Per 90 Minutes G+A-PK'] != null ? String(row['Per 90 Minutes G+A-PK']) : undefined,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }));
+        
+        logger.log('[ChampionshipService] Complemento carregado da tabela JSONB:', complementData.length, 'times');
+      }
+    }
+
     const homeComplement = complementData.find((c) => c.squad === homeSquad) || null;
     const awayComplement = complementData.find((c) => c.squad === awaySquad) || null;
     
@@ -1634,28 +1727,28 @@ export const syncTeamStatsFromTable = async (
       ? convertChampionshipComplementToTableRow(awayComplement)
       : null;
     
-    // Sempre calcular média se houver dados de complemento (mesmo que parcial)
-    // Isso garante que a análise possa usar a tabela complemento mesmo quando não há média completa
+    // Calcular média de complemento
     let competitionComplementAvg = calculateCompetitionComplementAverages(complementData);
     
-    // Se não houver média calculada mas houver dados parciais dos times, calcular média básica
     if (!competitionComplementAvg && (homeComplement || awayComplement)) {
       const partialData: ChampionshipComplement[] = [];
       if (homeComplement) partialData.push(homeComplement);
       if (awayComplement) partialData.push(awayComplement);
-      
-      // Calcular média apenas com os dados disponíveis dos times da partida
       competitionComplementAvg = calculateCompetitionComplementAverages(partialData);
-      
-      if (competitionComplementAvg) {
-        logger.log('[ChampionshipService] Média de complemento calculada a partir de dados parciais dos times da partida');
-      }
     }
+
+    logger.log('[ChampionshipService] syncTeamStatsFromTable resultado:', {
+      homeFound: !!homeData,
+      awayFound: !!awayData,
+      competitionAvg,
+      complementHome: !!homeComplementData,
+      complementAway: !!awayComplementData,
+    });
 
     return {
       homeTableData: homeData,
       awayTableData: awayData,
-      competitionAvg: competitionAvg || undefined,
+      competitionAvg,
       homeComplementData,
       awayComplementData,
       competitionComplementAvg: competitionComplementAvg || undefined,
