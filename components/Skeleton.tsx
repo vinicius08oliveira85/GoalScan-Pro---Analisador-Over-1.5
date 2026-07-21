@@ -72,17 +72,13 @@ export const SkeletonCard: React.FC<{ className?: string }> = ({ className = '' 
 );
 
 export const SkeletonMetricCard: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div
-    className={`group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-base-200 to-base-300/50 backdrop-blur-xl border border-base-300/50 ${className}`}
-  >
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Skeleton variant="text" height={12} width="40%" />
-        <Skeleton variant="circular" width={24} height={24} />
-      </div>
-      <Skeleton variant="text" height={24} width="60%" />
-      <Skeleton variant="rectangular" height={4} width="100%" />
+  <div className={`custom-card p-4 md:p-6 ${className}`}>
+    <div className="flex items-start justify-between mb-3">
+      <Skeleton variant="circular" width={40} height={40} />
     </div>
+    <Skeleton variant="text" height={12} width="50%" className="mb-1.5" />
+    <Skeleton variant="text" height={30} width="65%" />
+    <Skeleton variant="text" height={10} width="40%" className="mt-1.5" />
   </div>
 );
 

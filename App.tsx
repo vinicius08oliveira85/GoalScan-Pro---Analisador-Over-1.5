@@ -1,5 +1,5 @@
 import React, { useState, lazy, Suspense } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import { tabScreenTransition } from './utils/animations';
 import MatchForm from './components/MatchForm';
 import InAppNotification from './components/InAppNotification';
@@ -279,6 +279,7 @@ const App: React.FC = () => {
 
   // Renderizar tela principal com abas
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8">
       {/* Command Palette */}
       <CommandPalette
@@ -557,6 +558,7 @@ const App: React.FC = () => {
         webSearch={handleWebSearch}
       />
     </div>
+    </MotionConfig>
   );
 };
 

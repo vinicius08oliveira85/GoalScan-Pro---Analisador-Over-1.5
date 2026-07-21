@@ -258,14 +258,14 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
             custom={2}
             className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
           >
-            <div className="p-1.5 md:p-2 rounded-lg bg-teal-500/10 border border-teal-500/20 flex-shrink-0">
-              <TrendingUpIcon className="w-4 h-4 md:w-5 md:h-5 text-teal-400" />
+            <div className="p-1.5 md:p-2 rounded-lg bg-info/10 border border-info/20 flex-shrink-0">
+              <TrendingUpIcon className="w-4 h-4 md:w-5 md:h-5 text-info" />
             </div>
             <div className="min-w-0">
               <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
                 Prob. Média
               </p>
-              <p className="text-lg md:text-xl font-black text-teal-400">
+              <p className="text-lg md:text-xl font-black text-info">
                 {avgProbability.toFixed(1)}%
               </p>
             </div>

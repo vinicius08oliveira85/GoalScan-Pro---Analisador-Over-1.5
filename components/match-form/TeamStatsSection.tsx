@@ -48,7 +48,7 @@ const TeamStatsSection: React.FC<TeamStatsSectionProps> = ({
   };
 
   return (
-    <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10">
+    <div className="bg-info/5 p-4 rounded-3xl border border-info/10">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
@@ -59,7 +59,7 @@ const TeamStatsSection: React.FC<TeamStatsSectionProps> = ({
         <button
           type="button"
           onClick={() => setShowPaste(!showPaste)}
-          className="btn btn-xs btn-ghost gap-1 text-teal-600"
+          className="btn btn-xs btn-ghost gap-1 text-info"
         >
           <Clipboard className="w-3 h-3" />
           Colar Dados

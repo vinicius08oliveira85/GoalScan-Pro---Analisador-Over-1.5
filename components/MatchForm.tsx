@@ -398,7 +398,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         return { ...prev, [teamKey]: { ...currentStats, gols: newStats } };
       });
     } else {
-      alert('Nenhum dado reconhecido. Verifique o formato.');
+      console.warn('Nenhum dado reconhecido. Verifique o formato.');
     }
   };
 
@@ -492,7 +492,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
       if (onError) {
         onError(`Erro ao validar dados: ${errorMessage}`);
       } else {
-        alert(`Erro ao validar dados: ${errorMessage}`);
+        console.error(`Erro ao validar dados: ${errorMessage}`);
       }
     }
   };
@@ -840,17 +840,17 @@ const MatchForm: React.FC<MatchFormProps> = ({
       </div>
 
       {/* Importação de Estatísticas Globais */}
-      <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10 mb-4">
+      <div className="bg-info/5 p-4 rounded-3xl border border-info/10 mb-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-teal-500" />
+            <FileSpreadsheet className="w-5 h-5 text-info" />
             <span className="text-sm font-bold">Importar Estatísticas Globais</span>
             <InfoIcon text="Importe um arquivo Excel (xlsx) ou CSV com as estatísticas dos 10 últimos jogos do campeonato para ambos os times. O arquivo deve conter seções 'Time Casa' e 'Time Fora' com dados para Casa, Fora e Global." />
           </div>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <label className="btn btn-outline btn-sm btn-teal cursor-pointer">
+          <label className="btn btn-outline btn-sm btn-primary cursor-pointer">
             <Upload className="w-4 h-4 mr-2" />
             {isImporting ? 'Importando...' : 'Selecionar Arquivo'}
             <input

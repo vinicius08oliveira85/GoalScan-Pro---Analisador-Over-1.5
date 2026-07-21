@@ -197,7 +197,7 @@ const BankSettingsComponent: React.FC<BankSettingsProps> = ({ bankSettings, onSa
       if (onError) {
         onError(`Erro ao validar configurações: ${errorMessage}`);
       } else {
-        alert(`Erro ao validar configurações: ${errorMessage}`);
+        console.error(`Erro ao validar configurações: ${errorMessage}`);
       }
 
       // Resetar status após 3 segundos
