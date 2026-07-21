@@ -8,6 +8,8 @@ import {
 } from '../types';
 import { stripImportExtrasFromRow } from '../utils/leagueStandingJson';
 import { calculateEVPercent } from '../utils/evDecimal';
+import { DEFAULT_TOTAL_TEAMS } from '../utils/constants';
+import { parseNumeric } from '../utils/numbers';
 import {
   blendAttackRate,
   blendHistoricWithFormSnapshot,
@@ -1119,7 +1121,7 @@ function calculateAggregateStandingTableProbability(data: MatchData): {
 
   const homeRk = parseStandingCell(h.Rk);
   const awayRk = parseStandingCell(a.Rk);
-  const totalTeams = 20;
+  const totalTeams = DEFAULT_TOTAL_TEAMS;
   if (homeRk > 0 && homeRk <= 5) lambdaHome *= 1.05;
   else if (homeRk > 0 && homeRk <= 10) lambdaHome *= 1.02;
   if (awayRk > 0 && awayRk <= 5) lambdaAway *= 1.05;
@@ -1373,15 +1375,6 @@ function calculateTableProbability(data: MatchData): {
   if (hasPartialComplement) {
     // Se não houver média calculada, tentar calcular a partir dos dados disponíveis
     if (!avg) {
-      const parseNum = (value: unknown): number => {
-        if (value == null) return 0;
-        const raw = String(value).trim();
-        if (!raw) return 0;
-        const normalized = raw.replace(/,/g, '');
-        const n = Number.parseFloat(normalized);
-        return Number.isFinite(n) ? n : 0;
-      };
-
       const allRows: Array<Record<string, unknown>> = [];
       if (hasHomeComplement) allRows.push(data.homeComplementData as unknown as Record<string, unknown>);
       if (hasAwayComplement) allRows.push(data.awayComplementData as unknown as Record<string, unknown>);
@@ -1397,22 +1390,22 @@ function calculateTableProbability(data: MatchData): {
         let playingTime90sCount = 0;
 
         for (const row of allRows) {
-          const poss = parseNum(row.Poss);
+          const poss = parseNumeric(row.Poss);
           if (poss > 0) {
             possSum += poss;
             possCount++;
           }
-          const per90Gls = parseNum(row['Per 90 Minutes Gls']);
+          const per90Gls = parseNumeric(row['Per 90 Minutes Gls']);
           if (per90Gls > 0) {
             per90GlsSum += per90Gls;
             per90GlsCount++;
           }
-          const age = parseNum(row.Age);
+          const age = parseNumeric(row.Age);
           if (age > 0) {
             ageSum += age;
             ageCount++;
           }
-          const playingTime90s = parseNum(row['Playing Time 90s']);
+          const playingTime90s = parseNumeric(row['Playing Time 90s']);
           if (playingTime90s > 0) {
             playingTime90sSum += playingTime90s;
             playingTime90sCount++;
@@ -1455,14 +1448,6 @@ function calculateTableProbability(data: MatchData): {
 
     // SEMPRE aplicar ajustes quando houver dados parciais (não depende mais de avg ser não-nulo)
     // Este código está dentro do if (hasPartialComplement) da linha 779
-    const parseNum = (value: unknown): number => {
-      if (value == null) return 0;
-      const raw = String(value).trim();
-      if (!raw) return 0;
-      const normalized = raw.replace(/,/g, '');
-      const n = Number.parseFloat(normalized);
-      return Number.isFinite(n) ? n : 0;
-    };
 
     // Usar dados parciais - se não houver um dos times, usar valores neutros
     const homeRow = hasHomeComplement 
@@ -1473,8 +1458,8 @@ function calculateTableProbability(data: MatchData): {
       : ({} as Record<string, unknown>);
 
     // 1. Ajuste por Possession (posse de bola) - times com mais posse tendem a ter mais oportunidades
-    const homePoss = hasHomeComplement ? parseNum(homeRow.Poss) : avgToUse.poss;
-    const awayPoss = hasAwayComplement ? parseNum(awayRow.Poss) : avgToUse.poss;
+    const homePoss = hasHomeComplement ? parseNumeric(homeRow.Poss) : avgToUse.poss;
+    const awayPoss = hasAwayComplement ? parseNumeric(awayRow.Poss) : avgToUse.poss;
     const homePossRatio = avgToUse.poss > 0 && homePoss > 0 ? homePoss / avgToUse.poss : 1;
     const awayPossRatio = avgToUse.poss > 0 && awayPoss > 0 ? awayPoss / avgToUse.poss : 1;
     
@@ -1483,10 +1468,10 @@ function calculateTableProbability(data: MatchData): {
     const awayPossFactor = clamp(1 + (awayPossRatio - 1) * 0.1, 0.95, 1.05);
 
     // 2. Ajuste por Performance metrics (Gls, Ast, G+A por 90)
-    const homePer90Gls = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
-    const homePer90GA = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
-    const awayPer90Gls = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
-    const awayPer90GA = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
+    const homePer90Gls = hasHomeComplement ? parseNumeric(homeRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
+    const homePer90GA = hasHomeComplement ? parseNumeric(homeRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
+    const awayPer90Gls = hasAwayComplement ? parseNumeric(awayRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
+    const awayPer90GA = hasAwayComplement ? parseNumeric(awayRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
     
     const homePer90Ratio = avgToUse.per90Gls > 0 && homePer90Gls > 0 ? homePer90Gls / avgToUse.per90Gls : 1;
     const awayPer90Ratio = avgToUse.per90Gls > 0 && awayPer90Gls > 0 ? awayPer90Gls / avgToUse.per90Gls : 1;
@@ -1496,8 +1481,8 @@ function calculateTableProbability(data: MatchData): {
     const awayPer90Factor = clamp(1 + (awayPer90Ratio - 1) * 0.12, 0.94, 1.06);
 
     // 3. Ajuste por Age (idade média) - times mais jovens podem ser mais ofensivos
-    const homeAge = hasHomeComplement ? parseNum(homeRow.Age) : avgToUse.age;
-    const awayAge = hasAwayComplement ? parseNum(awayRow.Age) : avgToUse.age;
+    const homeAge = hasHomeComplement ? parseNumeric(homeRow.Age) : avgToUse.age;
+    const awayAge = hasAwayComplement ? parseNumeric(awayRow.Age) : avgToUse.age;
     const avgAge = avgToUse.age;
     
     // Times mais jovens (até 2 anos abaixo da média) têm pequeno bônus ofensivo (até +2%)
@@ -1510,8 +1495,8 @@ function calculateTableProbability(data: MatchData): {
 
     // 4. Ajuste por Playing Time (normalização por minutos jogados)
     // Times com mais minutos jogados podem ter mais consistência
-    const home90s = hasHomeComplement ? parseNum(homeRow['Playing Time 90s']) : avgToUse.playingTime90s;
-    const away90s = hasAwayComplement ? parseNum(awayRow['Playing Time 90s']) : avgToUse.playingTime90s;
+    const home90s = hasHomeComplement ? parseNumeric(homeRow['Playing Time 90s']) : avgToUse.playingTime90s;
+    const away90s = hasAwayComplement ? parseNumeric(awayRow['Playing Time 90s']) : avgToUse.playingTime90s;
     const avg90s = avgToUse.playingTime90s;
     
     // Mais minutos = mais consistência (até +1%)
@@ -1557,8 +1542,8 @@ function calculateTableProbability(data: MatchData): {
   }
 
   // 4. Ajustar baseado em posição na tabela (times no topo são mais ofensivos)
-  // Assumir que há 20 times (ajustar se necessário)
-  const totalTeams = 20; // Pode ser ajustado dinamicamente se necessário
+  // Total de times (constante centralizada; ajustar por campeonato quando disponível)
+  const totalTeams = DEFAULT_TOTAL_TEAMS;
   const homePositionFactor = homeRk > 0 ? (totalTeams - homeRk + 1) / totalTeams : 0.5;
   const awayPositionFactor = awayRk > 0 ? (totalTeams - awayRk + 1) / totalTeams : 0.5;
   
@@ -2715,7 +2700,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   // Pontos por dados fundamentais (usar estimatedOver15Freq em vez de campos deprecated)
   // Se temos dados estimados válidos (não é o baseline de 50), considerar como dados disponíveis
   if (estimatedOver15Freq > 50) confidence += 15;
-  if (estimatedOver15Freq > 50) confidence += 15; // Mesmo valor para ambos (já calculado com dados de ambos)
   if (competitionAvg > 0) confidence += 10;
 
   // Pontos por estatísticas detalhadas
