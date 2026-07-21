@@ -7,6 +7,7 @@ import {
   deleteChampionship,
   loadChampionshipTables,
   saveChampionshipTable,
+  deleteChampionshipTable,
   getSquadsFromTable,
 } from '../services/championshipService';
 import { logger } from '../utils/logger';
@@ -215,6 +216,25 @@ export const useChampionships = (onError?: (message: string) => void) => {
     [onError]
   );
 
+  // Deletar tabela
+  const removeTable = useCallback(
+    async (championshipId: string, tableType: string): Promise<boolean> => {
+      try {
+        await deleteChampionshipTable(championshipId, tableType);
+        return true;
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        logger.error('[useChampionships] Erro ao deletar tabela:', errorMessage);
+
+        if (onError) {
+          onError(`Erro ao deletar tabela: ${errorMessage}`);
+        }
+        return false;
+      }
+    },
+    [onError]
+  );
+
   // Obter Squads de uma tabela
   const getSquads = useCallback(
     async (championshipId: string, tableType: TableType = 'geral'): Promise<string[]> => {
@@ -238,6 +258,7 @@ export const useChampionships = (onError?: (message: string) => void) => {
     remove,
     loadTables,
     saveTable,
+    removeTable,
     getSquads,
   };
 };

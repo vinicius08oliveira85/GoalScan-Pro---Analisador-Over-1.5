@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, Upload, ExternalLink } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Trophy, Plus, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
-import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
 import FbrefExtractionModal from './FbrefExtractionModal';
 import ModalShell from './ui/ModalShell';
+import ConfirmDialog from './ui/ConfirmDialog';
 import EmptyState from './ui/EmptyState';
 import { SkeletonCard } from './Skeleton';
 import Skeleton from './Skeleton';
@@ -15,22 +15,22 @@ import Skeleton from './Skeleton';
 const ChampionshipsScreen: React.FC = () => {
   const handleError = (message: string) => {
     console.error('[ChampionshipsScreen]', message);
-    // Você pode adicionar um toast aqui se necessário
   };
 
-  const { championships, isLoading, isSaving, save, remove, loadTables, saveTable } =
+  const { championships, isLoading, isSaving, save, remove, loadTables, removeTable } =
     useChampionships(handleError);
+
   const [showForm, setShowForm] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<Championship | null>(null);
   const [viewingTables, setViewingTables] = useState<{
     championship: Championship;
     tables: ChampionshipTable[];
   } | null>(null);
-  const [updatingTables, setUpdatingTables] = useState<{
-    championship: Championship;
-    tables: ChampionshipTable[];
-  } | null>(null);
   const [extractingFbref, setExtractingFbref] = useState<Championship | null>(null);
+  const [deletingTable, setDeletingTable] = useState<{
+    championship: Championship;
+    table: ChampionshipTable;
+  } | null>(null);
 
   const handleNewChampionship = () => {
     setEditingChampionship(null);
@@ -51,42 +51,13 @@ const ChampionshipsScreen: React.FC = () => {
     setViewingTables({ championship, tables });
   };
 
-  const handleUpdateTables = async (championship: Championship) => {
-    const tables = await loadTables(championship.id);
-    setUpdatingTables({ championship, tables });
-  };
-
-  const handleSaveChampionship = async (
-    championship: Championship,
-    tables: ChampionshipTable[]
-  ) => {
+  const handleSaveChampionship = async (championship: Championship) => {
     try {
-      // Salvar campeonato
       const savedChampionship = await save(championship);
-
       if (savedChampionship) {
-        // Salvar tabelas
-        if (tables.length > 0) {
-          for (const table of tables) {
-            try {
-              const savedTable = await saveTable({
-                ...table,
-                championship_id: savedChampionship.id,
-              });
-              
-              if (!savedTable) {
-                console.error(`[ChampionshipsScreen] Erro ao salvar tabela ${table.table_type}`);
-                handleError(`Erro ao salvar tabela ${table.table_name || table.table_type}`);
-              }
-            } catch (tableError) {
-              console.error(`[ChampionshipsScreen] Erro ao salvar tabela ${table.table_type}:`, tableError);
-              handleError(`Erro ao salvar tabela ${table.table_name || table.table_type}: ${tableError instanceof Error ? tableError.message : 'Erro desconhecido'}`);
-            }
-          }
-        }
-
         setShowForm(false);
         setEditingChampionship(null);
+        setExtractingFbref(savedChampionship);
       } else {
         handleError('Erro ao salvar campeonato');
       }
@@ -94,6 +65,17 @@ const ChampionshipsScreen: React.FC = () => {
       console.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
       handleError(`Erro ao salvar campeonato: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
+  };
+
+  const handleConfirmDeleteTable = async () => {
+    if (!deletingTable) return;
+    const { championship, table } = deletingTable;
+    const success = await removeTable(championship.id, table.table_type);
+    if (success) {
+      const updatedTables = await loadTables(championship.id);
+      setViewingTables({ championship, tables: updatedTables });
+    }
+    setDeletingTable(null);
   };
 
   if (isLoading) {
@@ -133,7 +115,7 @@ const ChampionshipsScreen: React.FC = () => {
         <EmptyState
           icon={<Trophy className="w-12 h-12 md:w-14 md:h-14" aria-hidden="true" />}
           title="Nenhum Campeonato Cadastrado"
-          description="Comece criando seu primeiro campeonato e adicione as tabelas de classificação."
+          description="Comece criando seu primeiro campeonato e adicione as tabelas via FBref."
           actions={
             <button onClick={handleNewChampionship} className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl focus-ring">
               <Plus className="w-5 h-5" aria-hidden="true" />
@@ -165,11 +147,6 @@ const ChampionshipsScreen: React.FC = () => {
                               ? 'badge-primary'
                               : 'badge-secondary'
                           }`}
-                          title={
-                            championship.table_format === 'completa'
-                              ? 'Planilha completa com dados de xG'
-                              : 'Planilha básica sem dados de xG'
-                          }
                         >
                           {championship.table_format === 'completa' ? 'Completa' : 'Básica'}
                         </span>
@@ -210,17 +187,11 @@ const ChampionshipsScreen: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setExtractingFbref(championship)}
-                  className="btn btn-sm btn-ghost gap-1"
+                  className="btn btn-sm btn-ghost flex-1 gap-1"
                   title="Extrair Dados do FBref.com"
                 >
                   <ExternalLink className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleUpdateTables(championship)}
-                  className="btn btn-sm btn-ghost gap-1"
-                  title="Atualizar Tabelas (JSON)"
-                >
-                  <Upload className="w-4 h-4" />
+                  FBref
                 </button>
                 <button
                   onClick={() => handleEditChampionship(championship)}
@@ -251,7 +222,7 @@ const ChampionshipsScreen: React.FC = () => {
           setEditingChampionship(null);
         }}
         title={editingChampionship ? 'Editar Campeonato' : 'Novo Campeonato'}
-        panelClassName="max-w-4xl"
+        panelClassName="max-w-2xl"
       >
         <ChampionshipForm
           championship={editingChampionship}
@@ -274,35 +245,24 @@ const ChampionshipsScreen: React.FC = () => {
           {viewingTables?.tables.length === 0 ? (
             <div className="text-center py-12 text-base-content/60">
               Nenhuma tabela cadastrada para este campeonato.
+              <br />
+              Use o botão <strong>FBref</strong> para extrair e colar as tabelas.
             </div>
           ) : (
             viewingTables?.tables.map((table) => (
-              <ChampionshipTableView key={table.id} table={table} />
+              <ChampionshipTableView
+                key={table.id}
+                table={table}
+                onDelete={(t) => {
+                  if (viewingTables) {
+                    setDeletingTable({ championship: viewingTables.championship, table: t });
+                  }
+                }}
+              />
             ))
           )}
         </div>
       </ModalShell>
-
-      {/* Modal de Atualização de Tabelas */}
-      <AnimatePresence>
-        {updatingTables && (
-          <ChampionshipTableUpdateModal
-            championship={updatingTables.championship}
-            existingTables={updatingTables.tables}
-            onClose={() => setUpdatingTables(null)}
-            onSaveTable={saveTable}
-            onReloadTables={async () => {
-              const tables = await loadTables(updatingTables.championship.id);
-              // Atualizar estado do modal
-              setUpdatingTables({ championship: updatingTables.championship, tables });
-              // Se o modal de visualização estiver aberto para o mesmo campeonato, atualizar também
-              if (viewingTables?.championship.id === updatingTables.championship.id) {
-                setViewingTables({ championship: viewingTables.championship, tables });
-              }
-            }}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Modal de Extração FBref */}
       {extractingFbref && (
@@ -310,7 +270,6 @@ const ChampionshipsScreen: React.FC = () => {
           championship={extractingFbref}
           onClose={() => setExtractingFbref(null)}
           onTableSaved={async () => {
-            // Recarregar tabelas após salvar
             if (viewingTables?.championship.id === extractingFbref.id) {
               const tables = await loadTables(extractingFbref.id);
               setViewingTables({ championship: extractingFbref, tables });
@@ -321,9 +280,18 @@ const ChampionshipsScreen: React.FC = () => {
         />
       )}
 
+      {/* Confirm Dialog para exclusão de tabela */}
+      <ConfirmDialog
+        isOpen={!!deletingTable}
+        onClose={() => setDeletingTable(null)}
+        onConfirm={handleConfirmDeleteTable}
+        title="Excluir Tabela"
+        message={`Deseja excluir a tabela "${deletingTable?.table.table_name || deletingTable?.table.table_type}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        variant="danger"
+      />
     </div>
   );
 };
 
 export default ChampionshipsScreen;
-

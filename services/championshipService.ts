@@ -1141,6 +1141,47 @@ export const saveChampionshipTable = async (
 };
 
 /**
+ * Deleta uma tabela de campeonato por championship_id e table_type
+ */
+export const deleteChampionshipTable = async (
+  championshipId: string,
+  tableType: string
+): Promise<void> => {
+  if (!championshipId || !tableType) {
+    throw new Error('championshipId e tableType são obrigatórios para deletar tabela');
+  }
+
+  try {
+    await withRetry(async () => {
+      const supabase = await getSupabaseClient();
+      const { error } = await supabase
+        .from('championship_tables')
+        .delete()
+        .eq('championship_id', championshipId)
+        .eq('table_type', tableType);
+
+      if (error) {
+        if (error.code === 'PGRST116' || error.code === '42P01') {
+          deleteChampionshipTableFromLocalStorageByType(championshipId, tableType);
+          return;
+        }
+        if (isTemporaryError(error)) {
+          throw error;
+        }
+        if (import.meta.env.DEV) {
+          logger.error('[ChampionshipService] Erro ao deletar tabela:', error);
+        }
+      }
+    }, `Deletar tabela ${tableType} do campeonato ${championshipId}`);
+  } catch {
+    // Serviço indisponível — deletar do localStorage silenciosamente
+  }
+
+  deleteChampionshipTableFromLocalStorageByType(championshipId, tableType);
+  clearServiceStatus();
+};
+
+/**
  * Obtém lista de Squads de uma tabela específica
  */
 export const getSquadsFromTable = async (
@@ -2257,6 +2298,20 @@ function deleteChampionshipTableFromLocalStorage(tableId: string): void {
     if (!stored) return;
     const allTables = JSON.parse(stored) as ChampionshipTable[];
     const filtered = allTables.filter((t) => t.id !== tableId);
+    localStorage.setItem(STORAGE_KEY_CHAMPIONSHIP_TABLES, JSON.stringify(filtered));
+  } catch (error) {
+    logger.error('[ChampionshipService] Erro ao deletar tabela do localStorage:', error);
+  }
+}
+
+function deleteChampionshipTableFromLocalStorageByType(championshipId: string, tableType: string): void {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_CHAMPIONSHIP_TABLES);
+    if (!stored) return;
+    const allTables = JSON.parse(stored) as ChampionshipTable[];
+    const filtered = allTables.filter(
+      (t) => !(t.championship_id === championshipId && t.table_type === tableType)
+    );
     localStorage.setItem(STORAGE_KEY_CHAMPIONSHIP_TABLES, JSON.stringify(filtered));
   } catch (error) {
     logger.error('[ChampionshipService] Erro ao deletar tabela do localStorage:', error);

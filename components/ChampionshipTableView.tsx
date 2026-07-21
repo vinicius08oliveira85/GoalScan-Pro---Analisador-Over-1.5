@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { ChampionshipTable } from '../types';
-import { Search, ArrowUpDown } from 'lucide-react';
+import { Search, ArrowUpDown, Trash2 } from 'lucide-react';
 
 interface ChampionshipTableViewProps {
   table: ChampionshipTable;
   onSquadSelect?: (squad: string) => void;
+  onDelete?: (table: ChampionshipTable) => void;
 }
 
 // Mapeamento parcial de campos para PT-BR (fallback: exibir o nome original da coluna)
@@ -61,6 +62,7 @@ function parseNumberMaybe(value: unknown): number | null {
 const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
   table,
   onSquadSelect,
+  onDelete,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<string | null>(null);
@@ -158,7 +160,19 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
   return (
     <div className="custom-card p-4 md:p-6">
       <div className="mb-4">
-        <h3 className="text-xl font-bold mb-2">{table.table_name}</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xl font-bold">{table.table_name}</h3>
+          {onDelete && (
+            <button
+              onClick={() => onDelete(table)}
+              className="btn btn-sm btn-ghost text-error hover:bg-error/10 gap-1"
+              title="Excluir tabela"
+            >
+              <Trash2 className="w-4 h-4" />
+              Excluir
+            </button>
+          )}
+        </div>
         <div className="form-control">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-base-content/40" />
