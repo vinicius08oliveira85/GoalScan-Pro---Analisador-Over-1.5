@@ -34,6 +34,7 @@ import {
 import { getCurrencySymbol } from './utils/currency';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
 
+
 const App: React.FC = () => {
   const { toasts, removeToast, error: showError, success: showSuccess } = useToast();
   const {
@@ -59,9 +60,11 @@ const App: React.FC = () => {
     currentMatchData,
     selectedMatch,
     showAnalysisModal,
+    analysisModalTab,
     setAnalysisResult,
     setCurrentMatchData,
     setSelectedMatch,
+    setAnalysisModalTab,
     handleNavigateToAnalysis,
     handleCloseAnalysis,
     handleNewMatch,
