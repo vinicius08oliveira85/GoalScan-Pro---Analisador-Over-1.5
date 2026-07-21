@@ -76,12 +76,19 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
     return table.table_data as Array<Record<string, unknown>>;
   }, [table.table_data]);
 
-  // Obter colunas disponíveis (campos do primeiro registro)
+  // Obter colunas disponíveis (todas as chaves únicas de todas as linhas)
   // Garantir que Squad seja sempre a primeira coluna (chave primária lógica)
   const columns = useMemo(() => {
     if (rows.length === 0) return [];
-    const firstRow = rows[0];
-    const allColumns = Object.keys(firstRow).filter((key) => !hiddenFields.includes(key));
+    const allKeysSet = new Set<string>();
+    for (const row of rows) {
+      for (const key of Object.keys(row)) {
+        if (!hiddenFields.includes(key)) {
+          allKeysSet.add(key);
+        }
+      }
+    }
+    const allColumns = Array.from(allKeysSet);
     
     // Separar Squad das outras colunas
     const squadIndex = allColumns.indexOf('Squad');

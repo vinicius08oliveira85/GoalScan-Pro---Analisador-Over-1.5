@@ -128,15 +128,35 @@ export default function FbrefExtractionModal({
         throw new Error('Nenhum dado válido encontrado para salvar');
       }
 
+      const mergeBySquad = (tableArrays: unknown[][]): Record<string, unknown>[] => {
+        const merged = new Map<string, Record<string, unknown>>();
+        for (const tableRows of tableArrays) {
+          if (!Array.isArray(tableRows)) continue;
+          for (const row of tableRows) {
+            const r = row as Record<string, unknown>;
+            const squad = r.Squad || r.squad;
+            if (!squad) continue;
+            const key = String(squad);
+            const existing = merged.get(key);
+            if (existing) {
+              Object.assign(existing, r);
+            } else {
+              merged.set(key, { ...r });
+            }
+          }
+        }
+        return Array.from(merged.values());
+      };
+
       const tablesToSave = {
         geral: previewTables.geral || [],
-        complement: [
-          ...(previewTables.standard || []),
-          ...(previewTables.goalkeeping || []),
-          ...(previewTables.shooting || []),
-          ...(previewTables.playing_time || []),
-          ...(previewTables.misc || []),
-        ],
+        complement: mergeBySquad([
+          previewTables.standard || [],
+          previewTables.goalkeeping || [],
+          previewTables.shooting || [],
+          previewTables.playing_time || [],
+          previewTables.misc || [],
+        ]),
       };
 
       await saveExtractedTables(championship.id, tablesToSave);
