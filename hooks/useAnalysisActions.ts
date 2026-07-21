@@ -6,6 +6,7 @@ import {
   SavedAnalysis,
   SelectedBet,
 } from '../types';
+import type { AnalysisUiTab } from '../components/AnalysisDashboard';
 import { performAnalysis } from '../services/analysisEngine';
 
 interface UseAnalysisActionsProps {
@@ -25,16 +26,19 @@ export const useAnalysisActions = ({
   const [currentMatchData, setCurrentMatchData] = useState<MatchData | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<SavedAnalysis | null>(null);
   const [showAnalysisModal, setShowAnalysisModal] = useState<boolean>(false);
+  const [analysisModalTab, setAnalysisModalTab] = useState<AnalysisUiTab>('dados');
 
   const handleNavigateToAnalysis = useCallback((match: SavedAnalysis | null = null) => {
     if (match) {
       setSelectedMatch(match);
       setCurrentMatchData(match.data);
       setAnalysisResult(match.result);
+      setAnalysisModalTab('verdict');
     } else {
       setSelectedMatch(null);
       setCurrentMatchData(null);
       setAnalysisResult(null);
+      setAnalysisModalTab('dados');
     }
     setShowAnalysisModal(true);
   }, []);
@@ -44,6 +48,7 @@ export const useAnalysisActions = ({
     setAnalysisResult(null);
     setCurrentMatchData(null);
     setSelectedMatch(null);
+    setAnalysisModalTab('dados');
   }, []);
 
   const handleNewMatch = useCallback(() => {
@@ -140,10 +145,12 @@ export const useAnalysisActions = ({
     currentMatchData,
     selectedMatch,
     showAnalysisModal,
+    analysisModalTab,
     setCurrentMatchData,
     setAnalysisResult,
     setSelectedMatch,
     setShowAnalysisModal,
+    setAnalysisModalTab,
     handleNavigateToAnalysis,
     handleCloseAnalysis,
     handleNewMatch,

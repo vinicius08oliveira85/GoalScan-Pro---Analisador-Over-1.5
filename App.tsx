@@ -29,7 +29,7 @@ import {
 } from './types';
 import { getCurrencySymbol } from './utils/currency';
 import { generateAnalysisText, parseWebSearchResults } from './services/matchResultAnalysisService';
-import { useAnalysisModal } from './hooks/useAnalysisModal';
+
 
 // Lazy loading para code splitting
 const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
@@ -63,9 +63,11 @@ const App: React.FC = () => {
     currentMatchData,
     selectedMatch,
     showAnalysisModal,
+    analysisModalTab,
     setAnalysisResult,
     setCurrentMatchData,
     setSelectedMatch,
+    setAnalysisModalTab,
     handleNavigateToAnalysis,
     handleCloseAnalysis,
     handleNewMatch,
