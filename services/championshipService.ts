@@ -1192,7 +1192,20 @@ export const getSquadsFromTable = async (
     // Para tabela geral, buscar de championship_teams (normalizada)
     if (tableType === 'geral') {
       const teams = await loadChampionshipTeams(championshipId);
-      return teams.map((team) => team.squad).filter((squad) => squad && squad.trim() !== '');
+      if (teams.length > 0) {
+        return teams.map((team) => team.squad).filter((squad) => squad && squad.trim() !== '');
+      }
+
+      // Fallback: ler de championship_tables (JSONB) se championship_teams estiver vazio
+      const tables = await loadChampionshipTables(championshipId);
+      const geralTable = tables.find((t) => t.table_type === 'geral');
+      if (geralTable && Array.isArray(geralTable.table_data)) {
+        const rows = geralTable.table_data as Array<{ Squad?: string; [key: string]: unknown }>;
+        return rows
+          .map((row) => row.Squad)
+          .filter((squad): squad is string => typeof squad === 'string' && squad.trim() !== '');
+      }
+      return [];
     }
 
     // Para outros tipos de tabela (ex: standard_for), ainda usar championship_tables
