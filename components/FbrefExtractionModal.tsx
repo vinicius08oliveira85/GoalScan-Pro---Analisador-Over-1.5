@@ -111,8 +111,7 @@ export default function FbrefExtractionModal({
       }, 300);
       return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, url, loading, result, previewTables, handleExtract]);
 
   const handleSave = async () => {
     if (!previewTables) {

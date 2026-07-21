@@ -367,7 +367,7 @@ const SettingsScreen: React.FC = () => {
             <h4 className="font-black text-sm md:text-base">Armazenamento</h4>
           </div>
           <p className="text-xs opacity-70">
-            Exporte um backup completo定期的に para proteger seus dados.
+            Exporte um backup completo periodicamente para proteger seus dados.
             O backup inclui campeonatos, tabelas, análises, apostas e configurações da banca.
           </p>
         </motion.div>

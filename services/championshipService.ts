@@ -12,6 +12,7 @@ import {
 import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
+import { parseNumeric } from '../utils/numbers';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 
 export interface ChampionshipRow {
@@ -1387,14 +1388,7 @@ export const calculateCompetitionAverageGoals = async (
   }
 };
 
-function parseNumberFromUnknown(value: unknown): number {
-  if (value == null) return 0;
-  const raw = String(value).trim();
-  if (!raw) return 0;
-  const normalized = raw.replace(/,/g, '');
-  const n = Number.parseFloat(normalized);
-  return Number.isFinite(n) ? n : 0;
-}
+const parseNumberFromUnknown = parseNumeric;
 
 /**
  * Calcula média de gols do campeonato a partir de ChampionshipTeam[]

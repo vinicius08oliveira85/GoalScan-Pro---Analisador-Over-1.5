@@ -1,16 +1,14 @@
 import { MatchData, AnalysisResult, CompetitionComplementAverages } from '../types';
 import { logger } from '../utils/logger';
+import { parseNumeric } from '../utils/numbers';
 
 /**
  * Função sigmoid suavizada para ajustes progressivos
  * Retorna valor entre -1 e 1 baseado na entrada normalizada
  */
 function smoothAdjustment(value: number, threshold: number, strength: number): number {
-  // Normalizar valor em relação ao threshold
   const normalized = (value - threshold) / threshold;
-  // Aplicar sigmoid: 1 / (1 + e^(-x * strength))
   const sigmoid = 1 / (1 + Math.exp(-normalized * strength));
-  // Mapear de [0,1] para [-strength, strength]
   return (sigmoid - 0.5) * 2 * strength;
 }
 
@@ -41,11 +39,18 @@ function smoothClamp(value: number, min: number, max: number): number {
   return value;
 }
 
+const poissonCache = new Map<string, number>();
 function poissonProbability(k: number, lambda: number): number {
+  const key = `${k},${lambda.toFixed(6)}`;
+  const cached = poissonCache.get(key);
+  if (cached !== undefined) return cached;
   const exp = Math.exp(-lambda);
   let factorial = 1;
   for (let i = 1; i <= k; i++) factorial *= i;
-  return (Math.pow(lambda, k) * exp) / factorial;
+  const result = (Math.pow(lambda, k) * exp) / factorial;
+  if (poissonCache.size > 2000) poissonCache.clear();
+  poissonCache.set(key, result);
+  return result;
 }
 
 /**
@@ -448,9 +453,9 @@ function calculateStatisticsProbability(data: MatchData): {
   lambdaHome *= (1 - divergencePenalty);
   lambdaAway *= (1 - divergencePenalty);
 
-  // Garantir valores mínimos para evitar divisão por zero
-  lambdaHome = lambdaHome || 1.0;
-  lambdaAway = lambdaAway || 1.0;
+  // Garantir valores mínimos para evitar divisão por zero sem distorcer Poisson
+  lambdaHome = Math.max(0.01, lambdaHome);
+  lambdaAway = Math.max(0.01, lambdaAway);
 
   // 4. Calcular força do oponente para ajustar lambda
   const homeOpponentStrength = calculateOpponentStrength(
@@ -801,15 +806,6 @@ function calculateTableProbability(data: MatchData): {
   if (hasPartialComplement) {
     // Se não houver média calculada, tentar calcular a partir dos dados disponíveis
     if (!avg) {
-      const parseNum = (value: unknown): number => {
-        if (value == null) return 0;
-        const raw = String(value).trim();
-        if (!raw) return 0;
-        const normalized = raw.replace(/,/g, '');
-        const n = Number.parseFloat(normalized);
-        return Number.isFinite(n) ? n : 0;
-      };
-
       const allRows: Array<Record<string, unknown>> = [];
       if (hasHomeComplement) allRows.push(data.homeComplementData as unknown as Record<string, unknown>);
       if (hasAwayComplement) allRows.push(data.awayComplementData as unknown as Record<string, unknown>);
@@ -825,22 +821,22 @@ function calculateTableProbability(data: MatchData): {
         let playingTime90sCount = 0;
 
         for (const row of allRows) {
-          const poss = parseNum(row.Poss);
+          const poss = parseNumeric(row.Poss);
           if (poss > 0) {
             possSum += poss;
             possCount++;
           }
-          const per90Gls = parseNum(row['Per 90 Minutes Gls']);
+          const per90Gls = parseNumeric(row['Per 90 Minutes Gls']);
           if (per90Gls > 0) {
             per90GlsSum += per90Gls;
             per90GlsCount++;
           }
-          const age = parseNum(row.Age);
+          const age = parseNumeric(row.Age);
           if (age > 0) {
             ageSum += age;
             ageCount++;
           }
-          const playingTime90s = parseNum(row['Playing Time 90s']);
+          const playingTime90s = parseNumeric(row['Playing Time 90s']);
           if (playingTime90s > 0) {
             playingTime90sSum += playingTime90s;
             playingTime90sCount++;
@@ -877,15 +873,6 @@ function calculateTableProbability(data: MatchData): {
 
     // SEMPRE aplicar ajustes quando houver dados parciais (não depende mais de avg ser não-nulo)
     // Este código está dentro do if (hasPartialComplement) da linha 779
-    const parseNum = (value: unknown): number => {
-      if (value == null) return 0;
-      const raw = String(value).trim();
-      if (!raw) return 0;
-      const normalized = raw.replace(/,/g, '');
-      const n = Number.parseFloat(normalized);
-      return Number.isFinite(n) ? n : 0;
-    };
-
     // Usar dados parciais - se não houver um dos times, usar valores neutros
     const homeRow = hasHomeComplement 
       ? (data.homeComplementData as unknown as Record<string, unknown>)
@@ -895,8 +882,8 @@ function calculateTableProbability(data: MatchData): {
       : ({} as Record<string, unknown>);
 
     // 1. Ajuste por Possession (posse de bola) - times com mais posse tendem a ter mais oportunidades
-    const homePoss = hasHomeComplement ? parseNum(homeRow.Poss) : avgToUse.poss;
-    const awayPoss = hasAwayComplement ? parseNum(awayRow.Poss) : avgToUse.poss;
+    const homePoss = hasHomeComplement ? parseNumeric(homeRow.Poss) : avgToUse.poss;
+    const awayPoss = hasAwayComplement ? parseNumeric(awayRow.Poss) : avgToUse.poss;
     const homePossRatio = avgToUse.poss > 0 && homePoss > 0 ? homePoss / avgToUse.poss : 1;
     const awayPossRatio = avgToUse.poss > 0 && awayPoss > 0 ? awayPoss / avgToUse.poss : 1;
     
@@ -905,10 +892,10 @@ function calculateTableProbability(data: MatchData): {
     const awayPossFactor = clamp(1 + (awayPossRatio - 1) * 0.1, 0.95, 1.05);
 
     // 2. Ajuste por Performance metrics (Gls, Ast, G+A por 90)
-    const homePer90Gls = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
-    const homePer90GA = hasHomeComplement ? parseNum(homeRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
-    const awayPer90Gls = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
-    const awayPer90GA = hasAwayComplement ? parseNum(awayRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
+    const homePer90Gls = hasHomeComplement ? parseNumeric(homeRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
+    const homePer90GA = hasHomeComplement ? parseNumeric(homeRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
+    const awayPer90Gls = hasAwayComplement ? parseNumeric(awayRow['Per 90 Minutes Gls']) : avgToUse.per90Gls;
+    const awayPer90GA = hasAwayComplement ? parseNumeric(awayRow['Per 90 Minutes G+A']) : avgToUse.per90Gls * 1.5;
     
     const homePer90Ratio = avgToUse.per90Gls > 0 && homePer90Gls > 0 ? homePer90Gls / avgToUse.per90Gls : 1;
     const awayPer90Ratio = avgToUse.per90Gls > 0 && awayPer90Gls > 0 ? awayPer90Gls / avgToUse.per90Gls : 1;
@@ -918,8 +905,8 @@ function calculateTableProbability(data: MatchData): {
     const awayPer90Factor = clamp(1 + (awayPer90Ratio - 1) * 0.12, 0.94, 1.06);
 
     // 3. Ajuste por Age (idade média) - times mais jovens podem ser mais ofensivos
-    const homeAge = hasHomeComplement ? parseNum(homeRow.Age) : avgToUse.age;
-    const awayAge = hasAwayComplement ? parseNum(awayRow.Age) : avgToUse.age;
+    const homeAge = hasHomeComplement ? parseNumeric(homeRow.Age) : avgToUse.age;
+    const awayAge = hasAwayComplement ? parseNumeric(awayRow.Age) : avgToUse.age;
     const avgAge = avgToUse.age;
     
     // Times mais jovens (até 2 anos abaixo da média) têm pequeno bônus ofensivo (até +2%)
@@ -932,8 +919,8 @@ function calculateTableProbability(data: MatchData): {
 
     // 4. Ajuste por Playing Time (normalização por minutos jogados)
     // Times com mais minutos jogados podem ter mais consistência
-    const home90s = hasHomeComplement ? parseNum(homeRow['Playing Time 90s']) : avgToUse.playingTime90s;
-    const away90s = hasAwayComplement ? parseNum(awayRow['Playing Time 90s']) : avgToUse.playingTime90s;
+    const home90s = hasHomeComplement ? parseNumeric(homeRow['Playing Time 90s']) : avgToUse.playingTime90s;
+    const away90s = hasAwayComplement ? parseNumeric(awayRow['Playing Time 90s']) : avgToUse.playingTime90s;
     const avg90s = avgToUse.playingTime90s;
     
     // Mais minutos = mais consistência (até +1%)
@@ -1292,16 +1279,6 @@ function calculateTableCompletenessScore(data: MatchData): {
     availableTables.push('geral');
   } else {
     missingTables.push('geral');
-  }
-
-  if (
-    data.homeComplementData &&
-    data.awayComplementData &&
-    data.competitionComplementAvg
-  ) {
-    availableTables.push('complement');
-  } else {
-    missingTables.push('complement');
   }
 
   if (
@@ -2075,6 +2052,14 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   );
   const bttsCorrelation = Math.min(100, Math.max(0, 100 - avgCleanSheet));
 
+  const homeGF = parseNumeric(normalizedData.homeTableData?.['Home GF']);
+  const homeXG = parseNumeric(normalizedData.homeTableData?.['Home xG']);
+  const awayGF = parseNumeric(normalizedData.awayTableData?.['Away GF']);
+  const awayXG = parseNumeric(normalizedData.awayTableData?.['Away xG']);
+  const finishingSignal = homeGF > 0 && awayGF > 0
+    ? (((homeXG - homeGF) / homeGF) + ((awayXG - awayGF) / awayGF)) / 2 * 100
+    : 0;
+
   // Calcular tendência de forma baseada em histórico recente se disponível
   let formTrend = 0;
   if (
@@ -2419,6 +2404,22 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const lambdaHomeFinal = lambdaFinal * ratioHome;
   const lambdaAwayFinal = Math.max(0, lambdaFinal - lambdaHomeFinal);
 
+  // Calcular probabilidades 1X2 via Poisson independente
+  let matchHome = 0, matchDraw = 0, matchAway = 0;
+  for (let i = 0; i <= 10; i++) {
+    for (let j = 0; j <= 10; j++) {
+      const p = poissonProbability(i, lambdaHomeFinal) * poissonProbability(j, lambdaAwayFinal);
+      if (i > j) matchHome += p;
+      else if (i < j) matchAway += p;
+      else matchDraw += p;
+    }
+  }
+  const matchOdds: AnalysisResult['matchOdds'] = {
+    home: matchHome * 100,
+    draw: matchDraw * 100,
+    away: matchAway * 100,
+  };
+
   // Calcular BTTS (Ambas Marcam) via Poisson a partir do λ final combinado (home/away)
   const pHomeScores = 1 - Math.exp(-lambdaHomeFinal);
   const pAwayScores = 1 - Math.exp(-lambdaAwayFinal);
@@ -2524,10 +2525,34 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     });
   }
 
+  // Calcular combinações recomendadas (over em uma linha >= 75% + under em linha maior >= 75%)
+  const recommendedCombinations: AnalysisResult['recommendedCombinations'] = [];
+  if (overUnderProbabilities) {
+    const lines = Object.entries(overUnderProbabilities)
+      .map(([k, v]) => ({ line: parseFloat(k), ...v }))
+      .filter((x) => !isNaN(x.line))
+      .sort((a, b) => a.line - b.line);
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].over >= 75) {
+        for (let j = i + 1; j < lines.length; j++) {
+          if (lines[j].under >= 75) {
+            recommendedCombinations.push({
+              overLine: lines[i].line,
+              underLine: lines[j].line,
+              overProb: lines[i].over,
+              underProb: lines[j].under,
+              combinedProb: (lines[i].over * lines[j].under) / 100,
+            });
+          }
+        }
+      }
+    }
+  }
+
   return {
-    probabilityOver15: statsProb, // Probabilidade estatística pura (baseada em últimos 10 jogos)
-    tableProbability: tableProb, // Probabilidade baseada apenas em dados da tabela
-    combinedProbability: finalProb, // Probabilidade final combinada (estatísticas + tabela)
+    probabilityOver15: statsProb,
+    tableProbability: tableProb,
+    combinedProbability: finalProb,
     bttsProbability,
     confidenceScore: confidence,
     poissonHome: pHome,
@@ -2549,12 +2574,12 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       defensiveLeaking,
       bttsCorrelation,
       formTrend,
+      finishingSignal,
     },
-    // Probabilidades Over/Under combinadas (final)
+    matchOdds,
+    recommendedCombinations,
     overUnderProbabilities,
-    // Probabilidades Over/Under baseadas apenas na tabela
     tableOverUnderProbabilities,
-    // Probabilidades Over/Under baseadas apenas nas estatísticas
     statsOverUnderProbabilities,
   };
 }

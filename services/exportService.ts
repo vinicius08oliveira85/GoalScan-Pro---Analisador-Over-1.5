@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { getSupabaseClient } from '../lib/supabase';
 
 const LS_KEYS = [
   'goalscan_championships',
@@ -28,7 +29,6 @@ export interface GoalScanBackup {
 
 async function fetchAll<T>(from: string): Promise<T[]> {
   try {
-    const { getSupabaseClient } = await import('./championshipService');
     const supabase = await getSupabaseClient();
     const { data, error } = await supabase.from(from).select('*');
     if (error || !data) return [];
