@@ -1,4 +1,5 @@
 import { MatchData, AnalysisResult, CompetitionComplementAverages } from '../types';
+import { logger } from '../utils/logger';
 
 /**
  * Função sigmoid suavizada para ajustes progressivos
@@ -572,28 +573,26 @@ function calculateStatisticsProbability(data: MatchData): {
   // Calcular probabilidades Over/Under para múltiplas linhas
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] Prob. Estatísticas calculada (com dados Global):', {
-      lambdaHome,
-      lambdaAway,
-      lambdaTotal,
-      homeAvgScored: homeWeightedStats.avgScored,
-      homeAvgConceded: homeWeightedStats.avgConceded,
-      awayAvgScored: awayWeightedStats.avgScored,
-      awayAvgConceded: awayWeightedStats.avgConceded,
-      avgCleanSheet,
-      avgNoGoals,
-      avgOver25,
-      homeConsistency: homeConsistency.consistencyScore,
-      awayConsistency: awayConsistency.consistencyScore,
-      homeMomentum: homeMomentum.offensiveMomentum,
-      awayMomentum: awayMomentum.offensiveMomentum,
-      homeOpponentStrength,
-      awayOpponentStrength,
-      recentFormAdjustment,
-      statsProb,
-    });
-  }
+  logger.log('[AnalysisEngine] Prob. Estatísticas calculada (com dados Global):', {
+    lambdaHome,
+    lambdaAway,
+    lambdaTotal,
+    homeAvgScored: homeWeightedStats.avgScored,
+    homeAvgConceded: homeWeightedStats.avgConceded,
+    awayAvgScored: awayWeightedStats.avgScored,
+    awayAvgConceded: awayWeightedStats.avgConceded,
+    avgCleanSheet,
+    avgNoGoals,
+    avgOver25,
+    homeConsistency: homeConsistency.consistencyScore,
+    awayConsistency: awayConsistency.consistencyScore,
+    homeMomentum: homeMomentum.offensiveMomentum,
+    awayMomentum: awayMomentum.offensiveMomentum,
+    homeOpponentStrength,
+    awayOpponentStrength,
+    recentFormAdjustment,
+    statsProb,
+  });
 
   return {
     probability: statsProb,
@@ -699,13 +698,11 @@ function calculateTableProbability(data: MatchData): {
   // Se não houver xG ou valores forem zero, usar apenas GF/GA (formato básico)
   const hasXgData = (homeXg > 0 || homeXga > 0 || awayXg > 0 || awayXga > 0);
   
-  if (import.meta.env.DEV) {
-    if (hasXgData) {
-      console.log('[AnalysisEngine] ✅ Formato COMPLETO detectado - usando xG + GF/GA para análise');
-    } else {
-      console.log('[AnalysisEngine] ⚠️ Formato BÁSICO detectado - usando apenas GF/GA (sem xG)');
-      console.log('[AnalysisEngine] A análise será baseada em gols reais (GF/GA) em vez de Expected Goals (xG)');
-    }
+  if (hasXgData) {
+    logger.log('[AnalysisEngine] ✅ Formato COMPLETO detectado - usando xG + GF/GA para análise');
+  } else {
+    logger.log('[AnalysisEngine] ⚠️ Formato BÁSICO detectado - usando apenas GF/GA (sem xG)');
+    logger.log('[AnalysisEngine] A análise será baseada em gols reais (GF/GA) em vez de Expected Goals (xG)');
   }
   
   // Misturar xG/xGA com GF/GA para reduzir ruído (xG costuma ser mais estável quando disponível)
@@ -787,17 +784,15 @@ function calculateTableProbability(data: MatchData): {
   const hasFullComplement = hasHomeComplement && hasAwayComplement && hasCompetitionAvg;
   const hasPartialComplement = hasHomeComplement || hasAwayComplement;
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] calculateTableProbability - Verificando complemento:', {
-      hasHomeComplement,
-      hasAwayComplement,
-      hasCompetitionAvg,
-      hasFullComplement,
-      hasPartialComplement,
-      lambdaHomeAntes: lambdaHome,
-      lambdaAwayAntes: lambdaAway,
-    });
-  }
+  logger.log('[AnalysisEngine] calculateTableProbability - Verificando complemento:', {
+    hasHomeComplement,
+    hasAwayComplement,
+    hasCompetitionAvg,
+    hasFullComplement,
+    hasPartialComplement,
+    lambdaHomeAntes: lambdaHome,
+    lambdaAwayAntes: lambdaAway,
+  });
 
   // Calcular média básica se não houver competitionComplementAvg mas houver dados parciais
   // GARANTIR que avg nunca seja null quando houver dados parciais
@@ -869,9 +864,7 @@ function calculateTableProbability(data: MatchData): {
           per90GAPK: 0, // Não usado no cálculo atual
         };
 
-        if (import.meta.env.DEV) {
-          console.log('[AnalysisEngine] ✅ Média básica de complemento calculada a partir de dados parciais:', avg);
-        }
+        logger.log('[AnalysisEngine] ✅ Média básica de complemento calculada a partir de dados parciais:', avg);
       }
     }
     
@@ -879,9 +872,7 @@ function calculateTableProbability(data: MatchData): {
     const avgToUse = avg || createDefaultComplementAvg();
     
     if (!avg) {
-      if (import.meta.env.DEV) {
-        console.warn('[AnalysisEngine] ⚠️ Usando valores padrão para média de complemento (dados parciais disponíveis mas média não calculada)');
-      }
+      logger.warn('[AnalysisEngine] ⚠️ Usando valores padrão para média de complemento (dados parciais disponíveis mas média não calculada)');
     }
 
     // SEMPRE aplicar ajustes quando houver dados parciais (não depende mais de avg ser não-nulo)
@@ -960,31 +951,27 @@ function calculateTableProbability(data: MatchData): {
     lambdaHome *= homeComplementFactor;
     lambdaAway *= awayComplementFactor;
 
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ✅ Ajuste complemento aplicado (TABELA COMPLEMENTO SENDO USADA):', {
-        hasFullComplement,
-        hasPartialComplement,
-        usandoValoresPadrao: !avg,
-        homePossFactor,
-        awayPossFactor,
-        homePer90Factor,
-        awayPer90Factor,
-        homeAgeFactor,
-        awayAgeFactor,
-        home90sFactor,
-        away90sFactor,
-        homeComplementFactor,
-        awayComplementFactor,
-        lambdaHomeAntes: lambdaHome / homeComplementFactor,
-        lambdaAwayAntes: lambdaAway / awayComplementFactor,
-        lambdaHomeApos: lambdaHome,
-        lambdaAwayApos: lambdaAway,
-      });
-    }
+    logger.log('[AnalysisEngine] ✅ Ajuste complemento aplicado (TABELA COMPLEMENTO SENDO USADA):', {
+      hasFullComplement,
+      hasPartialComplement,
+      usandoValoresPadrao: !avg,
+      homePossFactor,
+      awayPossFactor,
+      homePer90Factor,
+      awayPer90Factor,
+      homeAgeFactor,
+      awayAgeFactor,
+      home90sFactor,
+      away90sFactor,
+      homeComplementFactor,
+      awayComplementFactor,
+      lambdaHomeAntes: lambdaHome / homeComplementFactor,
+      lambdaAwayAntes: lambdaAway / awayComplementFactor,
+      lambdaHomeApos: lambdaHome,
+      lambdaAwayApos: lambdaAway,
+    });
   } else {
-    if (import.meta.env.DEV) {
-      console.warn('[AnalysisEngine] ⚠️ Tabela complemento não disponível - ajustes adicionais não aplicados');
-    }
+    logger.warn('[AnalysisEngine] ⚠️ Tabela complemento não disponível - ajustes adicionais não aplicados');
   }
 
   // 4. Ajustar baseado em posição na tabela (times no topo são mais ofensivos)
@@ -1078,60 +1065,58 @@ function calculateTableProbability(data: MatchData): {
   // Calcular probabilidades Over/Under para múltiplas linhas
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] ===== Prob. Tabela calculada (com todas as tabelas) =====');
-    console.log('[AnalysisEngine] ✅ TABELAS APLICADAS NA ANÁLISE:', {
-      tabelaGeral: {
-        aplicada: true, // Sempre aplicada (base para cálculo)
-        homeTableData: !!data.homeTableData,
-        awayTableData: !!data.awayTableData,
-        impacto: 'Alto - base para cálculo de lambda',
-      },
-      tabelaComplemento: {
-        aplicada: hasPartialComplement,
-        completo: hasFullComplement,
-        parcial: hasPartialComplement && !hasFullComplement,
-        homeComplementData: hasHomeComplement,
-        awayComplementData: hasAwayComplement,
-        competitionComplementAvg: hasCompetitionAvg,
-        usandoValoresPadrao: hasPartialComplement && !avg,
-        impacto: hasPartialComplement ? 'Médio-Alto - ajuste de posse, performance e idade' : 'Não aplicada',
-      },
-      'ambasTabelasAplicadas': true && hasPartialComplement,
+  logger.log('[AnalysisEngine] ===== Prob. Tabela calculada (com todas as tabelas) =====');
+  logger.log('[AnalysisEngine] ✅ TABELAS APLICADAS NA ANÁLISE:', {
+    tabelaGeral: {
+      aplicada: true, // Sempre aplicada (base para cálculo)
+      homeTableData: !!data.homeTableData,
+      awayTableData: !!data.awayTableData,
+      impacto: 'Alto - base para cálculo de lambda',
+    },
+    tabelaComplemento: {
+      aplicada: hasPartialComplement,
+      completo: hasFullComplement,
+      parcial: hasPartialComplement && !hasFullComplement,
+      homeComplementData: hasHomeComplement,
+      awayComplementData: hasAwayComplement,
+      competitionComplementAvg: hasCompetitionAvg,
+      usandoValoresPadrao: hasPartialComplement && !avg,
+      impacto: hasPartialComplement ? 'Médio-Alto - ajuste de posse, performance e idade' : 'Não aplicada',
+    },
+    'ambasTabelasAplicadas': true && hasPartialComplement,
+  });
+  logger.log('[AnalysisEngine] Resultados:', {
+    lambdaHome,
+    lambdaAway,
+    lambdaTotal,
+    homeRk,
+    awayRk,
+    homeGdPerGame,
+    awayGdPerGame,
+    homePtsPerGame,
+    awayPtsPerGame,
+    tableProb,
+    formAdjustment,
+    finalProb,
+  });
+   
+  if (!hasPartialComplement) {
+    logger.warn('[AnalysisEngine] ⚠️ Tabela complemento NÃO foi aplicada (nenhum dado disponível):', {
+      hasHomeComplement,
+      hasAwayComplement,
+      hasCompetitionAvg,
+      'recomendacao': 'Adicione a tabela de complemento para aumentar a precisão',
     });
-    console.log('[AnalysisEngine] Resultados:', {
-      lambdaHome,
-      lambdaAway,
-      lambdaTotal,
-      homeRk,
-      awayRk,
-      homeGdPerGame,
-      awayGdPerGame,
-      homePtsPerGame,
-      awayPtsPerGame,
-      tableProb,
-      formAdjustment,
-      finalProb,
+  } else if (!hasFullComplement) {
+    logger.warn('[AnalysisEngine] ⚠️ Tabela complemento aplicada PARCIALMENTE:', {
+      hasHomeComplement,
+      hasAwayComplement,
+      hasCompetitionAvg,
+      'médiaCalculada': !!avg && !data.competitionComplementAvg,
+      'usandoValoresPadrao': !avg,
     });
-    
-    if (!hasPartialComplement) {
-      console.warn('[AnalysisEngine] ⚠️ Tabela complemento NÃO foi aplicada (nenhum dado disponível):', {
-        hasHomeComplement,
-        hasAwayComplement,
-        hasCompetitionAvg,
-        'recomendacao': 'Adicione a tabela de complemento para aumentar a precisão',
-      });
-    } else if (!hasFullComplement) {
-      console.warn('[AnalysisEngine] ⚠️ Tabela complemento aplicada PARCIALMENTE:', {
-        hasHomeComplement,
-        hasAwayComplement,
-        hasCompetitionAvg,
-        'médiaCalculada': !!avg && !data.competitionComplementAvg,
-        'usandoValoresPadrao': !avg,
-      });
-    } else {
-      console.log('[AnalysisEngine] ✅✅✅ TODAS AS TABELAS (GERAL + COMPLEMENTO) FORAM APLICADAS COMPLETAMENTE NO CÁLCULO DA PROBABILIDADE!');
-    }
+  } else {
+    logger.log('[AnalysisEngine] ✅✅✅ TODAS AS TABELAS (GERAL + COMPLEMENTO) FORAM APLICADAS COMPLETAMENTE NO CÁLCULO DA PROBABILIDADE!');
   }
 
   return {
@@ -1442,26 +1427,22 @@ function normalizeMatchData(data: MatchData): MatchData {
     !!data.awayComplementData &&
     !!data.competitionComplementAvg;
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] normalizeMatchData - Verificando dados das 2 tabelas:', {
-      geral: !!(data.homeTableData && data.awayTableData),
-      complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
-      todasPresentes: hasAllTables,
-    });
-  }
+  logger.log('[AnalysisEngine] normalizeMatchData - Verificando dados das 2 tabelas:', {
+    geral: !!(data.homeTableData && data.awayTableData),
+    complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
+    todasPresentes: hasAllTables,
+  });
 
   // Validar integridade dos dados das tabelas
   const integrityCheck = validateTableDataIntegrity(data);
-  if (import.meta.env.DEV) {
-    if (integrityCheck.issues.length > 0) {
-      console.error('[AnalysisEngine] ⚠️ Problemas de integridade encontrados:', integrityCheck.issues);
-    }
-    if (integrityCheck.warnings.length > 0) {
-      console.warn('[AnalysisEngine] ⚠️ Avisos de integridade:', integrityCheck.warnings);
-    }
-    if (integrityCheck.isValid && integrityCheck.warnings.length === 0) {
-      console.log('[AnalysisEngine] ✅ Integridade dos dados das tabelas validada com sucesso');
-    }
+  if (integrityCheck.issues.length > 0) {
+    logger.error('[AnalysisEngine] ⚠️ Problemas de integridade encontrados:', integrityCheck.issues);
+  }
+  if (integrityCheck.warnings.length > 0) {
+    logger.warn('[AnalysisEngine] ⚠️ Avisos de integridade:', integrityCheck.warnings);
+  }
+  if (integrityCheck.isValid && integrityCheck.warnings.length === 0) {
+    logger.log('[AnalysisEngine] ✅ Integridade dos dados das tabelas validada com sucesso');
   }
 
   return {
@@ -1506,30 +1487,26 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   }
 
   // Log inicial: verificar dados recebidos ANTES de normalizar
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] ===== INÍCIO DA ANÁLISE =====');
-    console.log('[AnalysisEngine] Dados recebidos (ANTES de normalizar):', {
-      homeTeam: data.homeTeam,
-      awayTeam: data.awayTeam,
-      tabelas: {
-        geral: !!(data.homeTableData && data.awayTableData),
-        complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
-      },
-    });
-  }
+  logger.log('[AnalysisEngine] ===== INÍCIO DA ANÁLISE =====');
+  logger.log('[AnalysisEngine] Dados recebidos (ANTES de normalizar):', {
+    homeTeam: data.homeTeam,
+    awayTeam: data.awayTeam,
+    tabelas: {
+      geral: !!(data.homeTableData && data.awayTableData),
+      complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
+    },
+  });
 
   // Normalizar dados para garantir valores padrão seguros
   const normalizedData = normalizeMatchData(data);
 
   // Log após normalização: verificar se dados foram preservados
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] Dados normalizados (APÓS normalizar):', {
-      tabelas: {
-        geral: !!(normalizedData.homeTableData && normalizedData.awayTableData),
-        complement: !!(normalizedData.homeComplementData && normalizedData.awayComplementData && normalizedData.competitionComplementAvg),
-      },
-    });
-  }
+  logger.log('[AnalysisEngine] Dados normalizados (APÓS normalizar):', {
+    tabelas: {
+      geral: !!(normalizedData.homeTableData && normalizedData.awayTableData),
+      complement: !!(normalizedData.homeComplementData && normalizedData.awayComplementData && normalizedData.competitionComplementAvg),
+    },
+  });
   
   // Extrair campos deprecated com valores padrão (para compatibilidade com dados antigos)
   const homeOver15Freq = normalizedData.homeOver15Freq ?? 0;
@@ -1576,64 +1553,62 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const tableImpactSummary = getTableImpactSummary(normalizedData);
   const tableCompleteness = calculateTableCompletenessScore(normalizedData);
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] ===== RESUMO DE DADOS E TABELAS =====');
-    console.log('[AnalysisEngine] Dados normalizados:', {
-      homeOver15Freq,
-      awayOver15Freq,
-      dataCompleteness,
-      missingData: missingData.length > 0 ? missingData : 'Nenhum',
-      missingTables: missingTables.length > 0 ? missingTables : 'Nenhuma',
-    });
+  logger.log('[AnalysisEngine] ===== RESUMO DE DADOS E TABELAS =====');
+  logger.log('[AnalysisEngine] Dados normalizados:', {
+    homeOver15Freq,
+    awayOver15Freq,
+    dataCompleteness,
+    missingData: missingData.length > 0 ? missingData : 'Nenhum',
+    missingTables: missingTables.length > 0 ? missingTables : 'Nenhuma',
+  });
 
-    // Avisar se dados essenciais estão faltando
-    if (missingData.length > 0) {
-      console.warn('[AnalysisEngine] Dados essenciais faltando:', missingData);
-      console.warn('[AnalysisEngine] A análise pode ser menos confiável sem esses dados.');
-    }
+  // Avisar se dados essenciais estão faltando
+  if (missingData.length > 0) {
+    logger.warn('[AnalysisEngine] Dados essenciais faltando:', missingData);
+    logger.warn('[AnalysisEngine] A análise pode ser menos confiável sem esses dados.');
+  }
 
-    console.log('[AnalysisEngine] --- Status das 3 Tabelas ---');
-    console.log('[AnalysisEngine] 1. Tabela GERAL:', {
-      disponível: tableImpactSummary.geral.available,
-      impacto: tableImpactSummary.geral.impact,
-    });
-    console.log('[AnalysisEngine] 2. Tabela HOME_AWAY:', {
-      disponível: tableImpactSummary.homeAway.available,
-      impacto: tableImpactSummary.homeAway.impact,
-    });
-    console.log('[AnalysisEngine] 3. Tabela STANDARD_FOR:', {
-      disponível: tableImpactSummary.standardFor.available,
-      impacto: tableImpactSummary.standardFor.impact,
-    });
+  logger.log('[AnalysisEngine] --- Status das 3 Tabelas ---');
+  logger.log('[AnalysisEngine] 1. Tabela GERAL:', {
+    disponível: tableImpactSummary.geral.available,
+    impacto: tableImpactSummary.geral.impact,
+  });
+  logger.log('[AnalysisEngine] 2. Tabela HOME_AWAY:', {
+    disponível: tableImpactSummary.homeAway.available,
+    impacto: tableImpactSummary.homeAway.impact,
+  });
+  logger.log('[AnalysisEngine] 3. Tabela STANDARD_FOR:', {
+    disponível: tableImpactSummary.standardFor.available,
+    impacto: tableImpactSummary.standardFor.impact,
+  });
 
-    console.log('[AnalysisEngine] --- Completude das Tabelas ---');
-    console.log('[AnalysisEngine] Score de completude:', `${(tableCompleteness.score * 100).toFixed(0)}%`);
-    console.log('[AnalysisEngine] Tabelas disponíveis:', tableCompleteness.availableTables.join(', ') || 'Nenhuma');
-    if (tableCompleteness.missingTables.length > 0) {
-      console.warn('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables.join(', '));
-    }
+  logger.log('[AnalysisEngine] --- Completude das Tabelas ---');
+  logger.log('[AnalysisEngine] Score de completude:', `${(tableCompleteness.score * 100).toFixed(0)}%`);
+  logger.log('[AnalysisEngine] Tabelas disponíveis:', tableCompleteness.availableTables.join(', ') || 'Nenhuma');
+  if (tableCompleteness.missingTables.length > 0) {
+    logger.warn('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables.join(', '));
+  }
 
-    if (tableCompleteness.score === 1.0) {
-      console.log('[AnalysisEngine] ✅ TODAS AS 3 TABELAS DISPONÍVEIS - Análise com máxima precisão');
-    } else if (tableCompleteness.score >= 0.67) {
-      console.warn('[AnalysisEngine] ⚠️ 2 de 3 tabelas disponíveis - Análise com boa precisão');
-    } else {
-      console.warn('[AnalysisEngine] ⚠️ Apenas 1 de 3 tabelas disponíveis - Análise com precisão reduzida');
-    }
+  if (tableCompleteness.score === 1.0) {
+    logger.log('[AnalysisEngine] ✅ TODAS AS 3 TABELAS DISPONÍVEIS - Análise com máxima precisão');
+  } else if (tableCompleteness.score >= 0.67) {
+    logger.warn('[AnalysisEngine] ⚠️ 2 de 3 tabelas disponíveis - Análise com boa precisão');
+  } else {
+    logger.warn('[AnalysisEngine] ⚠️ Apenas 1 de 3 tabelas disponíveis - Análise com precisão reduzida');
+  }
 
-    if (missingTables.length > 0) {
-      console.warn(
-        `[AnalysisEngine] ⚠️ ATENÇÃO: ${missingTables.length} tabela(s) não disponível(is): ${missingTables.join(', ')}`
-      );
-      console.warn(
-        '[AnalysisEngine] A análise será feita apenas com as tabelas disponíveis, o que pode reduzir a precisão.'
-      );
-      console.warn(
-        '[AnalysisEngine] Recomendação: Extraia todas as 2 tabelas (geral, complement) do fbref.com para análise completa.'
-      );
-    } else {
-      console.log('[AnalysisEngine] ✅ Todas as 3 tabelas disponíveis! A análise usará todos os dados.');
-    }
+  if (missingTables.length > 0) {
+    logger.warn(
+      `[AnalysisEngine] ⚠️ ATENÇÃO: ${missingTables.length} tabela(s) não disponível(is): ${missingTables.join(', ')}`
+    );
+    logger.warn(
+      '[AnalysisEngine] A análise será feita apenas com as tabelas disponíveis, o que pode reduzir a precisão.'
+    );
+    logger.warn(
+      '[AnalysisEngine] Recomendação: Extraia todas as 2 tabelas (geral, complement) do fbref.com para análise completa.'
+    );
+  } else {
+    logger.log('[AnalysisEngine] ✅ Todas as 3 tabelas disponíveis! A análise usará todos os dados.');
   }
 
   // NOVO ALGORITMO: Baseado em estatísticas da tabela e dados disponíveis
@@ -1654,13 +1629,11 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       const avgScored = gf / mp;
       const avgConceded = ga / mp;
       homeAvgTotal = avgScored + avgConceded;
-      if (import.meta.env.DEV) {
-        console.log('[AnalysisEngine] Usando dados da tabela como fallback para time da casa:', {
-          avgScored,
-          avgConceded,
-          avgTotal: homeAvgTotal,
-        });
-      }
+      logger.log('[AnalysisEngine] Usando dados da tabela como fallback para time da casa:', {
+        avgScored,
+        avgConceded,
+        avgTotal: homeAvgTotal,
+      });
     }
   }
   
@@ -1672,13 +1645,11 @@ export function performAnalysis(data: MatchData): AnalysisResult {
       const avgScored = gf / mp;
       const avgConceded = ga / mp;
       awayAvgTotal = avgScored + avgConceded;
-      if (import.meta.env.DEV) {
-        console.log('[AnalysisEngine] Usando dados da tabela como fallback para time visitante:', {
-          avgScored,
-          avgConceded,
-          avgTotal: awayAvgTotal,
-        });
-      }
+      logger.log('[AnalysisEngine] Usando dados da tabela como fallback para time visitante:', {
+        avgScored,
+        avgConceded,
+        avgTotal: awayAvgTotal,
+      });
     }
   }
   
@@ -1811,16 +1782,14 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     recentFormAdjustment = avgForm * 3;
     prob += recentFormAdjustment;
     
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] Análise de forma recente:', {
-        homeLast5: normalizedData.homeTableData?.['Last 5'],
-        awayLast5: normalizedData.awayTableData?.['Last 5'],
-        homeForm,
-        awayForm,
-        avgForm,
-        adjustment: recentFormAdjustment,
-      });
-    }
+    logger.log('[AnalysisEngine] Análise de forma recente:', {
+      homeLast5: normalizedData.homeTableData?.['Last 5'],
+      awayLast5: normalizedData.awayTableData?.['Last 5'],
+      homeForm,
+      awayForm,
+      avgForm,
+      adjustment: recentFormAdjustment,
+    });
   }
 
   // Considerar H2H se disponível - análise melhorada
@@ -1867,15 +1836,13 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     
     prob += h2hAdjustment;
     
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] Análise H2H detalhada:', {
-        matchesCount: h2hMatches.length,
-        h2hAvgGoals,
-        h2hOver15Pct,
-        h2hOver25Pct,
-        adjustment: h2hAdjustment,
-      });
-    }
+    logger.log('[AnalysisEngine] Análise H2H detalhada:', {
+      matchesCount: h2hMatches.length,
+      h2hAvgGoals,
+      h2hOver15Pct,
+      h2hOver25Pct,
+      adjustment: h2hAdjustment,
+    });
   }
 
   // Considerar xG se disponível (Expected Goals)
@@ -2074,16 +2041,14 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     }
   }
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] performAnalysis - Lambdas iniciais (base estatísticas):', {
-      lambdaHome,
-      lambdaAway,
-      homeGoalsScored,
-      awayGoalsConceded,
-      awayGoalsScored,
-      homeGoalsConceded,
-    });
-  }
+  logger.log('[AnalysisEngine] performAnalysis - Lambdas iniciais (base estatísticas):', {
+    lambdaHome,
+    lambdaAway,
+    homeGoalsScored,
+    awayGoalsConceded,
+    awayGoalsScored,
+    homeGoalsConceded,
+  });
 
   const lambdaTotal = lambdaHome + lambdaAway; // Média total de gols esperados no jogo (para Poisson combinado)
 
@@ -2160,23 +2125,17 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   if (tableCompleteness.score === 1.0) {
     // Todas as 3 tabelas disponíveis
     confidence += 15;
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ✅ Bônus de confiança: todas as 3 tabelas disponíveis (+15)');
-    }
+    logger.log('[AnalysisEngine] ✅ Bônus de confiança: todas as 3 tabelas disponíveis (+15)');
   } else if (tableCompleteness.score >= 0.67) {
     // 2 de 3 tabelas disponíveis
     confidence += 8;
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ⚠️ Bônus parcial de confiança: 2 de 3 tabelas disponíveis (+8)');
-      console.log('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables);
-    }
+    logger.log('[AnalysisEngine] ⚠️ Bônus parcial de confiança: 2 de 3 tabelas disponíveis (+8)');
+    logger.log('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables);
   } else {
     // Menos de 2 tabelas disponíveis - penalizar
     confidence = Math.max(confidence - 5, 20);
-    if (import.meta.env.DEV) {
-      console.warn('[AnalysisEngine] ⚠️ Penalidade de confiança: menos de 2 tabelas disponíveis (-5)');
-      console.warn('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables);
-    }
+    logger.warn('[AnalysisEngine] ⚠️ Penalidade de confiança: menos de 2 tabelas disponíveis (-5)');
+    logger.warn('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables);
   }
 
   // Validação cruzada melhorada: comparar Estatísticas Globais (home/away/global) com dados da tabela
@@ -2264,14 +2223,10 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   // Aplicar bônus de validação cruzada (até +5 pontos se todos os dados são consistentes)
   if (crossValidationScore >= 1.0) {
     confidence += 5;
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ✅ Validação cruzada: todos os dados (home/away/global) consistentes com tabela');
-    }
+    logger.log('[AnalysisEngine] ✅ Validação cruzada: todos os dados (home/away/global) consistentes com tabela');
   } else if (crossValidationScore >= 0.5) {
     confidence += 2;
-    if (import.meta.env.DEV) {
-      console.log('[AnalysisEngine] ⚠️ Validação cruzada: consistência parcial entre dados');
-    }
+    logger.log('[AnalysisEngine] ⚠️ Validação cruzada: consistência parcial entre dados');
   }
 
   // Verificar qualidade dos dados (se são realistas)
@@ -2295,24 +2250,20 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     (hasTeamStats ? 1 : 0);
   if (dataCompletenessScore < 2) {
     confidence = Math.max(confidence - 10, 20); // Penalizar se muito poucos dados
-    if (import.meta.env.DEV) {
-      console.warn('[AnalysisEngine] Confiança reduzida devido a dados incompletos:', {
-        dataCompletenessScore,
-        estimatedOver15Freq,
-        hasCompetitionAvg: competitionAvg > 0,
-        hasTeamStats,
-      });
-    }
-  }
-
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] Cálculo de confiança:', {
-      base: 30,
-      consistencyBonus,
-      qualityBonus,
-      finalConfidence: Math.min(100, Math.max(0, confidence)),
+    logger.warn('[AnalysisEngine] Confiança reduzida devido a dados incompletos:', {
+      dataCompletenessScore,
+      estimatedOver15Freq,
+      hasCompetitionAvg: competitionAvg > 0,
+      hasTeamStats,
     });
   }
+
+  logger.log('[AnalysisEngine] Cálculo de confiança:', {
+    base: 30,
+    consistencyBonus,
+    qualityBonus,
+    finalConfidence: Math.min(100, Math.max(0, confidence)),
+  });
 
   confidence = Math.min(100, Math.max(0, confidence));
 
@@ -2332,33 +2283,29 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const hasFullComplement = hasHomeComplement && hasAwayComplement && hasCompetitionComplementAvg;
   const hasPartialComplement = hasHomeComplement || hasAwayComplement;
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] performAnalysis - Verificando disponibilidade de tabelas antes de calcular probabilidade:', {
-      tabelaGeral: {
-        disponivel: hasGeralTable,
-        homeTableData: !!normalizedData.homeTableData,
-        awayTableData: !!normalizedData.awayTableData,
-      },
-      tabelaComplemento: {
-        disponivel: hasPartialComplement,
-        completo: hasFullComplement,
-        parcial: hasPartialComplement && !hasFullComplement,
-        homeComplementData: hasHomeComplement,
-        awayComplementData: hasAwayComplement,
-        competitionComplementAvg: hasCompetitionComplementAvg,
-      },
-      estatisticas: {
-        homeTeamStats: !!normalizedData.homeTeamStats,
-        awayTeamStats: !!normalizedData.awayTeamStats,
-      },
-    });
-  }
+  logger.log('[AnalysisEngine] performAnalysis - Verificando disponibilidade de tabelas antes de calcular probabilidade:', {
+    tabelaGeral: {
+      disponivel: hasGeralTable,
+      homeTableData: !!normalizedData.homeTableData,
+      awayTableData: !!normalizedData.awayTableData,
+    },
+    tabelaComplemento: {
+      disponivel: hasPartialComplement,
+      completo: hasFullComplement,
+      parcial: hasPartialComplement && !hasFullComplement,
+      homeComplementData: hasHomeComplement,
+      awayComplementData: hasAwayComplement,
+      competitionComplementAvg: hasCompetitionComplementAvg,
+    },
+    estatisticas: {
+      homeTeamStats: !!normalizedData.homeTeamStats,
+      awayTeamStats: !!normalizedData.awayTeamStats,
+    },
+  });
 
   // Validação: garantir que a tabela geral esteja disponível (obrigatória)
   if (!hasGeralTable) {
-    if (import.meta.env.DEV) {
-      console.warn('[AnalysisEngine] ⚠️ Tabela geral não disponível - análise pode ser imprecisa');
-    }
+    logger.warn('[AnalysisEngine] ⚠️ Tabela geral não disponível - análise pode ser imprecisa');
   }
 
   const tableResult = calculateTableProbability(normalizedData);
@@ -2368,21 +2315,20 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   const tableLambdaHome = tableResult?.lambdaHome;
   const tableLambdaAway = tableResult?.lambdaAway;
 
-  if (import.meta.env.DEV && tableResult) {
-    console.log('[AnalysisEngine] performAnalysis - Resultado de calculateTableProbability:', {
-      tableProb,
-      tableLambdaTotal,
-      tableLambdaHome,
-      tableLambdaAway,
-      tabelasUsadas: {
-        geral: hasGeralTable,
-        complemento: hasPartialComplement,
-        complementoCompleto: hasFullComplement,
-      },
-      'análiseCompleta': hasGeralTable && hasPartialComplement,
-    });
-  } else if (import.meta.env.DEV && !tableResult) {
-    console.warn('[AnalysisEngine] ⚠️ calculateTableProbability retornou null - tabela geral pode estar incompleta');
+  logger.log('[AnalysisEngine] performAnalysis - Resultado de calculateTableProbability:', {
+    tableProb,
+    tableLambdaTotal,
+    tableLambdaHome,
+    tableLambdaAway,
+    tabelasUsadas: {
+      geral: hasGeralTable,
+      complemento: hasPartialComplement,
+      complementoCompleto: hasFullComplement,
+    },
+    'análiseCompleta': hasGeralTable && hasPartialComplement,
+  });
+  if (!tableResult) {
+    logger.warn('[AnalysisEngine] ⚠️ calculateTableProbability retornou null - tabela geral pode estar incompleta');
   }
 
   // Obter pesos para combinar lambdas (mesmos pesos usados na combinação de probabilidades)
@@ -2392,15 +2338,13 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     normalizedData
   );
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] performAnalysis - Pesos para combinação:', {
-      statsWeight: statsWeight.toFixed(3),
-      tableWeight: tableWeight.toFixed(3),
-      'fonteEstatisticas': !!normalizedData.homeTeamStats && !!normalizedData.awayTeamStats,
-      'fonteTabelaGeral': hasGeralTable,
-      'fonteTabelaComplemento': hasPartialComplement,
-    });
-  }
+  logger.log('[AnalysisEngine] performAnalysis - Pesos para combinação:', {
+    statsWeight: statsWeight.toFixed(3),
+    tableWeight: tableWeight.toFixed(3),
+    'fonteEstatisticas': !!normalizedData.homeTeamStats && !!normalizedData.awayTeamStats,
+    'fonteTabelaGeral': hasGeralTable,
+    'fonteTabelaComplemento': hasPartialComplement,
+  });
 
   // Calcular probabilidades Over/Under combinadas via λ (gols esperados) para manter consistência entre linhas
   const isPosFinite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
@@ -2500,32 +2444,30 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     overUnderProbabilities['1.5'].under = under15ProbDC * 100;
   }
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] Over/Under combinada via λ:', {
-      statsWeight,
-      tableWeight,
-      statsLambdaTotal,
-      statsLambdaHome,
-      statsLambdaAway,
-      tableLambdaTotal,
-      tableLambdaHome,
-      tableLambdaAway,
-      lambdaHomeCombined,
-      lambdaAwayCombined,
-      lambdaCombined,
-      competitionAvg,
-      baseShrink,
-      confidencePenalty,
-      mpPenalty,
-      divergencePenalty,
-      standardBonus,
-      shrink,
-      lambdaFinal,
-      lambdaHomeFinal,
-      lambdaAwayFinal,
-      bttsProbability,
-    });
-  }
+  logger.log('[AnalysisEngine] Over/Under combinada via λ:', {
+    statsWeight,
+    tableWeight,
+    statsLambdaTotal,
+    statsLambdaHome,
+    statsLambdaAway,
+    tableLambdaTotal,
+    tableLambdaHome,
+    tableLambdaAway,
+    lambdaHomeCombined,
+    lambdaAwayCombined,
+    lambdaCombined,
+    competitionAvg,
+    baseShrink,
+    confidencePenalty,
+    mpPenalty,
+    divergencePenalty,
+    standardBonus,
+    shrink,
+    lambdaFinal,
+    lambdaHomeFinal,
+    lambdaAwayFinal,
+    bttsProbability,
+  });
 
   let riskLevel: AnalysisResult['riskLevel'] = 'Moderado';
   if (finalProb > 88) riskLevel = 'Baixo';
@@ -2557,29 +2499,27 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     tablesUsedInAnalysis.push('complement');
   }
 
-  if (import.meta.env.DEV) {
-    console.log('[AnalysisEngine] ===== RESUMO FINAL DA ANÁLISE =====');
-    console.log('[AnalysisEngine] Tabelas disponíveis:', finalTableCompleteness.availableTables.join(', ') || 'Nenhuma');
-    console.log('[AnalysisEngine] Tabelas usadas na análise:', tablesUsedInAnalysis.join(', ') || 'Nenhuma');
-    console.log('[AnalysisEngine] Score de completude:', `${(finalTableCompleteness.score * 100).toFixed(0)}%`);
-    
-    if (finalTableCompleteness.availableTables.length !== tablesUsedInAnalysis.length) {
-      console.warn('[AnalysisEngine] ⚠️ ATENÇÃO: Nem todas as tabelas disponíveis foram usadas!');
-      console.warn('[AnalysisEngine] Disponíveis:', finalTableCompleteness.availableTables);
-      console.warn('[AnalysisEngine] Usadas:', tablesUsedInAnalysis);
-    } else if (finalTableCompleteness.score === 1.0) {
-      console.log('[AnalysisEngine] ✅ TODAS AS 3 TABELAS FORAM USADAS NA ANÁLISE!');
-    }
-    
-    // Mostrar impacto de cada tabela
-    if (tableResult) {
-      console.log('[AnalysisEngine] Impacto das tabelas nos lambdas finais:', {
-        tableLambdaHome: tableLambdaHome,
-        tableLambdaAway: tableLambdaAway,
-        tableLambdaTotal: tableLambdaTotal,
-        'complement aplicado': finalHasComplement,
-      });
-    }
+  logger.log('[AnalysisEngine] ===== RESUMO FINAL DA ANÁLISE =====');
+  logger.log('[AnalysisEngine] Tabelas disponíveis:', finalTableCompleteness.availableTables.join(', ') || 'Nenhuma');
+  logger.log('[AnalysisEngine] Tabelas usadas na análise:', tablesUsedInAnalysis.join(', ') || 'Nenhuma');
+  logger.log('[AnalysisEngine] Score de completude:', `${(finalTableCompleteness.score * 100).toFixed(0)}%`);
+   
+  if (finalTableCompleteness.availableTables.length !== tablesUsedInAnalysis.length) {
+    logger.warn('[AnalysisEngine] ⚠️ ATENÇÃO: Nem todas as tabelas disponíveis foram usadas!');
+    logger.warn('[AnalysisEngine] Disponíveis:', finalTableCompleteness.availableTables);
+    logger.warn('[AnalysisEngine] Usadas:', tablesUsedInAnalysis);
+  } else if (finalTableCompleteness.score === 1.0) {
+    logger.log('[AnalysisEngine] ✅ TODAS AS 3 TABELAS FORAM USADAS NA ANÁLISE!');
+  }
+   
+  // Mostrar impacto de cada tabela
+  if (tableResult) {
+    logger.log('[AnalysisEngine] Impacto das tabelas nos lambdas finais:', {
+      tableLambdaHome: tableLambdaHome,
+      tableLambdaAway: tableLambdaAway,
+      tableLambdaTotal: tableLambdaTotal,
+      'complement aplicado': finalHasComplement,
+    });
   }
 
   return {

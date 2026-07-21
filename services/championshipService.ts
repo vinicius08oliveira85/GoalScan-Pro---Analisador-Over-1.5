@@ -1593,8 +1593,8 @@ export const syncTeamStatsFromTable = async (
       // Calcular média apenas com os dados disponíveis dos times da partida
       competitionComplementAvg = calculateCompetitionComplementAverages(partialData);
       
-      if (import.meta.env.DEV && competitionComplementAvg) {
-        console.log('[ChampionshipService] Média de complemento calculada a partir de dados parciais dos times da partida');
+      if (competitionComplementAvg) {
+        logger.log('[ChampionshipService] Média de complemento calculada a partir de dados parciais dos times da partida');
       }
     }
 

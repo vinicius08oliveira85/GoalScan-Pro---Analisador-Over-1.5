@@ -20,6 +20,7 @@ import { useNotifications } from './hooks/useNotifications';
 import { useAnalysisActions } from './hooks/useAnalysisActions';
 import { useBankActions } from './hooks/useBankActions';
 import { Loader, Plus, Settings, Home, Wallet, ArrowLeft, X } from 'lucide-react';
+import { logger } from './utils/logger';
 
 // Lazy loading de componentes pesados para code splitting
 const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
@@ -186,7 +187,7 @@ const App: React.FC = () => {
   // através de uma chamada que será interceptada pelo assistente
   const handleWebSearch = async (query: string) => {
     try {
-      console.log('[App] Solicitando busca web:', query);
+      logger.log('[App] Solicitando busca web:', query);
       
       // Se já temos resultados em cache, retornar eles
       if (webSearchResults.length > 0) {
@@ -206,7 +207,7 @@ const App: React.FC = () => {
       
       return { results: [] };
     } catch (error) {
-      console.error('Erro ao buscar informações:', error);
+      logger.error('Erro ao buscar informações:', error);
       showError(`Erro ao buscar na web: ${error instanceof Error ? error.message : String(error)}`);
       return { results: [] };
     }
@@ -446,7 +447,7 @@ const App: React.FC = () => {
         {/* Header do Modal */}
         <div className="bg-base-200/80 backdrop-blur-md border-b border-base-300 p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2">
+            <button onClick={handleCloseAnalysis} className="btn btn-sm btn-ghost gap-2" aria-label="Voltar">
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Voltar</span>
             </button>
@@ -456,7 +457,7 @@ const App: React.FC = () => {
                 : 'Nova Análise'}
             </h2>
           </div>
-          <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost">
+          <button onClick={handleCloseAnalysis} className="btn btn-sm btn-circle btn-ghost" aria-label="Fechar">
             <X className="w-5 h-5" />
           </button>
         </div>

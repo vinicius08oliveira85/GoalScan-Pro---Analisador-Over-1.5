@@ -216,7 +216,7 @@ const BetManager: React.FC<BetManagerProps> = ({
           <h3 className="text-lg font-black uppercase">Gerenciar Aposta</h3>
         </div>
         {onCancel && (
-          <button onClick={onCancel} className="btn btn-sm btn-circle btn-ghost">
+          <button onClick={onCancel} className="btn btn-sm btn-circle btn-ghost" aria-label="Fechar">
             <X className="w-4 h-4" />
           </button>
         )}

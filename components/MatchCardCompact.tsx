@@ -30,11 +30,11 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = React.memo(({
   const currencySymbol = getCurrencySymbol(bankCurrency ?? 'BRL');
   const statusStripClass = (() => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
-      if (match.betInfo.status === 'won') return 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.45)]';
-      if (match.betInfo.status === 'lost') return 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.4)]';
-      if (match.betInfo.status === 'pending') return 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.35)]';
+      if (match.betInfo.status === 'won') return 'bg-success shadow-glow-success';
+      if (match.betInfo.status === 'lost') return 'bg-error shadow-glow-error';
+      if (match.betInfo.status === 'pending') return 'bg-warning shadow-glow-warning';
     }
-    return 'bg-primary/50 shadow-[0_0_8px_rgba(99,102,241,0.2)]';
+    return 'bg-primary/50 shadow-glow-primary';
   })();
 
   const probability = getDisplayProbability(match);
@@ -76,7 +76,7 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = React.memo(({
       whileTap="tap"
       variants={cardHover}
       className={cn(
-        'group relative min-w-0 cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-base-100/40 p-2.5 pl-2 shadow-md shadow-black/5 ring-1 ring-white/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/15 dark:border-white/10 dark:bg-base-100/25'
+        'group relative min-w-0 cursor-pointer overflow-hidden rounded-3xl border border-base-300/50 bg-base-100/40 p-2.5 pl-2 shadow-md shadow-black/5 ring-1 ring-base-300/30 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/15'
       )}
     >
       <span

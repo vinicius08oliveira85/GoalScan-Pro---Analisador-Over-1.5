@@ -4,6 +4,8 @@
  * Quando a chave principal atinge quota ou falha, automaticamente tenta a chave fallback.
  */
 
+import { logger } from './logger';
+
 // Carregar chaves das variáveis de ambiente
 // No Vite, variáveis são expostas via process.env durante o build
 // No cliente, usamos process.env que foi injetado pelo Vite
@@ -135,9 +137,7 @@ export async function callWithFallback<T>(
       
       // Se chegou aqui, a chamada foi bem-sucedida
       if (i > 0 && options.onKeySwitch) {
-        if (import.meta.env.DEV) {
-          console.log(`[Gemini] Chave principal falhou, usando fallback (chave ${i + 1}/${keys.length})`);
-        }
+        logger.log(`[Gemini] Chave principal falhou, usando fallback (chave ${i + 1}/${keys.length})`);
       }
       
       return result;
@@ -162,12 +162,10 @@ export async function callWithFallback<T>(
                          error.status === 403 ? 'acesso negado' :
                          'erro de API';
         
-        if (import.meta.env.DEV) {
-          console.warn(
-            `[Gemini] Chave ${i + 1} falhou (${errorType}). ` +
-            `Tentando chave fallback ${i + 2}/${keys.length}...`
-          );
-        }
+        logger.warn(
+          `[Gemini] Chave ${i + 1} falhou (${errorType}). ` +
+          `Tentando chave fallback ${i + 2}/${keys.length}...`
+        );
         
         if (options.onKeySwitch) {
           options.onKeySwitch(currentKey, nextKey);

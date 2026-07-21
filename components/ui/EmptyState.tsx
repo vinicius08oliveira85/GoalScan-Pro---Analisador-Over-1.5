@@ -31,7 +31,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 
       {icon ? (
         <div className="relative mb-6">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-base-300/35 shadow-lg shadow-primary/10 backdrop-blur-md md:h-28 md:w-28 dark:border-white/10">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full border border-base-300/50 bg-base-300/35 shadow-lg shadow-primary/10 backdrop-blur-md md:h-28 md:w-28 dark:border-base-300/50">
             <div className="text-primary/80">{icon}</div>
           </div>
         </div>

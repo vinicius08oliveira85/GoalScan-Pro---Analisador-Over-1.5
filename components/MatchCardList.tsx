@@ -54,16 +54,16 @@ const MatchCardList: React.FC<MatchCardListProps> = React.memo(({
   const statusStripClass = (() => {
     if (match.betInfo && match.betInfo.betAmount > 0) {
       if (match.betInfo.status === 'won') {
-        return 'bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.5)]';
+        return 'bg-success shadow-glow-success';
       }
       if (match.betInfo.status === 'lost') {
-        return 'bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.45)]';
+        return 'bg-error shadow-glow-error';
       }
       if (match.betInfo.status === 'pending') {
-        return 'bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.4)]';
+        return 'bg-warning shadow-glow-warning';
       }
     }
-    return 'bg-primary/50 shadow-[0_0_10px_rgba(99,102,241,0.25)]';
+    return 'bg-primary/50 shadow-glow-primary';
   })();
   const probability = getDisplayProbability(match);
   const selectedLabel = getSelectedProbabilityLabel(match.selectedBets);
@@ -102,7 +102,7 @@ const MatchCardList: React.FC<MatchCardListProps> = React.memo(({
       whileTap="tap"
       variants={cardHover}
       className={cn(
-        'group relative min-w-0 cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-base-100/40 shadow-lg shadow-black/5 ring-1 ring-white/5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-xl hover:shadow-primary/15 dark:border-white/10 dark:bg-base-100/25',
+        'group relative min-w-0 cursor-pointer overflow-hidden rounded-3xl border border-base-300/50 bg-base-100/40 shadow-lg shadow-black/5 ring-1 ring-base-300/30 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-xl hover:shadow-primary/15',
         'flex flex-col gap-4 p-4 pl-3.5 md:flex-row md:items-center md:gap-6 md:pl-4'
       )}
     >
@@ -277,7 +277,7 @@ const MatchCardList: React.FC<MatchCardListProps> = React.memo(({
               disabled={isUpdatingBetStatus}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="btn btn-xs rounded-xl border-0 bg-emerald-600/90 px-3 font-semibold text-emerald-50 shadow-md shadow-emerald-600/25 hover:bg-emerald-600 disabled:opacity-50"
+              className="btn btn-xs rounded-xl border-0 bg-success px-3 font-semibold text-success-content shadow-md shadow-success/25 hover:bg-success disabled:opacity-50"
               title="Marcar como ganha"
             >
               <CheckCircle className="mr-1 h-3.5 w-3.5" />
@@ -292,7 +292,7 @@ const MatchCardList: React.FC<MatchCardListProps> = React.memo(({
               disabled={isUpdatingBetStatus}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="btn btn-xs rounded-xl border-0 bg-rose-600/88 px-3 font-semibold text-rose-50 shadow-md shadow-rose-600/25 hover:bg-rose-600 disabled:opacity-50"
+              className="btn btn-xs rounded-xl border-0 bg-error px-3 font-semibold text-error-content shadow-md shadow-error/25 hover:bg-error disabled:opacity-50"
               title="Marcar como perdida"
             >
               <XCircle className="mr-1 h-3.5 w-3.5" />

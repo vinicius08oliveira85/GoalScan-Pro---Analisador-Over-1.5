@@ -11,6 +11,7 @@ import FbrefExtractionModal from './FbrefExtractionModal';
 import { parseGlobalStatsExcel, isGlobalStatsFile } from '../utils/globalStatsParser';
 import InfoIcon from './match-form/InfoIcon';
 import TeamStatsSection from './match-form/TeamStatsSection';
+import { logger } from '../utils/logger';
 
 interface MatchFormProps {
   onAnalyze: (data: MatchData) => void | Promise<void>;
@@ -159,19 +160,16 @@ const MatchForm: React.FC<MatchFormProps> = ({
       const previousHomeStats = formData.homeTeamStats;
       const previousAwayStats = formData.awayTeamStats;
 
-      if (import.meta.env.DEV) {
-        console.log('[MatchForm] Sincronização concluída:', {
-          homeTableData: !!homeTableData,
-          awayTableData: !!awayTableData,
-          competitionAvg,
-          homeComplementData: !!homeComplementData,
-          awayComplementData: !!awayComplementData,
-          competitionComplementAvg: !!competitionComplementAvg,
-          hasPreviousHomeStats: !!previousHomeStats,
-          hasPreviousAwayStats: !!previousAwayStats,
-          // Nota: homeTeamStats/awayTeamStats não são afetados pela sincronização
-        });
-      }
+      logger.log('[MatchForm] Sincronização concluída:', {
+        homeTableData: !!homeTableData,
+        awayTableData: !!awayTableData,
+        competitionAvg,
+        homeComplementData: !!homeComplementData,
+        awayComplementData: !!awayComplementData,
+        competitionComplementAvg: !!competitionComplementAvg,
+        hasPreviousHomeStats: !!previousHomeStats,
+        hasPreviousAwayStats: !!previousAwayStats,
+      });
 
       // Apenas preencher dados da tabela e média da competição
       // NÃO modificar homeTeamStats/awayTeamStats (Estatísticas Globais são manuais)
@@ -190,13 +188,11 @@ const MatchForm: React.FC<MatchFormProps> = ({
         };
 
         // Validação: Garantir que Estatísticas Globais não foram alteradas
-        if (import.meta.env.DEV) {
-          if (updated.homeTeamStats !== previousHomeStats || updated.awayTeamStats !== previousAwayStats) {
-            console.warn('[MatchForm] ATENÇÃO: Estatísticas Globais foram alteradas durante sincronização!', {
-              homeStatsChanged: updated.homeTeamStats !== previousHomeStats,
-              awayStatsChanged: updated.awayTeamStats !== previousAwayStats,
-            });
-          }
+        if (updated.homeTeamStats !== previousHomeStats || updated.awayTeamStats !== previousAwayStats) {
+          logger.warn('[MatchForm] ATENÇÃO: Estatísticas Globais foram alteradas durante sincronização!', {
+            homeStatsChanged: updated.homeTeamStats !== previousHomeStats,
+            awayStatsChanged: updated.awayTeamStats !== previousAwayStats,
+          });
         }
 
         return updated;
@@ -214,17 +210,15 @@ const MatchForm: React.FC<MatchFormProps> = ({
       }
 
       // Log detalhado para diagnóstico
-      if (import.meta.env.DEV) {
-        console.log('[MatchForm] Resultado da sincronização:', {
-          geral: {
-            home: !!homeTableData,
-            away: !!awayTableData,
-            loaded: hasGeralTable,
-          },
-          tableFormat,
-          competitionAvg,
-        });
-      }
+      logger.log('[MatchForm] Resultado da sincronização:', {
+        geral: {
+          home: !!homeTableData,
+          away: !!awayTableData,
+          loaded: hasGeralTable,
+        },
+        tableFormat,
+        competitionAvg,
+      });
 
       // Atualizar diagnóstico após sincronização
       if (selectedChampionshipId) {
@@ -238,15 +232,9 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
       // Mostrar feedback sobre tabela carregada
       if (hasGeralTable) {
-        // Tabela geral carregada - sucesso silencioso
-        if (import.meta.env.DEV) {
-          console.log('[MatchForm] ✅ Tabela geral carregada com sucesso!');
-        }
+        logger.log('[MatchForm] ✅ Tabela geral carregada com sucesso!');
       } else {
-        // Tabela geral não carregada
-        if (import.meta.env.DEV) {
-          console.warn('[MatchForm] ⚠️ Tabela geral não foi carregada.');
-        }
+        logger.warn('[MatchForm] ⚠️ Tabela geral não foi carregada.');
         // Nenhuma tabela carregada
         if (onError) {
           onError('Nenhuma tabela foi encontrada. Verifique se as equipes existem no campeonato e se as tabelas foram extraídas do fbref.com.');
@@ -398,7 +386,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         return { ...prev, [teamKey]: { ...currentStats, gols: newStats } };
       });
     } else {
-      console.warn('Nenhum dado reconhecido. Verifique o formato.');
+      logger.warn('Nenhum dado reconhecido. Verifique o formato.');
     }
   };
 
@@ -472,13 +460,11 @@ const MatchForm: React.FC<MatchFormProps> = ({
       const validatedData = validateMatchData(formData);
       
       // Log: verificar se a tabela geral foi preservada após validação
-      if (import.meta.env.DEV) {
-        console.log('[MatchForm] Dados após validação (validateMatchData):', {
-          tabela: {
-            geral: !!(validatedData.homeTableData && validatedData.awayTableData),
-          },
-        });
-      }
+      logger.log('[MatchForm] Dados após validação (validateMatchData):', {
+        tabela: {
+          geral: !!(validatedData.homeTableData && validatedData.awayTableData),
+        },
+      });
       
       // onAnalyze agora é assíncrono e executa análise estatística + IA automaticamente
       await onAnalyze(validatedData);
@@ -492,7 +478,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
       if (onError) {
         onError(`Erro ao validar dados: ${errorMessage}`);
       } else {
-        console.error(`Erro ao validar dados: ${errorMessage}`);
+        logger.error(`Erro ao validar dados: ${errorMessage}`);
       }
     }
   };

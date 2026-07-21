@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { animations } from '../utils/animations';
 
 const skeletonHeroCard =
-  'rounded-3xl border border-white/10 bg-base-100/30 p-5 shadow-lg shadow-black/5 ring-1 ring-white/5 backdrop-blur-md dark:border-white/10 dark:bg-base-100/20 md:p-6';
+  'rounded-3xl border border-base-300/50 bg-base-100/30 p-5 shadow-lg shadow-black/5 ring-1 ring-base-300/30 backdrop-blur-md dark:bg-base-100/20 md:p-6';
 
 const SkeletonStatCard: React.FC = () => (
   <div className={`${skeletonHeroCard} space-y-3`}>
@@ -19,7 +19,7 @@ const SkeletonStatCard: React.FC = () => (
 );
 
 const SkeletonChart: React.FC<{ hasSubtitle?: boolean }> = ({ hasSubtitle }) => (
-  <div className="rounded-3xl border border-white/10 bg-base-100/25 p-4 shadow-2xl shadow-black/10 ring-1 ring-white/5 backdrop-blur-md dark:border-white/10 md:p-6">
+  <div className="rounded-3xl border border-base-300/50 bg-base-100/25 p-4 shadow-2xl shadow-black/10 ring-1 ring-base-300/30 backdrop-blur-md dark:bg-base-100/25 md:p-6">
     <div className="mb-4 space-y-2">
       <div className="skeleton h-5 w-40 rounded-lg" />
       {hasSubtitle && <div className="skeleton h-3 w-56 max-w-full rounded-md" />}
@@ -46,7 +46,7 @@ const SkeletonBankHeroGrid: React.FC = () => (
 );
 
 const SkeletonRecentRows: React.FC = () => (
-  <div className="rounded-3xl border border-white/10 bg-base-100/25 p-4 shadow-xl ring-1 ring-white/5 backdrop-blur-md dark:border-white/10 md:p-6">
+  <div className="rounded-3xl border border-base-300/50 bg-base-100/25 p-4 shadow-xl ring-1 ring-base-300/30 backdrop-blur-md dark:bg-base-100/25 md:p-6">
     <div className="mb-4 md:mb-6 space-y-2">
       <div className="skeleton h-6 w-44 rounded-lg" />
       <div className="skeleton h-3 w-full max-w-md rounded-md" />
@@ -55,7 +55,7 @@ const SkeletonRecentRows: React.FC = () => (
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="flex min-h-[4.5rem] items-stretch gap-0 overflow-hidden rounded-2xl border border-white/10 bg-base-200/40 dark:border-white/10"
+          className="flex min-h-[4.5rem] items-stretch gap-0 overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/40"
         >
           <div className="skeleton w-1.5 shrink-0 rounded-full" />
           <div className="flex flex-1 items-center gap-3 py-3 pl-3 pr-3">

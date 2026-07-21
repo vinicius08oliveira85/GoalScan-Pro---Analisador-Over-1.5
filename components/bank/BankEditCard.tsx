@@ -51,7 +51,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
       initial="initial"
       animate="animate"
       custom={1}
-      className="rounded-3xl border border-white/10 bg-base-100/30 p-3.5 shadow-xl shadow-black/5 ring-1 ring-white/5 backdrop-blur-xl dark:border-white/10 dark:bg-base-100/20 xs:p-4 md:p-6 lg:p-8"
+      className="rounded-3xl border border-base-300/50 bg-base-100/30 p-3.5 shadow-xl shadow-black/5 ring-1 ring-base-300/30 backdrop-blur-xl dark:bg-base-100/20 xs:p-4 md:p-6 lg:p-8"
     >
       <div className="mb-4 sm:mb-5 md:mb-6">
         <h3 className="mb-0.5 text-base font-black tracking-tight text-base-content sm:text-lg md:text-xl">
@@ -79,7 +79,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
                 onChange={onInputChange}
                 onBlur={onInputBlur}
                 className={cn(
-                  'input input-bordered input-lg w-full rounded-2xl border-white/15 bg-base-200/50 pr-11 text-lg font-semibold tabular-nums backdrop-blur-sm transition-all sm:pr-12 sm:text-xl',
+                  'input input-bordered input-lg w-full rounded-2xl border-base-300/50 bg-base-200/50 pr-11 text-lg font-semibold tabular-nums backdrop-blur-sm transition-all sm:pr-12 sm:text-xl',
                   'focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50',
                   validationState === 'valid' && 'input-success border-success/30',
                   validationState === 'invalid' && 'input-error border-error/30'
@@ -111,7 +111,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
             </label>
             <div
               id="bank-currency-display"
-              className="flex min-h-[3.25rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-base-200/50 px-3 py-2.5 text-center backdrop-blur-sm sm:min-h-[3.5rem] sm:px-4 sm:py-3"
+              className="flex min-h-[3.25rem] items-center justify-center gap-2 rounded-2xl border border-base-300/50 bg-base-200/50 px-3 py-2.5 text-center backdrop-blur-sm sm:min-h-[3.5rem] sm:px-4 sm:py-3"
               role="status"
               aria-label={`Moeda da banca: ${currencyCode}`}
             >
@@ -136,7 +136,7 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
             value={leverageInput}
             onChange={onLeverageChange}
             onBlur={onLeverageBlur}
-            className="input input-bordered w-full rounded-2xl border-white/15 bg-base-200/50 backdrop-blur-sm transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="input input-bordered w-full rounded-2xl border-base-300/50 bg-base-200/50 backdrop-blur-sm transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
             placeholder="1,00"
           />
           <label className="label pb-0 pt-1">

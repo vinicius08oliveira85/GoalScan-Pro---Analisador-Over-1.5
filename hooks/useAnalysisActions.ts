@@ -8,6 +8,7 @@ import {
 } from '../types';
 import type { AnalysisUiTab } from '../components/AnalysisDashboard';
 import { performAnalysis } from '../services/analysisEngine';
+import { logger } from '../utils/logger';
 
 interface UseAnalysisActionsProps {
   saveMatch: (match: SavedAnalysis) => Promise<SavedAnalysis>;
@@ -56,30 +57,28 @@ export const useAnalysisActions = ({
   }, [handleNavigateToAnalysis]);
 
   const handleAnalyze = useCallback((data: MatchData) => {
-    if (import.meta.env.DEV) {
-      console.log('[App] ===== handleAnalyze - Dados recebidos do MatchForm =====');
-      console.log('[App] Times:', {
-        homeTeam: data.homeTeam,
-        awayTeam: data.awayTeam,
-      });
-      console.log('[App] Status das tabelas:', {
-        geral: !!(data.homeTableData && data.awayTableData),
-        complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
-      });
+    logger.log('[App] ===== handleAnalyze - Dados recebidos do MatchForm =====');
+    logger.log('[App] Times:', {
+      homeTeam: data.homeTeam,
+      awayTeam: data.awayTeam,
+    });
+    logger.log('[App] Status das tabelas:', {
+      geral: !!(data.homeTableData && data.awayTableData),
+      complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
+    });
 
-      const hasGeral = !!(data.homeTableData && data.awayTableData);
-      const hasComplement = !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg);
+    const hasGeral = !!(data.homeTableData && data.awayTableData);
+    const hasComplement = !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg);
 
-      const allTablesPresent = hasGeral && hasComplement;
+    const allTablesPresent = hasGeral && hasComplement;
 
-      if (allTablesPresent) {
-        console.log('[App] ✅ Todas as 2 tabelas presentes (geral, complement) - análise será completa');
-      } else {
-        const missingTables = [];
-        if (!hasGeral) missingTables.push('geral');
-        if (!hasComplement) missingTables.push('complement');
-        console.warn(`[App] ⚠️ Tabelas faltando: ${missingTables.join(', ')} - análise será parcial`);
-      }
+    if (allTablesPresent) {
+      logger.log('[App] ✅ Todas as 2 tabelas presentes (geral, complement) - análise será completa');
+    } else {
+      const missingTables = [];
+      if (!hasGeral) missingTables.push('geral');
+      if (!hasComplement) missingTables.push('complement');
+      logger.warn(`[App] ⚠️ Tabelas faltando: ${missingTables.join(', ')} - análise será parcial`);
     }
 
     const result = performAnalysis(data);

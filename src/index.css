@@ -147,6 +147,11 @@ a:focus-visible {
     @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 focus:ring-offset-base-100 rounded;
   }
 
+  .shadow-glow-success { box-shadow: 0 0 12px oklch(70% 0.14 182.503 / 0.45); }
+  .shadow-glow-error { box-shadow: 0 0 12px oklch(64% 0.246 16.439 / 0.4); }
+  .shadow-glow-warning { box-shadow: 0 0 10px oklch(70% 0.213 47.604 / 0.35); }
+  .shadow-glow-primary { box-shadow: 0 0 10px oklch(44% 0.043 257.281 / 0.25); }
+
   /* Respeitar prefers-reduced-motion */
   @media (prefers-reduced-motion: reduce) {
     *,
