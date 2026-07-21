@@ -1,5 +1,6 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { tabScreenTransition } from './utils/animations';
 import MatchForm from './components/MatchForm';
 import InAppNotification from './components/InAppNotification';
 import ToastContainer from './components/ToastContainer';
