@@ -44,15 +44,16 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
   ];
 
   return (
-    <div className="mb-6 min-w-0">
+    <div className="mb-6">
       {/* Desktop Tabs */}
-      <div className="hidden min-w-0 gap-2 rounded-2xl border border-white/10 bg-base-200/45 p-2 shadow-inner shadow-primary/5 backdrop-blur-xl dark:border-white/10 md:flex">
+      <div className="hidden md:flex gap-2 p-2 bg-base-200/50 backdrop-blur-xl rounded-2xl border border-base-300/50">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={`
-              relative flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium transition-all duration-300 md:px-6 md:py-3
+              relative px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-medium transition-all duration-300
+              flex items-center gap-2
               ${
                 activeTab === tab.id
                   ? 'text-primary-content'
@@ -66,8 +67,8 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
             {activeTab === tab.id && (
               <motion.div
                 layoutId="activeTab"
-                className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary via-primary to-secondary shadow-lg shadow-primary/25"
-                transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl"
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
               />
             )}
             <span className="relative z-10 flex items-center gap-2">
@@ -99,14 +100,15 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       </div>
 
       {/* Mobile Tabs - Scroll Horizontal */}
-      <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-2 [-webkit-overflow-scrolling:touch] custom-scrollbar md:hidden">
+      <div className="md:hidden overflow-x-auto custom-scrollbar pb-2 -mx-4 px-4">
         <div className="flex gap-2 min-w-max">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`
-                relative flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 font-medium transition-all duration-300
+                relative px-4 py-2.5 rounded-xl font-medium transition-all duration-300 whitespace-nowrap
+                flex items-center gap-2 flex-shrink-0
                 ${
                   activeTab === tab.id
                     ? 'text-primary-content'
@@ -120,8 +122,8 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="activeTabMobile"
-                  className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary via-primary to-secondary shadow-lg shadow-primary/25"
-                  transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                  className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl"
+                  transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}
               <span className="relative z-10 flex items-center gap-2">

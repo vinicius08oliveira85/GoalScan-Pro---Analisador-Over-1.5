@@ -94,51 +94,8 @@ export const matchDataSchema = z.object({
       })
     )
     .optional(),
-  /** Estrutura mínima validada; campos extra preservados (.passthrough). */
-  homeTeamStats: z
-    .object({
-      gols: z
-        .object({
-          home: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-          away: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-          global: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-        })
-        .passthrough()
-        .optional(),
-    })
-    .passthrough()
-    .optional(),
-  awayTeamStats: z
-    .object({
-      gols: z
-        .object({
-          home: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-          away: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-          global: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-        })
-        .passthrough()
-        .optional(),
-    })
-    .passthrough()
-    .optional(),
+  homeTeamStats: z.any().optional(),
+  awayTeamStats: z.any().optional(),
 
   // Novos campos
   championshipId: z.string().optional(),

@@ -85,7 +85,7 @@ export const getSupabaseClient = async () => {
       let errorMessage = `Variáveis de ambiente do Supabase não configuradas: ${missingVars.join(', ')}.\n\n`;
 
       if (isProduction) {
-        errorMessage += 'CONFIGURAÇÃO NO VERCEL:\n';
+        errorMessage += '🔧 CONFIGURAÇÃO NO VERCEL:\n';
         errorMessage += '1. Acesse: https://vercel.com/dashboard\n';
         errorMessage += '2. Selecione seu projeto\n';
         errorMessage += '3. Vá em Settings > Environment Variables\n';
@@ -95,7 +95,7 @@ export const getSupabaseClient = async () => {
         errorMessage += '5. Faça um novo deploy (ou aguarde o redeploy automático)\n\n';
         errorMessage += '💡 As variáveis precisam começar com VITE_ para serem expostas ao cliente.';
       } else {
-        errorMessage += 'CONFIGURAÇÃO LOCAL:\n';
+        errorMessage += '🔧 CONFIGURAÇÃO LOCAL:\n';
         errorMessage += '1. Crie um arquivo .env na raiz do projeto\n';
         errorMessage += '2. Adicione as seguintes variáveis:\n';
         errorMessage += '   VITE_SUPABASE_URL=https://seu-projeto.supabase.co\n';

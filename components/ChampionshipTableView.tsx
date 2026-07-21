@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChampionshipTable } from '../types';
 import { Search, ArrowUpDown } from 'lucide-react';
-import { cn } from '../utils/cn';
 
 interface ChampionshipTableViewProps {
   table: ChampionshipTable;
@@ -45,23 +44,10 @@ const fieldTranslations: Record<string, string> = {
   'Per 90 Minutes xG+xAG': 'xG+xAG/90',
   'Per 90 Minutes npxG+xAG': 'npxG+xAG/90',
   'Per 90 Minutes xAG': 'xAG/90',
-  'Performance Gls': 'Gols',
-  'Performance Ast': 'Assistências',
-  'Performance G+A': 'G+A',
-  'Performance G-PK': 'Gols (sem pênalti)',
-  'Performance PK': 'Pênaltis marcados',
-  'Performance PKatt': 'Pênaltis tentados',
-  'Performance CrdY': 'Cartões amarelos',
-  'Performance CrdR': 'Cartões vermelhos',
-  'Per 90 Minutes Gls': 'Gols/90',
-  'Per 90 Minutes Ast': 'Assist./90',
-  'Per 90 Minutes G+A': 'G+A/90',
-  'Per 90 Minutes G-PK': 'G-PK/90',
-  'Per 90 Minutes G+A-PK': 'G+A-PK/90',
 };
 
-// Campos que devem ser ocultos (links internos / blob de importação JSON)
-const hiddenFields = ['Top Team Scorer_link', 'Goalkeeper_link', 'importExtras'];
+// Campos que devem ser ocultos (links internos)
+const hiddenFields = ['Top Team Scorer_link', 'Goalkeeper_link'];
 
 function parseNumberMaybe(value: unknown): number | null {
   if (value == null) return null;
@@ -88,24 +74,19 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
     return table.table_data as Array<Record<string, unknown>>;
   }, [table.table_data]);
 
-  // União das chaves de todas as linhas; Squad primeiro quando existir
+  // Obter colunas disponíveis (campos do primeiro registro)
+  // Garantir que Squad seja sempre a primeira coluna (chave primária lógica)
   const columns = useMemo(() => {
     if (rows.length === 0) return [];
-    const seen = new Set<string>();
-    const ordered: string[] = [];
-    for (const row of rows) {
-      for (const key of Object.keys(row as Record<string, unknown>)) {
-        if (hiddenFields.includes(key) || seen.has(key)) continue;
-        seen.add(key);
-        ordered.push(key);
-      }
-    }
-    const squadIdx = ordered.indexOf('Squad');
-    if (squadIdx > 0) {
-      ordered.splice(squadIdx, 1);
-      ordered.unshift('Squad');
-    }
-    return ordered;
+    const firstRow = rows[0];
+    const allColumns = Object.keys(firstRow).filter((key) => !hiddenFields.includes(key));
+    
+    // Separar Squad das outras colunas
+    const squadIndex = allColumns.indexOf('Squad');
+    const otherColumns = allColumns.filter((col) => col !== 'Squad');
+    
+    // Retornar Squad primeiro, depois as outras colunas
+    return squadIndex >= 0 ? ['Squad', ...otherColumns] : allColumns;
   }, [rows]);
 
   // Filtrar e ordenar linhas
@@ -168,46 +149,45 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-white/15 bg-base-200/30 p-8 text-center backdrop-blur-sm">
-        <p className="text-sm text-base-content/60">Nenhum dado disponível nesta tabela.</p>
+      <div className="custom-card p-6 text-center">
+        <p className="text-base-content/60">Nenhum dado disponível nesta tabela.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-base-100/30 p-3 shadow-inner ring-1 ring-white/5 backdrop-blur-md dark:bg-base-100/20 sm:p-4 md:p-5">
-      <div className="mb-3 sm:mb-4">
-        <h3 className="mb-2 text-lg font-black tracking-tight sm:text-xl">{table.table_name}</h3>
+    <div className="custom-card p-4 md:p-6">
+      <div className="mb-4">
+        <h3 className="text-xl font-bold mb-2">{table.table_name}</h3>
         <div className="form-control">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/40" aria-hidden />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-base-content/40" />
             <input
               type="text"
               placeholder="Buscar por equipe ou qualquer campo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input input-bordered w-full rounded-2xl border-white/15 bg-base-200/50 pl-10 backdrop-blur-sm focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="input input-bordered w-full pl-10"
             />
           </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
-        <table className="table table-sm w-full border-collapse">
+      <div className="overflow-x-auto">
+        <table className="table table-zebra w-full">
           <thead>
-            <tr className="border-b border-white/10 bg-base-200/40 text-[11px] uppercase tracking-wide dark:bg-base-200/25">
+            <tr>
               {columns.map((column) => (
                 <th
                   key={column}
-                  className="cursor-pointer border-b border-white/10 px-2 py-2.5 text-left font-black text-base-content/90 transition-colors hover:bg-primary/10 sm:px-3"
+                  className="cursor-pointer hover:bg-base-300 transition-colors"
                   onClick={() => handleSort(column)}
                 >
-                  <div className="flex items-center gap-1.5">
-                    <span className="leading-tight">{fieldTranslations[column] || column}</span>
+                  <div className="flex items-center gap-2">
+                    <span>{fieldTranslations[column] || column}</span>
                     {sortField === column && (
                       <ArrowUpDown
-                        className={cn('h-3.5 w-3.5 shrink-0 opacity-70', sortDirection === 'desc' && 'rotate-180')}
-                        aria-hidden
+                        className={`w-4 h-4 ${sortDirection === 'asc' ? '' : 'rotate-180'}`}
                       />
                     )}
                   </div>
@@ -220,25 +200,18 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
               // Usar Squad como chave primária (identificador único da linha)
               const squadKey = (row as Record<string, unknown>).Squad || `row-${Math.random().toString(36).slice(2, 11)}`;
               return (
-                <tr key={String(squadKey)} className="border-b border-white/5 transition-colors hover:bg-primary/5">
+                <tr key={squadKey} className="hover:bg-base-200">
                   {columns.map((column) => {
                     const value = (row as Record<string, unknown>)[column];
                     const displayValue = value !== null && value !== undefined ? String(value) : '-';
-                    const numeric = column !== 'Squad' && parseNumberMaybe(value) != null;
-                    const cellClass = cn(
-                      'border-white/5 px-2 py-2 align-middle text-sm sm:px-3',
-                      numeric && 'font-mono text-xs tabular-nums text-base-content/90 sm:text-sm',
-                      !numeric && column !== 'Squad' && 'text-base-content/85',
-                      column === 'Squad' && 'font-semibold'
-                    );
 
+                    // Se for a coluna Squad e houver callback, tornar clicável
                     if (column === 'Squad' && onSquadSelect) {
                       return (
-                        <td key={column} className={cellClass}>
+                        <td key={column}>
                           <button
-                            type="button"
                             onClick={() => handleSquadClick(displayValue)}
-                            className="btn btn-link btn-sm h-auto min-h-0 p-0 font-semibold text-primary hover:text-primary-focus"
+                            className="btn btn-link btn-sm p-0 h-auto min-h-0 text-primary hover:text-primary-focus"
                           >
                             {displayValue}
                           </button>
@@ -246,11 +219,7 @@ const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({
                       );
                     }
 
-                    return (
-                      <td key={column} className={cellClass}>
-                        {displayValue}
-                      </td>
-                    );
+                    return <td key={column}>{displayValue}</td>;
                   })}
                 </tr>
               );

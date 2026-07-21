@@ -13,24 +13,6 @@ import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
-import {
-  normalizeSquadName,
-  stripImportExtrasFromRows,
-} from '../utils/leagueStandingJson';
-
-/** Erro lançado quando o Supabase ainda não tem colunas standing_* (migração pendente). */
-export const STANDING_MIGRATION_ERROR_MESSAGE =
-  'O banco ainda não tem as colunas de classificação agregada (standing_*). No Supabase (SQL Editor), execute o arquivo supabase/migrations/20260406120000_championship_teams_standing_aggregate.sql no projeto correto.';
-
-function isSupabaseStandingMigrationError(error: unknown): boolean {
-  const e = error as { code?: string; message?: string; details?: string };
-  const text = `${e?.message || ''} ${e?.details || ''}`.toLowerCase();
-  if (e?.code === 'PGRST204') return true;
-  if (text.includes('standing_mp') || text.includes('standing_pts')) return true;
-  if (text.includes('column') && text.includes('does not exist')) return true;
-  if (text.includes('schema cache')) return true;
-  return false;
-}
 
 export interface ChampionshipRow {
   id: string;
@@ -86,22 +68,6 @@ export interface ChampionshipTeamRow {
   away_xga?: string;
   away_xgd?: string;
   away_xgd_90?: string;
-
-  standing_mp?: string;
-  standing_w?: string;
-  standing_d?: string;
-  standing_l?: string;
-  standing_gf?: string;
-  standing_ga?: string;
-  standing_gd?: string;
-  standing_pts?: string;
-  standing_pts_per_mp?: string;
-  standing_last_5?: string;
-  standing_attendance?: string;
-  top_team_scorer?: string;
-  goalkeeper?: string;
-  notes?: string;
-  status_b?: string;
   
   // Campo para campos extras
   extra_fields?: Record<string, unknown>;
@@ -847,11 +813,6 @@ export const saveChampionshipTable = async (
     const result = await withRetry(async () => {
       const supabase = await getSupabaseClient();
       const now = new Date().toISOString();
-
-      const tableDataForJsonb =
-        table.table_type === 'geral' && Array.isArray(table.table_data)
-          ? stripImportExtrasFromRows(table.table_data as TableRowGeral[])
-          : table.table_data;
       
       if (import.meta.env.DEV) {
         logger.log(`[ChampionshipService] Salvando tabela ${table.table_type} para campeonato ${table.championship_id}`);
@@ -865,7 +826,7 @@ export const saveChampionshipTable = async (
             championship_id: table.championship_id,
             table_type: table.table_type,
             table_name: table.table_name,
-            table_data: tableDataForJsonb,
+            table_data: table.table_data,
             created_at: table.created_at || now,
             updated_at: now,
           },
@@ -920,7 +881,7 @@ export const saveChampionshipTable = async (
                 .from('championship_tables')
                 .update({
                   table_name: table.table_name,
-                  table_data: tableDataForJsonb,
+                  table_data: table.table_data,
                   updated_at: now,
                 })
                 .eq('id', existingTable.id)
@@ -956,7 +917,7 @@ export const saveChampionshipTable = async (
                     championship_id: table.championship_id,
                     table_type: table.table_type,
                     table_name: table.table_name,
-                    table_data: tableDataForJsonb,
+                    table_data: table.table_data,
                     created_at: existingTable.created_at || now,
                     updated_at: now,
                   })
@@ -1009,7 +970,7 @@ export const saveChampionshipTable = async (
                 championship_id: table.championship_id,
                 table_type: table.table_type,
                 table_name: table.table_name,
-                table_data: tableDataForJsonb,
+                table_data: table.table_data,
                 created_at: table.created_at || now,
                 updated_at: now,
               },
@@ -1036,7 +997,7 @@ export const saveChampionshipTable = async (
                 championship_id: table.championship_id,
                 table_type: table.table_type,
                 table_name: table.table_name,
-                table_data: tableDataForJsonb,
+                table_data: table.table_data,
                 created_at: table.created_at || now,
                 updated_at: now,
               })
@@ -1150,11 +1111,9 @@ export const saveChampionshipTable = async (
         // Atualizar uploaded_at no campeonato
         await updateChampionshipUploadedAt(table.championship_id);
       } catch (error) {
+        // Log mas não falhar o salvamento da tabela JSONB
         if (import.meta.env.DEV) {
           logger.warn('[ChampionshipService] Erro ao salvar dados normalizados:', error);
-        }
-        if (error instanceof Error && error.message === STANDING_MIGRATION_ERROR_MESSAGE) {
-          throw error;
         }
       }
     }
@@ -1192,7 +1151,7 @@ export const getSquadsFromTable = async (
     // Para tabela geral, buscar de championship_teams (normalizada)
     if (tableType === 'geral') {
       const teams = await loadChampionshipTeams(championshipId);
-      return teams.map((team) => team.squad).filter((s) => s && s.trim() !== '');
+      return teams.map((team) => team.squad).filter((squad) => squad && squad.trim() !== '');
     }
 
     // Para outros tipos de tabela (ex: standard_for), ainda usar championship_tables
@@ -1232,22 +1191,10 @@ export const getTeamDataFromTable = async (
     // Para tabela geral, buscar de championship_teams (normalizada)
     if (tableType === 'geral') {
       const teams = await loadChampionshipTeams(championshipId);
-      const team = findTeamBySquad(teams, squad);
+      const team = teams.find((t) => t.squad === squad);
       
       if (!team) {
         return null;
-      }
-
-      if (hasStandingAggregate(team)) {
-        const agg = buildAggregateTableRowFromTeam(team);
-        if (team.extra_fields && typeof team.extra_fields === 'object') {
-          for (const [key, value] of Object.entries(team.extra_fields)) {
-            if (!agg.hasOwnProperty(key)) {
-              agg[key] = value;
-            }
-          }
-        }
-        return agg;
       }
 
       // Converter para TableRowGeral (usar campos Home como padrão)
@@ -1390,51 +1337,14 @@ function parseNumberFromUnknown(value: unknown): number {
   if (value == null) return 0;
   const raw = String(value).trim();
   if (!raw) return 0;
-  const normalized = raw.replace(/,/g, '').replace(/^\+/, '');
+  const normalized = raw.replace(/,/g, '');
   const n = Number.parseFloat(normalized);
   return Number.isFinite(n) ? n : 0;
 }
 
-function squadMatchKey(s: string): string {
-  return normalizeSquadName(s).trim().toLowerCase();
-}
-
-function findTeamBySquad(teams: ChampionshipTeam[], squad: string): ChampionshipTeam | null {
-  const key = squadMatchKey(squad);
-  return teams.find((t) => squadMatchKey(t.squad) === key) ?? null;
-}
-
-export function hasStandingAggregate(team: ChampionshipTeam | null | undefined): boolean {
-  if (!team?.standing_mp) return false;
-  return parseNumberFromUnknown(team.standing_mp) > 0;
-}
-
-/** Monta TableRowGeral só com totais da temporada (classificação agregada). */
-export function buildAggregateTableRowFromTeam(team: ChampionshipTeam): TableRowGeral {
-  return {
-    Rk: team.rk || '',
-    Squad: team.squad,
-    MP: team.standing_mp,
-    W: team.standing_w,
-    D: team.standing_d,
-    L: team.standing_l,
-    GF: team.standing_gf,
-    GA: team.standing_ga,
-    GD: team.standing_gd,
-    Pts: team.standing_pts,
-    'Pts/MP': team.standing_pts_per_mp,
-    'Last 5': team.standing_last_5,
-    Attendance: team.standing_attendance,
-    'Top Team Scorer': team.top_team_scorer,
-    Goalkeeper: team.goalkeeper,
-    Notes: team.notes,
-    Status_B: team.status_b,
-  };
-}
-
 /**
  * Calcula média de gols do campeonato a partir de ChampionshipTeam[]
- * Usa standing agregado ou Home/Away legado
+ * Usa campos Home/Away: soma(Home GF) + soma(Away GF) / soma(Home MP) + soma(Away MP)
  */
 function calculateCompetitionAverageGoalsFromTeams(teams: ChampionshipTeam[]): number | null {
   if (!Array.isArray(teams) || teams.length === 0) return null;
@@ -1443,16 +1353,7 @@ function calculateCompetitionAverageGoalsFromTeams(teams: ChampionshipTeam[]): n
   let totalMatches = 0;
 
   for (const team of teams) {
-    if (hasStandingAggregate(team)) {
-      const gf = parseNumberFromUnknown(team.standing_gf);
-      const mp = parseNumberFromUnknown(team.standing_mp);
-      if (mp > 0) {
-        totalGoals += gf;
-        totalMatches += mp;
-      }
-      continue;
-    }
-
+    // Usar campos Home
     const homeGf = parseNumberFromUnknown(team.home_gf);
     const homeMp = parseNumberFromUnknown(team.home_mp);
     if (homeGf > 0 && homeMp > 0) {
@@ -1462,6 +1363,7 @@ function calculateCompetitionAverageGoalsFromTeams(teams: ChampionshipTeam[]): n
       totalMatches += homeMp;
     }
 
+    // Usar campos Away
     const awayGf = parseNumberFromUnknown(team.away_gf);
     const awayMp = parseNumberFromUnknown(team.away_mp);
     if (awayGf > 0 && awayMp > 0) {
@@ -1473,6 +1375,8 @@ function calculateCompetitionAverageGoalsFromTeams(teams: ChampionshipTeam[]): n
   }
 
   if (totalMatches === 0) return null;
+  // Média de gols por partida = 2 * totalGoals / totalMatches
+  // (multiplicamos por 2 porque cada partida envolve 2 times)
   const averageGoals = (2 * totalGoals) / totalMatches;
   return Math.round(averageGoals * 100) / 100;
 }
@@ -1607,8 +1511,8 @@ export const syncTeamStatsFromTable = async (
     // Carregar times normalizados da tabela championship_teams
     const teams = await loadChampionshipTeams(championshipId);
 
-    const homeTeam = findTeamBySquad(teams, homeSquad);
-    const awayTeam = findTeamBySquad(teams, awaySquad);
+    const homeTeam = teams.find((t) => t.squad === homeSquad) || null;
+    const awayTeam = teams.find((t) => t.squad === awaySquad) || null;
 
     // Validação: verificar se times foram encontrados
     if (!homeTeam) {
@@ -1626,16 +1530,11 @@ export const syncTeamStatsFromTable = async (
       }
     }
 
-    const homeData = homeTeam
-      ? hasStandingAggregate(homeTeam)
-        ? buildAggregateTableRowFromTeam(homeTeam)
-        : convertChampionshipTeamToTableRowGeral(homeTeam, true)
-      : null;
-    const awayData = awayTeam
-      ? hasStandingAggregate(awayTeam)
-        ? buildAggregateTableRowFromTeam(awayTeam)
-        : convertChampionshipTeamToTableRowGeral(awayTeam, false)
-      : null;
+    // Converter ChampionshipTeam para TableRowGeral
+    // Para time da casa: usar campos Home do próprio time
+    // Para time visitante: usar campos Away do próprio time
+    const homeData = homeTeam ? convertChampionshipTeamToTableRowGeral(homeTeam, true) : null;
+    const awayData = awayTeam ? convertChampionshipTeamToTableRowGeral(awayTeam, false) : null;
 
     // Validação: verificar se dados obrigatórios estão presentes
     if (homeData) {
@@ -1720,79 +1619,43 @@ export const syncTeamStatsFromTable = async (
 };
 
 /**
- * Converte dados do JSON para formato normalizado
- * Suporta classificação agregada (MP/GF/GA na raiz) ou legado Home/Away
+ * Converte dados do JSON/CSV para formato normalizado
+ * Suporta estrutura do CSV (Home/Away) e formato antigo (geral)
  */
 function normalizeTeamData(
   championshipId: string,
   tableName: string,
   row: TableRowGeral
 ): ChampionshipTeam {
-  const squadNorm = normalizeSquadName(row.Squad);
-  const now = new Date().toISOString();
-  const hasHomeAway = !!(
-    (row['Home MP'] && String(row['Home MP']).trim()) ||
-    (row['Away MP'] && String(row['Away MP']).trim())
-  );
-  const hasAggregate = !!(row.MP && String(row.MP).trim()) && !hasHomeAway;
-
+  // Separar campos conhecidos de campos extras
   const knownFields = new Set([
     'Rk', 'Squad',
+    // Campos Home
     'Home MP', 'Home W', 'Home D', 'Home L', 'Home GF', 'Home GA', 'Home GD',
     'Home Pts', 'Home Pts/MP', 'Home xG', 'Home xGA', 'Home xGD', 'Home xGD/90',
+    // Campos Away
     'Away MP', 'Away W', 'Away D', 'Away L', 'Away GF', 'Away GA', 'Away GD',
     'Away Pts', 'Away Pts/MP', 'Away xG', 'Away xGA', 'Away xGD', 'Away xGD/90',
+    // Campos gerais (formato antigo - para compatibilidade)
     'MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts', 'Pts/MP', 'xG', 'xGA', 'xGD', 'xGD/90',
-    'Last 5', 'Attendance', 'Top Team Scorer', 'Goalkeeper', 'Notes', 'Status_B',
+    'Last 5', 'Attendance', 'Top Team Scorer', 'Goalkeeper', 'Notes',
+    // Campos de link (ignorados)
     'Top Team Scorer_link', 'Goalkeeper_link',
-    'importExtras',
   ]);
 
+  // Coletar campos extras (que não são conhecidos)
   const extraFields: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(row)) {
-    if (key === 'importExtras') continue;
     if (!knownFields.has(key) && key !== 'Squad' && key !== 'Rk') {
       extraFields[key] = value;
     }
   }
-  const imp = row.importExtras;
-  if (imp && typeof imp === 'object' && !Array.isArray(imp)) {
-    Object.assign(extraFields, imp as Record<string, unknown>);
-  }
 
-  if (hasAggregate) {
-    const s = (v: unknown) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined);
-    return {
-      id: `${championshipId}_${squadNorm}_${Date.now()}`,
-      championship_id: championshipId,
-      squad: squadNorm,
-      table_name: tableName,
-      rk: s(row.Rk),
-      standing_mp: s(row.MP),
-      standing_w: s(row.W),
-      standing_d: s(row.D),
-      standing_l: s(row.L),
-      standing_gf: s(row.GF),
-      standing_ga: s(row.GA),
-      standing_gd: s(row.GD),
-      standing_pts: s(row.Pts),
-      standing_pts_per_mp: s(row['Pts/MP']),
-      standing_last_5: s(row['Last 5']),
-      standing_attendance: s(row.Attendance),
-      top_team_scorer: s(row['Top Team Scorer']),
-      goalkeeper: s(row.Goalkeeper),
-      notes: s(row.Notes),
-      status_b: s(row.Status_B),
-      extra_fields: Object.keys(extraFields).length > 0 ? extraFields : undefined,
-      created_at: now,
-      updated_at: now,
-    };
-  }
-
+  // Criar objeto normalizado
   const normalized: ChampionshipTeam = {
-    id: `${championshipId}_${squadNorm}_${Date.now()}`,
+    id: `${championshipId}_${row.Squad}_${Date.now()}`,
     championship_id: championshipId,
-    squad: squadNorm,
+    squad: row.Squad,
     table_name: tableName,
     rk: row.Rk,
     
@@ -1829,8 +1692,8 @@ function normalizeTeamData(
     // Campos extras (se houver)
     extra_fields: Object.keys(extraFields).length > 0 ? extraFields : undefined,
     
-    created_at: now,
-    updated_at: now,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 
   return normalized;
@@ -1944,13 +1807,13 @@ export const saveChampionshipTeamsNormalized = async (
           return false;
         }
         
+        // Validar se tem pelo menos MP ou dados básicos
         const hasHomeMp = team.home_mp && parseFloat(team.home_mp) > 0;
         const hasAwayMp = team.away_mp && parseFloat(team.away_mp) > 0;
-        const hasStandingMp = team.standing_mp && parseFloat(team.standing_mp) > 0;
         
-        if (!hasHomeMp && !hasAwayMp && !hasStandingMp) {
+        if (!hasHomeMp && !hasAwayMp) {
           if (import.meta.env.DEV) {
-            logger.warn(`[ChampionshipService] Time "${team.squad}" sem MP (standing ou Home/Away) ignorado`);
+            logger.warn(`[ChampionshipService] Time "${team.squad}" sem dados de MP (Home ou Away) ignorado`);
           }
           return false;
         }
@@ -1979,10 +1842,6 @@ export const saveChampionshipTeamsNormalized = async (
           );
         }
         return;
-      }
-
-      if (isSupabaseStandingMigrationError(insertError)) {
-        throw new Error(STANDING_MIGRATION_ERROR_MESSAGE);
       }
       
       // Se for erro de constraint UNIQUE (23505), tentar inserir um por vez com upsert
@@ -2023,9 +1882,6 @@ export const saveChampionshipTeamsNormalized = async (
               '[ChampionshipService] Erro ao inserir times após DELETE:',
               { error: retryInsertError, errorStatus: getErrorStatus(retryInsertError) }
             );
-          }
-          if (isSupabaseStandingMigrationError(retryInsertError)) {
-            throw new Error(STANDING_MIGRATION_ERROR_MESSAGE);
           }
           throw retryInsertError;
         }
@@ -2108,14 +1964,6 @@ export const loadChampionshipTeams = async (
         // Tabela não existe ainda
         return [];
       }
-      if (isSupabaseStandingMigrationError(error)) {
-        logger.error(
-          '[ChampionshipService] championship_teams: colunas standing_* ausentes. ' +
-            STANDING_MIGRATION_ERROR_MESSAGE,
-          error
-        );
-        return [];
-      }
       throw error;
     }
 
@@ -2159,22 +2007,6 @@ export const loadChampionshipTeams = async (
       away_xga: row.away_xga,
       away_xgd: row.away_xgd,
       away_xgd_90: row.away_xgd_90,
-
-      standing_mp: row.standing_mp,
-      standing_w: row.standing_w,
-      standing_d: row.standing_d,
-      standing_l: row.standing_l,
-      standing_gf: row.standing_gf,
-      standing_ga: row.standing_ga,
-      standing_gd: row.standing_gd,
-      standing_pts: row.standing_pts,
-      standing_pts_per_mp: row.standing_pts_per_mp,
-      standing_last_5: row.standing_last_5,
-      standing_attendance: row.standing_attendance,
-      top_team_scorer: row.top_team_scorer,
-      goalkeeper: row.goalkeeper,
-      notes: row.notes,
-      status_b: row.status_b,
       
       // Campos extras
       extra_fields: row.extra_fields,
@@ -2231,16 +2063,12 @@ export const checkChampionshipTablesAvailability = async (
     let hasHomeSquad = true;
     let hasAwaySquad = true;
     if (homeSquad) {
-      const hk = squadMatchKey(homeSquad);
-      hasHomeSquad =
-        teams.some((t) => squadMatchKey(t.squad) === hk) ||
-        geralRows.some((r) => squadMatchKey(String(r.Squad ?? '')) === hk);
+      hasHomeSquad = teams.some((t) => t.squad === homeSquad) || 
+                     geralRows.some((r) => r.Squad === homeSquad);
     }
     if (awaySquad) {
-      const ak = squadMatchKey(awaySquad);
-      hasAwaySquad =
-        teams.some((t) => squadMatchKey(t.squad) === ak) ||
-        geralRows.some((r) => squadMatchKey(String(r.Squad ?? '')) === ak);
+      hasAwaySquad = teams.some((t) => t.squad === awaySquad) || 
+                     geralRows.some((r) => r.Squad === awaySquad);
     }
     
     // Verificar tabela de complemento (championship_complement)
@@ -2263,7 +2091,7 @@ export const checkChampionshipTablesAvailability = async (
       tables: {
         geral: {
           exists: hasGeralData,
-          hasData: hasGeralData && hasHomeSquad && hasAwaySquad,
+          hasData: hasGeralData && (hasHomeSquad && hasAwaySquad),
           rowCount: teams.length || geralRows.length,
         },
         complement: {
@@ -2273,7 +2101,7 @@ export const checkChampionshipTablesAvailability = async (
         },
       },
     };
-
+    
     // Identificar tabelas faltantes ou vazias
     if (!hasGeralData) {
       diagnostic.missingTables.push('geral');
@@ -2412,22 +2240,15 @@ function saveChampionshipTablesToLocalStorage(tables: ChampionshipTable[]): void
 }
 
 function saveChampionshipTableToLocalStorage(table: ChampionshipTable): ChampionshipTable {
-  const toStore: ChampionshipTable =
-    table.table_type === 'geral' && Array.isArray(table.table_data)
-      ? {
-          ...table,
-          table_data: stripImportExtrasFromRows(table.table_data as TableRowGeral[]),
-        }
-      : table;
-  const tables = loadChampionshipTablesFromLocalStorage(toStore.championship_id);
-  const existingIndex = tables.findIndex((t) => t.id === toStore.id);
+  const tables = loadChampionshipTablesFromLocalStorage(table.championship_id);
+  const existingIndex = tables.findIndex((t) => t.id === table.id);
   if (existingIndex >= 0) {
-    tables[existingIndex] = toStore;
+    tables[existingIndex] = table;
   } else {
-    tables.push(toStore);
+    tables.push(table);
   }
   saveChampionshipTablesToLocalStorage(tables);
-  return toStore;
+  return table;
 }
 
 function deleteChampionshipTableFromLocalStorage(tableId: string): void {

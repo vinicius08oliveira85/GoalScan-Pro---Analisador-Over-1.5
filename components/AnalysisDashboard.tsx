@@ -18,21 +18,16 @@ import OverUnderGrid from './analysis/OverUnderGrid';
 import BetSummaryCard from './analysis/BetSummaryCard';
 import { animations } from '../utils/animations';
 import { getPrimaryProbability } from '../utils/probability';
-import { getEdgePp, calculateEVPercent } from '../utils/betMetrics';
-import {
-  fractionalKellyBankFraction,
-  DEFAULT_FRACTIONAL_KELLY,
-  kellyConfidenceLevelPt,
-  type KellyConfidenceLevelPt,
-} from '../utils/bankCalculations';
+import { getEdgePp } from '../utils/betMetrics';
 import { calculateSelectedBetsProbability } from '../utils/betRange';
 import { getRiskLevelFromProbability } from '../utils/risk';
-import { getBothGoalsTooltip } from '../utils/probabilityTooltips';
-import { getOver15VerdictLabel } from './analysis/over15VerdictUi';
-import { cn } from '../utils/cn';
-import { getBetDisplayFinancials } from '../utils/betFinancials';
-
-export type AnalysisUiTab = 'dados' | 'stats' | 'verdict';
+import {
+  getEdgeTooltip,
+  calculateDataQuality,
+  getMarketOverTooltip,
+  getMarketUnderTooltip,
+  getBothGoalsTooltip,
+} from '../utils/probabilityTooltips';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
@@ -45,19 +40,7 @@ interface AnalysisDashboardProps {
   onError?: (message: string) => void;
   isUpdatingBetStatus?: boolean;
   onOddChange?: (odd: number) => void;
-  initialSelectedBets?: SelectedBet[];
-  onAnalyzeResult: (match: SavedAnalysis) => void;
-  savedMatch: SavedAnalysis | null;
-  /** Quando definido pelo modal com abas: controla o que é exibido mantendo um único estado. */
-  analysisUiTab?: AnalysisUiTab;
-}
-
-function TooltipHint({ tip, label }: { tip: string; label?: string }) {
-  return (
-    <span className="tooltip tooltip-top inline-flex items-center align-middle ml-0.5" data-tip={tip}>
-      <HelpCircle className="w-3.5 h-3.5 text-base-content/40 cursor-help shrink-0" aria-label={label || 'Ajuda'} />
-    </span>
-  );
+  initialSelectedBets?: SelectedBet[]; // Apostas selecionadas salvas (para restaurar ao carregar partida)
 }
 
 const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
@@ -66,220 +49,427 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
   onSave,
   betInfo,
   bankSettings,
+  savedMatches,
   onBetSave,
   onError,
-  isUpdatingBetStatus: _isUpdatingBetStatus = false,
+  isUpdatingBetStatus = false,
   onOddChange,
   initialSelectedBets,
-  savedMatch: _savedMatch,
-  analysisUiTab,
   onAnalyzeResult,
+  savedMatch,
 }) => {
-  void onAnalyzeResult;
-  void _isUpdatingBetStatus;
-  void _savedMatch;
   const [showBetManager, setShowBetManager] = useState(false);
   const [selectedBets, setSelectedBets] = useState<SelectedBet[]>(initialSelectedBets || []);
   const [overUnderTab, setOverUnderTab] = useState<'combined' | 'stats' | 'table'>('combined');
-
-  const splitMode = analysisUiTab !== undefined;
-
+  
+  // Restaurar apostas selecionadas quando initialSelectedBets mudar
   useEffect(() => {
     if (initialSelectedBets) {
       setSelectedBets(initialSelectedBets);
     }
   }, [initialSelectedBets]);
-
   const primaryProb = getPrimaryProbability(result);
-  const hasCombinedOU = !!result.overUnderProbabilities && Object.keys(result.overUnderProbabilities).length > 0;
-  const hasStatsOU = !!result.statsOverUnderProbabilities && Object.keys(result.statsOverUnderProbabilities).length > 0;
-  const hasTableOU = !!result.tableOverUnderProbabilities && Object.keys(result.tableOverUnderProbabilities).length > 0;
 
+  const hasCombinedOU =
+    !!result.overUnderProbabilities && Object.keys(result.overUnderProbabilities).length > 0;
+  const hasStatsOU =
+    !!result.statsOverUnderProbabilities &&
+    Object.keys(result.statsOverUnderProbabilities).length > 0;
+  const hasTableOU =
+    !!result.tableOverUnderProbabilities &&
+    Object.keys(result.tableOverUnderProbabilities).length > 0;
+  const hasAnyOU = hasCombinedOU || hasStatsOU || hasTableOU;
+
+  // Garantir que a aba atual exista quando o resultado mudar
   useEffect(() => {
-    if (!hasCombinedOU && !hasStatsOU && !hasTableOU) return;
-    if (overUnderTab === 'combined' && !hasCombinedOU) setOverUnderTab(hasStatsOU ? 'stats' : 'table');
-    else if (overUnderTab === 'stats' && !hasStatsOU) setOverUnderTab(hasCombinedOU ? 'combined' : 'table');
-    else if (overUnderTab === 'table' && !hasTableOU) setOverUnderTab(hasCombinedOU ? 'combined' : 'stats');
-  }, [overUnderTab, hasCombinedOU, hasStatsOU, hasTableOU]);
+    if (!hasAnyOU) return;
 
-  const displayProbability = useMemo(
-    () => calculateSelectedBetsProbability(selectedBets, result.overUnderProbabilities) ?? primaryProb,
-    [selectedBets, result.overUnderProbabilities, primaryProb]
-  );
+    if (overUnderTab === 'combined' && !hasCombinedOU) {
+      setOverUnderTab(hasStatsOU ? 'stats' : 'table');
+      return;
+    }
+    if (overUnderTab === 'stats' && !hasStatsOU) {
+      setOverUnderTab(hasCombinedOU ? 'combined' : 'table');
+      return;
+    }
+    if (overUnderTab === 'table' && !hasTableOU) {
+      setOverUnderTab(hasCombinedOU ? 'combined' : hasStatsOU ? 'stats' : 'combined');
+    }
+  }, [overUnderTab, hasAnyOU, hasCombinedOU, hasStatsOU, hasTableOU]);
+
+  // Probabilidade exibida no gauge (seleção ou padrão)
+  const displayProbability = useMemo(() => {
+    const selected = calculateSelectedBetsProbability(selectedBets, result.overUnderProbabilities);
+    return selected ?? primaryProb;
+  }, [selectedBets, result.overUnderProbabilities, primaryProb]);
+
+  // Calcular label descritivo para a probabilidade exibida
   const displayLabel = useMemo(() => {
-    if (selectedBets.length === 1)
-      return `${selectedBets[0].type === 'over' ? 'Over' : 'Under'} ${selectedBets[0].line}`;
-    if (selectedBets.length === 2)
-      return `${selectedBets[0].type === 'over' ? 'Over' : 'Under'} ${selectedBets[0].line} + ${selectedBets[1].type === 'over' ? 'Over' : 'Under'} ${selectedBets[1].line}`;
+    if (selectedBets.length === 1) {
+      const bet = selectedBets[0];
+      return `${bet.type === 'over' ? 'Over' : 'Under'} ${bet.line}`;
+    } else if (selectedBets.length === 2) {
+      const bet1 = selectedBets[0];
+      const bet2 = selectedBets[1];
+      return `${bet1.type === 'over' ? 'Over' : 'Under'} ${bet1.line} + ${bet2.type === 'over' ? 'Over' : 'Under'} ${bet2.line}`;
+    }
     return 'Over 1.5';
   }, [selectedBets]);
 
-  const displayEv = useMemo(
-    () =>
-      data.oddOver15 && data.oddOver15 > 1
-        ? calculateEVPercent(displayProbability, data.oddOver15)
-        : result.ev,
-    [displayProbability, data.oddOver15, result.ev]
-  );
+  // Calcular EV com a probabilidade que está sendo exibida
+  const displayEv = useMemo(() => {
+    if (data.oddOver15 && data.oddOver15 > 1) {
+      return ((displayProbability / 100) * data.oddOver15 - 1) * 100;
+    }
+    return result.ev; // Fallback para EV do resultado se não houver odd
+  }, [displayProbability, data.oddOver15, result.ev]);
 
-  const betSummaryMoney = useMemo(() => {
-    if (!betInfo || betInfo.betAmount <= 0) return null;
-    return getBetDisplayFinancials({ id: '_', timestamp: 0, data, result, betInfo });
-  }, [betInfo, data.oddOver15, data, result]);
-  const kellyBankPercent = useMemo(() => {
-    if (!data.oddOver15 || data.oddOver15 <= 1) return null;
-    const frac = fractionalKellyBankFraction(
-      displayProbability,
-      data.oddOver15,
-      DEFAULT_FRACTIONAL_KELLY,
-      result.confidenceScore / 100
-    );
-    return frac * 100;
-  }, [displayProbability, data.oddOver15, result.confidenceScore]);
-  const kellyDashboardLevel: KellyConfidenceLevelPt | null = useMemo(() => {
-    if (!data.oddOver15 || data.oddOver15 <= 1) return null;
-    return kellyConfidenceLevelPt(displayProbability, data.oddOver15);
+  // Quando houver seleção, Edge/Risco também devem seguir a probabilidade selecionada.
+  // Usando margem padrão de 6% (típica de casas de apostas)
+  const edgePp = useMemo(() => {
+    if (data.oddOver15 && data.oddOver15 > 1) {
+      return getEdgePp(displayProbability, data.oddOver15, 0.06);
+    }
+    return null;
   }, [displayProbability, data.oddOver15]);
-  const edgePp = useMemo(
-    () => (data.oddOver15 > 1 ? getEdgePp(displayProbability, data.oddOver15, 0.06) : null),
-    [displayProbability, data.oddOver15]
+
+  const displayRiskLevel = useMemo(
+    () => getRiskLevelFromProbability(displayProbability),
+    [displayProbability]
   );
-  const displayRiskLevel = useMemo(() => getRiskLevelFromProbability(displayProbability), [displayProbability]);
-  const verdictUi = useMemo(() => getOver15VerdictLabel(displayProbability), [displayProbability]);
 
-  const evSemaphoreFrame = useMemo(() => {
-    if (displayEv > 0) return 'border-success/60 ring-2 ring-success/25 shadow-lg shadow-success/5';
-    if (displayEv < 0) return 'border-error/60 ring-2 ring-error/25 shadow-lg shadow-error/5';
-    return 'border-warning/50 ring-1 ring-warning/25 shadow-md';
-  }, [displayEv]);
+  const selectedOverLine = useMemo(
+    () => selectedBets.find((b) => b.type === 'over')?.line ?? '1.5',
+    [selectedBets]
+  );
+  const selectedUnderLine = useMemo(
+    () => selectedBets.find((b) => b.type === 'under')?.line ?? '1.5',
+    [selectedBets]
+  );
+  const selectedRangeProbability = useMemo(() => {
+    if (selectedBets.length !== 2) return null;
+    return calculateSelectedBetsProbability(selectedBets, result.overUnderProbabilities);
+  }, [selectedBets, result.overUnderProbabilities]);
 
+  const formTrend = result.advancedMetrics.formTrend;
+  const isTrendNeutral = Math.abs(formTrend) < 0.5;
+  const trendLabel = isTrendNeutral ? 'NEUTRO' : formTrend > 0 ? 'SUBINDO' : 'CAINDO';
+  const trendColor = isTrendNeutral ? 'warning' : formTrend > 0 ? 'success' : 'error';
+  const trendDir = isTrendNeutral ? 'neutral' : formTrend > 0 ? 'up' : 'down';
+  const trendValue = isTrendNeutral ? '≈0' : `${formTrend > 0 ? '+' : ''}${formTrend.toFixed(1)}`;
+  const trendIcon = isTrendNeutral ? Target : formTrend > 0 ? TrendingUp : TrendingDown;
 
-  const bttsTip = useMemo(() => {
-    const full = getBothGoalsTooltip({ hasRange: selectedBets.length === 2 });
-    return full.length > 180 ? `${full.slice(0, 177)}…` : full;
-  }, [selectedBets.length]);
-
+  // Função para lidar com clique em uma aposta
   const handleBetClick = (line: string, type: 'over' | 'under', probability: number) => {
     const newBet: SelectedBet = { line, type, probability };
-    const isSelected = selectedBets.some((b) => b.line === line && b.type === type);
-    if (isSelected) {
-      setSelectedBets(selectedBets.filter((b) => !(b.line === line && b.type === type)));
-    } else {
-      if (selectedBets.length >= 2) return;
-      if (selectedBets.some((b) => b.type === type)) {
-        setSelectedBets(selectedBets.map((b) => (b.type === type ? newBet : b)));
-      } else {
-        setSelectedBets([...selectedBets, newBet]);
-      }
+    
+    // Verificar se a aposta já está selecionada
+    const isAlreadySelected = selectedBets.some(
+      (bet) => bet.line === line && bet.type === type
+    );
+
+    if (isAlreadySelected) {
+      // Se já está selecionada, desmarcar
+      setSelectedBets(selectedBets.filter((bet) => !(bet.line === line && bet.type === type)));
+      return;
     }
+
+    // Verificar se já há 2 apostas selecionadas
+    if (selectedBets.length >= 2) {
+      // Se já há 2 apostas, verificar se podemos substituir
+      const hasOver = selectedBets.some((bet) => bet.type === 'over');
+      const hasUnder = selectedBets.some((bet) => bet.type === 'under');
+
+      // Se estamos tentando adicionar um tipo que já existe, substituir
+      if (type === 'over' && hasOver) {
+        setSelectedBets([selectedBets.find((bet) => bet.type === 'under')!, newBet]);
+        return;
+      }
+      if (type === 'under' && hasUnder) {
+        setSelectedBets([selectedBets.find((bet) => bet.type === 'over')!, newBet]);
+        return;
+      }
+
+      // Se já há 2 apostas e não podemos substituir, não fazer nada
+      // (ou mostrar mensagem de erro)
+      return;
+    }
+
+    // Verificar se já há uma aposta do mesmo tipo
+    const hasSameType = selectedBets.some((bet) => bet.type === type);
+    if (hasSameType) {
+      // Substituir a aposta do mesmo tipo
+      setSelectedBets(selectedBets.map((bet) => (bet.type === type ? newBet : bet)));
+      return;
+    }
+
+    // Verificar se estamos tentando selecionar Over e Under da mesma linha
+    const hasSameLine = selectedBets.some((bet) => bet.line === line);
+    if (hasSameLine) {
+      // Não permitir selecionar Over e Under da mesma linha
+      return;
+    }
+
+    // Adicionar nova aposta
+    setSelectedBets([...selectedBets, newBet]);
   };
 
-  const isBetSelected = (line: string, type: 'over' | 'under') =>
-    selectedBets.some((b) => b.line === line && b.type === type);
+  // Verificar se uma aposta está selecionada
+  const isBetSelected = (line: string, type: 'over' | 'under'): boolean => {
+    return selectedBets.some((bet) => bet.line === line && bet.type === type);
+  };
 
-  const overLine = selectedBets.find((b) => b.type === 'over')?.line ?? '1.5';
-  const underLine = selectedBets.find((b) => b.type === 'under')?.line ?? '1.5';
+  return (
+    <motion.div
+      className="flex flex-col gap-6 md:gap-8"
+      variants={animations.fadeInUp}
+      initial="initial"
+      animate="animate"
+    >
+      {/* Layout Principal: Gauge (1/3) + Info (2/3) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+        {/* Card Principal de Probabilidade */}
+        <motion.div
+          className="lg:col-span-1"
+          variants={animations.scaleIn}
+          initial="initial"
+          animate="animate"
+        >
+          <ProbabilityGauge 
+            probability={primaryProb}
+            selectedProbability={displayProbability}
+            selectedLabel={displayLabel}
+            odd={data.oddOver15} 
+            ev={displayEv}
+            onOddChange={onOddChange}
+          />
+        </motion.div>
 
-  if (analysisUiTab === 'dados') {
-    return null;
-  }
-
-  const lineProbabilitiesCardShell =
-    'card min-w-0 border border-base-300/50 bg-base-100 p-4 shadow-sm md:p-6';
-
-  const lineProbabilitiesCardContent = (
-    <>
-      <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="min-w-0 text-lg font-black text-base-content">Probabilidades por linha</h3>
-        <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch]">
-          <div className="tabs tabs-boxed tabs-sm inline-flex w-max shrink-0 flex-nowrap">
-            {hasCombinedOU && (
-              <button
-                type="button"
-                onClick={() => setOverUnderTab('combined')}
-                className={`tab ${overUnderTab === 'combined' ? 'tab-active' : ''}`}
-              >
-                Combinada
-              </button>
-            )}
-            {hasStatsOU && (
-              <button
-                type="button"
-                onClick={() => setOverUnderTab('stats')}
-                className={`tab ${overUnderTab === 'stats' ? 'tab-active' : ''}`}
-              >
-                Estatísticas
-              </button>
-            )}
-            {hasTableOU && (
-              <button
-                type="button"
-                onClick={() => setOverUnderTab('table')}
-                className={`tab ${overUnderTab === 'table' ? 'tab-active' : ''}`}
-              >
-                Tabela
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="grid min-w-0 grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
-        {['0.5', '1.5', '2.5', '3.5', '4.5', '5.5'].map((line) => {
-          const prob =
-            overUnderTab === 'combined'
-              ? result.overUnderProbabilities?.[line]
-              : overUnderTab === 'stats'
-                ? result.statsOverUnderProbabilities?.[line]
-                : result.tableOverUnderProbabilities?.[line];
-          if (!prob) return null;
-          const isInteractive = overUnderTab === 'combined';
-          return (
-            <div key={line} className="custom-card min-w-0 p-3 shadow-inner">
-              <div className="text-xs font-bold text-base-content/70 mb-2">Linha {line} gols</div>
-              <div
-                role={isInteractive ? 'button' : undefined}
-                tabIndex={isInteractive ? 0 : undefined}
-                onClick={isInteractive ? () => handleBetClick(line, 'over', prob.over) : undefined}
-                onKeyDown={
-                  isInteractive
-                    ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleBetClick(line, 'over', prob.over);
-                        }
-                      }
-                    : undefined
-                }
-                className={`flex justify-between p-2 rounded-lg ${isInteractive ? 'cursor-pointer' : ''} ${isBetSelected(line, 'over') ? 'bg-success/20' : 'hover:bg-base-300/50'}`}
-              >
-                <span className="text-xs font-semibold text-success">Mais (Over)</span>
-                <span className="text-sm font-black text-base-content">{prob.over.toFixed(1)}%</span>
+        {/* Card de Informações da Partida */}
+        <motion.div
+          className="lg:col-span-2 surface surface-hover p-4 md:p-6"
+          variants={animations.slideInRight}
+          initial="initial"
+          animate="animate"
+        >
+          <div className="flex flex-col gap-4 md:gap-6">
+            {/* Header: Times + Badge de Risco + Botão Salvar */}
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
+                  <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight break-words">
+                    <span className="break-words">{data.homeTeam}</span>{' '}
+                    <span className="text-primary opacity-70 mx-1">vs</span>{' '}
+                    <span className="break-words">{data.awayTeam}</span>
+                  </h3>
+                </div>
+                <p className="text-xs sm:text-sm font-semibold opacity-70 uppercase tracking-wide leading-relaxed">
+                  Análise de Probabilidade de Gols (Over/Under)
+                </p>
               </div>
-              <div
-                role={isInteractive ? 'button' : undefined}
-                tabIndex={isInteractive ? 0 : undefined}
-                onClick={isInteractive ? () => handleBetClick(line, 'under', prob.under) : undefined}
-                onKeyDown={
-                  isInteractive
-                    ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleBetClick(line, 'under', prob.under);
-                        }
-                      }
-                    : undefined
-                }
-                className={`flex justify-between p-2 rounded-lg ${isInteractive ? 'cursor-pointer' : ''} ${isBetSelected(line, 'under') ? 'bg-error/20' : 'hover:bg-base-300/50'}`}
-              >
-                <span className="text-xs font-semibold text-error">Menos (Under)</span>
-                <span className="text-sm font-black text-base-content">{prob.under.toFixed(1)}%</span>
+              <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
+                <div
+                  className={`badge badge-lg p-3 sm:p-4 font-black border-2 shadow-lg flex items-center gap-2 text-sm sm:text-base ${
+                    displayRiskLevel === 'Baixo'
+                      ? 'bg-success/20 text-success border-success/40'
+                      : displayRiskLevel === 'Moderado'
+                        ? 'bg-warning/20 text-warning border-warning/40'
+                        : displayRiskLevel === 'Alto'
+                          ? 'bg-error/20 text-error border-error/40'
+                          : 'bg-error/30 text-error border-error/50'
+                  }`}
+                  title={`Risco baseado em ${displayLabel} (${displayProbability.toFixed(1)}%)`}
+                >
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">RISCO: </span>
+                  <span className="uppercase">{displayRiskLevel}</span>
+                </div>
+                {onSave && (
+                  <button
+                    onClick={() => onSave(selectedBets.length > 0 ? selectedBets : undefined)}
+                    className="btn btn-primary btn-md sm:btn-lg uppercase font-bold tracking-tight hover:scale-105 transition-transform min-h-[44px] flex-1 sm:flex-none shadow-lg"
+                  >
+                    Salvar Partida
+                  </button>
+                )}
               </div>
             </div>
-          );
-        })}
+
+            {/* Probabilidades (Mercado) */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-primary opacity-70" />
+                  <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
+                    Probabilidades
+                  </h4>
+                </div>
+                {/* Indicador de Qualidade dos Dados */}
+                {(() => {
+                  const dataQuality = calculateDataQuality(data);
+                  const qualityColor = dataQuality >= 80 ? 'text-success' : dataQuality >= 60 ? 'text-warning' : 'text-error';
+                  const qualityLabel = dataQuality >= 80 ? 'Alta' : dataQuality >= 60 ? 'Média' : 'Baixa';
+                  return (
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold ${qualityColor} tooltip tooltip-left`} data-tip={`Dados: ${qualityLabel} (${dataQuality.toFixed(0)}%)\n\nIndica a completude dos dados disponíveis para análise. Dados mais completos resultam em análises mais precisas.`}>
+                      <div className={`w-2 h-2 rounded-full ${dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-error'}`} />
+                      <span className="hidden sm:inline">Dados: {qualityLabel}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {selectedBets.length > 0 && (
+                <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                  <div className="font-semibold opacity-70">
+                    Baseado na seleção:{' '}
+                    <span className="font-black text-primary">{displayLabel}</span>
+                  </div>
+                  <div className="font-semibold opacity-70">
+                    Prob.: <span className="font-black">{displayProbability.toFixed(1)}%</span>
+                  </div>
+                </div>
+              )}
+              <motion.div
+                className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4"
+                variants={animations.staggerChildren}
+                initial="initial"
+                animate="animate"
+              >
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title={`Over ${selectedOverLine}`}
+                    value={
+                      result.overUnderProbabilities?.[selectedOverLine]?.over != null
+                        ? `${Number(result.overUnderProbabilities[selectedOverLine].over).toFixed(1)}%`
+                        : '—'
+                    }
+                    icon={TrendingUp}
+                    color="success"
+                    tooltip={getMarketOverTooltip(selectedOverLine)}
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    value={
+                      result.overUnderProbabilities?.[selectedUnderLine]?.under != null
+                        ? `${Number(result.overUnderProbabilities[selectedUnderLine].under).toFixed(1)}%`
+                        : '—'
+                    }
+                    title={`Under ${selectedUnderLine}`}
+                    icon={TrendingDown}
+                    color="error"
+                    tooltip={getMarketUnderTooltip(selectedUnderLine)}
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Ambas"
+                    value={result.bttsProbability != null ? `${result.bttsProbability.toFixed(1)}%` : '—'}
+                    icon={Sparkles}
+                    color="accent"
+                    trend="neutral"
+                    trendValue={
+                      selectedBets.length === 2
+                        ? `Range: ${selectedRangeProbability != null ? `${selectedRangeProbability.toFixed(1)}%` : '—'}`
+                        : 'Range: selecione Over + Under'
+                    }
+                    tooltip={getBothGoalsTooltip({
+                      selectionLabel: selectedBets.length > 0 ? displayLabel : undefined,
+                      hasRange: selectedBets.length === 2,
+                    })}
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Edge (pp)"
+                    value={edgePp == null ? '—' : `${edgePp >= 0 ? '+' : ''}${edgePp.toFixed(1)}pp`}
+                    icon={TrendingUp}
+                    color={edgePp == null ? 'warning' : edgePp >= 0 ? 'success' : 'error'}
+                    tooltip={getEdgeTooltip(
+                      edgePp,
+                      displayProbability,
+                      data.oddOver15,
+                      result.confidenceScore,
+                      displayLabel
+                    )}
+                  />
+                </motion.div>
+              </motion.div>
+            </div>
+
+            {/* Grid de 4 Métricas Essenciais */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-primary opacity-70" />
+                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
+                  Métricas de Performance
+                </h4>
+              </div>
+              <motion.div
+                className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4"
+                variants={animations.staggerChildren}
+                initial="initial"
+                animate="animate"
+              >
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Ataque"
+                    value={result.advancedMetrics.offensiveVolume}
+                    icon={Zap}
+                    color="primary"
+                    progress={result.advancedMetrics.offensiveVolume}
+                    tooltip="Volume ofensivo: mede a capacidade de geração de gols (média de gols marcados + sofridos). Valores altos indicam jogos mais abertos e ofensivos."
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Defesa"
+                    value={result.advancedMetrics.defensiveLeaking}
+                    icon={Shield}
+                    color="secondary"
+                    progress={result.advancedMetrics.defensiveLeaking}
+                    tooltip="Vazamento defensivo: mede a média de gols sofridos. Valores altos indicam defesas vulneráveis, favorecendo Over 1.5."
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Tendência"
+                    value={trendLabel}
+                    icon={trendIcon}
+                    color={trendColor}
+                    trend={trendDir}
+                    trendValue={trendValue}
+                    tooltip="Tendência de forma: indica se a probabilidade está subindo ou caindo. Valores positivos indicam tendência favorável ao Over 1.5."
+                  />
+                </motion.div>
+                <motion.div variants={animations.fadeInUp}>
+                  <MetricCard
+                    title="Confiança"
+                    value={result.confidenceScore}
+                    icon={Target}
+                    color="accent"
+                    progress={result.confidenceScore}
+                    tooltip="Score de confiança: mede a qualidade e completude dos dados. Valores altos indicam dados suficientes para análise mais confiável."
+                  />
+                </motion.div>
+              </motion.div>
+            </div>
+
+            {/* Recomendação em Destaque */}
+            <div className="mt-4 surface surface-hover p-4 md:p-6 border-l-4 border-l-primary/60">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                <span className="text-xs md:text-sm font-black uppercase text-primary tracking-wide">
+                  Recomendação
+                </span>
+              </div>
+              <p className="text-sm md:text-base font-semibold leading-relaxed text-base-content/95 italic">
+                "{result.recommendation}"
+              </p>
+            </div>
+          </div>
+        </motion.div>
       </div>
-    </>
-  );
 
       {/* Probabilidades Over/Under por Linha */}
       {(result.overUnderProbabilities || result.tableOverUnderProbabilities || result.statsOverUnderProbabilities) && (
@@ -299,13 +489,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
         />
       )}
 
-        <div
-          className={cn(
-            'grid min-h-0 min-w-0 items-start gap-6 overflow-x-clip',
-            splitMode
-              ? 'grid-cols-1'
-              : 'grid-cols-1 md:grid-cols-2 md:gap-8 lg:grid-cols-3'
-          )}
+      {/* Combinações Recomendadas */}
+      {result.recommendedCombinations && result.recommendedCombinations.length > 0 && (
+        <motion.div
+          className="surface surface-hover p-4 md:p-6 border-l-4 border-l-success/60"
+          variants={animations.fadeInUp}
+          initial="initial"
+          animate="animate"
         >
           <div className="flex items-center gap-2 mb-4">
             <Zap className="w-5 h-5 text-success" />
@@ -383,29 +573,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             />
           )}
         </div>
-      </div>
-    </div>
-  );
-
-  if (!splitMode) {
-    return (
-      <motion.div
-        className="flex min-h-0 min-w-0 w-full flex-col gap-6 md:gap-8"
-        variants={animations.fadeInUp}
-        initial="initial"
-        animate="animate"
-      >
-        {verdictSection}
-        {statsSection}
-      </motion.div>
-    );
-  }
-
-  /* Sem motion no wrapper no modal: fadeInUp usa translateY e o layout não reserva altura → overlap com blocos abaixo */
-  return (
-    <div className="flex min-h-0 min-w-0 w-full flex-col gap-6 md:gap-8">
-      {analysisUiTab === 'stats' ? statsSection : verdictSection}
-    </div>
+      )}
+    </motion.div>
   );
 };
 

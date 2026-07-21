@@ -2,7 +2,6 @@ import { SavedAnalysis, MatchData, AnalysisResult, BetInfo, BankSettings, Select
 import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
-import { isServiceUnavailable, setServiceUnavailable, isTemporaryError } from '../utils/serviceStatus';
 import {
   validateMatchData,
   validateMatchDataPartial,

@@ -6,7 +6,8 @@ import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, ChampionshipTablesDiagnostic } from '../services/championshipService';
-import { AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet, Clipboard, Copy } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet } from 'lucide-react';
+import FbrefExtractionModal from './FbrefExtractionModal';
 import { parseGlobalStatsExcel, isGlobalStatsFile } from '../utils/globalStatsParser';
 import InfoIcon from './match-form/InfoIcon';
 import TeamStatsSection from './match-form/TeamStatsSection';
@@ -62,6 +63,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const [selectedHomeSquad, setSelectedHomeSquad] = useState<string>('');
   const [selectedAwaySquad, setSelectedAwaySquad] = useState<string>('');
   const [tablesDiagnostic, setTablesDiagnostic] = useState<ChampionshipTablesDiagnostic | null>(null);
+  const [showFbrefModal, setShowFbrefModal] = useState(false);
   const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
@@ -167,6 +169,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
           competitionComplementAvg: !!competitionComplementAvg,
           hasPreviousHomeStats: !!previousHomeStats,
           hasPreviousAwayStats: !!previousAwayStats,
+          // Nota: homeTeamStats/awayTeamStats não são afetados pela sincronização
         });
       }
 
@@ -205,14 +208,8 @@ const MatchForm: React.FC<MatchFormProps> = ({
       // Detectar formato da tabela (básica vs completa)
       let tableFormat: 'completa' | 'basica' | null = null;
       if (hasGeralTable && homeTableData && awayTableData) {
-        const hasXg = !!(
-          homeTableData['Home xG'] ||
-          homeTableData['Away xG'] ||
-          homeTableData.xG ||
-          awayTableData['Home xG'] ||
-          awayTableData['Away xG'] ||
-          awayTableData.xG
-        );
+        const hasXg = !!(homeTableData['Home xG'] || homeTableData['Away xG'] || 
+                        awayTableData['Home xG'] || awayTableData['Away xG']);
         tableFormat = hasXg ? 'completa' : 'basica';
       }
 
@@ -252,9 +249,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         }
         // Nenhuma tabela carregada
         if (onError) {
-          onError(
-            'Nenhuma tabela foi encontrada. Verifique se os times existem no campeonato e se a classificação JSON foi importada em Campeonatos.'
-          );
+          onError('Nenhuma tabela foi encontrada. Verifique se as equipes existem no campeonato e se as tabelas foram extraídas do fbref.com.');
         }
       }
     } catch (error) {
@@ -415,29 +410,11 @@ const MatchForm: React.FC<MatchFormProps> = ({
     try {
       // Validar tipo de arquivo
       if (!isGlobalStatsFile(file)) {
-        throw new Error('Arquivo inválido. Use arquivos .xlsx, .xls, .csv ou .json');
+        throw new Error('Arquivo inválido. Use arquivos .xlsx, .xls ou .csv');
       }
 
-      const isJson = file.name.toLowerCase().endsWith('.json');
-      const { homeTeamStats, awayTeamStats } = isJson
-        ? await new Promise<{
-            homeTeamStats: TeamStatistics;
-            awayTeamStats: TeamStatistics;
-          }>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              try {
-                const text = String(reader.result ?? '');
-                const parsed: unknown = JSON.parse(text);
-                resolve(parseDualGlobalStatsJson(parsed));
-              } catch (e) {
-                reject(e instanceof Error ? e : new Error('Erro ao ler JSON'));
-              }
-            };
-            reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
-            reader.readAsText(file, 'UTF-8');
-          })
-        : await parseGlobalStatsExcel(file);
+      // Processar arquivo
+      const { homeTeamStats, awayTeamStats } = await parseGlobalStatsExcel(file);
 
       // Atualizar formData com as estatísticas importadas
       setFormData((prev) => ({
@@ -601,6 +578,16 @@ const MatchForm: React.FC<MatchFormProps> = ({
             >
               Sincronizar com Tabela
             </button>
+            {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.tables.geral?.exists && (
+              <button
+                type="button"
+                onClick={() => setShowFbrefModal(true)}
+                className="btn btn-outline btn-warning w-full md:w-auto gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Extrair Tabelas do FBref.com
+              </button>
+            )}
           </div>
 
           {/* Aviso Preventivo: Mostrar antes de sincronizar se tabela geral não existe */}
@@ -613,7 +600,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     A tabela geral não foi extraída ainda
                   </p>
                   <p className="text-warning text-xs mb-2">
-                    Importe o arquivo JSON da classificação em Campeonatos (criar ou atualizar tabela).
+                    Para análise completa, extraia a tabela geral do fbref.com primeiro.
                   </p>
                   {tablesDiagnostic.missingTables.includes('geral') && (
                     <div className="text-xs opacity-80">
@@ -641,66 +628,108 @@ const MatchForm: React.FC<MatchFormProps> = ({
           )}
 
           {/* Status da Tabela Sincronizada: Mostrar após sincronização */}
-          {formData.homeTableData && formData.awayTableData ? (
+          {(formData.homeTableData && formData.awayTableData) || (formData.homeComplementData && formData.awayComplementData) ? (
             <div className="mt-4 p-4 bg-base-300/50 rounded-lg border border-base-content/10 space-y-3">
-              <div className="font-semibold text-sm mb-3">Classificação sincronizada</div>
-
-              <div className="flex items-start gap-2 text-xs">
-                <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium">Dados do campeonato carregados</div>
-                  <div className="opacity-70 text-xs mt-0.5">
-                    A análise usa a tabela agregada (GF/GA por jogo) e vantagem de casa calibrada.
-                  </div>
-                  {(() => {
-                    const tableInfo = tablesDiagnostic?.tables.geral;
-                    const squadIssue =
-                      tableInfo?.squadFound && (!tableInfo.squadFound.home || !tableInfo.squadFound.away);
-                    if (squadIssue) {
-                      return (
-                        <div className="text-warning text-xs mt-1">
-                          {!tableInfo.squadFound?.home && `Time da casa não encontrado`}
-                          {!tableInfo.squadFound?.home && !tableInfo.squadFound?.away && ' e '}
-                          {!tableInfo.squadFound?.away && `Time visitante não encontrado`}
-                          {tableInfo.availableSquads && tableInfo.availableSquads.length > 0 && (
-                            <div className="opacity-70 mt-1">
-                              Squads disponíveis: {tableInfo.availableSquads.slice(0, 3).join(', ')}
-                              {tableInfo.availableSquads.length > 3 && '...'}
+              <div className="font-semibold text-sm mb-3">Status das Tabelas Sincronizadas:</div>
+              
+              <div className="space-y-2">
+                {/* Tabela Geral */}
+                {formData.homeTableData && formData.awayTableData && (
+                  <div className="flex items-start gap-2 text-xs">
+                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">✅ Tabela Geral</div>
+                      <div className="opacity-70 text-xs mt-0.5">Alto impacto - base para cálculo</div>
+                      {(() => {
+                        const tableInfo = tablesDiagnostic?.tables.geral;
+                        const squadIssue = tableInfo?.squadFound && (!tableInfo.squadFound.home || !tableInfo.squadFound.away);
+                        if (squadIssue) {
+                          return (
+                            <div className="text-warning text-xs mt-1">
+                              {!tableInfo.squadFound?.home && `Time da casa não encontrado`}
+                              {!tableInfo.squadFound?.home && !tableInfo.squadFound?.away && ' e '}
+                              {!tableInfo.squadFound?.away && `Time visitante não encontrado`}
+                              {tableInfo.availableSquads && tableInfo.availableSquads.length > 0 && (
+                                <div className="opacity-70 mt-1">
+                                  Squads disponíveis: {tableInfo.availableSquads.slice(0, 3).join(', ')}
+                                  {tableInfo.availableSquads.length > 3 && '...'}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabela de Complemento */}
+                {formData.homeComplementData && formData.awayComplementData && (
+                  <div className="flex items-start gap-2 text-xs">
+                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">✅ Tabela de Complemento</div>
+                      <div className="opacity-70 text-xs mt-0.5">Playing Time, Performance, Per 90 Minutes - aumenta precisão</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="mt-3 pt-3 border-t border-base-content/10">
-                {(() => {
-                  const h = formData.homeTableData;
-                  const a = formData.awayTableData;
-                  const hasXg = !!(
-                    h?.['Home xG'] ||
-                    h?.['Away xG'] ||
-                    h?.xG ||
-                    a?.['Home xG'] ||
-                    a?.['Away xG'] ||
-                    a?.xG
-                  );
-                  if (hasXg) {
+              <div className="mt-3 pt-3 border-t border-base-content/10 space-y-2">
+                {/* Mensagem consolidada de status */}
+                {formData.homeTableData && formData.awayTableData && formData.homeComplementData && formData.awayComplementData && (
+                  <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
+                    ✅ Ambas as tabelas carregadas! Análise com máxima precisão disponível.
+                  </div>
+                )}
+                {formData.homeTableData && formData.awayTableData && !formData.homeComplementData && (
+                  <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
+                    ✅ Tabela geral carregada! Análise pronta.
+                  </div>
+                )}
+                {!formData.homeTableData && formData.homeComplementData && formData.awayComplementData && (
+                  <div className="p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs font-medium">
+                    ⚠️ Apenas tabela de complemento disponível. Adicione a tabela geral para análise completa.
+                  </div>
+                )}
+
+                {/* Aviso sobre formato BÁSICO com contexto do complemento */}
+                {formData.homeTableData && formData.awayTableData && (
+                  (() => {
+                    const hasXg = !!(formData.homeTableData?.['Home xG'] || formData.homeTableData?.['Away xG'] || 
+                                   formData.awayTableData?.['Home xG'] || formData.awayTableData?.['Away xG']);
+                    const hasComplement = !!(formData.homeComplementData && formData.awayComplementData);
+                    
+                    if (!hasXg) {
+                      if (hasComplement) {
+                        return (
+                          <div className="p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs font-medium">
+                            ⚠️ Formato BÁSICO detectado (sem xG). A análise usará gols reais (GF/GA).
+                            <br />
+                            <span className="opacity-90">💡 A tabela de complemento compensa parcialmente, adicionando dados de posse, performance e tempo de jogo para maior precisão.</span>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="p-2 bg-warning/10 border border-warning/30 rounded text-warning text-xs font-medium">
+                            ⚠️ Formato BÁSICO detectado (sem xG). A análise usará apenas gols reais (GF/GA), o que pode reduzir ligeiramente a precisão.
+                            <br />
+                            <span className="opacity-90">💡 Adicione a tabela de complemento para aumentar a precisão mesmo sem xG.</span>
+                          </div>
+                        );
+                      }
+                    }
                     return (
                       <div className="p-2 bg-info/10 border border-info/30 rounded text-info text-xs font-medium">
-                        Dados com xG detectados (formato legado Home/Away). A análise pode combinar xG com GF/GA.
+                        ℹ️ Formato COMPLETO detectado (com xG). Análise com máxima precisão.
+                        {hasComplement && (
+                          <span className="block mt-1 opacity-90">+ Tabela de complemento ativa - precisão ainda maior!</span>
+                        )}
                       </div>
                     );
-                  }
-                  return (
-                    <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                      Classificação agregada (JSON): análise com gols reais (GF/GA) e modelo Poisson.
-                    </div>
-                  );
-                })()}
+                  })()
+                )}
               </div>
             </div>
           ) : null}
@@ -796,7 +825,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
       <div className="form-control">
         <label className="label ml-2 flex items-center">
           <span className="label-text font-bold">Odd</span>
-          <InfoIcon text="Odd atual do mercado Over 1.5. Com ela o app calcula o EV (retorno médio esperado por unidade apostada). O modelo de probabilidade usa Poisson e os dados que você preencheu abaixo." />
+          <InfoIcon text="Insira a odd atual do mercado Over 1.5 para calcular o EV (Valor Esperado)." />
         </label>
         <input
           type="number"
@@ -816,7 +845,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-teal-500" />
             <span className="text-sm font-bold">Importar Estatísticas Globais</span>
-            <InfoIcon text="Excel/CSV: seções Time Casa e Time Fora. JSON: objeto com chaves home e away (ou timeCasa/timeFora), ou array [casa, fora], cada um no formato title/headers/rows (Casa, Fora, Global)." />
+            <InfoIcon text="Importe um arquivo Excel (xlsx) ou CSV com as estatísticas dos 10 últimos jogos do campeonato para ambos os times. O arquivo deve conter seções 'Time Casa' e 'Time Fora' com dados para Casa, Fora e Global." />
           </div>
         </div>
         
@@ -826,7 +855,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
             {isImporting ? 'Importando...' : 'Selecionar Arquivo'}
             <input
               type="file"
-              accept=".xlsx,.xls,.xlsm,.csv,.json,application/json"
+              accept=".xlsx,.xls,.xlsm,.csv"
               onChange={handleFileInputChange}
               disabled={isImporting}
               className="hidden"
@@ -877,6 +906,51 @@ const MatchForm: React.FC<MatchFormProps> = ({
       </button>
     </motion.form>
 
+    {/* Modal de Extração do FBref.com */}
+    {showFbrefModal && selectedChampionshipId && (() => {
+      const championship = championships.find(c => c.id === selectedChampionshipId);
+      if (!championship) return null;
+      
+      return (
+        <FbrefExtractionModal
+          championship={championship}
+          onClose={() => {
+            setShowFbrefModal(false);
+            // Atualizar diagnóstico após fechar o modal (caso tabelas tenham sido salvas)
+            if (selectedChampionshipId) {
+              checkChampionshipTablesAvailability(
+                selectedChampionshipId,
+                selectedHomeSquad,
+                selectedAwaySquad
+              ).then(setTablesDiagnostic);
+            }
+          }}
+          onTableSaved={async () => {
+            // Atualizar diagnóstico após salvar tabelas
+            if (selectedChampionshipId) {
+              const updatedDiagnostic = await checkChampionshipTablesAvailability(
+                selectedChampionshipId,
+                selectedHomeSquad,
+                selectedAwaySquad
+              );
+              setTablesDiagnostic(updatedDiagnostic);
+              
+              // Tentar sincronizar automaticamente se times já estiverem selecionados
+              if (selectedHomeSquad && selectedAwaySquad) {
+                setTimeout(() => {
+                  handleSyncWithTable();
+                }, 500);
+              }
+            }
+          }}
+          onError={(message) => {
+            if (onError) {
+              onError(message);
+            }
+          }}
+        />
+      );
+    })()}
     </>
   );
 };

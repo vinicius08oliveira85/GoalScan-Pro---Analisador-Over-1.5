@@ -31,7 +31,6 @@ import { generateAnalysisText, parseWebSearchResults } from './services/matchRes
 import { useAnalysisModal } from './hooks/useAnalysisModal';
 
 // Lazy loading para code splitting
-const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
 const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
 const MatchesScreen = lazy(() => import('./components/MatchesScreen'));
 const ChampionshipsScreen = lazy(() => import('./components/ChampionshipsScreen'));

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Championship, ChampionshipTable, TableRowGeral, TableFormat } from '../types';
-import { Upload, X, Check, FileJson, Sparkles, Zap } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Championship, ChampionshipTable, TableType, TableRowGeral, TableFormat } from '../types';
+import { Upload, X, Check, FileJson, FileSpreadsheet } from 'lucide-react';
 import { animations } from '../utils/animations';
 import ChampionshipTableView from './ChampionshipTableView';
+import { parseExcelToJson, isExcelFile } from '../utils/excelParser';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
 import { parseComplementToJson, isComplementFile, validateComplementData } from '../utils/complementParser';
 import { saveChampionshipComplement } from '../services/championshipService';
@@ -16,7 +17,11 @@ interface ChampionshipFormProps {
   onCancel: () => void;
 }
 
-const GERAL_TABLE_TYPE = 'geral' as const;
+const TABLE_TYPES: Array<{ type: TableType; name: string; required: boolean }> = [
+  { type: 'geral', name: 'Geral', required: false },
+  { type: 'home_away', name: 'Home/Away - Desempenho Casa vs Fora', required: false },
+  { type: 'standard_for', name: 'Standard (For) - Complemento', required: false },
+];
 
 const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   championship,
@@ -24,25 +29,30 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   onCancel,
 }) => {
   const [nome, setNome] = useState('');
-  const [tableFormat, setTableFormat] = useState<TableFormat>('basica');
-  const [geralTable, setGeralTable] = useState<ChampionshipTable | null>(null);
+  const [fbrefUrl, setFbrefUrl] = useState('');
+  const [tableFormat, setTableFormat] = useState<TableFormat | 'auto'>('auto');
+  const [tables, setTables] = useState<Map<TableType, ChampionshipTable>>(new Map());
+  const [complementData, setComplementData] = useState<TableRowComplement[] | null>(null);
+  const [complementFileName, setComplementFileName] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (championship) {
       setNome(championship.nome);
-      setTableFormat(championship.table_format || 'basica');
+      setFbrefUrl(championship.fbrefUrl ?? '');
+      setTableFormat(championship.table_format || 'auto');
     } else {
       setNome('');
-      setTableFormat('basica');
-      setGeralTable(null);
+      setFbrefUrl('');
+      setTableFormat('auto');
+      setTables(new Map());
     }
   }, [championship]);
 
-  const applyNormalizedRows = (rows: TableRowGeral[]) => {
-    const detected = detectTableFormatFromData(rows);
-    setTableFormat(detected);
+  const handleFileUpload = async (tableType: TableType, file: File) => {
+    try {
+      let jsonData: TableRowGeral[];
 
       // Verificar se é arquivo Excel
       if (isExcelFile(file)) {
@@ -213,72 +223,67 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
       newMap.delete(tableType);
       return newMap;
     });
+    setErrors((prev => {
+      const newErrors = { ...prev };
+      delete newErrors[tableType];
+      return newErrors;
+    }));
   };
 
-  const handleJsonContent = (raw: string, source: string) => {
-    void source;
-    let parsed: unknown;
+  const handleComplementUpload = async (file: File) => {
     try {
-      parsed = JSON.parse(raw);
-    } catch {
-      setErrors((prev) => ({ ...prev, geral: 'JSON inválido. Verifique vírgulas e aspas.' }));
-      return;
+      if (!isComplementFile(file)) {
+        setErrors((prev) => ({
+          ...prev,
+          complement: 'Arquivo inválido. Use Excel (.xlsx, .xls) ou CSV (.csv).',
+        }));
+        return;
+      }
+
+      const jsonData = await parseComplementToJson(file);
+      validateComplementData(jsonData);
+
+      setComplementData(jsonData);
+      setComplementFileName(file.name);
+      setErrors((prev => {
+        const newErrors = { ...prev };
+        delete newErrors.complement;
+        return newErrors;
+      }));
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao processar arquivo. Verifique se o arquivo é válido.';
+      setErrors((prev) => ({
+        ...prev,
+        complement: errorMessage,
+      }));
     }
-    const result = parseAndNormalizeLeagueStandingJson(parsed);
-    if (!result.ok) {
-      setErrors((prev) => ({ ...prev, geral: result.error }));
-      return;
-    }
-    applyNormalizedRows(result.rows);
   };
 
-  const handleFileUpload = async (file: File) => {
-    const lower = file.name.toLowerCase();
-    const isJson = lower.endsWith('.json') || file.type === 'application/json';
-
-    if (isJson) {
-      try {
-        const content = await file.text();
-        handleJsonContent(content, file.name);
-      } catch (error) {
-        setErrors((prev) => ({
-          ...prev,
-          geral: error instanceof Error ? error.message : 'Erro ao ler o arquivo.',
-        }));
-      }
-      return;
-    }
-
-    if (isExcelFile(file)) {
-      try {
-        const rawRows = await parseExcelToJson(file);
-        const result = parseAndNormalizeLeagueStandingJson(rawRows as unknown);
-        if (!result.ok) {
-          setErrors((prev) => ({ ...prev, geral: result.error }));
-          return;
-        }
-        applyNormalizedRows(result.rows);
-      } catch (error) {
-        setErrors((prev) => ({
-          ...prev,
-          geral: error instanceof Error ? error.message : 'Erro ao ler a planilha.',
-        }));
-      }
-      return;
-    }
-
-    setErrors((prev) => ({
-      ...prev,
-      geral: 'Use arquivo .json, .xlsx, .xls ou .csv com a classificação da liga.',
+  const removeComplement = () => {
+    setComplementData(null);
+    setComplementFileName('');
+    setErrors((prev => {
+      const newErrors = { ...prev };
+      delete newErrors.complement;
+      return newErrors;
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validações
     const newErrors: Record<string, string> = {};
     if (!nome.trim()) {
       newErrors.nome = 'O nome do campeonato é obrigatório.';
+    }
+
+    const fbrefUrlTrimmed = fbrefUrl.trim();
+    if (fbrefUrlTrimmed && !fbrefUrlTrimmed.includes('fbref.com')) {
+      newErrors.fbrefUrl = 'A URL deve ser do fbref.com (ex: https://fbref.com/en/comps/11/Serie-A-Stats).';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -287,43 +292,51 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
     }
 
     setIsSaving(true);
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.submit;
-      return next;
-    });
     try {
-      const finalFormat =
-        geralTable && Array.isArray(geralTable.table_data) && geralTable.table_data.length > 0
-          ? detectTableFormatFromData(geralTable.table_data as TableRowGeral[])
-          : tableFormat;
-
+      // Detectar formato das tabelas se estiver em modo automático
+      let finalFormat: TableFormat | null = tableFormat === 'auto' ? null : tableFormat;
+      
+      // Se estiver em modo automático e houver tabelas, detectar formato da tabela geral
+      if (finalFormat === null && tables.size > 0) {
+        const geralTable = tables.get('geral');
+        if (geralTable && Array.isArray(geralTable.table_data) && geralTable.table_data.length > 0) {
+          finalFormat = detectTableFormatFromData(geralTable.table_data as TableRowGeral[]);
+        }
+      }
+      
       const championshipToSave: Championship = {
         id: championship?.id || crypto.randomUUID(),
         nome: nome.trim(),
-        fbrefUrl: null,
+        fbrefUrl: fbrefUrlTrimmed ? fbrefUrlTrimmed : null,
         table_format: finalFormat,
         updated_at: new Date().toISOString(),
       };
 
-      const tablesToSave: ChampionshipTable[] = [];
-      if (geralTable) {
-        tablesToSave.push({
-          ...geralTable,
+      const tablesToSave = Array.from(tables.values()).map((table) => {
+        // Garantir que o championship_id está correto e atualizar o ID da tabela se necessário
+        const updatedTable = {
+          ...table,
           championship_id: championshipToSave.id,
-          id:
-            geralTable.championship_id !== championshipToSave.id
-              ? `${championshipToSave.id}_${GERAL_TABLE_TYPE}_${Date.now()}`
-              : geralTable.id,
-        });
-      }
+        };
+        // Atualizar ID da tabela se o championship_id mudou
+        if (table.championship_id !== championshipToSave.id) {
+          updatedTable.id = `${championshipToSave.id}_${table.table_type}_${Date.now()}`;
+        }
+        return updatedTable;
+      });
 
       await onSave(championshipToSave, tablesToSave);
+
+      // Salvar tabela de complemento separadamente (não faz parte de ChampionshipTable)
+      if (complementData && complementData.length > 0) {
+        await saveChampionshipComplement(
+          championshipToSave.id,
+          complementFileName || 'complemento',
+          complementData
+        );
+      }
     } catch (error) {
       console.error('Erro ao salvar campeonato:', error);
-      const msg =
-        error instanceof Error ? error.message : 'Erro ao salvar. Tente novamente.';
-      setErrors((prev) => ({ ...prev, submit: msg }));
     } finally {
       setIsSaving(false);
     }
@@ -332,80 +345,83 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
   return (
     <motion.form
       onSubmit={handleSubmit}
-      className="relative flex flex-col gap-6"
+      className="custom-card p-4 md:p-6 lg:p-8 flex flex-col gap-6"
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
     >
-      <AnimatePresence>
-        {isSaving && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="overflow-hidden rounded-xl"
-            aria-busy="true"
-            aria-label="Sincronizando"
-          >
-            <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-base-300/50">
-              <motion.div
-                className="absolute inset-y-0 w-2/5 rounded-full bg-gradient-to-r from-primary via-secondary to-accent"
-                initial={{ x: '-120%' }}
-                animate={{ x: '320%' }}
-                transition={{ duration: 1.15, repeat: Infinity, ease: 'linear' }}
-              />
-            </div>
-            <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-widest text-base-content/50">
-              Sincronizando…
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <h2 className="text-xl font-black tracking-tight sm:text-2xl">
+      <h2 className="text-2xl font-bold">
         {championship ? 'Editar Campeonato' : 'Novo Campeonato'}
       </h2>
 
+      {/* Nome do Campeonato */}
       <div className="form-control">
-        <label className="label pb-1 pt-0" htmlFor="championship-nome">
-          <span className="label-text font-bold text-base-content/90">Nome do Campeonato</span>
+        <label className="label">
+          <span className="label-text font-bold">Nome do Campeonato</span>
         </label>
         <input
-          id="championship-nome"
           type="text"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
-          className="input input-bordered w-full rounded-2xl border-white/15 bg-base-200/50 backdrop-blur-sm transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
-          placeholder="Ex.: La Liga"
+          className="input input-bordered w-full"
+          placeholder="Ex: Serie A Itália"
           required
         />
-        {errors.nome && <span className="mt-1 text-sm text-error">{errors.nome}</span>}
+        {errors.nome && <span className="text-error text-sm mt-1">{errors.nome}</span>}
       </div>
 
-      <div className="rounded-2xl border border-info/20 bg-info/10 p-3 text-xs leading-relaxed text-base-content/80 backdrop-blur-sm sm:p-4 sm:text-sm">
-        Importe <strong>uma única tabela</strong> em JSON ou Excel (primeira aba): <code className="rounded bg-base-200/60 px-1">Squad</code>{' '}
-        obrigatório; totais <code className="rounded bg-base-200/60 px-1">MP</code> / <code className="rounded bg-base-200/60 px-1">GF</code> /{' '}
-        <code className="rounded bg-base-200/60 px-1">GA</code> <em>ou</em> colunas <code className="rounded bg-base-200/60 px-1">Home …</code> e{' '}
-        <code className="rounded bg-base-200/60 px-1">Away …</code>. Colunas <code className="rounded bg-base-200/60 px-1">Lookup_*</code> viram
-        colunas normais. Prefixos &quot;Club Crest&quot; nos nomes são removidos.
-      </div>
-
-      <div
-        className={cn(
-          'rounded-3xl border border-white/10 p-4 shadow-inner shadow-primary/5 ring-1 ring-white/5',
-          'bg-gradient-to-br from-primary/20 via-base-100/40 to-secondary/20 backdrop-blur-xl dark:via-base-200/30'
-        )}
-      >
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-base-100/50 text-primary shadow-md dark:bg-base-100/30">
-            <Sparkles className="h-4 w-4" aria-hidden />
+      {/* URL do FBref */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-bold">URL do FBref (opcional)</span>
+        </label>
+        <input
+          type="url"
+          value={fbrefUrl}
+          onChange={(e) => setFbrefUrl(e.target.value)}
+          className="input input-bordered w-full"
+          placeholder="Ex: https://fbref.com/en/comps/11/Serie-A-Stats"
+        />
+        {errors.fbrefUrl && <span className="text-error text-sm mt-1">{errors.fbrefUrl}</span>}
+        {!errors.fbrefUrl && (
+          <span className="text-xs opacity-70 mt-1">
+            Dica: com essa URL salva, você poderá clicar em <span className="font-semibold">Atualizar</span> e extrair
+            todas as tabelas automaticamente.
           </span>
-          <Zap className="h-4 w-4 text-secondary opacity-90" aria-hidden />
-          <h3 className="text-base font-black tracking-tight text-base-content sm:text-lg">Extração automática</h3>
-        </div>
-        <p className="mb-4 text-xs text-base-content/65 sm:text-sm">
-          Envie o arquivo da liga ou cole o JSON — a normalização roda localmente antes do envio ao servidor.
-        </p>
+        )}
+      </div>
+
+      {/* Formato da Planilha */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-bold">Formato da Planilha</span>
+        </label>
+        <select
+          value={tableFormat}
+          onChange={(e) => setTableFormat(e.target.value as TableFormat | 'auto')}
+          className="select select-bordered w-full"
+        >
+          <option value="auto">Automático (detectar ao fazer upload)</option>
+          <option value="completa">Completa (27 campos com xG)</option>
+          <option value="basica">Básica (21 campos sem xG)</option>
+        </select>
+        <label className="label">
+          <span className="label-text-alt opacity-70">
+            {tableFormat === 'completa' && 'Inclui campos de Expected Goals (xG, xGA, xGD, xGD/90) para Home e Away'}
+            {tableFormat === 'basica' && 'Apenas estatísticas básicas (MP, W, D, L, GF, GA, GD, Pts, Pts/MP) para Home e Away'}
+            {tableFormat === 'auto' && 'O formato será detectado automaticamente ao fazer upload da planilha'}
+          </span>
+        </label>
+        {tableFormat !== 'auto' && (
+          <div className="alert alert-info mt-2">
+            <div className="text-xs">
+              <strong>Formato selecionado:</strong> {tableFormat === 'completa' ? 'Completa' : 'Básica'}
+              {tableFormat === 'completa' && ' - Campos xG serão usados na análise quando disponíveis'}
+              {tableFormat === 'basica' && ' - Apenas GF/GA serão usados na análise'}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Upload de Tabelas (opcional) */}
       <div className="space-y-6">
@@ -517,99 +533,77 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
         <div className="border border-base-300 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-black sm:text-base">Classificação (JSON ou Excel)</span>
-              {geralTable && (
-                <span className="badge badge-success gap-1 font-bold">
-                  <Check className="h-3 w-3" />
-                  Carregada
+              <span className="font-bold">Complemento (Playing Time, Performance, Per 90 Minutes)</span>
+              {complementData && (
+                <span className="badge badge-success gap-1">
+                  <Check className="w-3 h-3" />
+                  Carregada ({complementData.length} times)
                 </span>
               )}
             </div>
-            {geralTable && (
-              <button type="button" onClick={() => setGeralTable(null)} className="btn btn-sm btn-ghost btn-circle" aria-label="Remover tabela">
-                <X className="h-4 w-4" />
+            {complementData && (
+              <button
+                type="button"
+                onClick={removeComplement}
+                className="btn btn-sm btn-ghost"
+              >
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
 
-          {!geralTable ? (
-            <div className="space-y-4">
-              <div className="form-control">
-                <label className="label pb-1 pt-0">
-                  <span className="label-text flex items-center gap-2 font-bold text-base-content/90">
-                    Arquivo JSON ou Excel
-                    <FileJson className="h-4 w-4 text-secondary" aria-hidden />
-                  </span>
-                </label>
-                <input
-                  type="file"
-                  accept=".json,.xlsx,.xls,.xlsm,.csv,application/json"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void handleFileUpload(file);
-                  }}
-                  className="file-input file-input-bordered file-input-primary w-full rounded-2xl border-white/15 bg-base-200/50 backdrop-blur-sm"
-                />
-              </div>
-
-              <div className="divider my-1 text-xs font-bold opacity-50">OU</div>
-
-              <div className="form-control">
-                <label className="label pb-1 pt-0">
-                  <span className="label-text font-bold text-base-content/90">Colar JSON</span>
-                </label>
-                <textarea
-                  className="textarea textarea-bordered h-36 rounded-2xl border-white/15 bg-base-200/50 font-mono text-xs backdrop-blur-sm transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50 sm:h-40 sm:text-sm"
-                  placeholder='[{"Rk":"1","Squad":"Barcelona","Home MP":"15","Home GF":"47",...}]'
-                  onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    if (v) handleJsonContent(v, 'paste');
-                  }}
-                />
-              </div>
-
-              {errors.geral && <span className="text-sm text-error">{errors.geral}</span>}
+          {!complementData ? (
+            <div className="form-control">
+              <label className="label cursor-pointer">
+                <span className="label-text font-bold flex items-center gap-2">
+                  Upload de arquivo Excel ou CSV
+                  <FileSpreadsheet className="w-4 h-4 text-primary" />
+                </span>
+              </label>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleComplementUpload(file);
+                  }
+                }}
+                className="file-input file-input-bordered w-full file-input-primary"
+              />
+              <label className="label">
+                <span className="label-text-alt text-xs opacity-70">
+                  <strong>Formatos aceitos:</strong> Excel (.xlsx, .xls) ou CSV (.csv)
+                  <br />
+                  <strong>Requisito:</strong> A planilha deve conter uma coluna "Squad" e campos de Playing Time, Performance e Per 90 Minutes
+                  <br />
+                  <strong>Exemplo:</strong> Pl, Age, Poss, Playing Time MP, Performance Gls, Per 90 Minutes Gls, etc.
+                </span>
+              </label>
+              {errors.complement && <span className="text-error text-sm mt-1">{errors.complement}</span>}
             </div>
           ) : (
-            <ChampionshipTableView table={geralTable} />
+            <div className="mt-3">
+              <div className="alert alert-info">
+                <div className="text-sm">
+                  <strong>Tabela de complemento carregada:</strong> {complementFileName}
+                  <br />
+                  <strong>Times:</strong> {complementData.length}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
-      {errors.submit && (
-        <div className="alert alert-error rounded-2xl text-sm whitespace-pre-wrap">{errors.submit}</div>
-      )}
-
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-        <motion.button
-          type="button"
-          onClick={onCancel}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="btn btn-ghost rounded-xl"
-          disabled={isSaving}
-        >
+      {/* Botões */}
+      <div className="flex gap-3 justify-end">
+        <button type="button" onClick={onCancel} className="btn btn-ghost">
           Cancelar
-        </motion.button>
-        <motion.button
-          type="submit"
-          whileHover={!isSaving ? { scale: 1.03 } : undefined}
-          whileTap={!isSaving ? { scale: 0.98 } : undefined}
-          className="btn btn-primary rounded-xl font-black shadow-lg shadow-primary/25 hover:shadow-xl"
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <>
-              <span className="loading loading-spinner loading-sm" />
-              Salvando…
-            </>
-          ) : (
-            <>
-              <Upload className="h-4 w-4" />
-              Salvar
-            </>
-          )}
-        </motion.button>
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={isSaving}>
+          {isSaving ? 'Salvando...' : 'Salvar'}
+        </button>
       </div>
     </motion.form>
   );

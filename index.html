@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-br" data-theme="light">
+<html lang="pt-br" data-theme="goalscan_glass">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -10,8 +10,7 @@
       name="description"
       content="Análise inteligente de partidas de futebol com cálculo de EV (Expected Value) e probabilidades usando algoritmo Poisson v3.8"
     />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#4F46E5" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F172A" />
+    <meta name="theme-color" content="#6366f1" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="GoalScan Pro" />
@@ -89,7 +88,19 @@
         }
       });
 
-      /* Removido bloqueio de duplo-toque: impedia zoom de acessibilidade no iOS */
+      // Prevenir zoom duplo toque no iOS
+      let lastTouchEnd = 0;
+      document.addEventListener(
+        'touchend',
+        (event) => {
+          const now = Date.now();
+          if (now - lastTouchEnd <= 300) {
+            event.preventDefault();
+          }
+          lastTouchEnd = now;
+        },
+        false
+      );
     </script>
   </body>
 </html>
