@@ -3,6 +3,7 @@ import { ChampionshipTable, TableType } from '../types';
 import { logger } from '../utils/logger';
 import { createLocalStorageCache } from '../utils/localStorageCache';
 import { extractFbrefClientSide } from './fbrefClientScraper';
+import { saveChampionshipTable } from './championshipService';
 
 export type ExtractType = 'table' | 'matches' | 'team-stats' | 'all';
 
@@ -158,9 +159,6 @@ export const saveExtractedTable = async (
       }
       return r;
     });
-
-    // Importar função de salvar tabela
-    const { saveChampionshipTable } = await import('./championshipService');
 
     const table: ChampionshipTable = {
       // ID estável por campeonato + tipo (evita “acúmulo” de versões no banco; mantém sempre a mais recente)

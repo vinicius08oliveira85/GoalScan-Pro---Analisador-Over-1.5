@@ -1438,9 +1438,6 @@ function normalizeMatchData(data: MatchData): MatchData {
 
   return {
     ...data,
-    // Campos deprecated: usar valores padrão se não existirem
-    homeOver15Freq: data.homeOver15Freq ?? 0,
-    awayOver15Freq: data.awayOver15Freq ?? 0,
     // Garantir arrays vazios se não existirem
     homeHistory: data.homeHistory ?? [],
     awayHistory: data.awayHistory ?? [],
@@ -1499,10 +1496,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     },
   });
   
-  // Extrair campos deprecated com valores padrão (para compatibilidade com dados antigos)
-  const homeOver15Freq = normalizedData.homeOver15Freq ?? 0;
-  const awayOver15Freq = normalizedData.awayOver15Freq ?? 0;
-
   // Validação e observabilidade de dados
   const hasHomeTeamStats = !!normalizedData.homeTeamStats;
   const hasAwayTeamStats = !!normalizedData.awayTeamStats;
@@ -1546,8 +1539,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
 
   logger.log('[AnalysisEngine] ===== RESUMO DE DADOS E TABELAS =====');
   logger.log('[AnalysisEngine] Dados normalizados:', {
-    homeOver15Freq,
-    awayOver15Freq,
     dataCompleteness,
     missingData: missingData.length > 0 ? missingData : 'Nenhum',
     missingTables: missingTables.length > 0 ? missingTables : 'Nenhuma',
