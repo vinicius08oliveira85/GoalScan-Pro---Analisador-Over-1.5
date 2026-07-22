@@ -307,16 +307,25 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 {/* Indicador de Qualidade dos Dados */}
                 {(() => {
                   const dataQuality = calculateDataQuality(data);
-                  const qualityColor = dataQuality >= 80 ? 'text-success' : dataQuality >= 60 ? 'text-warning' : 'text-error';
+                  const qualityColor = dataQuality >= 80 ? 'success' : dataQuality >= 60 ? 'warning' : 'error';
                   const qualityLabel = dataQuality >= 80 ? 'Alta' : dataQuality >= 60 ? 'Média' : 'Baixa';
+                  const ringBorder = dataQuality >= 80 ? 'border-success/30' : dataQuality >= 60 ? 'border-warning/30' : 'border-error/30';
+                  const ringText = dataQuality >= 80 ? 'text-success' : dataQuality >= 60 ? 'text-warning' : 'text-error';
+                  const badgeBorder = dataQuality >= 80 ? 'border-success/40' : dataQuality >= 60 ? 'border-warning/40' : 'border-error/40';
+                  const badgeBg = dataQuality >= 80 ? 'bg-success/15' : dataQuality >= 60 ? 'bg-warning/15' : 'bg-error/15';
+                  const dotColor = dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-error';
                   return (
-                    <div className="tooltip tooltip-left" data-tip={`Dados: ${qualityLabel} (${dataQuality.toFixed(0)}%)\n\nCompletude dos dados disponíveis para análise.`}>
-                      <div className={`badge badge-sm gap-1.5 pl-2 pr-2.5 py-2 font-semibold border ${qualityColor} ${
-                        dataQuality >= 80 ? 'border-success/30 bg-success/8' : dataQuality >= 60 ? 'border-warning/30 bg-warning/8' : 'border-error/30 bg-error/8'
-                      }`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-error'}`} />
-                        Dados {qualityLabel}
-                        <span className="font-mono tabular-nums text-[10px] opacity-75">{dataQuality.toFixed(0)}%</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`radial-progress ${ringText} ${ringBorder}`}
+                           style={{ '--value': dataQuality.toFixed(0), '--size': '1.8rem', '--thickness': '3px' } as React.CSSProperties}
+                           role="progressbar">
+                        <span className="sr-only">{dataQuality.toFixed(0)}%</span>
+                      </div>
+                      <div className="tooltip tooltip-left before:!text-xs" data-tip={`${qualityLabel}: ${dataQuality.toFixed(0)}% completo`}>
+                        <div className={`badge badge-sm gap-1 font-semibold border ${badgeBorder} ${badgeBg} ${ringText}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                          {qualityLabel}
+                        </div>
                       </div>
                     </div>
                   );
