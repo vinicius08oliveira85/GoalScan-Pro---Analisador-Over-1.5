@@ -3,44 +3,44 @@
 @tailwind utilities;
 
 :root {
-  /* Base surfaces (alinhado ao tema goalscan_glass do DaisyUI) */
-  --color-base-100: oklch(18% 0.03 229.695);
-  --color-base-200: oklch(22% 0.035 227.392);
-  --color-base-300: oklch(28% 0.04 224.283);
-  --color-base-content: oklch(95% 0.045 203.388);
-  --color-primary: oklch(44% 0.043 257.281);
-  --color-primary-content: oklch(98% 0.003 247.858);
-  --color-secondary: oklch(55% 0.288 302.321);
-  --color-secondary-content: oklch(97% 0.014 308.299);
-  --color-accent: oklch(55% 0.288 302.321);
-  --color-accent-content: oklch(97% 0.014 308.299);
-  --color-neutral: oklch(24% 0.03 229.695);
-  --color-neutral-content: oklch(98% 0.019 200.873);
-  --color-info: oklch(68% 0.169 237.323);
-  --color-info-content: oklch(97% 0.013 236.62);
-  --color-success: oklch(70% 0.14 182.503);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(70% 0.213 47.604);
-  --color-warning-content: oklch(98% 0.016 73.684);
-  --color-error: oklch(64% 0.246 16.439);
-  --color-error-content: oklch(96% 0.015 12.422);
+  /* Base surfaces (tema escuro "black" - monocromático) */
+  --color-base-100: oklch(0% 0 0);
+  --color-base-200: oklch(19% 0 0);
+  --color-base-300: oklch(22% 0 0);
+  --color-base-content: oklch(87.609% 0 0);
+  --color-primary: oklch(35% 0 0);
+  --color-primary-content: oklch(100% 0 0);
+  --color-secondary: oklch(35% 0 0);
+  --color-secondary-content: oklch(100% 0 0);
+  --color-accent: oklch(35% 0 0);
+  --color-accent-content: oklch(100% 0 0);
+  --color-neutral: oklch(35% 0 0);
+  --color-neutral-content: oklch(100% 0 0);
+  --color-info: oklch(45.201% 0.313 264.052);
+  --color-info-content: oklch(89.04% 0.062 264.052);
+  --color-success: oklch(51.975% 0.176 142.495);
+  --color-success-content: oklch(90.395% 0.035 142.495);
+  --color-warning: oklch(96.798% 0.211 109.769);
+  --color-warning-content: oklch(19.359% 0.042 109.769);
+  --color-error: oklch(62.795% 0.257 29.233);
+  --color-error-content: oklch(12.559% 0.051 29.233);
 
-  --radius-selector: 2rem;
-  --radius-field: 2rem;
-  --radius-box: 2rem;
-  --size-selector: 0.1875rem;
-  --size-field: 0.1875rem;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
   --border: 1px;
 
   /* Glass tokens (sistema único para efeitos de vidro) */
-  --glass-bg: oklch(22% 0.03 229.695 / 0.55);
-  --glass-bg-hover: oklch(24% 0.03 229.695 / 0.66);
-  --glass-border: oklch(96% 0.02 229.695 / 0.12);
-  --shadow-elev-1: 0 10px 25px -10px rgba(0, 0, 0, 0.55),
+  --glass-bg: oklch(19% 0 0 / 0.7);
+  --glass-bg-hover: oklch(22% 0 0 / 0.8);
+  --glass-border: oklch(100% 0 0 / 0.08);
+  --shadow-elev-1: 0 10px 25px -10px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  --shadow-elev-2: 0 22px 60px -18px rgba(0, 0, 0, 0.8),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  --shadow-elev-2: 0 22px 60px -18px rgba(0, 0, 0, 0.65),
-    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
-  --noise-opacity: 0.12;
+  --noise-opacity: 0.08;
 }
 
 /* Light theme overrides */
@@ -82,8 +82,8 @@ body {
   font-family: 'Inter', sans-serif;
   /* Background com gradientes sutis + noise (Glass Modern controlado) */
   background-image:
-    radial-gradient(1200px circle at 10% 10%, oklch(44% 0.043 257.281 / 0.18) 0%, transparent 55%),
-    radial-gradient(900px circle at 90% 20%, oklch(55% 0.288 302.321 / 0.12) 0%, transparent 50%);
+    radial-gradient(1200px circle at 10% 10%, oklch(35% 0 0 / 0.25) 0%, transparent 55%),
+    radial-gradient(900px circle at 90% 20%, oklch(35% 0 0 / 0.15) 0%, transparent 50%);
   background-attachment: fixed;
   min-height: 100vh;
   line-height: 1.6;
@@ -147,10 +147,10 @@ a:focus-visible {
     @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 focus:ring-offset-base-100 rounded;
   }
 
-  .shadow-glow-success { box-shadow: 0 0 12px oklch(70% 0.14 182.503 / 0.45); }
-  .shadow-glow-error { box-shadow: 0 0 12px oklch(64% 0.246 16.439 / 0.4); }
-  .shadow-glow-warning { box-shadow: 0 0 10px oklch(70% 0.213 47.604 / 0.35); }
-  .shadow-glow-primary { box-shadow: 0 0 10px oklch(44% 0.043 257.281 / 0.25); }
+  .shadow-glow-success { box-shadow: 0 0 12px oklch(51.975% 0.176 142.495 / 0.4); }
+  .shadow-glow-error { box-shadow: 0 0 12px oklch(62.795% 0.257 29.233 / 0.35); }
+  .shadow-glow-warning { box-shadow: 0 0 10px oklch(96.798% 0.211 109.769 / 0.3); }
+  .shadow-glow-primary { box-shadow: 0 0 10px oklch(35% 0 0 / 0.3); }
 
   /* Respeitar prefers-reduced-motion */
   @media (prefers-reduced-motion: reduce) {
@@ -212,17 +212,17 @@ a:focus-visible {
 
   .gradient-pending {
     @apply bg-gradient-to-r from-warning/30 via-warning/20 to-warning/10;
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+    box-shadow: 0 0 20px oklch(96.798% 0.211 109.769 / 0.2);
   }
 
   .gradient-win {
     @apply bg-gradient-to-r from-success/30 via-success/20 to-success/10;
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+    box-shadow: 0 0 20px oklch(51.975% 0.176 142.495 / 0.2);
   }
 
   .gradient-loss {
     @apply bg-gradient-to-r from-error/30 via-error/20 to-error/10;
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 0 20px oklch(62.795% 0.257 29.233 / 0.2);
   }
 
   /* Efeito de vidro (glass morphism) */
@@ -241,40 +241,40 @@ a:focus-visible {
   /* Sombras coloridas dinâmicas */
   .shadow-glow-primary {
     box-shadow:
-      0 0 30px rgba(99, 102, 241, 0.15),
-      0 10px 40px -10px rgba(0, 0, 0, 0.3);
+      0 0 30px oklch(35% 0 0 / 0.2),
+      0 10px 40px -10px rgba(0, 0, 0, 0.4);
   }
 
   .shadow-glow-success {
     box-shadow:
-      0 0 30px rgba(34, 197, 94, 0.15),
-      0 10px 40px -10px rgba(0, 0, 0, 0.3);
+      0 0 30px oklch(51.975% 0.176 142.495 / 0.15),
+      0 10px 40px -10px rgba(0, 0, 0, 0.4);
   }
 
   .shadow-glow-warning {
     box-shadow:
-      0 0 30px rgba(245, 158, 11, 0.15),
-      0 10px 40px -10px rgba(0, 0, 0, 0.3);
+      0 0 30px oklch(96.798% 0.211 109.769 / 0.15),
+      0 10px 40px -10px rgba(0, 0, 0, 0.4);
   }
 
   .shadow-glow-error {
     box-shadow:
-      0 0 30px rgba(239, 68, 68, 0.15),
-      0 10px 40px -10px rgba(0, 0, 0, 0.3);
+      0 0 30px oklch(62.795% 0.257 29.233 / 0.15),
+      0 10px 40px -10px rgba(0, 0, 0, 0.4);
   }
 
   /* Decorative gradient orbs */
   .orb-primary {
     @apply absolute rounded-full blur-3xl pointer-events-none;
-    background: radial-gradient(circle, oklch(44% 0.043 257.281 / 0.2), transparent 70%);
+    background: radial-gradient(circle, oklch(35% 0 0 / 0.25), transparent 70%);
   }
   .orb-secondary {
     @apply absolute rounded-full blur-3xl pointer-events-none;
-    background: radial-gradient(circle, oklch(55% 0.288 302.321 / 0.15), transparent 70%);
+    background: radial-gradient(circle, oklch(35% 0 0 / 0.2), transparent 70%);
   }
   .orb-success {
     @apply absolute rounded-full blur-3xl pointer-events-none;
-    background: radial-gradient(circle, oklch(70% 0.14 182.503 / 0.15), transparent 70%);
+    background: radial-gradient(circle, oklch(51.975% 0.176 142.495 / 0.18), transparent 70%);
   }
 
   /* Divider com gradiente */
