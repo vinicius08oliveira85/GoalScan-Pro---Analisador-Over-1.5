@@ -72,14 +72,14 @@ function extractSyncFeedback(result: SyncResult): SyncFeedback {
     homeXG = hxg > 0 ? hxg : null;
     awayXG = axg > 0 ? axg : null;
   }
-  // Fallback: buscar xG dos dados de complemento (tabela Shooting)
+  // Fallback: buscar xG da tabela de complemento (Shooting table) se a geral não tiver
   if (homeXG == null && result.homeComplementData) {
-    const hxgComp = parseNum(result.homeComplementData['xG'] || result.homeComplementData.xG);
-    if (hxgComp > 0) homeXG = hxgComp;
+    const hxg = parseNum(result.homeComplementData.xG);
+    homeXG = hxg > 0 ? hxg : null;
   }
   if (awayXG == null && result.awayComplementData) {
-    const axgComp = parseNum(result.awayComplementData['xG'] || result.awayComplementData.xG);
-    if (axgComp > 0) awayXG = axgComp;
+    const axg = parseNum(result.awayComplementData.xG);
+    awayXG = axg > 0 ? axg : null;
   }
 
   let tableFormat: 'completa' | 'basica' | null = null;
@@ -136,6 +136,16 @@ function createMatchDataFromTables(
   }
   if (homeXG > 0) updates.homeXG = homeXG;
   if (awayXG > 0) updates.awayXG = awayXG;
+
+  // Fallback: buscar xG da tabela de complemento (Shooting) se a geral não tiver
+  if ((homeXG === 0 || updates.homeXG == null) && result.homeComplementData) {
+    const compXG = parseNum(result.homeComplementData.xG);
+    if (compXG > 0) updates.homeXG = compXG;
+  }
+  if ((awayXG === 0 || updates.awayXG == null) && result.awayComplementData) {
+    const compXG = parseNum(result.awayComplementData.xG);
+    if (compXG > 0) updates.awayXG = compXG;
+  }
 
   if (result.homeComplementData) {
     const hComp = result.homeComplementData;

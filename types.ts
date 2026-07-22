@@ -500,14 +500,24 @@ export interface ChampionshipComplement {
   per_90_g_pk?: string;
   per_90_g_a_pk?: string;
 
-  // Shooting / Expected Goals (da tabela Shooting do FBref)
+  // Shooting (tabela Shooting do FBref)
+  xg?: string; // Expected Goals (xG)
+  npxg?: string; // Non-Penalty Expected Goals
   sh?: string; // Shots Total
   sot?: string; // Shots on Target
-  xg?: string; // Expected Goals
-  npxg?: string; // Non-Penalty Expected Goals
-  xga?: string; // Expected Goals Against
-  xgd?: string; // Expected Goal Difference
-  
+  sot_pct?: string; // Shots on Target %
+  sh_90?: string; // Shots per 90
+  sot_90?: string; // Shots on Target per 90
+  g_sh?: string; // Goals per Shot
+  g_sot?: string; // Goals per Shot on Target
+  dist?: string; // Average Shot Distance
+  fk?: string; // Free Kicks
+  pk?: string; // Penalty Kicks Made
+  pkatt?: string; // Penalty Kicks Attempted
+  npxg_sh?: string; // Non-Penalty xG per Shot
+  g_xg?: string; // Goals minus xG
+  npg_xg?: string; // Non-Penalty Goals minus xG
+
   created_at?: string;
   updated_at?: string;
 }
@@ -528,11 +538,6 @@ export interface CompetitionComplementAverages {
   per90GA: number; // média de Goals + Assists/90
   per90GPK: number; // média de Non-Penalty Goals/90
   per90GAPK: number; // média de Non-Penalty Goals + Assists/90
-  // Shooting / Expected Goals
-  xg?: number; // média de Expected Goals
-  npxg?: number; // média de Non-Penalty Expected Goals
-  sh?: number; // média de Shots
-  sot?: number; // média de Shots on Target
 }
 
 // Dados do campeonato
