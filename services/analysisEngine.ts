@@ -669,11 +669,11 @@ function calculateTableProbability(data: MatchData): {
   // Para time visitante: usar Away MP, Away GF, etc.
   const awayMp = parseFloat(data.awayTableData['Away MP'] || data.awayTableData.MP || '0');
   const awayGf = parseFloat(data.awayTableData['Away GF'] || data.awayTableData.GF || '0');
-  // Defesa do visitante: gols sofridos pelo time da casa em casa (Home GA do time da casa)
-  const awayGa = parseFloat(data.homeTableData['Home GA'] || data.homeTableData.GA || '0');
+  // Defesa do visitante: gols sofridos pelo visitante fora (Away GA do visitante)
+  const awayGa = parseFloat(data.awayTableData['Away GA'] || data.awayTableData.GA || '0');
   const awayXg = parseFloat(data.awayTableData['Away xG'] || data.awayTableData.xG || '0');
-  // Defesa esperada do visitante: Home xGA do time da casa
-  const awayXga = parseFloat(data.homeTableData['Home xGA'] || data.homeTableData.xGA || '0');
+  // Defesa esperada do visitante: Away xGA do visitante
+  const awayXga = parseFloat(data.awayTableData['Away xGA'] || data.awayTableData.xGA || '0');
   const awayRk = parseFloat(data.awayTableData.Rk || '0');
   const awayGd = parseFloat(data.awayTableData['Away GD'] || data.awayTableData.GD || '0');
   const awayXgd = parseFloat(data.awayTableData['Away xGD'] || data.awayTableData.xGD || '0');
@@ -931,9 +931,31 @@ function calculateTableProbability(data: MatchData): {
       ? clamp(1 + ((away90s - avg90s) / avg90s) * 0.02, 1.0, 1.01)
       : 1;
 
+    // 5. Ajuste por Performance Gls (gols brutos) - reforço ofensivo
+    const homePerfGls = hasHomeComplement ? parseNumeric(homeRow['Performance Gls']) : 0;
+    const awayPerfGls = hasAwayComplement ? parseNumeric(awayRow['Performance Gls']) : 0;
+    const avgPerfGls = (homePerfGls + awayPerfGls) / 2;
+    const homePerfGlsFactor = avgPerfGls > 0 && homePerfGls > 0
+      ? clamp(1 + ((homePerfGls - avgPerfGls) / avgPerfGls) * 0.05, 0.97, 1.03)
+      : 1;
+    const awayPerfGlsFactor = avgPerfGls > 0 && awayPerfGls > 0
+      ? clamp(1 + ((awayPerfGls - avgPerfGls) / avgPerfGls) * 0.05, 0.97, 1.03)
+      : 1;
+
+    // 6. Ajuste por cartões (indisciplina → mais gols)
+    const homeCrdY = hasHomeComplement ? parseNumeric(homeRow['Performance CrdY']) : 0;
+    const awayCrdY = hasAwayComplement ? parseNumeric(awayRow['Performance CrdY']) : 0;
+    const avgCrdY = (homeCrdY + awayCrdY) / 2;
+    const homeCrdFactor = avgCrdY > 0 && homeCrdY > avgCrdY
+      ? clamp(1 + ((homeCrdY - avgCrdY) / avgCrdY) * 0.03, 1.0, 1.02)
+      : 1;
+    const awayCrdFactor = avgCrdY > 0 && awayCrdY > avgCrdY
+      ? clamp(1 + ((awayCrdY - avgCrdY) / avgCrdY) * 0.03, 1.0, 1.02)
+      : 1;
+
     // Aplicar todos os fatores de complemento
-    const homeComplementFactor = homePossFactor * homePer90Factor * homeAgeFactor * home90sFactor;
-    const awayComplementFactor = awayPossFactor * awayPer90Factor * awayAgeFactor * away90sFactor;
+    const homeComplementFactor = homePossFactor * homePer90Factor * homeAgeFactor * home90sFactor * homePerfGlsFactor * homeCrdFactor;
+    const awayComplementFactor = awayPossFactor * awayPer90Factor * awayAgeFactor * away90sFactor * awayPerfGlsFactor * awayCrdFactor;
 
     lambdaHome *= homeComplementFactor;
     lambdaAway *= awayComplementFactor;
@@ -1047,7 +1069,18 @@ function calculateTableProbability(data: MatchData): {
     formAdjustment = avgForm * 3;
   }
 
-  const finalProb = Math.max(10, Math.min(98, tableProb + formAdjustment));
+  // Aplicar matchImportance e keyAbsences (antes ignorados sem teamStats)
+  let importanceAdjustment = 0;
+  if (data.matchImportance && data.matchImportance > 0) {
+    importanceAdjustment += data.matchImportance * 0.5;
+  }
+  if (data.keyAbsences && data.keyAbsences !== 'none') {
+    if (data.keyAbsences === 'high') importanceAdjustment -= 4;
+    else if (data.keyAbsences === 'medium') importanceAdjustment -= 2;
+    else if (data.keyAbsences === 'low') importanceAdjustment -= 0.5;
+  }
+
+  const finalProb = Math.max(10, Math.min(98, tableProb + formAdjustment + importanceAdjustment));
 
   // Calcular probabilidades Over/Under para múltiplas linhas
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaTotal);
@@ -1227,37 +1260,18 @@ function combineStatisticsAndTable(
  */
 function calculateAdaptiveWeights(
   estimatedOver15Freq: number,
-  _awayOver15Freq: number, // Mantido para compatibilidade, mas não usado
   competitionAvg: number,
   hasTeamStats: boolean
-): { homeWeight: number; awayWeight: number; competitionWeight: number } {
-  // Base: se temos dados dos times, dar mais peso a eles
+): { teamWeight: number; competitionWeight: number } {
   const hasEstimatedData = estimatedOver15Freq > 0;
   const hasCompetitionData = competitionAvg > 0;
-
-  // Contar quantos dados temos
   const dataCount = (hasEstimatedData ? 1 : 0) + (hasCompetitionData ? 1 : 0);
 
-  if (dataCount === 0) {
-    // Sem dados, usar pesos padrão
-    return { homeWeight: 0.25, awayWeight: 0.25, competitionWeight: 0.5 };
-  }
-
-  // Se temos dados estimados E estatísticas detalhadas, dar mais peso aos times
-  if (hasTeamStats && hasEstimatedData) {
-    return { homeWeight: 0.35, awayWeight: 0.35, competitionWeight: 0.3 };
-  }
-
-  // Se temos apenas dados estimados, ajustar pesos
-  if (hasEstimatedData && !hasCompetitionData) {
-    return { homeWeight: 0.4, awayWeight: 0.4, competitionWeight: 0.2 };
-  }
-  if (!hasEstimatedData && hasCompetitionData) {
-    return { homeWeight: 0.25, awayWeight: 0.25, competitionWeight: 0.5 };
-  }
-
-  // Padrão: balanceado
-  return { homeWeight: 0.3, awayWeight: 0.3, competitionWeight: 0.4 };
+  if (dataCount === 0) return { teamWeight: 0.5, competitionWeight: 0.5 };
+  if (hasTeamStats && hasEstimatedData) return { teamWeight: 0.7, competitionWeight: 0.3 };
+  if (hasEstimatedData && !hasCompetitionData) return { teamWeight: 0.8, competitionWeight: 0.2 };
+  if (!hasEstimatedData && hasCompetitionData) return { teamWeight: 0.5, competitionWeight: 0.5 };
+  return { teamWeight: 0.6, competitionWeight: 0.4 };
 }
 
 /**
@@ -1693,15 +1707,13 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   // 6. Calcular pesos adaptativos
   const weights = calculateAdaptiveWeights(
     estimatedOver15Freq,
-    estimatedOver15Freq, // Usar mesma estimativa para ambos (já calculada com dados de ambos)
     competitionAvg,
     hasTeamStats
   );
 
   // Aplicar fórmula ponderada adaptativa
   let prob =
-    estimatedOver15Freq * weights.homeWeight +
-    estimatedOver15Freq * weights.awayWeight +
+    estimatedOver15Freq * weights.teamWeight +
     competitionAvg * weights.competitionWeight;
 
   // Ajustes suaves baseados em métricas (usando funções sigmoid em vez de if/else fixos)
@@ -1851,29 +1863,40 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let awayGoalsScored = 0;
   let awayGoalsConceded = 0;
   
-  // Usar dados weighted se temos estatísticas globais
+  // Calcular weighted stats uma única vez e cachear
+  let cachedHomeWeighted: ReturnType<typeof getWeightedTeamStats> | null = null;
+  let cachedAwayWeighted: ReturnType<typeof getWeightedTeamStats> | null = null;
   if (normalizedData.homeTeamStats && normalizedData.awayTeamStats) {
-    const homeWeighted = getWeightedTeamStats(
+    cachedHomeWeighted = getWeightedTeamStats(
       normalizedData.homeTeamStats.gols.home,
       normalizedData.homeTeamStats.gols.away,
       normalizedData.homeTeamStats.gols.global,
       'home'
     );
-    const awayWeighted = getWeightedTeamStats(
+    cachedAwayWeighted = getWeightedTeamStats(
       normalizedData.awayTeamStats.gols.home,
       normalizedData.awayTeamStats.gols.away,
       normalizedData.awayTeamStats.gols.global,
       'away'
     );
-    
-    homeGoalsScored = homeWeighted.avgScored;
-    homeGoalsConceded = homeWeighted.avgConceded;
-    awayGoalsScored = awayWeighted.avgScored;
-    awayGoalsConceded = awayWeighted.avgConceded;
+    homeGoalsScored = cachedHomeWeighted.avgScored;
+    homeGoalsConceded = cachedHomeWeighted.avgConceded;
+    awayGoalsScored = cachedAwayWeighted.avgScored;
+    awayGoalsConceded = cachedAwayWeighted.avgConceded;
   }
-  
-  // Usar dados da tabela geral
-  if (normalizedData.homeTableData) {
+
+  // Fallback: usar campos auto-fill (homeGoalsScoredAvg etc) se disponíveis
+  if (homeGoalsScored === 0 && normalizedData.homeGoalsScoredAvg > 0) {
+    homeGoalsScored = normalizedData.homeGoalsScoredAvg;
+    homeGoalsConceded = normalizedData.homeGoalsConcededAvg;
+  }
+  if (awayGoalsScored === 0 && normalizedData.awayGoalsScoredAvg > 0) {
+    awayGoalsScored = normalizedData.awayGoalsScoredAvg;
+    awayGoalsConceded = normalizedData.awayGoalsConcededAvg;
+  }
+
+  // Usar dados da tabela geral se ainda não temos dados
+  if (homeGoalsScored === 0 && normalizedData.homeTableData) {
     const mp = parseFloat(normalizedData.homeTableData['Home MP'] || normalizedData.homeTableData.MP || '0');
     const gf = parseFloat(normalizedData.homeTableData['Home GF'] || normalizedData.homeTableData.GF || '0');
     const ga = parseFloat(normalizedData.homeTableData['Home GA'] || normalizedData.homeTableData.GA || '0');
@@ -1883,7 +1906,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     }
   }
   
-  if (normalizedData.awayTableData) {
+  if (awayGoalsScored === 0 && normalizedData.awayTableData) {
     const mp = parseFloat(normalizedData.awayTableData['Away MP'] || normalizedData.awayTableData.MP || '0');
     const gf = parseFloat(normalizedData.awayTableData['Away GF'] || normalizedData.awayTableData.GF || '0');
     const ga = parseFloat(normalizedData.awayTableData['Away GA'] || normalizedData.awayTableData.GA || '0');
@@ -1932,19 +1955,9 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   let lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;
   
   // Aplicar melhorias profissionais ao lambda se temos dados completos
-  if (normalizedData.homeTeamStats && normalizedData.awayTeamStats) {
-    const homeWeighted = getWeightedTeamStats(
-      normalizedData.homeTeamStats.gols.home,
-      normalizedData.homeTeamStats.gols.away,
-      normalizedData.homeTeamStats.gols.global,
-      'home'
-    );
-    const awayWeighted = getWeightedTeamStats(
-      normalizedData.awayTeamStats.gols.home,
-      normalizedData.awayTeamStats.gols.away,
-      normalizedData.awayTeamStats.gols.global,
-      'away'
-    );
+  if (cachedHomeWeighted && cachedAwayWeighted) {
+    const homeWeighted = cachedHomeWeighted;
+    const awayWeighted = cachedAwayWeighted;
     
     // 1. Ajustar baseado na força do oponente
     const homeOpponentStrength = calculateOpponentStrength(awayWeighted, normalizedData.awayTableData);
@@ -2033,10 +2046,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
 
   const pHome: number[] = [];
   const pAway: number[] = [];
-  for (let i = 0; i <= 5; i++) {
-    pHome.push(poissonProbability(i, lambdaHome));
-    pAway.push(poissonProbability(i, lambdaAway));
-  }
 
   // Cálculo de EV: (Probabilidade * Odd) - 100
   let ev = 0;
