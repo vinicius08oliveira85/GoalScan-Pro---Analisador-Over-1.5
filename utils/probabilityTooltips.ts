@@ -1,4 +1,5 @@
-import { AnalysisResult, MatchData, SelectedBet } from '../types';
+import { AnalysisResult, MatchData, SelectedBet, TableRowGeral } from '../types';
+import { parseNumeric } from './numbers';
 import { getEdgeConfidenceInterval } from './betMetrics';
 import { calculateSelectedBetsProbability } from './betRange';
 
@@ -198,47 +199,67 @@ ${edgePp >= 0
 /**
  * Calcula qualidade/completude dos dados (0-100)
  */
+function tableHasXg(td: TableRowGeral | null | undefined): boolean {
+  if (!td) return false;
+  return !!(td['Home xG'] || td['Home xGA'] || td.xG || td.xGA);
+}
+
+function parseMp(td: TableRowGeral | null | undefined): number {
+  if (!td) return 0;
+  return parseNumeric(td['Home MP'] || td['Away MP'] || td.MP || '0');
+}
+
 export function calculateDataQuality(data: MatchData): number {
+  const {
+    homeTableData, awayTableData,
+    homeTeamStats, awayTeamStats,
+    homeComplementData, awayComplementData, competitionComplementAvg,
+    competitionAvg,
+    homeXG, awayXG,
+    h2hMatches,
+  } = data;
+
   let score = 0;
-  let maxScore = 0;
 
-  // Estatísticas Globais (peso alto)
-  maxScore += 30;
-  if (data.homeTeamStats) score += 15;
-  if (data.awayTeamStats) score += 15;
+  // ── Core (50 pts) ──
+  // Tabela Geral (30)
+  if (homeTableData) score += 15;
+  if (awayTableData) score += 15;
 
-  // Dados da Tabela (peso médio)
-  maxScore += 20;
-  if (data.homeTableData) score += 10;
-  if (data.awayTableData) score += 10;
+  // TeamStats (20)
+  if (homeTeamStats) score += 10;
+  if (awayTeamStats) score += 10;
 
-  // Tabela Complementar (standard_for) (peso baixo/médio)
-  maxScore += 10;
-  if (data.homeComplementData) score += 4;
-  if (data.awayComplementData) score += 4;
-  if (data.competitionStandardForAvg) score += 2;
+  // ── Qualidade (30 pts) ──
+  // Formato completa — tabela com xG (5)
+  if (tableHasXg(homeTableData) && tableHasXg(awayTableData)) score += 5;
 
-  // Média da Competição (peso médio)
-  maxScore += 15;
-  if (data.competitionAvg && data.competitionAvg > 0) score += 15;
+  // CompetitionAvg > 0 (10)
+  if (competitionAvg && competitionAvg > 0) score += 10;
 
-  // Forma Recente (peso baixo)
-  maxScore += 10;
-  if (data.homeTableData?.['Last 5']) score += 5;
-  if (data.awayTableData?.['Last 5']) score += 5;
+  // Complemento (10)
+  if (homeComplementData) score += 4;
+  if (awayComplementData) score += 4;
+  if (competitionComplementAvg) score += 2;
 
-  // Confrontos Diretos (peso médio)
-  maxScore += 15;
-  if (data.h2hMatches && data.h2hMatches.length > 0) {
-    score += Math.min(15, (data.h2hMatches.length / 5) * 15); // Mais jogos = mais score
+  // MP confiável — ambos os times com 5+ jogos (5)
+  if (parseMp(homeTableData) >= 5 && parseMp(awayTableData) >= 5) score += 5;
+
+  // ── Extras (20 pts) ──
+  // Last 5 (10)
+  if (homeTableData?.['Last 5']) score += 5;
+  if (awayTableData?.['Last 5']) score += 5;
+
+  // H2H (5)
+  if (h2hMatches && h2hMatches.length > 0) {
+    score += Math.min(5, (h2hMatches.length / 5) * 5);
   }
 
-  // xG (peso baixo, bonus)
-  maxScore += 10;
-  if (data.homeXG > 0) score += 5;
-  if (data.awayXG > 0) score += 5;
+  // xG values > 0 (5)
+  if (homeXG > 0) score += 2.5;
+  if (awayXG > 0) score += 2.5;
 
-  return Math.min(100, (score / maxScore) * 100);
+  return Math.min(100, score);
 }
 
 /**
