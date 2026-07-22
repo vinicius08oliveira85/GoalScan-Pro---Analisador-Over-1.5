@@ -1237,7 +1237,7 @@ export const getSquadsFromTable = async (
  * Para tabela geral, busca de championship_teams e converte para TableRowGeral
  * Para outros tipos, ainda usa championship_tables (compatibilidade)
  */
-export const getTeamDataFromTable = async (
+const getTeamDataFromTable = async (
   championshipId: string,
   squad: string,
   tableType: TableType = 'geral'
@@ -1288,7 +1288,7 @@ export const getTeamDataFromTable = async (
       // Adicionar campos extras se existirem
       if (team.extra_fields && typeof team.extra_fields === 'object') {
         for (const [key, value] of Object.entries(team.extra_fields)) {
-          if (!row.hasOwnProperty(key)) {
+          if (!Object.hasOwn(row, key)) {
             row[key] = value;
           }
         }
@@ -1320,7 +1320,7 @@ export const getTeamDataFromTable = async (
  * Fórmula: (soma de todos os gols marcados) / (número total de partidas)
  * Como cada partida envolve 2 times: média = 2 * soma(GF) / soma(MP)
  */
-export const calculateCompetitionAverageGoals = async (
+const calculateCompetitionAverageGoals = async (
   championshipId: string,
   tableType: TableType = 'geral'
 ): Promise<number | null> => {
@@ -1533,7 +1533,7 @@ function convertChampionshipTeamToTableRowGeral(
   // Adicionar campos extras se existirem
   if (team.extra_fields && typeof team.extra_fields === 'object') {
     for (const [key, value] of Object.entries(team.extra_fields)) {
-      if (!baseRow.hasOwnProperty(key)) {
+      if (!Object.hasOwn(baseRow, key)) {
         baseRow[key] = value;
       }
     }
@@ -1851,7 +1851,7 @@ function normalizeTeamData(
 /**
  * Detecta o formato da planilha baseado nos dados existentes no banco
  */
-export const detectChampionshipTableFormat = async (
+const detectChampionshipTableFormat = async (
   championshipId: string
 ): Promise<TableFormat | null> => {
   try {
@@ -2533,7 +2533,7 @@ function convertChampionshipComplementToTableRow(
  * Salva dados normalizados de complemento na tabela championship_complement
  * Substitui dados existentes do campeonato (DELETE + INSERT)
  */
-export const saveChampionshipComplement = async (
+const saveChampionshipComplement = async (
   championshipId: string,
   tableName: string,
   complementData: TableRowComplement[]
@@ -2662,7 +2662,7 @@ export const loadChampionshipComplement = async (
 /**
  * Busca dados de complemento de um time específico
  */
-export const getComplementBySquad = async (
+const getComplementBySquad = async (
   championshipId: string,
   squad: string
 ): Promise<ChampionshipComplement | null> => {

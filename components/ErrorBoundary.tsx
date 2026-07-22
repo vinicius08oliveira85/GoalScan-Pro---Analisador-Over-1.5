@@ -1,99 +1,59 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { logger } from '../utils/logger';
 
 interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
-  errorInfo: ErrorInfo | null;
 }
 
 class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    };
-  }
+  state: State = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): State {
-    // Verificar se é erro de lazy loading ANTES de definir hasError
-    const isLazyLoadError = 
+    const isLazyLoadError =
       error.message?.includes('Failed to fetch dynamically imported module') ||
       error.message?.includes('Loading chunk') ||
       error.message?.includes('404') ||
       error.message?.includes('dynamically imported module');
-    
-    // Se for erro de lazy loading, tentar recarregar imediatamente sem renderizar erro
+
     if (isLazyLoadError && typeof window !== 'undefined' && !window.location.href.includes('reload=true')) {
-      // Recarregar página imediatamente para resolver problema de cache
       setTimeout(() => {
         window.location.href = window.location.href.split('?')[0] + '?reload=true';
         window.location.reload();
       }, 100);
-      // Retornar estado sem erro para não renderizar tela de erro
-      return {
-        hasError: false,
-        error: null,
-        errorInfo: null,
-      };
+      return { hasError: false, error: null };
     }
-    
-    return {
-      hasError: true,
-      error,
-      errorInfo: null,
-    };
+
+    return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Ignorar erros de lazy loading de módulos (404 esperados em caso de cache/build)
-    const isLazyLoadError = 
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    const isLazyLoadError =
       error.message?.includes('Failed to fetch dynamically imported module') ||
       error.message?.includes('Loading chunk') ||
       error.message?.includes('404') ||
       error.message?.includes('dynamically imported module');
-    
-    if (isLazyLoadError) {
-      // Não logar - já está sendo tratado no getDerivedStateFromError
-      return;
-    }
 
-    // Log do erro para serviço de tracking (quando implementado)
-    // Apenas logar em dev ou se não for erro de lazy loading
+    if (isLazyLoadError) return;
+
     if (import.meta.env.DEV || !isLazyLoadError) {
       logger.error('ErrorBoundary capturou um erro:', error, errorInfo);
     }
-
-    this.setState({
-      error,
-      errorInfo,
-    });
-
-    // Aqui podemos enviar para serviço de error tracking
-    // Ex: errorTrackingService.logError(error, errorInfo);
   }
 
   handleReset = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-    });
+    this.setState({ hasError: false, error: null });
   };
 
   render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
+      if (this.props.fallback) return this.props.fallback;
 
       return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-base-100">
@@ -112,7 +72,6 @@ class ErrorBoundary extends Component<Props, State> {
                 </summary>
                 <pre className="text-xs bg-base-300 p-3 rounded overflow-auto max-h-40">
                   {this.state.error.toString()}
-                  {this.state.errorInfo?.componentStack}
                 </pre>
               </details>
             )}

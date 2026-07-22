@@ -1,7 +1,8 @@
 import { logger } from '../utils/logger';
+import { getSupabaseClient } from '../lib/supabase';
 import type { GoalScanBackup } from './exportService';
 
-interface ImportResult {
+export interface ImportResult {
   success: boolean;
   message: string;
   details: {
@@ -16,22 +17,9 @@ interface ImportResult {
   };
 }
 
-function validateBackup(data: unknown): data is GoalScanBackup {
-  if (!data || typeof data !== 'object') return false;
-  const obj = data as Record<string, unknown>;
-  if (obj.version !== '1.0') return false;
-  if (!obj.supabase || typeof obj.supabase !== 'object') return false;
-  if (!obj.localStorage || typeof obj.localStorage !== 'object') return false;
-  const sb = obj.supabase as Record<string, unknown>;
-  if (!Array.isArray(sb.championships)) return false;
-  if (!Array.isArray(sb.savedAnalyses)) return false;
-  return true;
-}
-
 async function upsertAll(table: string, rows: unknown[]): Promise<number> {
   if (!rows || rows.length === 0) return 0;
   try {
-    const { getSupabaseClient } = await import('./championshipService');
     const supabase = await getSupabaseClient();
     const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
     if (error) {
@@ -48,7 +36,6 @@ async function upsertAll(table: string, rows: unknown[]): Promise<number> {
 async function upsertComplement(rows: unknown[]): Promise<number> {
   if (!rows || rows.length === 0) return 0;
   try {
-    const { getSupabaseClient } = await import('./championshipService');
     const supabase = await getSupabaseClient();
     const { error } = await supabase
       .from('championship_complement')
@@ -76,7 +63,7 @@ export async function importFromFile(file: File): Promise<ImportResult> {
     };
   }
 
-  if (!validateBackupData(data)) {
+  if (!validateBackup(data)) {
     return {
       success: false,
       message: 'Formato de backup inválido. O arquivo deve ser um backup exportado pelo GoalScan Pro.',
@@ -87,7 +74,7 @@ export async function importFromFile(file: File): Promise<ImportResult> {
   return importBackup(data);
 }
 
-function validateBackupData(data: unknown): data is GoalScanBackup {
+export function validateBackup(data: unknown): data is GoalScanBackup {
   if (!data || typeof data !== 'object') return false;
   const obj = data as Record<string, unknown>;
   if (obj.version !== '1.0') return false;

@@ -338,7 +338,7 @@ export const extractFbrefDataWithSelenium = async (
 /**
  * Limpa cache de extrações
  */
-export const clearFbrefCache = (): void => {
+const clearFbrefCache = (): void => {
   try {
     const keys = Object.keys(localStorage);
     keys.forEach((key) => {
