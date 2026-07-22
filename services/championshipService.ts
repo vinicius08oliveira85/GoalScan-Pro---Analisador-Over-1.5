@@ -1526,6 +1526,10 @@ function convertChampionshipTeamToTableRowGeral(
     baseRow['Away xGD/90'] = team.away_xgd_90;
   }
 
+  // Popular campos agregados (fallback para FBref)
+  baseRow.xG = team.xg;
+  baseRow.xGA = team.xga;
+
   // Adicionar campos extras se existirem
   if (team.extra_fields && typeof team.extra_fields === 'object') {
     for (const [key, value] of Object.entries(team.extra_fields)) {
@@ -1829,6 +1833,10 @@ function normalizeTeamData(
     away_xga: row['Away xGA'] || undefined,
     away_xgd: row['Away xGD'] || undefined,
     away_xgd_90: row['Away xGD/90'] || undefined,
+    
+    // Campos agregados (fallback para FBref que não separa Home/Away)
+    xg: row.xG || undefined,
+    xga: row.xGA || undefined,
     
     // Campos extras (se houver)
     extra_fields: Object.keys(extraFields).length > 0 ? extraFields : undefined,

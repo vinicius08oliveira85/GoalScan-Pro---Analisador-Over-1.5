@@ -591,6 +591,10 @@ export interface ChampionshipTeam {
   notes?: string;
   status_b?: string;
   
+  // Campos agregados (quando FBref não separa Home/Away)
+  xg?: string; // Expected Goals agregado (total time)
+  xga?: string; // Expected Goals Against agregado (total time)
+
   // Campo para campos extras de outros campeonatos
   extra_fields?: Record<string, unknown>; // Campos extras em formato JSONB
   
