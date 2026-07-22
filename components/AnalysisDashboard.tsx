@@ -247,60 +247,64 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
         {/* Card de Informações da Partida */}
         <motion.div
-          className="lg:col-span-2 surface surface-hover p-4 md:p-6"
+          className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
           variants={animations.slideInRight}
           initial="initial"
           animate="animate"
         >
+          <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-primary/6 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 h-36 w-36 rounded-full bg-secondary/6 blur-3xl pointer-events-none" />
           <div className="flex flex-col gap-4 md:gap-6">
-            {/* Header: Times + Badge de Risco + Botão Salvar */}
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
-                  <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight break-words">
-                    <span className="break-words">{data.homeTeam}</span>{' '}
-                    <span className="text-primary opacity-70 mx-1">vs</span>{' '}
-                    <span className="break-words">{data.awayTeam}</span>
-                  </h3>
+              {/* Header: Times + Badge de Risco + Botão Salvar */}
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 relative z-10">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight break-words">
+                      <span className="break-words text-gradient">{data.homeTeam}</span>{' '}
+                      <span className="text-base-content/30 mx-1 text-lg md:text-xl font-bold">vs</span>{' '}
+                      <span className="break-words text-gradient">{data.awayTeam}</span>
+                    </h3>
+                  </div>
+                  <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-base-content/40">
+                    Analise de Probabilidade de Gols (Over/Under)
+                  </p>
                 </div>
-                <p className="text-xs sm:text-sm font-semibold opacity-70 uppercase tracking-wide leading-relaxed">
-                  Análise de Probabilidade de Gols (Over/Under)
-                </p>
-              </div>
-              <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
-                <div
-                  className={`badge badge-lg p-3 sm:p-4 font-black border-2 shadow-lg flex items-center gap-2 text-sm sm:text-base ${
-                    displayRiskLevel === 'Baixo'
-                      ? 'bg-success/20 text-success border-success/40'
-                      : displayRiskLevel === 'Moderado'
-                        ? 'bg-warning/20 text-warning border-warning/40'
-                        : displayRiskLevel === 'Alto'
-                          ? 'bg-error/20 text-error border-error/40'
-                          : 'bg-error/30 text-error border-error/50'
-                  }`}
-                  title={`Risco baseado em ${displayLabel} (${displayProbability.toFixed(1)}%)`}
-                >
-                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">RISCO: </span>
-                  <span className="uppercase">{displayRiskLevel}</span>
-                </div>
-                {onSave && (
-                  <button
-                    onClick={() => onSave(selectedBets.length > 0 ? selectedBets : undefined)}
-                    className="btn btn-primary btn-md sm:btn-lg uppercase font-bold tracking-tight hover:scale-105 transition-transform min-h-[44px] flex-1 sm:flex-none shadow-lg"
+                <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
+                  <div
+                    className={`badge badge-lg p-3 sm:p-4 font-black border-2 shadow-lg flex items-center gap-2 text-sm sm:text-base ${
+                      displayRiskLevel === 'Baixo'
+                        ? 'bg-success/20 text-success border-success/40 shadow-glow-success'
+                        : displayRiskLevel === 'Moderado'
+                          ? 'bg-warning/20 text-warning border-warning/40 shadow-glow-warning'
+                          : displayRiskLevel === 'Alto'
+                            ? 'bg-error/20 text-error border-error/40 shadow-glow-error'
+                            : 'bg-error/30 text-error border-error/50 shadow-glow-error'
+                    }`}
+                    title={`Risco baseado em ${displayLabel} (${displayProbability.toFixed(1)}%)`}
                   >
-                    Salvar Partida
-                  </button>
-                )}
+                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden sm:inline">RISCO: </span>
+                    <span className="uppercase">{displayRiskLevel}</span>
+                  </div>
+                  {onSave && (
+                    <button
+                      onClick={() => onSave(selectedBets.length > 0 ? selectedBets : undefined)}
+                      className="btn btn-primary btn-md sm:btn-lg uppercase font-bold tracking-tight hover:scale-105 transition-transform min-h-[44px] flex-1 sm:flex-none shadow-lg hover:shadow-xl"
+                    >
+                      Salvar Partida
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
             {/* Probabilidades (Mercado) */}
-            <div className="space-y-4">
+            <div className="space-y-4 relative z-10">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-primary opacity-70" />
-                  <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
+                  <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
+                    <Calculator className="w-4 h-4 text-primary" />
+                  </div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-base-content/60">
                     Probabilidades
                   </h4>
                 </div>
@@ -412,12 +416,15 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             </div>
 
             {/* Grid de 4 Métricas Essenciais */}
-            <div className="space-y-4">
+            <div className="space-y-4 relative z-10">
               <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-primary opacity-70" />
-                <h4 className="text-sm font-bold uppercase tracking-wide opacity-70">
-                  Métricas de Performance
+                <div className="p-1.5 rounded-lg bg-accent/10 border border-accent/20">
+                  <Target className="w-4 h-4 text-accent" />
+                </div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-base-content/60">
+                  Metricas de Performance
                 </h4>
+                <div className="accent-line-accent ml-2" />
               </div>
               <motion.div
                 className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4"
@@ -470,14 +477,15 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             </div>
 
             {/* Recomendação em Destaque */}
-            <div className="mt-4 surface surface-hover p-4 md:p-6 border-l-4 border-l-primary/60">
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-                <span className="text-xs md:text-sm font-black uppercase text-primary tracking-wide">
-                  Recomendação
+            <div className="relative overflow-hidden rounded-xl border border-l-4 border-l-primary/60 border-base-300/40 bg-base-300/20 p-4 md:p-5 mt-4">
+              <div className="absolute -top-12 -right-12 h-28 w-28 rounded-full bg-primary/8 blur-3xl pointer-events-none" />
+              <div className="flex items-center gap-2 mb-2 relative z-10">
+                <Target className="w-4 h-5 text-primary" />
+                <span className="text-[10px] md:text-xs font-black uppercase text-primary tracking-wider">
+                  Recomendacao
                 </span>
               </div>
-              <p className="text-sm md:text-base font-semibold leading-relaxed text-base-content/95 italic">
+              <p className="text-sm md:text-base font-semibold leading-relaxed text-base-content/90 italic relative z-10">
                 "{result.recommendation}"
               </p>
             </div>
@@ -506,15 +514,18 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
       {/* Combinações Recomendadas */}
       {result.recommendedCombinations && result.recommendedCombinations.length > 0 && (
         <motion.div
-          className="surface surface-hover p-4 md:p-6 border-l-4 border-l-success/60"
+          className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6 border-l-4 border-l-success/60"
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <Zap className="w-5 h-5 text-success" />
-            <h3 className="text-lg font-black uppercase tracking-tight">
-              Combinações Recomendadas (Over E Under ≥ 75%)
+          <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-success/6 blur-3xl pointer-events-none" />
+          <div className="flex items-center gap-2 mb-4 relative z-10">
+            <div className="p-1.5 rounded-lg bg-success/10 border border-success/20">
+              <Zap className="w-4 h-5 text-success" />
+            </div>
+            <h3 className="text-sm md:text-base font-black uppercase tracking-tight">
+              Combinacoes Recomendadas (Over E Under &ge; 75%)
             </h3>
           </div>
           <div className="space-y-3">
@@ -545,9 +556,11 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
         </motion.div>
       )}
 
-      {/* Seção de Aposta - Design Moderno e Compacto */}
+      {/* Seção de Aposta */}
       {onBetSave && (
-        <div>
+        <div className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6 border-l-4 border-l-accent/60">
+          <div className="absolute -top-16 -left-16 h-36 w-36 rounded-full bg-accent/6 blur-3xl pointer-events-none" />
+          <div className="relative z-10">
           {!showBetManager ? (
             <BetSummaryCard
               betInfo={betInfo!}
@@ -586,9 +599,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               onCancel={() => setShowBetManager(false)}
             />
           )}
-        </div>
-      )}
-    </motion.div>
+          </div>
+          </div>
+        )}
+      </motion.div>
   );
 };
 
