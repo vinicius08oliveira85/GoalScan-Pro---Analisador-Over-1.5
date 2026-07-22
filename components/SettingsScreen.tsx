@@ -149,7 +149,7 @@ const SettingsScreen: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
+    <div className="space-y-5 md:space-y-6 pb-20 md:pb-8">
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -164,14 +164,16 @@ const SettingsScreen: React.FC = () => {
         variants={animations.fadeInUp}
         initial="initial"
         animate="animate"
-        className="flex items-center gap-3 mb-6"
+        className="flex items-center gap-4"
       >
-        <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
-          <Settings className="w-6 h-6 md:w-8 md:h-8 text-primary" />
+        <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 shadow-lg shadow-primary/10">
+          <Settings className="w-6 h-6 md:w-7 md:h-7 text-primary" />
         </div>
         <div>
-          <h2 className="text-2xl md:text-3xl font-black">Configurações</h2>
-          <p className="text-xs md:text-sm opacity-60">Personalize sua experiência</p>
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-black tracking-tight">
+            <span className="text-gradient">Configuracoes</span>
+          </h2>
+          <p className="text-xs md:text-sm text-base-content/50">Personalize sua experiencia</p>
         </div>
       </motion.div>
 
@@ -180,24 +182,25 @@ const SettingsScreen: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="custom-card p-4 md:p-6 border-2 border-warning bg-warning/5"
+          className="relative overflow-hidden rounded-2xl border-2 border-warning/30 bg-warning/5 p-4 md:p-5"
         >
-          <div className="flex items-start gap-3 mb-4">
-            <AlertTriangle className="w-6 h-6 text-warning flex-shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-black text-base">Confirmar Importação</h4>
-              <p className="text-sm opacity-70 mt-1">
-                Isso irá importar todos os dados do backup para o Supabase e localStorage.
-                Dados existentes com o mesmo ID serão substituídos.
+          <div className="orb-warning absolute -top-16 -right-16 h-40 w-40" />
+          <div className="flex items-start gap-3 relative z-10">
+            <AlertTriangle className="w-6 h-6 text-warning shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h4 className="font-black text-sm md:text-base">Confirmar Importacao</h4>
+              <p className="text-xs md:text-sm text-base-content/60 mt-1">
+                Isso importara todos os dados do backup para o Supabase e localStorage.
+                Dados existentes com o mesmo ID serao substituidos.
               </p>
               {pendingFileRef.current && (
-                <p className="text-xs opacity-50 mt-2">
+                <p className="text-[10px] md:text-xs text-base-content/40 mt-2">
                   Arquivo: {pendingFileRef.current.name} ({(pendingFileRef.current.size / 1024).toFixed(1)} KB)
                 </p>
               )}
             </div>
           </div>
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-end mt-4 relative z-10">
             <button onClick={handleCancelImport} className="btn btn-ghost btn-sm">
               Cancelar
             </button>
@@ -214,41 +217,49 @@ const SettingsScreen: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`custom-card p-4 border ${importResult.success ? 'border-success bg-success/5' : 'border-error bg-error/5'}`}
+          className={`relative overflow-hidden rounded-2xl border p-4 md:p-5 ${
+            importResult.success
+              ? 'border-success/30 bg-success/5'
+              : 'border-error/30 bg-error/5'
+          }`}
         >
-          <div className="flex items-start gap-3">
+          <div className={`absolute -top-16 -right-16 h-40 w-40 rounded-full blur-3xl pointer-events-none ${
+            importResult.success ? 'bg-success/10' : 'bg-error/10'
+          }`} />
+          <div className="flex items-start gap-3 relative z-10">
             {importResult.success ? (
-              <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+              <CheckCircle className="w-5 h-5 text-success shrink-0 mt-0.5" />
             ) : (
-              <XCircle className="w-5 h-5 text-error flex-shrink-0 mt-0.5" />
+              <XCircle className="w-5 h-5 text-error shrink-0 mt-0.5" />
             )}
-            <div className="flex-1">
-              <p className="font-semibold text-sm">{importResult.success ? 'Importação Concluída' : 'Erro na Importação'}</p>
-              <p className="text-xs opacity-70 mt-1">{importResult.message}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-sm">
+                    {importResult.success ? 'Importacao Concluida' : 'Erro na Importacao'}
+                  </p>
+                  <p className="text-xs text-base-content/50 mt-0.5">{importResult.message}</p>
+                </div>
+                <button onClick={() => setImportResult(null)} className="btn btn-ghost btn-xs shrink-0">
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </div>
               {importResult.success && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs">
-                  <div className="bg-base-200/50 rounded p-2">
-                    <span className="opacity-50">Campeonatos</span>
-                    <div className="font-bold">{importResult.details.championships}</div>
-                  </div>
-                  <div className="bg-base-200/50 rounded p-2">
-                    <span className="opacity-50">Tabelas</span>
-                    <div className="font-bold">{importResult.details.tables}</div>
-                  </div>
-                  <div className="bg-base-200/50 rounded p-2">
-                    <span className="opacity-50">Análises</span>
-                    <div className="font-bold">{importResult.details.analyses}</div>
-                  </div>
-                  <div className="bg-base-200/50 rounded p-2">
-                    <span className="opacity-50">Chaves Locais</span>
-                    <div className="font-bold">{importResult.details.localStorageKeys}</div>
-                  </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                  {[
+                    { label: 'Campeonatos', value: importResult.details.championships },
+                    { label: 'Tabelas', value: importResult.details.tables },
+                    { label: 'Analises', value: importResult.details.analyses },
+                    { label: 'Chaves Locais', value: importResult.details.localStorageKeys },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-base-300/30 rounded-xl p-2.5 text-center">
+                      <p className="text-[10px] text-base-content/40 uppercase tracking-wider">{label}</p>
+                      <p className="text-sm md:text-base font-black tabular-nums mt-0.5">{value}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-            <button onClick={() => setImportResult(null)} className="btn btn-ghost btn-xs">
-              <XCircle className="w-4 h-4" />
-            </button>
           </div>
         </motion.div>
       )}
@@ -263,27 +274,28 @@ const SettingsScreen: React.FC = () => {
             initial="initial"
             animate="animate"
             custom={sectionIndex}
-            className="custom-card p-4 md:p-6"
+            className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-5 border-l-4 border-l-primary/40"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-                <Icon className="w-5 h-5 text-primary" />
+            <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-primary/6 blur-3xl pointer-events-none" />
+            <div className="flex items-center gap-3 mb-4 relative z-10">
+              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                <Icon className="w-4 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="text-lg md:text-xl font-black">{section.title}</h3>
-                <p className="text-xs opacity-60">{section.description}</p>
+                <h3 className="text-sm md:text-base font-black">{section.title}</h3>
+                <p className="text-[10px] md:text-xs text-base-content/40">{section.description}</p>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2 relative z-10">
               {section.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-base-200/50 border border-base-300"
+                  className="flex items-center justify-between p-3 md:p-4 rounded-xl bg-base-300/30 border border-base-300/30 hover:border-base-300/50 transition-colors"
                 >
                   <div className="flex-1 min-w-0 mr-4">
-                    <p className="font-semibold text-sm md:text-base mb-1">{item.label}</p>
-                    {item.description && <p className="text-xs opacity-60">{item.description}</p>}
+                    <p className="font-semibold text-xs md:text-sm">{item.label}</p>
+                    {item.description && <p className="text-[10px] md:text-xs text-base-content/40 mt-0.5">{item.description}</p>}
                   </div>
 
                   {item.type === 'toggle' && (
@@ -297,7 +309,7 @@ const SettingsScreen: React.FC = () => {
 
                   {item.type === 'select' && (
                     <select
-                      className="select select-bordered select-sm w-32 md:w-40"
+                      className="select select-bordered select-sm w-28 md:w-36"
                       value={item.value as string}
                       onChange={(e) => item.onChange?.(e.target.value as 'light' | 'dark' | 'auto')}
                     >
@@ -310,21 +322,21 @@ const SettingsScreen: React.FC = () => {
                   )}
 
                   {item.type === 'info' && (
-                    <span className="text-sm font-semibold opacity-70">{item.description}</span>
+                    <span className="text-xs md:text-sm font-semibold text-base-content/60">{item.description}</span>
                   )}
 
                   {item.type === 'action' && (
                     <button
                       onClick={item.action}
                       disabled={item.loading}
-                      className={`btn btn-sm gap-2 ${
+                      className={`btn btn-sm gap-1.5 ${
                         item.color === 'primary' ? 'btn-primary' : 'btn-secondary'
                       }`}
                     >
                       {item.loading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : item.icon ? (
-                        <item.icon className="w-4 h-4" />
+                        <item.icon className="w-3.5 h-3.5" />
                       ) : null}
                       {item.loading ? 'Processando...' : item.label}
                     </button>
@@ -337,21 +349,22 @@ const SettingsScreen: React.FC = () => {
       })}
 
       {/* Additional Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
         <motion.div
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
           custom={settingsSections.length}
-          className="custom-card p-4 md:p-6 bg-info/10 border border-info/20"
+          className="relative overflow-hidden rounded-2xl border border-info/20 bg-info/5 p-4 md:p-5 border-l-4 border-l-info/50"
         >
-          <div className="flex items-center gap-3 mb-3">
+          <div className="absolute -bottom-12 -right-12 h-32 w-32 rounded-full bg-info/10 blur-3xl pointer-events-none" />
+          <div className="flex items-center gap-3 mb-2 relative z-10">
             <Shield className="w-5 h-5 text-info" />
-            <h4 className="font-black text-sm md:text-base">Segurança</h4>
+            <h4 className="font-black text-sm">Seguranca</h4>
           </div>
-          <p className="text-xs opacity-70">
-            Seus dados são armazenados localmente (localStorage) e sincronizados com o Supabase.
-            Se o Supabase ficar indisponível, o app continua funcionando com os dados locais.
+          <p className="text-xs text-base-content/60 leading-relaxed relative z-10">
+            Seus dados sao armazenados localmente (localStorage) e sincronizados com o Supabase.
+            Se o Supabase ficar indisponivel, o app continua funcionando com os dados locais.
           </p>
         </motion.div>
 
@@ -360,15 +373,16 @@ const SettingsScreen: React.FC = () => {
           initial="initial"
           animate="animate"
           custom={settingsSections.length + 1}
-          className="custom-card p-4 md:p-6 bg-secondary/10 border border-secondary/20"
+          className="relative overflow-hidden rounded-2xl border border-secondary/20 bg-secondary/5 p-4 md:p-5 border-l-4 border-l-secondary/50"
         >
-          <div className="flex items-center gap-3 mb-3">
+          <div className="absolute -bottom-12 -right-12 h-32 w-32 rounded-full bg-secondary/10 blur-3xl pointer-events-none" />
+          <div className="flex items-center gap-3 mb-2 relative z-10">
             <Database className="w-5 h-5 text-secondary" />
-            <h4 className="font-black text-sm md:text-base">Armazenamento</h4>
+            <h4 className="font-black text-sm">Armazenamento</h4>
           </div>
-          <p className="text-xs opacity-70">
+          <p className="text-xs text-base-content/60 leading-relaxed relative z-10">
             Exporte um backup completo periodicamente para proteger seus dados.
-            O backup inclui campeonatos, tabelas, análises, apostas e configurações da banca.
+            O backup inclui campeonatos, tabelas, analises, apostas e configuracoes da banca.
           </p>
         </motion.div>
       </div>
@@ -379,18 +393,22 @@ const SettingsScreen: React.FC = () => {
         initial="initial"
         animate="animate"
         custom={settingsSections.length + 2}
-        className="custom-card p-4 md:p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20"
+        className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/8 to-secondary/8 p-4 md:p-5 text-center"
       >
-        <div className="flex items-center gap-3 mb-3">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h4 className="font-black text-sm md:text-base">GoalScan Pro</h4>
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h4 className="font-black text-sm text-gradient">GoalScan Pro</h4>
+          </div>
+          <p className="text-xs text-base-content/50 leading-relaxed max-w-lg mx-auto">
+            Sistema avancado de analise de apostas esportivas com modelo estatistico (Poisson + Dixon-Coles) e metricas de valor.
+          </p>
+          <div className="divider-gradient my-3" />
+          <p className="text-[10px] text-base-content/30">
+            Desenvolvido com React, TypeScript e analise estatistica avancada.
+          </p>
         </div>
-        <p className="text-xs opacity-70 mb-2">
-          Sistema avançado de análise de apostas esportivas com modelo estatístico (Poisson + Dixon-Coles) e métricas de valor.
-        </p>
-        <p className="text-xs opacity-50">
-          Desenvolvido com React, TypeScript e análise estatística avançada.
-        </p>
       </motion.div>
     </div>
   );

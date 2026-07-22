@@ -155,12 +155,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   type StatCardTone = 'primary' | 'success' | 'error' | 'warning' | 'info';
 
-  const toneClasses: Record<StatCardTone, { bg: string; border: string; text: string }> = {
-    primary: { bg: 'bg-primary/10', border: 'border-primary/20', text: 'text-primary' },
-    success: { bg: 'bg-success/10', border: 'border-success/20', text: 'text-success' },
-    error: { bg: 'bg-error/10', border: 'border-error/20', text: 'text-error' },
-    warning: { bg: 'bg-warning/10', border: 'border-warning/20', text: 'text-warning' },
-    info: { bg: 'bg-info/10', border: 'border-info/20', text: 'text-info' },
+  const toneClasses: Record<StatCardTone, { bg: string; border: string; text: string; accentBorder: string; gradient: string }> = {
+    primary: { bg: 'bg-primary/10', border: 'border-primary/20', text: 'text-primary', accentBorder: 'border-l-primary/50', gradient: 'from-primary/5 via-transparent to-transparent' },
+    success: { bg: 'bg-success/10', border: 'border-success/20', text: 'text-success', accentBorder: 'border-l-success/50', gradient: 'from-success/5 via-transparent to-transparent' },
+    error: { bg: 'bg-error/10', border: 'border-error/20', text: 'text-error', accentBorder: 'border-l-error/50', gradient: 'from-error/5 via-transparent to-transparent' },
+    warning: { bg: 'bg-warning/10', border: 'border-warning/20', text: 'text-warning', accentBorder: 'border-l-warning/50', gradient: 'from-warning/5 via-transparent to-transparent' },
+    info: { bg: 'bg-info/10', border: 'border-info/20', text: 'text-info', accentBorder: 'border-l-info/50', gradient: 'from-info/5 via-transparent to-transparent' },
   };
 
   const getTone = (tone: string): StatCardTone => {
@@ -198,32 +198,33 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               initial="initial"
               animate="animate"
               custom={index}
-              className="custom-card p-4 md:p-6"
+              className={`relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-5 border-l-4 ${toneClass.accentBorder} hover:bg-base-200/95 transition-all duration-200`}
             >
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className={cn('p-2 md:p-3 rounded-xl border', toneClass.bg, toneClass.border)}
-                >
-                  <Icon className={cn('w-5 h-5 md:w-6 md:h-6', toneClass.text)} />
-                </div>
-                {card.title === 'Lucro Total' && (
-                  <div>
-                    {stats.totalProfit > 0 ? (
-                      <ArrowUpRight className="w-4 h-4 text-success" />
-                    ) : stats.totalProfit < 0 ? (
-                      <ArrowDownRight className="w-4 h-4 text-error" />
-                    ) : null}
+              <div className={`absolute inset-0 bg-gradient-to-br ${toneClass.gradient} opacity-60 pointer-events-none`} />
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-2">
+                  <div
+                    className={cn('p-2 rounded-xl border', toneClass.bg, toneClass.border)}
+                  >
+                    <Icon className={cn('w-4 h-4 md:w-5 md:h-5', toneClass.text)} />
                   </div>
-                )}
-              </div>
-              <div>
-                <p className="text-xs md:text-sm font-semibold opacity-70 uppercase tracking-wide mb-1.5 leading-tight">
+                  {card.title === 'Lucro Total' && (
+                    <div>
+                      {stats.totalProfit > 0 ? (
+                        <ArrowUpRight className="w-4 h-4 text-success" />
+                      ) : stats.totalProfit < 0 ? (
+                        <ArrowDownRight className="w-4 h-4 text-error" />
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.12em] text-base-content/50 mb-1">
                   {card.title}
                 </p>
-                <p className={`text-2xl md:text-3xl font-black leading-none ${toneClass.text}`}>
+                <p className={`text-xl sm:text-2xl md:text-3xl font-black leading-none tracking-tight ${toneClass.text}`}>
                   {card.value}
                 </p>
-                <p className="text-xs opacity-60 mt-1.5 leading-relaxed">{card.subtitle}</p>
+                <p className="text-[10px] md:text-xs text-base-content/40 mt-1.5">{card.subtitle}</p>
               </div>
             </motion.div>
           );
@@ -231,15 +232,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Evolução da Banca */}
         {bankEvolutionData.length > 0 && (
           <motion.div
             variants={animations.fadeInUp}
             initial="initial"
             animate="animate"
-            className="custom-card p-4 md:p-6"
+            className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
           >
+            <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary/8 blur-3xl pointer-events-none" />
             <SectionHeader
               className="mb-4"
               title="Evolução da Banca"
@@ -394,8 +396,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             variants={animations.fadeInUp}
             initial="initial"
             animate="animate"
-            className="custom-card p-4 md:p-6"
+            className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
           >
+            <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-secondary/8 blur-3xl pointer-events-none" />
             <SectionHeader
               className="mb-4"
               title="Distribuição de Resultados"
@@ -485,7 +488,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="space-y-4 w-full md:w-auto">
+              <div className="space-y-3 w-full md:w-auto min-w-[180px]">
                 {resultDistributionData.map((item) => {
                   const color = getColorForCategory(item.name);
                   const percentage =
@@ -501,22 +504,22 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   return (
                     <div
                       key={item.name}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-base-200/50 hover:bg-base-200 transition-colors"
+                      className="flex items-center gap-3 p-3 rounded-xl bg-base-300/30 hover:bg-base-300/50 transition-all duration-200 border border-transparent hover:border-base-300/40"
                     >
                       <div
-                        className="w-5 h-5 rounded-full shadow-md flex-shrink-0"
+                        className="w-4 h-4 rounded-full shadow-md flex-shrink-0"
                         style={{ backgroundColor: color }}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4" style={{ color }} />
-                          <span className="text-sm md:text-base font-bold">{item.name}</span>
+                          <Icon className="w-3.5 h-3.5" style={{ color }} />
+                          <span className="text-xs md:text-sm font-bold">{item.name}</span>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-lg font-black" style={{ color }}>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-base md:text-lg font-black" style={{ color }}>
                             {item.value}
                           </span>
-                          <span className="text-xs opacity-60">({percentage}%)</span>
+                          <span className="text-[10px] md:text-xs text-base-content/40">({percentage}%)</span>
                         </div>
                       </div>
                     </div>
@@ -534,29 +537,33 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          className="custom-card p-4 md:p-6"
+          className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
         >
-          <div className="mb-4">
-            <h3 className="text-lg md:text-xl font-black mb-1">Partidas Recentes</h3>
-            <p className="text-xs md:text-sm opacity-60">Suas últimas análises</p>
+          <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-primary/6 blur-3xl pointer-events-none" />
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-base md:text-lg font-black tracking-tight">Partidas Recentes</h3>
+              <p className="text-xs md:text-sm text-base-content/40 mt-0.5">Suas últimas 10 análises</p>
+            </div>
+            <div className="accent-line-primary" />
           </div>
-          <div className="overflow-x-auto custom-scrollbar">
+          <div className="overflow-x-auto custom-scrollbar -mx-2">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-base-300/50">
-                  <th className="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                <tr className="border-b border-base-300/30">
+                  <th className="text-left py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
                     Partida
                   </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                  <th className="text-right py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
                     Odd
                   </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                  <th className="text-right py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
                     EV
                   </th>
-                  <th className="text-center py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                  <th className="text-center py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="text-right py-3 px-3 md:px-4 text-xs md:text-sm font-bold opacity-70 uppercase tracking-wide leading-tight">
+                  <th className="text-right py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
                     Lucro/Prejuízo
                   </th>
                 </tr>
@@ -581,21 +588,21 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <tr
                       key={match.id}
                       onClick={() => onMatchClick?.(match)}
-                      className="border-b border-base-300/50 hover:bg-base-200/50 transition-colors duration-200 cursor-pointer"
+                      className="border-b border-base-300/20 hover:bg-base-300/20 transition-colors duration-150 cursor-pointer group"
                     >
-                      <td className="py-3 px-3 md:px-4">
-                        <div className="text-sm font-semibold leading-relaxed">
+                      <td className="py-2.5 px-3">
+                        <div className="text-xs md:text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
                           {match.data.homeTeam} vs {match.data.awayTeam}
                         </div>
-                        <div className="text-xs opacity-70 mt-0.5 leading-relaxed">
+                        <div className="text-[10px] md:text-xs text-base-content/40 mt-0.5">
                           {formatTimestampInBrasilia(match.timestamp)}
                         </div>
                       </td>
-                      <td className="py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed">
+                      <td className="py-2.5 px-3 text-right text-xs md:text-sm font-semibold tabular-nums">
                         {match.data.oddOver15?.toFixed(2) || '-'}
                       </td>
                       <td
-                        className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
+                        className={`py-2.5 px-3 text-right text-xs md:text-sm font-semibold tabular-nums ${
                           displayEv > 0
                             ? 'text-success'
                             : displayEv < 0
@@ -606,7 +613,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         {displayEv > 0 ? '+' : ''}
                         {displayEv.toFixed(1)}%
                       </td>
-                      <td className="py-3 px-3 md:px-4 text-center">
+                      <td className="py-2.5 px-3 text-center">
                         {hasBet ? (
                           <span
                             className={`badge badge-sm ${
@@ -628,7 +635,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         )}
                       </td>
                       <td
-                        className={`py-3 px-3 md:px-4 text-right text-sm font-semibold leading-relaxed ${
+                        className={`py-2.5 px-3 text-right text-xs md:text-sm font-semibold tabular-nums ${
                           profit > 0 ? 'text-success' : profit < 0 ? 'text-error' : ''
                         }`}
                       >

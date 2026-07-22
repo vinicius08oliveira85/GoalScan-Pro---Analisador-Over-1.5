@@ -197,11 +197,11 @@ a:focus-visible {
   }
 
   .kpi-label {
-    @apply text-xs md:text-sm font-bold uppercase tracking-widest text-base-content/70 leading-tight;
+    @apply text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] text-base-content/60 leading-tight;
   }
 
   .kpi-value {
-    @apply text-2xl md:text-3xl font-black font-mono text-base-content tracking-tight;
+    @apply text-xl sm:text-2xl md:text-3xl font-black font-mono text-base-content tracking-tight;
   }
 
   /* Gradientes modernos para cards de apostas */
@@ -261,6 +261,57 @@ a:focus-visible {
     box-shadow:
       0 0 30px rgba(239, 68, 68, 0.15),
       0 10px 40px -10px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Decorative gradient orbs */
+  .orb-primary {
+    @apply absolute rounded-full blur-3xl pointer-events-none;
+    background: radial-gradient(circle, oklch(44% 0.043 257.281 / 0.2), transparent 70%);
+  }
+  .orb-secondary {
+    @apply absolute rounded-full blur-3xl pointer-events-none;
+    background: radial-gradient(circle, oklch(55% 0.288 302.321 / 0.15), transparent 70%);
+  }
+  .orb-success {
+    @apply absolute rounded-full blur-3xl pointer-events-none;
+    background: radial-gradient(circle, oklch(70% 0.14 182.503 / 0.15), transparent 70%);
+  }
+
+  /* Divider com gradiente */
+  .divider-gradient {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-base-content/20 to-transparent;
+  }
+
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+  }
+
+  /* Badge sutil */
+  .badge-subtle {
+    @apply border border-base-300/30 bg-base-300/20 text-base-content/70 text-[10px] font-semibold px-2 py-0.5 rounded-full;
+  }
+
+  /* Skeleton com shimmer mais suave */
+  .skeleton-soft {
+    @apply bg-base-300/40 rounded-xl animate-pulse;
+  }
+
+  /* Linha decorativa */
+  .accent-line {
+    @apply w-8 h-0.5 rounded-full;
+  }
+  .accent-line-primary {
+    @apply accent-line bg-gradient-to-r from-primary to-primary/40;
+  }
+  .accent-line-success {
+    @apply accent-line bg-gradient-to-r from-success to-success/40;
+  }
+  .accent-line-warning {
+    @apply accent-line bg-gradient-to-r from-warning to-warning/40;
+  }
+  .accent-line-error {
+    @apply accent-line bg-gradient-to-r from-error to-error/40;
   }
 }
 

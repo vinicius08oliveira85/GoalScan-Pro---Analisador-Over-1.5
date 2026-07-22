@@ -222,16 +222,17 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
             initial="initial"
             animate="animate"
             custom={0}
-            className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
+            className="relative overflow-hidden rounded-xl border border-base-300/40 bg-base-200/70 p-3 border-l-4 border-l-primary/50"
           >
-            <div className="p-1.5 md:p-2 rounded-lg bg-primary/10 border border-primary/20 flex-shrink-0">
-              <Activity className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
-                Total de Partidas
-              </p>
-              <p className="text-lg md:text-xl font-black">{totalMatches}</p>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-transparent pointer-events-none" />
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 shrink-0">
+                <Activity className="w-4 h-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-base-content/40 uppercase tracking-wider mb-0.5">Total</p>
+                <p className="text-lg md:text-xl font-black">{totalMatches}</p>
+              </div>
             </div>
           </motion.div>
           <motion.div
@@ -239,16 +240,17 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
             initial="initial"
             animate="animate"
             custom={1}
-            className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
+            className="relative overflow-hidden rounded-xl border border-base-300/40 bg-base-200/70 p-3 border-l-4 border-l-success/50"
           >
-            <div className="p-1.5 md:p-2 rounded-lg bg-success/10 border border-success/20 flex-shrink-0">
-              <Target className="w-4 h-4 md:w-5 md:h-5 text-success" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
-                EV Positivo
-              </p>
-              <p className="text-lg md:text-xl font-black text-success">{positiveEV}</p>
+            <div className="absolute inset-0 bg-gradient-to-br from-success/3 via-transparent to-transparent pointer-events-none" />
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="p-2 rounded-lg bg-success/10 border border-success/20 shrink-0">
+                <Target className="w-4 h-5 text-success" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-base-content/40 uppercase tracking-wider mb-0.5">EV Positivo</p>
+                <p className="text-lg md:text-xl font-black text-success">{positiveEV}</p>
+              </div>
             </div>
           </motion.div>
           <motion.div
@@ -256,37 +258,38 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
             initial="initial"
             animate="animate"
             custom={2}
-            className="custom-card p-2 md:p-2.5 flex items-center gap-2 md:gap-2.5"
+            className="relative overflow-hidden rounded-xl border border-base-300/40 bg-base-200/70 p-3 border-l-4 border-l-info/50"
           >
-            <div className="p-1.5 md:p-2 rounded-lg bg-info/10 border border-info/20 flex-shrink-0">
-              <TrendingUpIcon className="w-4 h-4 md:w-5 md:h-5 text-info" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] md:text-[10px] font-bold opacity-40 uppercase mb-0.5">
-                Prob. Média
-              </p>
-              <p className="text-lg md:text-xl font-black text-info">
-                {avgProbability.toFixed(1)}%
-              </p>
+            <div className="absolute inset-0 bg-gradient-to-br from-info/3 via-transparent to-transparent pointer-events-none" />
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="p-2 rounded-lg bg-info/10 border border-info/20 shrink-0">
+                <TrendingUpIcon className="w-4 h-5 text-info" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-base-content/40 uppercase tracking-wider mb-0.5">Prob. Media</p>
+                <p className="text-lg md:text-xl font-black text-info">{avgProbability.toFixed(1)}%</p>
+              </div>
             </div>
           </motion.div>
         </div>
       )}
 
       {/* Título e Botão Adicionar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg sm:text-xl font-black tracking-tighter mb-0.5">Partidas Salvas</h2>
-          <p className="text-[10px] sm:text-xs opacity-60">Gerencie suas análises e resultados</p>
+          <h2 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight">
+            <span className="text-gradient">Partidas Salvas</span>
+          </h2>
+          <p className="text-xs text-base-content/40 mt-0.5">Gerencie suas analises e resultados</p>
         </div>
         <button
           onClick={onNewMatch}
-          className="btn btn-primary btn-sm gap-1.5 shadow-lg hover:scale-105 transition-transform w-full sm:w-auto min-h-[36px] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary"
-          aria-label="Adicionar nova partida para análise"
+          className="btn btn-primary btn-sm gap-1.5 shadow-lg hover:shadow-xl hover:scale-105 transition-all w-full sm:w-auto"
+          aria-label="Adicionar nova partida"
         >
-          <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" aria-hidden="true" />
-          <span className="hidden sm:inline text-sm">Adicionar Partida</span>
-          <span className="sm:hidden text-xs">Nova Partida</span>
+          <Plus className="w-4 h-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Adicionar Partida</span>
+          <span className="sm:hidden">Nova Partida</span>
         </button>
       </div>
 

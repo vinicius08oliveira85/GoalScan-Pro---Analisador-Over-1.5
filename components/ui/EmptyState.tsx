@@ -22,30 +22,40 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       variant="default"
       padding="lg"
       className={cn(
-        'relative flex flex-col items-center justify-center overflow-hidden border-2 border-dashed border-base-content/15 text-center shadow-inner shadow-primary/5',
+        'relative flex flex-col items-center justify-center overflow-hidden border-2 border-dashed border-base-content/15 text-center min-h-[280px]',
         className
       )}
       {...props}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-secondary/8 opacity-70" />
+      {/* Gradient background orbs */}
+      <div className="orb-primary -top-20 -right-20 h-60 w-60" />
+      <div className="orb-secondary -bottom-20 -left-20 h-52 w-52" />
 
-      {icon ? (
-        <div className="relative mb-6">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full border border-base-300/50 bg-base-300/35 shadow-lg shadow-primary/10 backdrop-blur-md md:h-28 md:w-28 dark:border-base-300/50">
-            <div className="text-primary/80">{icon}</div>
+      <div className="relative z-10 flex flex-col items-center gap-5 px-2">
+        {icon ? (
+          <div className="relative">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-base-300/40 bg-base-300/30 shadow-xl shadow-primary/10 backdrop-blur-xl sm:h-24 sm:w-24">
+              <div className="text-primary/70">{icon}</div>
+            </div>
           </div>
-        </div>
-      ) : null}
-
-      <div className="relative max-w-xl">
-        <h3 className="text-xl md:text-2xl font-black tracking-tight">{title}</h3>
-        {description ? (
-          <p className="mt-2 text-sm leading-relaxed opacity-60 md:text-base">
-            {description}
-          </p>
         ) : null}
 
-        {actions ? <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">{actions}</div> : null}
+        <div className="max-w-md space-y-2">
+          <h3 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight leading-tight">
+            {title}
+          </h3>
+          {description ? (
+            <p className="text-xs sm:text-sm leading-relaxed text-base-content/50">
+              {description}
+            </p>
+          ) : null}
+        </div>
+
+        {actions ? (
+          <div className="flex flex-col sm:flex-row gap-3 justify-center w-full sm:w-auto pt-1">
+            {actions}
+          </div>
+        ) : null}
       </div>
     </GlassCard>
   );

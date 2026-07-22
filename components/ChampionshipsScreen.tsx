@@ -92,21 +92,25 @@ const ChampionshipsScreen: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 md:space-y-6 pb-20 md:pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Trophy className="w-8 h-8 text-primary" />
-            Campeonatos
-          </h1>
-          <p className="text-base-content/60 mt-2">
-            Gerencie seus campeonatos e tabelas de classificação
-          </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 shadow-lg shadow-primary/10">
+            <Trophy className="w-6 h-7 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl md:text-2xl lg:text-3xl font-black tracking-tight">
+              <span className="text-gradient">Campeonatos</span>
+            </h1>
+            <p className="text-xs md:text-sm text-base-content/50 mt-0.5">
+              Gerencie seus campeonatos e tabelas de classificacao
+            </p>
+          </div>
         </div>
-        <button onClick={handleNewChampionship} className="btn btn-primary gap-2">
-          <Plus className="w-5 h-5" />
-          Novo Campeonato
+        <button onClick={handleNewChampionship} className="btn btn-primary btn-sm gap-1.5 shadow-lg">
+          <Plus className="w-4 h-4" />
+          Novo
         </button>
       </div>
 
@@ -117,7 +121,7 @@ const ChampionshipsScreen: React.FC = () => {
           title="Nenhum Campeonato Cadastrado"
           description="Comece criando seu primeiro campeonato e adicione as tabelas via FBref."
           actions={
-            <button onClick={handleNewChampionship} className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl focus-ring">
+            <button onClick={handleNewChampionship} className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl">
               <Plus className="w-5 h-5" aria-hidden="true" />
               Criar Primeiro Campeonato
             </button>
@@ -130,16 +134,17 @@ const ChampionshipsScreen: React.FC = () => {
               key={championship.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="custom-card p-6"
+              className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-5 hover:border-base-300/70 transition-colors"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Trophy className="w-6 h-6 text-primary" />
+              <div className="absolute -top-12 -right-12 h-28 w-28 rounded-full bg-primary/6 blur-3xl pointer-events-none" />
+              <div className="flex items-start justify-between gap-3 mb-3 relative z-10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Trophy className="w-5 h-5 text-primary" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-bold text-lg">{championship.nome}</h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-sm md:text-base truncate">{championship.nome}</h3>
                       {championship.table_format && (
                         <span
                           className={`badge badge-sm ${
@@ -148,20 +153,20 @@ const ChampionshipsScreen: React.FC = () => {
                               : 'badge-secondary'
                           }`}
                         >
-                          {championship.table_format === 'completa' ? 'Completa' : 'Básica'}
+                          {championship.table_format === 'completa' ? 'Completa' : 'Basica'}
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-base-content/60 space-y-0.5">
+                    <div className="text-xs text-base-content/40 mt-1 space-y-0.5">
                       <p>
                         Criado em:{' '}
                         {championship.created_at
                           ? new Date(championship.created_at).toLocaleDateString('pt-BR')
-                          : 'Data não disponível'}
+                          : 'Data nao disponivel'}
                       </p>
                       {championship.uploaded_at && (
-                        <p className="text-xs">
-                          Último upload:{' '}
+                        <p>
+                          Ultimo upload:{' '}
                           {new Date(championship.uploaded_at).toLocaleDateString('pt-BR', {
                             day: '2-digit',
                             month: '2-digit',
@@ -176,21 +181,21 @@ const ChampionshipsScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-4">
+              <div className="flex gap-1.5 mt-3 relative z-10">
                 <button
                   onClick={() => handleViewTables(championship)}
-                  className="btn btn-sm btn-ghost flex-1 gap-1"
+                  className="btn btn-sm btn-ghost flex-1 gap-1 text-xs"
                   title="Visualizar Tabelas"
                 >
-                  <Eye className="w-4 h-4" />
+                  <Eye className="w-3.5 h-3.5" />
                   Tabelas
                 </button>
                 <button
                   onClick={() => setExtractingFbref(championship)}
-                  className="btn btn-sm btn-ghost flex-1 gap-1"
+                  className="btn btn-sm btn-ghost flex-1 gap-1 text-xs"
                   title="Extrair Dados do FBref.com"
                 >
-                  <ExternalLink className="w-4 h-4" />
+                  <ExternalLink className="w-3.5 h-3.5" />
                   FBref
                 </button>
                 <button
@@ -198,7 +203,7 @@ const ChampionshipsScreen: React.FC = () => {
                   className="btn btn-sm btn-ghost gap-1"
                   title="Editar"
                 >
-                  <Edit className="w-4 h-4" />
+                  <Edit className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => handleDeleteChampionship(championship)}
@@ -206,7 +211,7 @@ const ChampionshipsScreen: React.FC = () => {
                   title="Excluir"
                   disabled={isSaving}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </motion.div>
