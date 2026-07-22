@@ -122,6 +122,10 @@ export async function importBackup(backup: GoalScanBackup): Promise<ImportResult
     }
   }
 
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('goalscan-data-changed'));
+  }
+
   const total = championships + tables + teams + complement + analyses + bankSettings + transactions + localStorageKeys;
 
   const result: ImportResult = {

@@ -9,6 +9,21 @@ import { errorService } from '../services/errorService';
 import { syncMatchesToWidgets } from '../services/widgetSyncService';
 import { logger } from '../utils/logger';
 
+function mergeSavedMatches(remoteMatches: SavedAnalysis[], localMatches: SavedAnalysis[]): SavedAnalysis[] {
+  const merged = [...localMatches];
+
+  remoteMatches.forEach((match) => {
+    const existingIndex = merged.findIndex((item) => item.id === match.id);
+    if (existingIndex >= 0) {
+      merged[existingIndex] = match;
+    } else {
+      merged.push(match);
+    }
+  });
+
+  return merged.sort((a, b) => b.timestamp - a.timestamp);
+}
+
 export const useSavedMatches = (onError?: (message: string) => void) => {
   const [savedMatches, setSavedMatches] = useState<SavedAnalysis[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -53,13 +68,14 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
         logger.log(`[useSavedMatches] ${matches.length} partida(s) carregada(s) do Supabase`);
       }
 
-      setSavedMatches(matches);
+      const mergedMatches = mergeSavedMatches(matches, localMatches);
+      setSavedMatches(mergedMatches);
       setIsUsingLocalData(false);
 
       // Salvar no localStorage como backup
       try {
-        localStorage.setItem('goalscan_saved', JSON.stringify(matches));
-        syncMatchesToWidgets(matches);
+        localStorage.setItem('goalscan_saved', JSON.stringify(mergedMatches));
+        syncMatchesToWidgets(mergedMatches);
         logger.log('[useSavedMatches] Dados sincronizados e salvos no localStorage');
       } catch (e) {
         logger.warn('[useSavedMatches] Erro ao salvar no localStorage (backup):', e);
@@ -234,6 +250,17 @@ export const useSavedMatches = (onError?: (message: string) => void) => {
   // Carregar na inicialização
   useEffect(() => {
     loadMatches();
+  }, [loadMatches]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleDataChanged = () => {
+      void loadMatches();
+    };
+
+    window.addEventListener('goalscan-data-changed', handleDataChanged);
+    return () => window.removeEventListener('goalscan-data-changed', handleDataChanged);
   }, [loadMatches]);
 
   // Salvar partida com validação parcial (para salvamento automático da IA)
