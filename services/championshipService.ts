@@ -1707,6 +1707,13 @@ export const syncTeamStatsFromTable = async (
             per_90_g_a: row['Per 90 Minutes G+A'] != null ? String(row['Per 90 Minutes G+A']) : undefined,
             per_90_g_pk: row['Per 90 Minutes G-PK'] != null ? String(row['Per 90 Minutes G-PK']) : undefined,
             per_90_g_a_pk: row['Per 90 Minutes G+A-PK'] != null ? String(row['Per 90 Minutes G+A-PK']) : undefined,
+            // Shooting / Expected Goals
+            sh: row.Sh != null ? String(row.Sh) : row['Sh'] != null ? String(row['Sh']) : undefined,
+            sot: row.SoT != null ? String(row.SoT) : row['SoT'] != null ? String(row['SoT']) : undefined,
+            xg: row.xG != null ? String(row.xG) : row['xG'] != null ? String(row['xG']) : undefined,
+            npxg: row.npxG != null ? String(row.npxG) : row['npxG'] != null ? String(row['npxG']) : undefined,
+            xga: row.xGA != null ? String(row.xGA) : row['xGA'] != null ? String(row['xGA']) : undefined,
+            xgd: row.xGD != null ? String(row.xGD) : row['xGD'] != null ? String(row['xGD']) : undefined,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }));
@@ -2493,6 +2500,13 @@ function normalizeComplementData(
     per_90_g_a: row['Per 90 Minutes G+A'],
     per_90_g_pk: row['Per 90 Minutes G-PK'],
     per_90_g_a_pk: row['Per 90 Minutes G+A-PK'],
+    // Shooting / Expected Goals
+    sh: row.Sh ?? row['Sh'],
+    sot: row.SoT ?? row['SoT'],
+    xg: row.xG ?? row['xG'],
+    npxg: row.npxG ?? row['npxG'],
+    xga: row.xGA ?? row['xGA'],
+    xgd: row.xGD ?? row['xGD'],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -2526,6 +2540,13 @@ function convertChampionshipComplementToTableRow(
     'Per 90 Minutes G+A': complement.per_90_g_a,
     'Per 90 Minutes G-PK': complement.per_90_g_pk,
     'Per 90 Minutes G+A-PK': complement.per_90_g_a_pk,
+    // Shooting / Expected Goals
+    Sh: complement.sh,
+    SoT: complement.sot,
+    xG: complement.xg,
+    npxG: complement.npxg,
+    xGA: complement.xga,
+    xGD: complement.xgd,
   };
 }
 
@@ -2756,6 +2777,10 @@ export const calculateCompetitionComplementAverages = (
   let totalPer90GA = 0;
   let totalPer90GPK = 0;
   let totalPer90GAPK = 0;
+  let totalXg = 0;
+  let totalNpxg = 0;
+  let totalSh = 0;
+  let totalSot = 0;
   let count = 0;
 
   complementData.forEach((complement) => {
@@ -2773,6 +2798,10 @@ export const calculateCompetitionComplementAverages = (
     const per90GA = parseNum(complement.per_90_g_a);
     const per90GPK = parseNum(complement.per_90_g_pk);
     const per90GAPK = parseNum(complement.per_90_g_a_pk);
+    const xg = parseNum(complement.xg);
+    const npxg = parseNum(complement.npxg);
+    const sh = parseNum(complement.sh);
+    const sot = parseNum(complement.sot);
 
     if (pl > 0 || age > 0 || poss > 0 || mp > 0) {
       totalPl += pl;
@@ -2789,6 +2818,10 @@ export const calculateCompetitionComplementAverages = (
       totalPer90GA += per90GA;
       totalPer90GPK += per90GPK;
       totalPer90GAPK += per90GAPK;
+      totalXg += xg;
+      totalNpxg += npxg;
+      totalSh += sh;
+      totalSot += sot;
       count++;
     }
   });
@@ -2812,6 +2845,10 @@ export const calculateCompetitionComplementAverages = (
     per90GA: totalPer90GA / count,
     per90GPK: totalPer90GPK / count,
     per90GAPK: totalPer90GAPK / count,
+    xg: totalXg / count,
+    npxg: totalNpxg / count,
+    sh: totalSh / count,
+    sot: totalSot / count,
   };
 };
 

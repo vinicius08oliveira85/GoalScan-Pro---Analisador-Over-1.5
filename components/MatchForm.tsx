@@ -72,6 +72,15 @@ function extractSyncFeedback(result: SyncResult): SyncFeedback {
     homeXG = hxg > 0 ? hxg : null;
     awayXG = axg > 0 ? axg : null;
   }
+  // Fallback: buscar xG dos dados de complemento (tabela Shooting)
+  if (homeXG == null && result.homeComplementData) {
+    const hxgComp = parseNum(result.homeComplementData['xG'] || result.homeComplementData.xG);
+    if (hxgComp > 0) homeXG = hxgComp;
+  }
+  if (awayXG == null && result.awayComplementData) {
+    const axgComp = parseNum(result.awayComplementData['xG'] || result.awayComplementData.xG);
+    if (axgComp > 0) awayXG = axgComp;
+  }
 
   let tableFormat: 'completa' | 'basica' | null = null;
   if (hasGeralTable) {
