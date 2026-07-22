@@ -310,9 +310,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                   const qualityColor = dataQuality >= 80 ? 'text-success' : dataQuality >= 60 ? 'text-warning' : 'text-error';
                   const qualityLabel = dataQuality >= 80 ? 'Alta' : dataQuality >= 60 ? 'Média' : 'Baixa';
                   return (
-                    <div className={`flex items-center gap-1.5 text-xs font-semibold ${qualityColor} tooltip tooltip-left`} data-tip={`Dados: ${qualityLabel} (${dataQuality.toFixed(0)}%)\n\nIndica a completude dos dados disponíveis para análise. Dados mais completos resultam em análises mais precisas.`}>
-                      <div className={`w-2 h-2 rounded-full ${dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-error'}`} />
-                      <span className="hidden sm:inline">Dados: {qualityLabel}</span>
+                    <div className="tooltip tooltip-left" data-tip={`Dados: ${qualityLabel} (${dataQuality.toFixed(0)}%)\n\nCompletude dos dados disponíveis para análise.`}>
+                      <div className={`badge badge-sm gap-1.5 pl-2 pr-2.5 py-2 font-semibold border ${qualityColor} ${
+                        dataQuality >= 80 ? 'border-success/30 bg-success/8' : dataQuality >= 60 ? 'border-warning/30 bg-warning/8' : 'border-error/30 bg-error/8'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-error'}`} />
+                        Dados {qualityLabel}
+                        <span className="font-mono tabular-nums text-[10px] opacity-75">{dataQuality.toFixed(0)}%</span>
+                      </div>
                     </div>
                   );
                 })()}

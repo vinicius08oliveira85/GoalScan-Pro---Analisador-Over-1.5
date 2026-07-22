@@ -524,87 +524,110 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`mt-4 p-4 rounded-xl border ${
+              className={`mt-4 surface overflow-hidden ${
                 syncFeedback.status === 'success'
-                  ? 'bg-success/5 border-success/20'
+                  ? 'border-l-success/60'
                   : syncFeedback.status === 'partial'
-                    ? 'bg-warning/5 border-warning/20'
-                    : 'bg-error/5 border-error/20'
+                    ? 'border-l-warning/60'
+                    : 'border-l-error/60'
               }`}
+              style={{ borderLeftWidth: 4 }}
             >
-              <div className="font-semibold text-sm mb-3 flex items-center gap-2">
+              <div className="font-semibold text-sm px-4 pt-3 pb-2 flex items-center gap-2 border-b border-base-content/5">
                 {syncFeedback.status === 'success' && <CheckCircle className="w-4 h-4 text-success" />}
                 {syncFeedback.status === 'partial' && <AlertTriangle className="w-4 h-4 text-warning" />}
                 {syncFeedback.status === 'error' && <XCircle className="w-4 h-4 text-error" />}
                 <span>Resultado da Sincronização</span>
+                {/* Contador compacto */}
+                <span className="ml-auto text-[10px] text-base-content/40 font-normal">
+                  {[syncFeedback.hasGeralTable, syncFeedback.hasComplementTable, !!syncFeedback.competitionAvg, syncFeedback.hasGeralTable].filter(Boolean).length}/4
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 text-xs">
                 {/* Tabela Geral */}
-                <div className={`p-2 rounded-lg ${syncFeedback.hasGeralTable ? 'bg-success/10' : 'bg-error/10'}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    {syncFeedback.hasGeralTable ? (
-                      <CheckCircle className="w-3 h-3 text-success" />
-                    ) : (
-                      <XCircle className="w-3 h-3 text-error" />
-                    )}
-                    <span className="font-medium">Tabela Geral</span>
-                    {syncFeedback.tableFormat && (
-                      <span className={`badge badge-xs ${syncFeedback.tableFormat === 'completa' ? 'badge-success' : 'badge-warning'}`}>
-                        {syncFeedback.tableFormat}
-                      </span>
+                <div className={`flex items-start gap-2 p-2 rounded-lg ${syncFeedback.hasGeralTable ? 'bg-success/8' : 'bg-error/8'}`}>
+                  {syncFeedback.hasGeralTable ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-success mt-0.5 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-error mt-0.5 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="font-medium">Tabela Geral</span>
+                      {syncFeedback.tableFormat && (
+                        <span className={`badge badge-xs ${syncFeedback.tableFormat === 'completa' ? 'badge-success' : 'badge-warning'}`}>
+                          {syncFeedback.tableFormat}
+                        </span>
+                      )}
+                    </div>
+                    {syncFeedback.hasGeralTable && (
+                      <div className="text-base-content/60 leading-snug">
+                        <div>{selectedHomeSquad}: {syncFeedback.homeMP} jogos</div>
+                        <div>{selectedAwaySquad}: {syncFeedback.awayMP} jogos</div>
+                      </div>
                     )}
                   </div>
-                  {syncFeedback.hasGeralTable && (
-                    <div className="ml-5 space-y-0.5 opacity-80">
-                      <div>{selectedHomeSquad}: {syncFeedback.homeMP} jogos</div>
-                      <div>{selectedAwaySquad}: {syncFeedback.awayMP} jogos</div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Tabela Complemento */}
-                <div className={`p-2 rounded-lg ${syncFeedback.hasComplementTable ? 'bg-success/10' : 'bg-base-300/50'}`}>
-                  <div className="flex items-center gap-2">
-                    {syncFeedback.hasComplementTable ? (
-                      <CheckCircle className="w-3 h-3 text-success" />
-                    ) : (
-                      <Info className="w-3 h-3 opacity-40" />
-                    )}
+                <div className={`flex items-start gap-2 p-2 rounded-lg ${syncFeedback.hasComplementTable ? 'bg-success/8' : 'bg-base-300/40'}`}>
+                  {syncFeedback.hasComplementTable ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-success mt-0.5 shrink-0" />
+                  ) : (
+                    <Info className="w-3.5 h-3.5 text-base-content/30 mt-0.5 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
                     <span className="font-medium">Tabela Complemento</span>
-                  </div>
-                  <div className="ml-5 mt-1 opacity-70">
-                    {syncFeedback.hasComplementTable ? 'Posse, Performance, Per 90' : 'Não disponível'}
+                    <div className="text-base-content/60 mt-0.5">
+                      {syncFeedback.hasComplementTable ? 'Posse, Performance, Per 90' : 'Não disponível'}
+                    </div>
                   </div>
                 </div>
 
                 {/* Média da Competição */}
-                <div className={`p-2 rounded-lg ${syncFeedback.competitionAvg ? 'bg-primary/10' : 'bg-base-300/50'}`}>
-                  <div className="font-medium mb-1">Média da Competição</div>
-                  <div className="ml-1 text-lg font-bold">
-                    {syncFeedback.competitionAvg ? `${syncFeedback.competitionAvg.toFixed(2)} gols/jogo` : '—'}
+                <div className={`flex items-start gap-2 p-2 rounded-lg ${syncFeedback.competitionAvg ? 'bg-primary/8' : 'bg-base-300/40'}`}>
+                  {syncFeedback.competitionAvg ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                  ) : (
+                    <Info className="w-3.5 h-3.5 text-base-content/30 mt-0.5 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <span className="font-medium">Média da Competição</span>
+                    <div className="text-base font-bold mt-0.5">
+                      {syncFeedback.competitionAvg ? `${syncFeedback.competitionAvg.toFixed(2)} gols/jogo` : '—'}
+                    </div>
                   </div>
                 </div>
 
                 {/* Métricas Extraídas */}
                 {syncFeedback.hasGeralTable && (
-                  <div className="p-2 rounded-lg bg-base-300/50">
-                    <div className="font-medium mb-1">Métricas Extraídas</div>
-                    <div className="ml-1 space-y-0.5">
-                      <div>
-                        <span className="opacity-70">xG:</span>{' '}
-                        {syncFeedback.homeXG != null ? syncFeedback.homeXG.toFixed(2) : '—'} /{' '}
-                        {syncFeedback.awayXG != null ? syncFeedback.awayXG.toFixed(2) : '—'}
-                      </div>
-                      <div>
-                        <span className="opacity-70">Gols/jogo:</span>{' '}
-                        {syncFeedback.homeGoalsPerGame != null ? syncFeedback.homeGoalsPerGame.toFixed(2) : '—'} /{' '}
-                        {syncFeedback.awayGoalsPerGame != null ? syncFeedback.awayGoalsPerGame.toFixed(2) : '—'}
-                      </div>
-                      <div>
-                        <span className="opacity-70">Sofridos/jogo:</span>{' '}
-                        {syncFeedback.homeConcededPerGame != null ? syncFeedback.homeConcededPerGame.toFixed(2) : '—'} /{' '}
-                        {syncFeedback.awayConcededPerGame != null ? syncFeedback.awayConcededPerGame.toFixed(2) : '—'}
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-base-300/40">
+                    <div className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium">Métricas Extraídas</span>
+                      <div className="text-base-content/60 mt-0.5 space-y-0.5">
+                        <div className="flex justify-between">
+                          <span>xG:</span>
+                          <span className="font-medium tabular-nums">
+                            {syncFeedback.homeXG != null ? syncFeedback.homeXG.toFixed(2) : '—'} /{' '}
+                            {syncFeedback.awayXG != null ? syncFeedback.awayXG.toFixed(2) : '—'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Gols/jogo:</span>
+                          <span className="font-medium tabular-nums">
+                            {syncFeedback.homeGoalsPerGame != null ? syncFeedback.homeGoalsPerGame.toFixed(2) : '—'} /{' '}
+                            {syncFeedback.awayGoalsPerGame != null ? syncFeedback.awayGoalsPerGame.toFixed(2) : '—'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Sofridos/jogo:</span>
+                          <span className="font-medium tabular-nums">
+                            {syncFeedback.homeConcededPerGame != null ? syncFeedback.homeConcededPerGame.toFixed(2) : '—'} /{' '}
+                            {syncFeedback.awayConcededPerGame != null ? syncFeedback.awayConcededPerGame.toFixed(2) : '—'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -612,25 +635,29 @@ const MatchForm: React.FC<MatchFormProps> = ({
               </div>
 
               {/* Resumo de impacto na análise */}
-              <div className="mt-3 pt-3 border-t border-base-content/10">
+              <div className="mx-3 mb-3">
                 {syncFeedback.hasGeralTable && syncFeedback.hasComplementTable && (
-                  <div className="p-2 bg-success/10 border border-success/20 rounded text-success text-xs font-medium">
-                    ✅ Análise com máxima precisão disponível (tabela geral + complemento + xG).
+                  <div className="flex items-center gap-2 p-2 bg-success/8 border border-success/15 rounded-lg text-success text-xs font-medium">
+                    <CheckCircle className="w-4 h-4 shrink-0" />
+                    <span>Máxima precisão disponível (tabela geral + complemento + xG).</span>
                   </div>
                 )}
                 {syncFeedback.hasGeralTable && !syncFeedback.hasComplementTable && syncFeedback.tableFormat === 'completa' && (
-                  <div className="p-2 bg-success/10 border border-success/20 rounded text-success text-xs font-medium">
-                    ✅ Tabela geral com xG carregada. Análise precisa.
+                  <div className="flex items-center gap-2 p-2 bg-success/8 border border-success/15 rounded-lg text-success text-xs font-medium">
+                    <CheckCircle className="w-4 h-4 shrink-0" />
+                    <span>Tabela geral com xG carregada. Análise precisa.</span>
                   </div>
                 )}
                 {syncFeedback.hasGeralTable && !syncFeedback.hasComplementTable && syncFeedback.tableFormat === 'basica' && (
-                  <div className="p-2 bg-warning/10 border border-warning/20 rounded text-warning text-xs font-medium">
-                    ⚠️ Formato básico (sem xG). A análise usará gols reais (GF/GA). Adicione a tabela de complemento para maior precisão.
+                  <div className="flex items-center gap-2 p-2 bg-warning/8 border border-warning/15 rounded-lg text-warning text-xs font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Formato básico (sem xG). A análise usará gols reais (GF/GA). Adicione a tabela de complemento para maior precisão.</span>
                   </div>
                 )}
                 {!syncFeedback.hasGeralTable && (
-                  <div className="p-2 bg-error/10 border border-error/20 rounded text-error text-xs font-medium">
-                    ❌ Tabela geral não encontrada. Extraia as tabelas do fbref.com primeiro.
+                  <div className="flex items-center gap-2 p-2 bg-error/8 border border-error/15 rounded-lg text-error text-xs font-medium">
+                    <XCircle className="w-4 h-4 shrink-0" />
+                    <span>Tabela geral não encontrada. Extraia as tabelas do fbref.com primeiro.</span>
                   </div>
                 )}
               </div>
