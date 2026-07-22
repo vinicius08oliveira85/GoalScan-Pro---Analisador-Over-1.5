@@ -96,7 +96,7 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
     { name: `Não ${displayLabel}`, value: 100 - displayProbability },
   ];
 
-  const COLORS = ['#2dd4bf', '#f87171'];
+  const COLORS = ['oklch(51.975% 0.176 142.495)', 'oklch(62.795% 0.257 29.233)'];
 
   return (
     <div

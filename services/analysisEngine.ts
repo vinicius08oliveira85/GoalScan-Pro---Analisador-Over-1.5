@@ -1885,7 +1885,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   // Usar xG e xGA da tabela para ajustes finos se disponíveis (formato completo)
   // Verificar se dados xG existem e têm valores válidos
   const hasHomeXg = normalizedData.homeTableData?.['Home xG'] || normalizedData.homeTableData?.xG;
-  const hasAwayXga = normalizedData.awayTableData?.['Away xGA'] || normalizedData.awayTableData?.['Home xGA'] || normalizedData.awayTableData?.xGA;
+  const hasAwayXga = normalizedData.awayTableData?.['Away xGA'] || normalizedData.awayTableData?.xGA;
   const homeXgValue = hasHomeXg ? parseFloat(String(hasHomeXg)) : 0;
   const awayXgaValue = hasAwayXga ? parseFloat(String(hasAwayXga)) : 0;
   
@@ -2062,7 +2062,6 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   // Pontos por dados fundamentais (usar estimatedOver15Freq em vez de campos deprecated)
   // Se temos dados estimados válidos (não é o baseline de 50), considerar como dados disponíveis
   if (estimatedOver15Freq > 50) confidence += 15;
-  if (estimatedOver15Freq > 50) confidence += 15; // Mesmo valor para ambos (já calculado com dados de ambos)
   if (competitionAvg > 0) confidence += 10;
 
   // Pontos por estatísticas detalhadas
@@ -2303,7 +2302,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   });
 
   // Calcular probabilidades Over/Under combinadas via λ (gols esperados) para manter consistência entre linhas
-  const isPosFinite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
+  const isPosFinite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0;
   const hasStatsSide = isPosFinite(statsLambdaHome) && isPosFinite(statsLambdaAway);
   const hasTableSide = isPosFinite(tableLambdaHome) && isPosFinite(tableLambdaAway);
 
@@ -2510,7 +2509,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
               underLine: lines[j].line,
               overProb: lines[i].over,
               underProb: lines[j].under,
-              combinedProb: (lines[i].over * lines[j].under) / 100,
+              combinedProb: (poissonCumulative(Math.floor(lines[j].line), lambdaFinal) - poissonCumulative(Math.floor(lines[i].line), lambdaFinal)) * 100,
             });
           }
         }

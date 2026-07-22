@@ -18,7 +18,7 @@ interface DesktopSidebarProps {
 const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ activeTab, onTabChange }) => {
   return (
     <aside
-      className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col rounded-none border-y-0 border-l-0 border-r border-base-300/50 bg-base-100/55 p-3 shadow-[inset_-1px_0_0_rgba(99,102,241,0.08)] backdrop-blur-xl backdrop-saturate-150 dark:border-base-300/50 dark:bg-base-100/40 dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)] md:flex lg:w-56 lg:p-4"
+      className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col rounded-none border-y-0 border-l-0 border-r border-base-300/50 bg-base-100/55 p-3 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-xl backdrop-saturate-150 dark:border-base-300/50 dark:bg-base-100/40 dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)] md:flex lg:w-56 lg:p-4"
       aria-label="Menu lateral"
     >
       <div className="flex items-center gap-2 px-2 py-3 mb-2">

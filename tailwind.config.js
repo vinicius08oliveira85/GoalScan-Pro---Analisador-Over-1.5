@@ -36,8 +36,8 @@ export default {
           'neutral-content': 'oklch(100% 0 0)',
 
           // Semantic
-          info: 'oklch(45.201% 0.313 264.052)',
-          'info-content': 'oklch(89.04% 0.062 264.052)',
+          info: 'oklch(60% 0 0)',
+          'info-content': 'oklch(100% 0 0)',
           success: 'oklch(51.975% 0.176 142.495)',
           'success-content': 'oklch(90.395% 0.035 142.495)',
           warning: 'oklch(96.798% 0.211 109.769)',

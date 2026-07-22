@@ -78,12 +78,12 @@ export const tabScreenTransition = {
 export const cardHover = {
   rest: {
     scale: 1,
-    boxShadow: '0 8px 28px -8px rgba(99, 102, 241, 0.14)',
+    boxShadow: '0 8px 28px -8px rgba(0, 0, 0, 0.25)',
     transition: { type: 'spring', stiffness: 420, damping: 28 },
   },
   hover: {
     scale: 1.02,
-    boxShadow: '0 22px 52px -14px rgba(99, 102, 241, 0.28)',
+    boxShadow: '0 22px 52px -14px rgba(0, 0, 0, 0.4)',
     transition: { type: 'spring', stiffness: 420, damping: 26 },
   },
   tap: {
