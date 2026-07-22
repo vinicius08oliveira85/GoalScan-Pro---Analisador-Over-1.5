@@ -1161,7 +1161,7 @@ function combineStatisticsAndTable(
   statsProb: number,
   tableProb: number | null,
   data: MatchData
-): { probability: number; statsWeight: number; tableWeight: number } {
+): { statsWeight: number; tableWeight: number } {
   const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
   // Validação de inputs
@@ -1171,20 +1171,12 @@ function combineStatisticsAndTable(
 
   // Se não há probabilidade da tabela, retornar apenas estatística
   if (tableProb === null || tableProb === undefined) {
-    return {
-      probability: statsProb,
-      statsWeight: 1.0,
-      tableWeight: 0.0,
-    };
+    return { statsWeight: 1.0, tableWeight: 0.0 };
   }
 
   // Validação da probabilidade da tabela
   if (!Number.isFinite(tableProb) || tableProb < 0 || tableProb > 100) {
-    return {
-      probability: statsProb,
-      statsWeight: 1.0,
-      tableWeight: 0.0,
-    };
+    return { statsWeight: 1.0, tableWeight: 0.0 };
   }
 
   // Avaliar disponibilidade e qualidade dos dados
@@ -1248,36 +1240,9 @@ function combineStatisticsAndTable(
   // Suavizar limites usando sigmoid (10-98% mais realista)
   const finalProb = smoothClamp(combined, 10, 98);
 
-  return {
-    probability: finalProb,
-    statsWeight,
-    tableWeight,
-  };
+  return { statsWeight, tableWeight };
 }
 
-/**
- * Calcula pesos adaptativos baseados na qualidade e disponibilidade dos dados
- */
-function calculateAdaptiveWeights(
-  estimatedOver15Freq: number,
-  competitionAvg: number,
-  hasTeamStats: boolean
-): { teamWeight: number; competitionWeight: number } {
-  const hasEstimatedData = estimatedOver15Freq > 0;
-  const hasCompetitionData = competitionAvg > 0;
-  const dataCount = (hasEstimatedData ? 1 : 0) + (hasCompetitionData ? 1 : 0);
-
-  if (dataCount === 0) return { teamWeight: 0.5, competitionWeight: 0.5 };
-  if (hasTeamStats && hasEstimatedData) return { teamWeight: 0.7, competitionWeight: 0.3 };
-  if (hasEstimatedData && !hasCompetitionData) return { teamWeight: 0.8, competitionWeight: 0.2 };
-  if (!hasEstimatedData && hasCompetitionData) return { teamWeight: 0.5, competitionWeight: 0.5 };
-  return { teamWeight: 0.6, competitionWeight: 0.4 };
-}
-
-/**
- * Normaliza dados de MatchData garantindo valores padrão seguros para campos opcionais
- * Previne erros com dados antigos ou incompletos
- */
 /**
  * Calcula score de completude das tabelas (0-1)
  */
@@ -1696,11 +1661,15 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   estimatedOver15Freq = Math.max(10, Math.min(98, estimatedOver15Freq));
 
   // 6. Calcular pesos adaptativos
-  const weights = calculateAdaptiveWeights(
-    estimatedOver15Freq,
-    competitionAvg,
-    hasTeamStats
-  );
+  const hasEstimatedData = estimatedOver15Freq > 0;
+  const hasCompetitionData = competitionAvg > 0;
+  const dataCount = (hasEstimatedData ? 1 : 0) + (hasCompetitionData ? 1 : 0);
+  const weights: { teamWeight: number; competitionWeight: number } =
+    dataCount === 0 ? { teamWeight: 0.5, competitionWeight: 0.5 } :
+    hasTeamStats && hasEstimatedData ? { teamWeight: 0.7, competitionWeight: 0.3 } :
+    hasEstimatedData && !hasCompetitionData ? { teamWeight: 0.8, competitionWeight: 0.2 } :
+    !hasEstimatedData && hasCompetitionData ? { teamWeight: 0.5, competitionWeight: 0.5 } :
+    { teamWeight: 0.6, competitionWeight: 0.4 };
 
   // Aplicar fórmula ponderada adaptativa
   let prob =
@@ -2319,7 +2288,7 @@ export function performAnalysis(data: MatchData): AnalysisResult {
   }
 
   // Obter pesos para combinar lambdas (mesmos pesos usados na combinação de probabilidades)
-  const { probability: _, statsWeight, tableWeight } = combineStatisticsAndTable(
+  const { statsWeight, tableWeight } = combineStatisticsAndTable(
     statsProb,
     tableProb,
     normalizedData
