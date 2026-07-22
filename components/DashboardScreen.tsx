@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Activity,
@@ -13,6 +13,9 @@ import {
   XCircle,
   Clock,
   Hash,
+  ChevronDown,
+  Trophy,
+  BarChart3,
 } from 'lucide-react';
 import { formatTimestampInBrasilia } from '../utils/dateFormatter';
 import {
@@ -50,6 +53,7 @@ import {
 import SectionHeader from './ui/SectionHeader';
 import EmptyState from './ui/EmptyState';
 import { SkeletonMetricCard, SkeletonCard } from './Skeleton';
+import { getChampionshipMap } from '../utils/championshipUtils';
 
 interface DashboardScreenProps {
   savedMatches: SavedAnalysis[];
@@ -99,6 +103,44 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   // Calcular total para percentuais
   const totalBets = resultDistributionData.reduce((sum, item) => sum + item.value, 0);
+
+  // Estado para expandir por campeonato
+  const [expandedChamp, setExpandedChamp] = useState<string | null>(null);
+  const [championshipMap, setChampionshipMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    getChampionshipMap().then(setChampionshipMap);
+  }, []);
+
+  // Agrupar partidas por campeonato
+  const matchesByChampionship = useMemo(() => {
+    const groups = new Map<string, SavedAnalysis[]>();
+    const uncategorized: SavedAnalysis[] = [];
+
+    savedMatches.forEach((match) => {
+      const id = match.data.championshipId;
+      if (id) {
+        const existing = groups.get(id) || [];
+        existing.push(match);
+        groups.set(id, existing);
+      } else {
+        uncategorized.push(match);
+      }
+    });
+
+    const sorted = Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length);
+    if (uncategorized.length > 0) {
+      sorted.push(['__uncategorized__', uncategorized]);
+    }
+    return sorted;
+  }, [savedMatches]);
+
+  // Stats por campeonato (expandido)
+  const champStats = useMemo(() => {
+    return new Map(
+      matchesByChampionship.map(([id, matches]) => [id, calculateDashboardStats(matches, bankSettings)])
+    );
+  }, [matchesByChampionship, bankSettings]);
 
   const statCards = [
     {
@@ -665,6 +707,112 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           title="Nenhuma Partida Ainda"
           description="Comece criando análises de partidas para ver estatísticas e gráficos aqui."
         />
+      )}
+
+      {/* Expandir por Campeonato */}
+      {savedMatches.length > 0 && matchesByChampionship.length > 0 && (
+        <motion.div
+          variants={animations.fadeInUp}
+          initial="initial"
+          animate="animate"
+          className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
+        >
+          <div className="absolute -top-20 -right-20 h-44 w-44 rounded-full bg-secondary/6 blur-3xl pointer-events-none" />
+
+          <SectionHeader
+            className="mb-4"
+            icon={<BarChart3 className="w-5 h-5 text-secondary" />}
+            title="Estatisticas por Campeonato"
+            subtitle={`${matchesByChampionship.length} campeonato(s) — clique para expandir`}
+          />
+
+          <div className="space-y-2 relative z-10">
+            {matchesByChampionship.map(([id, matches]) => {
+              const isUncategorized = id === '__uncategorized__';
+              const name = isUncategorized ? 'Sem campeonato' : championshipMap.get(id) || 'Carregando...';
+              const isExpanded = expandedChamp === id;
+              const s = champStats.get(id);
+              const matchCount = matches.length;
+
+              return (
+                <div
+                  key={id}
+                  className="rounded-xl border border-base-300/30 bg-base-300/20 overflow-hidden transition-all duration-200"
+                >
+                  {/* Header clicável */}
+                  <button
+                    onClick={() => setExpandedChamp(isExpanded ? null : id)}
+                    className="w-full flex items-center gap-3 p-3 md:p-4 hover:bg-base-300/30 transition-colors text-left"
+                  >
+                    <div className={`p-2 rounded-lg shrink-0 transition-colors ${isUncategorized ? 'bg-base-300/40' : 'bg-primary/10'}`}>
+                      {isUncategorized ? (
+                        <Activity className="w-4 h-5 text-base-content/60" />
+                      ) : (
+                        <Trophy className="w-4 h-5 text-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm md:text-base truncate">{name}</span>
+                        <span className="badge-subtle">{matchCount} partida{matchCount !== 1 ? 's' : ''}</span>
+                      </div>
+                      {s && (
+                        <div className="flex items-center gap-3 mt-1 text-xs text-base-content/40">
+                          <span>
+                            EV{' '}
+                            <span className={s.averageEV > 0 ? 'text-success font-semibold' : s.averageEV < 0 ? 'text-error font-semibold' : ''}>
+                              {s.averageEV > 0 ? '+' : ''}{s.averageEV.toFixed(1)}%
+                            </span>
+                          </span>
+                          {s.winRate > 0 && (
+                            <span>
+                              Acerto{' '}
+                              <span className="text-success font-semibold">{s.winRate.toFixed(0)}%</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-base-content/40 transition-transform duration-200 shrink-0 ${
+                        isExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {/* Conteúdo expansível */}
+                  {isExpanded && s && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="border-t border-base-300/20 px-3 md:px-4 pb-4 pt-3"
+                    >
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {[
+                          { label: 'Total', value: s.totalMatches, color: 'text-primary' },
+                          { label: 'EV Medio', value: `${s.averageEV > 0 ? '+' : ''}${s.averageEV.toFixed(1)}%`, color: s.averageEV > 0 ? 'text-success' : 'text-error' },
+                          { label: 'Acerto', value: `${s.winRate.toFixed(1)}%`, color: s.winRate > 50 ? 'text-success' : s.winRate > 0 ? 'text-warning' : 'text-base-content/60' },
+                          { label: 'Lucro', value: `${getCurrencySymbol(bankSettings?.currency || 'BRL')} ${s.totalProfit.toFixed(2)}`, color: s.totalProfit > 0 ? 'text-success' : s.totalProfit < 0 ? 'text-error' : '' },
+                          { label: 'ROI', value: `${s.roi > 0 ? '+' : ''}${s.roi.toFixed(1)}%`, color: s.roi > 0 ? 'text-success' : 'text-error' },
+                          { label: 'EV+', value: s.positiveEVCount, color: 'text-success' },
+                          { label: 'Prob. Media', value: `${s.avgProbability.toFixed(1)}%`, color: 'text-info' },
+                          { label: 'Odd Media', value: s.averageOdd > 0 ? s.averageOdd.toFixed(2) : '-', color: '' },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} className="bg-base-300/30 rounded-xl p-2.5 text-center">
+                            <p className="text-[9px] text-base-content/40 uppercase tracking-wider mb-0.5">{label}</p>
+                            <p className={`text-xs md:text-sm font-black tabular-nums ${color}`}>{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
       )}
     </div>
   );
