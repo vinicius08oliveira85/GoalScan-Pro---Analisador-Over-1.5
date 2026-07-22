@@ -31,7 +31,9 @@ const TabNavigation: React.FC<TabNavigationProps> = React.memo(({ activeTab, onT
   ];
 
   return (
-    <div className="w-full border-b border-base-300/50 bg-base-200/80 backdrop-blur-md sticky top-0 z-40">
+    <div className="relative w-full border-b border-base-300/50 bg-base-200/80 backdrop-blur-md sticky top-0 z-40 overflow-hidden">
+      <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-primary/4 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-12 -left-12 h-28 w-28 rounded-full bg-accent/4 blur-3xl pointer-events-none" />
       <div className="container mx-auto px-3 md:px-4">
         {/* Desktop: Tabs horizontais */}
         <div className="hidden md:flex tabs tabs-boxed bg-base-300/50 p-1 gap-1.5">

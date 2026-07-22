@@ -181,12 +181,16 @@ export default function FbrefExtractionModal({
       overlayClassName="bg-black/60 backdrop-blur-sm"
       panelClassName="max-w-2xl w-full"
     >
-      <div className="surface surface-hover p-6">
+      <div className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-6 border-l-4 border-l-primary/60">
+        <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-secondary/5 blur-3xl pointer-events-none" />
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 relative z-10">
           <div className="flex items-center gap-3">
-            <ExternalLink className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-black">Extrair Dados do FBref.com</h2>
+            <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
+              <ExternalLink className="w-5 h-5 text-primary" />
+            </div>
+            <h2 className="text-lg md:text-xl font-black text-gradient">Extrair Dados do FBref.com</h2>
           </div>
           <button
             onClick={onClose}
@@ -367,13 +371,18 @@ export default function FbrefExtractionModal({
               initial="initial"
               animate="animate"
               variants={animations.fadeInUp}
-              className={`alert ${result.success ? 'alert-success' : 'alert-error'}`}
+              className={`relative overflow-hidden rounded-xl border border-l-4 p-4 ${
+                result.success
+                  ? 'border-l-success/60 border-base-300/40 bg-success/8'
+                  : 'border-l-error/60 border-base-300/40 bg-error/8'
+              }`}
             >
-              {result.success ? (
-                <CheckCircle className="w-5 h-5" />
-              ) : (
-                <XCircle className="w-5 h-5" />
-              )}
+              <div className="flex items-start gap-3">
+                {result.success ? (
+                  <CheckCircle className="w-5 h-5 text-success mt-0.5 shrink-0" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-error mt-0.5 shrink-0" />
+                )}
               <div className="min-w-0">
                 <p className="font-bold">
                   {result.success ? 'Extração bem-sucedida!' : 'Erro na extração'}
@@ -408,6 +417,7 @@ export default function FbrefExtractionModal({
                   </p>
                 )}
               </div>
+            </div>
             </motion.div>
           )}
 
