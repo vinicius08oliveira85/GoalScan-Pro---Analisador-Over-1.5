@@ -6,7 +6,7 @@ import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, ChampionshipTablesDiagnostic } from '../services/championshipService';
-import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Loader2, Info } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Loader2, Info, Database } from 'lucide-react';
 import FbrefExtractionModal from './FbrefExtractionModal';
 import InfoIcon from './match-form/InfoIcon';
 import { logger } from '../utils/logger';
@@ -467,7 +467,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                   Sincronizando...
                 </>
               ) : (
-                'Sincronizar com Tabela'
+                <><Database className="w-4 h-4" /> Sincronizar com Tabela</>
               )}
             </button>
             {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.tables.geral?.exists && (
@@ -484,34 +484,26 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
           {/* Aviso Preventivo: Mostrar antes de sincronizar se tabela geral não existe */}
           {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.tables.geral?.exists && (
-            <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
+            <div className="mt-4 surface overflow-hidden border-l-warning/60" style={{ borderLeftWidth: 4 }}>
+              <div className="flex items-start gap-3 p-3">
+                <AlertTriangle className="w-5 h-5 text-warning mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
                   <p className="text-warning font-semibold text-sm mb-1">
-                    A tabela geral não foi extraída ainda
+                    Tabela geral não extraída
                   </p>
-                  <p className="text-warning text-xs mb-2">
-                    Para análise completa, extraia a tabela geral do fbref.com primeiro.
+                  <p className="text-warning/70 text-xs mb-2 leading-relaxed">
+                    Extraia a tabela geral do fbref.com primeiro para uma análise completa.
                   </p>
                   {tablesDiagnostic.missingTables.includes('geral') && (
-                    <div className="text-xs opacity-80">
-                      <div className="flex items-center gap-2">
-                        <XCircle className="w-3 h-3" />
-                        <span>
-                          <strong>geral</strong>: Não foi extraída ainda
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2 text-xs text-base-content/60">
+                      <XCircle className="w-3 h-3" />
+                      <span><strong>geral</strong>: Não foi extraída ainda</span>
                     </div>
                   )}
                   {tablesDiagnostic.emptyTables.includes('geral') && (
-                    <div className="text-xs opacity-80">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-3 h-3" />
-                        <span>
-                          <strong>geral</strong>: Está vazia (extraia novamente)
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2 text-xs text-base-content/60">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span><strong>geral</strong>: Está vazia (extraia novamente)</span>
                     </div>
                   )}
                 </div>
