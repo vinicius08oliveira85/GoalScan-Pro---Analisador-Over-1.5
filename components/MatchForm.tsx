@@ -386,14 +386,19 @@ const MatchForm: React.FC<MatchFormProps> = ({
     <>
     <motion.form
       onSubmit={handleSubmit}
-      className="custom-card p-4 md:p-6 lg:p-8 flex flex-col gap-4 md:gap-6"
+      className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6 lg:p-8 flex flex-col gap-4 md:gap-6 border-l-4 border-l-primary/60"
       variants={animations.fadeInUp}
       initial="initial"
       animate="animate"
     >
+      <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-secondary/5 blur-3xl pointer-events-none" />
       {/* Seleção de Campeonato e Squad */}
-      <div className="bg-primary/5 p-4 rounded-3xl border border-primary/10">
-        <h3 className="text-lg font-bold mb-4">Campeonato e Equipes</h3>
+      <div className="relative overflow-hidden rounded-xl border border-l-4 border-l-accent/40 border-base-300/30 bg-base-300/20 p-4">
+        <div className="absolute -top-12 -right-12 h-28 w-28 rounded-full bg-accent/6 blur-3xl pointer-events-none" />
+        <h3 className="text-xs font-black uppercase tracking-wider text-accent mb-4 relative z-10">
+          <span className="text-gradient">Campeonato e Equipes</span>
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="form-control">
             <label className="label">
@@ -459,7 +464,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
               type="button"
               onClick={handleSyncWithTable}
               disabled={!selectedChampionshipId || !selectedHomeSquad || !selectedAwaySquad || syncing}
-              className="btn btn-primary w-full md:w-auto gap-2"
+              className="btn btn-primary w-full md:w-auto gap-2 shadow-lg hover:shadow-xl transition-shadow"
             >
               {syncing ? (
                 <>
@@ -474,7 +479,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
               <button
                 type="button"
                 onClick={() => setShowFbrefModal(true)}
-                className="btn btn-outline btn-warning w-full md:w-auto gap-2"
+                className="btn btn-outline btn-warning w-full md:w-auto gap-2 hover:scale-105 transition-transform"
               >
                 <ExternalLink className="w-4 h-4" />
                 Extrair Tabelas do FBref.com
@@ -516,15 +521,15 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`mt-4 surface overflow-hidden ${
+              className={`relative overflow-hidden rounded-xl border border-l-4 ${
                 syncFeedback.status === 'success'
-                  ? 'border-l-success/60'
+                  ? 'border-l-success/60 border-base-300/40 bg-base-300/20'
                   : syncFeedback.status === 'partial'
-                    ? 'border-l-warning/60'
-                    : 'border-l-error/60'
+                    ? 'border-l-warning/60 border-base-300/40 bg-base-300/20'
+                    : 'border-l-error/60 border-base-300/40 bg-base-300/20'
               }`}
-              style={{ borderLeftWidth: 4 }}
             >
+              <div className="absolute -top-12 -right-12 h-28 w-28 rounded-full bg-success/6 blur-3xl pointer-events-none" />
               <div className="font-semibold text-sm px-4 pt-3 pb-2 flex items-center gap-2 border-b border-base-content/5">
                 {syncFeedback.status === 'success' && <CheckCircle className="w-4 h-4 text-success" />}
                 {syncFeedback.status === 'partial' && <AlertTriangle className="w-4 h-4 text-warning" />}
@@ -739,7 +744,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
 
       <button
         type="submit"
-        className="btn btn-primary btn-lg mt-4 uppercase font-black tracking-widest shadow-2xl hover:scale-[1.01] active:scale-95 transition-all min-h-[44px] text-base md:text-lg w-full sm:w-auto"
+        className="btn btn-primary btn-lg mt-2 uppercase font-black tracking-widest shadow-2xl hover:scale-[1.02] active:scale-95 transition-all min-h-[44px] text-base md:text-lg w-full sm:w-auto"
       >
         Processar
       </button>
