@@ -17,38 +17,38 @@ export default {
     themes: [
       {
         goalscan_glass: {
-          // Base surfaces (Glass Modern controlado)
-          'base-100': 'oklch(18% 0.03 229.695)',
-          'base-200': 'oklch(22% 0.035 227.392)',
-          'base-300': 'oklch(28% 0.04 224.283)',
-          'base-content': 'oklch(95% 0.045 203.388)',
+          // Base surfaces (black monochrome)
+          'base-100': 'oklch(0% 0 0)',
+          'base-200': 'oklch(19% 0 0)',
+          'base-300': 'oklch(22% 0 0)',
+          'base-content': 'oklch(87.609% 0 0)',
 
-          // Brand
-          primary: 'oklch(44% 0.043 257.281)',
-          'primary-content': 'oklch(98% 0.003 247.858)',
-          secondary: 'oklch(55% 0.288 302.321)',
-          'secondary-content': 'oklch(97% 0.014 308.299)',
-          accent: 'oklch(55% 0.288 302.321)',
-          'accent-content': 'oklch(97% 0.014 308.299)',
+          // Brand (monochrome)
+          primary: 'oklch(35% 0 0)',
+          'primary-content': 'oklch(100% 0 0)',
+          secondary: 'oklch(35% 0 0)',
+          'secondary-content': 'oklch(100% 0 0)',
+          accent: 'oklch(35% 0 0)',
+          'accent-content': 'oklch(100% 0 0)',
 
           // Neutral
-          neutral: 'oklch(24% 0.03 229.695)',
-          'neutral-content': 'oklch(98% 0.019 200.873)',
+          neutral: 'oklch(35% 0 0)',
+          'neutral-content': 'oklch(100% 0 0)',
 
           // Semantic
-          info: 'oklch(68% 0.169 237.323)',
-          'info-content': 'oklch(97% 0.013 236.62)',
-          success: 'oklch(70% 0.14 182.503)',
-          'success-content': 'oklch(98% 0.014 180.72)',
-          warning: 'oklch(70% 0.213 47.604)',
-          'warning-content': 'oklch(98% 0.016 73.684)',
-          error: 'oklch(64% 0.246 16.439)',
-          'error-content': 'oklch(96% 0.015 12.422)',
+          info: 'oklch(45.201% 0.313 264.052)',
+          'info-content': 'oklch(89.04% 0.062 264.052)',
+          success: 'oklch(51.975% 0.176 142.495)',
+          'success-content': 'oklch(90.395% 0.035 142.495)',
+          warning: 'oklch(96.798% 0.211 109.769)',
+          'warning-content': 'oklch(19.359% 0.042 109.769)',
+          error: 'oklch(62.795% 0.257 29.233)',
+          'error-content': 'oklch(12.559% 0.051 29.233)',
 
-          // Shape & borders
-          '--rounded-box': '2rem',
-          '--rounded-btn': '2rem',
-          '--rounded-badge': '2rem',
+          // Shape & borders (compacto)
+          '--rounded-box': '0.5rem',
+          '--rounded-btn': '0.5rem',
+          '--rounded-badge': '0.5rem',
           '--border-btn': '1px',
           '--tab-border': '1px',
         },
