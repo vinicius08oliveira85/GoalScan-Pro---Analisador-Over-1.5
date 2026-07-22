@@ -240,7 +240,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               initial="initial"
               animate="animate"
               custom={index}
-              className={`relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-5 border-l-4 ${toneClass.accentBorder} hover:bg-base-200/95 transition-all duration-200`}
+              className={`relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-5 border-l-4 ring-1 ring-base-300/20 ${toneClass.accentBorder} hover:bg-base-200/95 transition-all duration-200`}
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${toneClass.gradient} opacity-60 pointer-events-none`} />
               <div className="relative z-10">
@@ -281,13 +281,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             variants={animations.fadeInUp}
             initial="initial"
             animate="animate"
-            className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
+            className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6 border-l-4 border-l-primary/40"
           >
             <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary/8 blur-3xl pointer-events-none" />
             <SectionHeader
               className="mb-4"
               title="Evolução da Banca"
               subtitle="Cash (disponível) e Equity (cash + pendentes) ao longo do tempo"
+              icon={
+                <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
+                  <TrendingUp className="w-4 h-5 text-primary" />
+                </div>
+              }
             />
             <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 350}>
               <AreaChart
@@ -438,13 +443,18 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
             variants={animations.fadeInUp}
             initial="initial"
             animate="animate"
-            className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
+            className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6 border-l-4 border-l-accent/40"
           >
-            <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-secondary/8 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-accent/8 blur-3xl pointer-events-none" />
             <SectionHeader
               className="mb-4"
               title="Distribuição de Resultados"
               subtitle="Breakdown das apostas"
+              icon={
+                <div className="p-1.5 rounded-lg bg-accent/10 border border-accent/20">
+                  <BarChart3 className="w-4 h-5 text-accent" />
+                </div>
+              }
             />
             <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
               <ResponsiveContainer width="100%" height={windowSize.isMobile ? 250 : 300}>
@@ -579,33 +589,38 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
+          className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6 border-l-4 border-l-info/40"
         >
-          <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-primary/6 blur-3xl pointer-events-none" />
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-base md:text-lg font-black tracking-tight">Partidas Recentes</h3>
-              <p className="text-xs md:text-sm text-base-content/40 mt-0.5">Suas últimas 10 análises</p>
+          <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-info/6 blur-3xl pointer-events-none" />
+          <div className="mb-4 flex items-center justify-between relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-lg bg-info/10 border border-info/20">
+                <Activity className="w-4 h-5 text-info" />
+              </div>
+              <div>
+                <h3 className="text-base md:text-lg font-black tracking-tight">Partidas Recentes</h3>
+                <p className="text-xs md:text-sm text-base-content/40 mt-0.5">Suas últimas 10 análises</p>
+              </div>
             </div>
-            <div className="accent-line-primary" />
+            <div className="accent-line-info" />
           </div>
-          <div className="overflow-x-auto custom-scrollbar -mx-2">
+            <div className="overflow-x-auto custom-scrollbar -mx-2">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-base-300/30">
-                  <th className="text-left py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
+                <tr className="border-b border-base-300/30 bg-base-300/10">
+                  <th className="text-left py-3 px-3 text-[10px] md:text-xs font-bold text-base-content/50 uppercase tracking-wider">
                     Partida
                   </th>
-                  <th className="text-right py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
+                  <th className="text-right py-3 px-3 text-[10px] md:text-xs font-bold text-base-content/50 uppercase tracking-wider">
                     Odd
                   </th>
-                  <th className="text-right py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
+                  <th className="text-right py-3 px-3 text-[10px] md:text-xs font-bold text-base-content/50 uppercase tracking-wider">
                     EV
                   </th>
-                  <th className="text-center py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
+                  <th className="text-center py-3 px-3 text-[10px] md:text-xs font-bold text-base-content/50 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="text-right py-2.5 px-3 text-[10px] md:text-xs font-bold text-base-content/40 uppercase tracking-wider">
+                  <th className="text-right py-3 px-3 text-[10px] md:text-xs font-bold text-base-content/50 uppercase tracking-wider">
                     Lucro/Prejuízo
                   </th>
                 </tr>
@@ -630,9 +645,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <tr
                       key={match.id}
                       onClick={() => onMatchClick?.(match)}
-                      className="border-b border-base-300/20 hover:bg-base-300/20 transition-colors duration-150 cursor-pointer group"
+                      className="border-b border-base-300/20 hover:bg-base-300/20 transition-all duration-150 cursor-pointer group relative"
                     >
-                      <td className="py-2.5 px-3">
+                      <td className="py-3 px-3">
+                        <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-primary/0 group-hover:bg-primary/40 transition-all duration-200" />
                         <div className="text-xs md:text-sm font-semibold leading-snug group-hover:text-primary transition-colors">
                           {match.data.homeTeam} vs {match.data.awayTeam}
                         </div>
@@ -715,13 +731,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
           variants={animations.fadeInUp}
           initial="initial"
           animate="animate"
-          className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6"
+          className="relative overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/80 p-4 md:p-6 border-l-4 border-l-secondary/40"
         >
           <div className="absolute -top-20 -right-20 h-44 w-44 rounded-full bg-secondary/6 blur-3xl pointer-events-none" />
 
           <SectionHeader
             className="mb-4"
-            icon={<BarChart3 className="w-5 h-5 text-secondary" />}
+            icon={
+              <div className="p-1.5 rounded-lg bg-secondary/10 border border-secondary/20">
+                <BarChart3 className="w-4 h-5 text-secondary" />
+              </div>
+            }
             title="Estatisticas por Campeonato"
             subtitle={`${matchesByChampionship.length} campeonato(s) — clique para expandir`}
           />
@@ -737,7 +757,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
               return (
                 <div
                   key={id}
-                  className="rounded-xl border border-base-300/30 bg-base-300/20 overflow-hidden transition-all duration-200"
+                  className="rounded-xl border border-l-4 border-base-300/30 bg-base-300/20 overflow-hidden transition-all duration-200 hover:border-base-300/50"
+                  style={{ borderLeftColor: isUncategorized ? 'var(--color-base-300)' : 'var(--color-primary)' }}
                 >
                   {/* Header clicável */}
                   <button
