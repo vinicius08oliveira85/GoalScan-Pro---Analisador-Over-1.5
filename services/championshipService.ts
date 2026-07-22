@@ -1578,10 +1578,12 @@ export const syncTeamStatsFromTable = async (
       });
     }
 
+    // Carregar tabelas do JSONB (reutilizado para geral e complemento)
+    const tables = await loadChampionshipTables(championshipId);
+
     // Fallback: ler diretamente de championship_tables (JSONB) se não encontrou nos times normalizados
     if (!homeData || !awayData) {
       logger.log('[ChampionshipService] Fallback: lendo de championship_tables (JSONB)...');
-      const tables = await loadChampionshipTables(championshipId);
       const geralTable = tables.find((t) => t.table_type === 'geral');
       
       if (geralTable && Array.isArray(geralTable.table_data)) {
@@ -1643,8 +1645,7 @@ export const syncTeamStatsFromTable = async (
     if (teams.length > 0) {
       competitionAvg = calculateCompetitionAverageGoalsFromTeams(teams) ?? undefined;
     } else {
-      // Calcular da tabela geral JSONB
-      const tables = await loadChampionshipTables(championshipId);
+      // Calcular da tabela geral JSONB (já carregada acima)
       const geralTable = tables.find((t) => t.table_type === 'geral');
       if (geralTable && Array.isArray(geralTable.table_data)) {
         const rows = geralTable.table_data as TableRowGeral[];
@@ -1665,70 +1666,71 @@ export const syncTeamStatsFromTable = async (
       }
     }
 
-    // Complemento (championship_complement) - opcional
-    let complementData = await loadChampionshipComplement(championshipId);
+    // Complemento: preferir championship_tables JSONB (preserva todas as colunas, incluindo xG)
+    let complementData: ChampionshipComplement[] = [];
+    const complementTable = tables.find((t) => t.table_type === 'complement');
     
-    // Fallback: ler complemento de championship_tables (JSONB) se vazio
-    if (complementData.length === 0) {
-      logger.log('[ChampionshipService] Fallback: lendo complemento de championship_tables (JSONB)...');
-      const tables = await loadChampionshipTables(championshipId);
-      const complementTable = tables.find((t) => t.table_type === 'complement');
+    if (complementTable && Array.isArray(complementTable.table_data)) {
+      const complementRows = complementTable.table_data as Array<Record<string, unknown>>;
       
-      if (complementTable && Array.isArray(complementTable.table_data)) {
-        const complementRows = complementTable.table_data as Array<Record<string, unknown>>;
-        
-        // Converter rows JSONB para formato ChampionshipComplement
-        complementData = complementRows
-          .filter((row) => {
-            const squad = row.Squad || row.squad;
-            return squad === homeSquad || squad === awaySquad;
-          })
-          .map((row) => ({
-            squad: String(row.Squad || row.squad || ''),
-            championship_id: championshipId,
-            table_name: complementTable.table_name,
-            pl: row.Pl != null ? String(row.Pl) : undefined,
-            age: row.Age != null ? String(row.Age) : undefined,
-            poss: row.Poss != null ? String(row.Poss) : undefined,
-            playing_time_mp: row['Playing Time MP'] != null ? String(row['Playing Time MP']) : undefined,
-            playing_time_starts: row['Playing Time Starts'] != null ? String(row['Playing Time Starts']) : undefined,
-            playing_time_min: row['Playing Time Min'] != null ? String(row['Playing Time Min']) : undefined,
-            playing_time_90s: row['Playing Time 90s'] != null ? String(row['Playing Time 90s']) : undefined,
-            performance_gls: row['Performance Gls'] != null ? String(row['Performance Gls']) : undefined,
-            performance_ast: row['Performance Ast'] != null ? String(row['Performance Ast']) : undefined,
-            performance_g_a: row['Performance G+A'] != null ? String(row['Performance G+A']) : undefined,
-            performance_g_pk: row['Performance G-PK'] != null ? String(row['Performance G-PK']) : undefined,
-            performance_pk: row['Performance PK'] != null ? String(row['Performance PK']) : undefined,
-            performance_pkatt: row['Performance PKatt'] != null ? String(row['Performance PKatt']) : undefined,
-            performance_crdy: row['Performance CrdY'] != null ? String(row['Performance CrdY']) : undefined,
-            performance_crdr: row['Performance CrdR'] != null ? String(row['Performance CrdR']) : undefined,
-            per_90_gls: row['Per 90 Minutes Gls'] != null ? String(row['Per 90 Minutes Gls']) : undefined,
-            per_90_ast: row['Per 90 Minutes Ast'] != null ? String(row['Per 90 Minutes Ast']) : undefined,
-            per_90_g_a: row['Per 90 Minutes G+A'] != null ? String(row['Per 90 Minutes G+A']) : undefined,
-            per_90_g_pk: row['Per 90 Minutes G-PK'] != null ? String(row['Per 90 Minutes G-PK']) : undefined,
-            per_90_g_a_pk: row['Per 90 Minutes G+A-PK'] != null ? String(row['Per 90 Minutes G+A-PK']) : undefined,
-            // Shooting table fields
-            xg: row.xG != null ? String(row.xG) : undefined,
-            npxg: row.npxG != null ? String(row.npxG) : undefined,
-            sh: row.Sh != null ? String(row.Sh) : undefined,
-            sot: row.SoT != null ? String(row.SoT) : undefined,
-            sot_pct: row['SoT%'] != null ? String(row['SoT%']) : undefined,
-            sh_90: row['Sh/90'] != null ? String(row['Sh/90']) : undefined,
-            sot_90: row['SoT/90'] != null ? String(row['SoT/90']) : undefined,
-            g_sh: row['G/Sh'] != null ? String(row['G/Sh']) : undefined,
-            g_sot: row['G/SoT'] != null ? String(row['G/SoT']) : undefined,
-            dist: row.Dist != null ? String(row.Dist) : undefined,
-            fk: row.FK != null ? String(row.FK) : undefined,
-            pk: row.PK != null ? String(row.PK) : undefined,
-            pkatt: row.PKatt != null ? String(row.PKatt) : undefined,
-            npxg_sh: row['npxG/Sh'] != null ? String(row['npxG/Sh']) : undefined,
-            g_xg: row['G-xG'] != null ? String(row['G-xG']) : undefined,
-            npg_xg: row['np:G-xG'] != null ? String(row['np:G-xG']) : undefined,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }));
-        
-        logger.log('[ChampionshipService] Complemento carregado da tabela JSONB:', complementData.length, 'times');
+      complementData = complementRows
+        .filter((row) => {
+          const squad = row.Squad || row.squad;
+          return squad === homeSquad || squad === awaySquad;
+        })
+        .map((row) => ({
+          squad: String(row.Squad || row.squad || ''),
+          championship_id: championshipId,
+          table_name: complementTable.table_name,
+          pl: row.Pl != null ? String(row.Pl) : undefined,
+          age: row.Age != null ? String(row.Age) : undefined,
+          poss: row.Poss != null ? String(row.Poss) : undefined,
+          playing_time_mp: row['Playing Time MP'] != null ? String(row['Playing Time MP']) : undefined,
+          playing_time_starts: row['Playing Time Starts'] != null ? String(row['Playing Time Starts']) : undefined,
+          playing_time_min: row['Playing Time Min'] != null ? String(row['Playing Time Min']) : undefined,
+          playing_time_90s: row['Playing Time 90s'] != null ? String(row['Playing Time 90s']) : undefined,
+          performance_gls: row['Performance Gls'] != null ? String(row['Performance Gls']) : undefined,
+          performance_ast: row['Performance Ast'] != null ? String(row['Performance Ast']) : undefined,
+          performance_g_a: row['Performance G+A'] != null ? String(row['Performance G+A']) : undefined,
+          performance_g_pk: row['Performance G-PK'] != null ? String(row['Performance G-PK']) : undefined,
+          performance_pk: row['Performance PK'] != null ? String(row['Performance PK']) : undefined,
+          performance_pkatt: row['Performance PKatt'] != null ? String(row['Performance PKatt']) : undefined,
+          performance_crdy: row['Performance CrdY'] != null ? String(row['Performance CrdY']) : undefined,
+          performance_crdr: row['Performance CrdR'] != null ? String(row['Performance CrdR']) : undefined,
+          per_90_gls: row['Per 90 Minutes Gls'] != null ? String(row['Per 90 Minutes Gls']) : undefined,
+          per_90_ast: row['Per 90 Minutes Ast'] != null ? String(row['Per 90 Minutes Ast']) : undefined,
+          per_90_g_a: row['Per 90 Minutes G+A'] != null ? String(row['Per 90 Minutes G+A']) : undefined,
+          per_90_g_pk: row['Per 90 Minutes G-PK'] != null ? String(row['Per 90 Minutes G-PK']) : undefined,
+          per_90_g_a_pk: row['Per 90 Minutes G+A-PK'] != null ? String(row['Per 90 Minutes G+A-PK']) : undefined,
+          // Shooting table fields (preserved do JSONB)
+          xg: row.xG != null ? String(row.xG) : undefined,
+          npxg: row.npxG != null ? String(row.npxG) : undefined,
+          sh: row.Sh != null ? String(row.Sh) : undefined,
+          sot: row.SoT != null ? String(row.SoT) : undefined,
+          sot_pct: row['SoT%'] != null ? String(row['SoT%']) : undefined,
+          sh_90: row['Sh/90'] != null ? String(row['Sh/90']) : undefined,
+          sot_90: row['SoT/90'] != null ? String(row['SoT/90']) : undefined,
+          g_sh: row['G/Sh'] != null ? String(row['G/Sh']) : undefined,
+          g_sot: row['G/SoT'] != null ? String(row['G/SoT']) : undefined,
+          dist: row.Dist != null ? String(row.Dist) : undefined,
+          fk: row.FK != null ? String(row.FK) : undefined,
+          pk: row.PK != null ? String(row.PK) : undefined,
+          pkatt: row.PKatt != null ? String(row.PKatt) : undefined,
+          npxg_sh: row['npxG/Sh'] != null ? String(row['npxG/Sh']) : undefined,
+          g_xg: row['G-xG'] != null ? String(row['G-xG']) : undefined,
+          npg_xg: row['np:G-xG'] != null ? String(row['np:G-xG']) : undefined,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+      
+      logger.log('[ChampionshipService] Complemento carregado da tabela JSONB:', complementData.length, 'times');
+    }
+
+    // Fallback: championship_complement se JSONB não tiver dados
+    if (complementData.length === 0) {
+      complementData = await loadChampionshipComplement(championshipId);
+      if (complementData.length > 0) {
+        logger.log('[ChampionshipService] Fallback: complemento carregado de championship_complement:', complementData.length, 'times');
       }
     }
 
