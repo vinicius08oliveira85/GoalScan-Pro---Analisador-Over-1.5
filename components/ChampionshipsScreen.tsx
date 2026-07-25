@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, Globe } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Eye, X, Upload, Globe, Download } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
 import ChampionshipTableUpdateModal from './ChampionshipTableUpdateModal';
+import FbrefImportModal from './FbrefImportModal';
 import { animations } from '../utils/animations';
 import { cn } from '../utils/cn';
 import TableStatus, { getChampionshipDataFreshnessMs } from './ui/TableStatus';
@@ -46,6 +47,7 @@ const ChampionshipsScreen: React.FC = () => {
     championship: Championship;
     tables: ChampionshipTable[];
   } | null>(null);
+  const [showFbrefImport, setShowFbrefImport] = useState(false);
 
   const tablePreviewFreshnessMs = useMemo(() => {
     if (!viewingTables) return null;
@@ -163,7 +165,7 @@ const ChampionshipsScreen: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="flex flex-wrap items-center gap-2 text-2xl font-black tracking-tight sm:gap-3 sm:text-3xl">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-inner shadow-primary/20 sm:h-11 sm:w-11">
@@ -175,16 +177,29 @@ const ChampionshipsScreen: React.FC = () => {
             Gerencie ligas, importe classificações e mantenha tabelas alinhadas ao seu fluxo de análise.
           </p>
         </div>
-        <motion.button
-          type="button"
-          onClick={handleNewChampionship}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.98 }}
-          className="btn btn-primary btn-block gap-2 rounded-2xl font-black shadow-lg shadow-primary/25 transition-shadow hover:shadow-xl hover:shadow-primary/30 sm:btn-wide sm:min-w-[12rem]"
-        >
-          <Plus className="h-5 w-5 shrink-0" />
-          Novo Campeonato
-        </motion.button>
+        <div className="flex gap-2">
+          <motion.button
+            type="button"
+            onClick={() => setShowFbrefImport(true)}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="btn btn-outline btn-secondary gap-2 rounded-2xl font-black shadow-lg shadow-secondary/10 transition-shadow hover:shadow-xl hover:shadow-secondary/20 sm:min-w-[12rem]"
+          >
+            <Download className="h-5 w-5 shrink-0" />
+            <span className="hidden sm:inline">Importar FBref</span>
+            <span className="sm:hidden">FBref</span>
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={handleNewChampionship}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="btn btn-primary btn-block gap-2 rounded-2xl font-black shadow-lg shadow-primary/25 transition-shadow hover:shadow-xl hover:shadow-primary/30 sm:btn-wide sm:min-w-[12rem]"
+          >
+            <Plus className="h-5 w-5 shrink-0" />
+            Novo Campeonato
+          </motion.button>
+        </div>
       </div>
 
       {championships.length === 0 ? (
@@ -490,6 +505,15 @@ const ChampionshipsScreen: React.FC = () => {
                 setViewingTables({ championship: viewingTables.championship, tables });
               }
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showFbrefImport && (
+          <FbrefImportModal
+            onSave={handleSaveChampionship}
+            onClose={() => setShowFbrefImport(false)}
           />
         )}
       </AnimatePresence>
