@@ -11,11 +11,20 @@ import {
   getSquadsFromTable,
 } from '../services/championshipService';
 import { logger } from '../utils/logger';
+import {
+  startAutoRefresh,
+  markRefreshed,
+  markRefreshError,
+  getLastRefreshTime,
+  isDataStale,
+} from '../utils/tableAutoRefresh';
 
 export const useChampionships = (onError?: (message: string) => void) => {
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [lastRefresh, setLastRefresh] = useState<number>(getLastRefreshTime());
 
   // Carregar campeonatos
   const load = useCallback(async () => {
@@ -103,6 +112,38 @@ export const useChampionships = (onError?: (message: string) => void) => {
       }
     }
   }, [onError]);
+
+  // Função de refresh em background (chamada pelo scheduler e manualmente)
+  const doRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await loadChampionships();
+      if (Array.isArray(data)) {
+        setChampionships(data);
+        setLastRefresh(Date.now());
+        try {
+          localStorage.setItem('goalscan_championships', JSON.stringify(data));
+        } catch {
+          // ignore
+        }
+      }
+      markRefreshed();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      markRefreshError(msg);
+      if (import.meta.env.DEV) {
+        logger.warn('[useChampionships] Refresh automático falhou:', msg);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Iniciar scheduler de auto-refresh (meia-noite diária)
+  useEffect(() => {
+    const cleanup = startAutoRefresh(doRefresh);
+    return cleanup;
+  }, [doRefresh]);
 
   // Carregar ao montar componente
   // Usar useRef para garantir que load() seja chamado apenas uma vez
@@ -249,10 +290,16 @@ export const useChampionships = (onError?: (message: string) => void) => {
     []
   );
 
+  const refreshNow = useCallback(async () => {
+    await doRefresh();
+  }, [doRefresh]);
+
   return {
     championships,
     isLoading,
     isSaving,
+    isRefreshing,
+    lastRefresh,
     load,
     save,
     remove,
@@ -260,6 +307,7 @@ export const useChampionships = (onError?: (message: string) => void) => {
     saveTable,
     removeTable,
     getSquads,
+    refreshNow,
   };
 };
 
