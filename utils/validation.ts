@@ -23,7 +23,7 @@ export const matchDataSchema = z.object({
       ])
       .optional()
   ),
-  competitionAvg: z.number().min(0).max(100).optional(),
+  competitionAvg: z.number().min(0).max(10).optional(),
   oddOver15: z.number().min(1.01, 'Odd deve ser maior que 1.00').max(50).optional(),
 
   // Médias de gols
@@ -94,59 +94,16 @@ export const matchDataSchema = z.object({
       })
     )
     .optional(),
-  /** Estrutura mínima validada; campos extra preservados (.passthrough). */
-  homeTeamStats: z
-    .object({
-      gols: z
-        .object({
-          home: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-          away: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-          global: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-        })
-        .passthrough()
-        .optional(),
-    })
-    .passthrough()
-    .optional(),
-  awayTeamStats: z
-    .object({
-      gols: z
-        .object({
-          home: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-          away: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-          global: z
-            .object({ avgScored: z.number().optional(), avgConceded: z.number().optional() })
-            .passthrough()
-            .optional(),
-        })
-        .passthrough()
-        .optional(),
-    })
-    .passthrough()
-    .optional(),
+  homeTeamStats: z.any().optional(),
+  awayTeamStats: z.any().optional(),
 
   // Novos campos
   championshipId: z.string().optional(),
-  homeTableData: z.record(z.string(), z.unknown()).optional(),
-  awayTableData: z.record(z.string(), z.unknown()).optional(),
-  homeComplementData: z.record(z.string(), z.unknown()).optional(),
-  awayComplementData: z.record(z.string(), z.unknown()).optional(),
-  competitionComplementAvg: z.record(z.string(), z.unknown()).optional(),
+  homeTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
+  awayTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
+  homeComplementData: z.any().optional(), // Tabela complemento (TableRowComplement)
+  awayComplementData: z.any().optional(), // Tabela complemento (TableRowComplement)
+  competitionComplementAvg: z.any().optional(), // Médias do campeonato para normalização (CompetitionComplementAverages)
 });
 
 // Schema para validação de BetInfo

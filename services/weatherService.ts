@@ -1,45 +1,12 @@
 import { ExternalWeatherSignal } from '../types';
 import { logger } from '../utils/logger';
+import { createLocalStorageCache } from '../utils/localStorageCache';
+import { normalizeText } from '../utils/textUtils';
 
-type CacheEntry<T> = { value: T; expiresAt: number };
-
-const LS_PREFIX = 'goalscan_openmeteo_cache_';
 const TTL_GEO_MS = 14 * 24 * 60 * 60 * 1000; // 14 dias
 const TTL_FORECAST_MS = 60 * 60 * 1000; // 1 hora
 
-function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
-
-function getCache<T>(key: string): T | null {
-  try {
-    const raw = localStorage.getItem(`${LS_PREFIX}${key}`);
-    if (!raw) return null;
-    const entry = JSON.parse(raw) as CacheEntry<T>;
-    if (!entry?.expiresAt || Date.now() > entry.expiresAt) {
-      localStorage.removeItem(`${LS_PREFIX}${key}`);
-      return null;
-    }
-    return entry.value ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function setCache<T>(key: string, value: T, ttlMs: number): void {
-  try {
-    const entry: CacheEntry<T> = { value, expiresAt: Date.now() + ttlMs };
-    localStorage.setItem(`${LS_PREFIX}${key}`, JSON.stringify(entry));
-  } catch {
-    // ignore
-  }
-}
+const { getCache, setCache } = createLocalStorageCache<unknown>('goalscan_openmeteo_cache_');
 
 async function fetchJson<T>(url: string, timeoutMs: number = 8000): Promise<T> {
   const controller = new AbortController();

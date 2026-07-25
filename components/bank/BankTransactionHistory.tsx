@@ -88,7 +88,7 @@ function formatTxDateParts(iso: string): { dateLine: string; timeLine: string } 
 }
 
 const HistorySkeletonRow: React.FC = () => (
-  <div className="flex min-h-[4.25rem] items-center gap-3 rounded-2xl border border-white/5 bg-base-200/30 px-3 py-3 sm:gap-4 sm:px-4">
+  <div className="flex min-h-[4.25rem] items-center gap-3 rounded-2xl border border-base-300/50 bg-base-200/30 px-3 py-3 sm:gap-4 sm:px-4">
     <div className="skeleton h-11 w-11 shrink-0 rounded-full" />
     <div className="min-w-0 flex-1 space-y-2">
       <div className="skeleton h-3.5 w-40 max-w-[70%] rounded-lg" />
@@ -134,7 +134,7 @@ const BankTransactionHistory: React.FC<BankTransactionHistoryProps> = ({ currenc
         icon={<Receipt className="h-5 w-5 md:h-6 md:w-6" aria-hidden />}
       />
 
-      <div className="max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden rounded-2xl border border-white/10 bg-base-100/35 shadow-xl shadow-primary/10 ring-1 ring-white/5 backdrop-blur-xl [-webkit-overflow-scrolling:touch] dark:border-white/10 dark:bg-base-100/20 sm:rounded-3xl">
+      <div className="max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden rounded-2xl border border-base-300/50 bg-base-100/35 shadow-xl shadow-primary/10 ring-1 ring-base-300/30 backdrop-blur-xl [-webkit-overflow-scrolling:touch] sm:rounded-3xl">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
@@ -158,7 +158,7 @@ const BankTransactionHistory: React.FC<BankTransactionHistoryProps> = ({ currenc
               exit={{ opacity: 0 }}
               className="flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-base-200/25 via-transparent to-primary/5 px-6 py-16 text-center md:py-20"
             >
-              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/10 bg-base-100/40 shadow-inner shadow-primary/10 backdrop-blur-md dark:bg-base-200/30">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border border-base-300/50 bg-base-100/40 shadow-inner shadow-primary/10 backdrop-blur-md">
                 <History className="h-12 w-12 text-primary/35" strokeWidth={1.15} aria-hidden />
               </div>
               <p className="max-w-sm text-base font-black leading-snug text-base-content/80 md:text-lg">
@@ -187,11 +187,11 @@ const BankTransactionHistory: React.FC<BankTransactionHistoryProps> = ({ currenc
                 const iconWrap = cn(
                   'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-md',
                   visual === 'profit' &&
-                    'border-emerald-400/40 bg-emerald-500/15 text-emerald-500 shadow-emerald-500/25 dark:text-emerald-400',
+                    'border-success/40 bg-success/15 text-success shadow-success/25',
                   visual === 'debit' &&
-                    'border-rose-400/35 bg-rose-500/12 text-rose-500 shadow-rose-500/20 dark:text-rose-400',
+                    'border-error/35 bg-error/12 text-error shadow-error/20',
                   visual === 'credit' &&
-                    'border-sky-400/35 bg-sky-500/12 text-sky-600 shadow-sky-500/15 dark:text-sky-300'
+                    'border-info/35 bg-info/12 text-info shadow-info/15'
                 );
 
                 return (
@@ -199,7 +199,7 @@ const BankTransactionHistory: React.FC<BankTransactionHistoryProps> = ({ currenc
                     key={tx.id}
                     layout
                     variants={listItem}
-                    className="flex min-h-[4.25rem] items-stretch gap-3 rounded-2xl border border-white/10 bg-base-200/35 px-3 py-3 shadow-sm backdrop-blur-sm transition-colors hover:border-primary/20 hover:bg-primary/5 dark:border-white/10 dark:bg-base-200/25 sm:gap-4 sm:px-4 sm:py-3.5"
+                    className="flex min-h-[4.25rem] items-stretch gap-3 rounded-2xl border border-base-300/50 bg-base-200/35 px-3 py-3 shadow-sm backdrop-blur-sm transition-colors hover:border-primary/20 hover:bg-primary/5 sm:gap-4 sm:px-4 sm:py-3.5"
                   >
                     <div className={iconWrap} aria-hidden>
                       {visual === 'profit' && <ArrowUpCircle className="h-5 w-5 sm:h-5 sm:w-5" />}
@@ -226,8 +226,8 @@ const BankTransactionHistory: React.FC<BankTransactionHistoryProps> = ({ currenc
                         className={cn(
                           'font-mono text-sm font-black tabular-nums sm:text-base',
                           isNeutral && 'text-base-content/70',
-                          !isNeutral && isOutflow && 'text-rose-500 dark:text-rose-400',
-                          !isNeutral && !isOutflow && 'text-emerald-600 dark:text-emerald-400'
+                          !isNeutral && isOutflow && 'text-error',
+                          !isNeutral && !isOutflow && 'text-success'
                         )}
                       >
                         {isNeutral ? '' : isOutflow ? '−' : '+'}

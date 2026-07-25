@@ -1,25 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Bell, Moon, Sun, Info, Shield, Database, Sparkles } from 'lucide-react';
+import { Settings, Bell, Moon, Sun, Info, Shield, Database, Sparkles, Download, Upload, Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { animations } from '../utils/animations';
+import { useTheme } from '../contexts/ThemeContext';
+import { exportAllData, downloadJson } from '../services/exportService';
+import { importFromFile } from '../services/importService';
+import type { ImportResult } from '../services/importService';
 
 const SettingsScreen: React.FC = () => {
+  const { mode: theme, setMode: setTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(
-    () => (localStorage.getItem('theme') as 'light' | 'dark' | 'auto') || 'auto'
-  );
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [confirmImport, setConfirmImport] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFileRef = useRef<File | null>(null);
 
-  // Efeito para aplicar o tema na tag <html> e salvar no localStorage
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'auto') {
-      const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.setAttribute('data-theme', prefersDarkMode ? 'dark' : 'light');
-    } else {
-      root.setAttribute('data-theme', theme);
+  const isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const data = await exportAllData();
+      downloadJson(data);
+    } catch (e) {
+      console.error('Erro ao exportar:', e);
+    } finally {
+      setExporting(false);
     }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    pendingFileRef.current = file;
+    setConfirmImport(true);
+    setImportResult(null);
+    e.target.value = '';
+  };
+
+  const handleConfirmImport = async () => {
+    const file = pendingFileRef.current;
+    if (!file) return;
+    setConfirmImport(false);
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const result = await importFromFile(file);
+      setImportResult(result);
+    } catch (e) {
+      setImportResult({
+        success: false,
+        message: e instanceof Error ? e.message : 'Erro desconhecido ao importar.',
+        details: { championships: 0, tables: 0, teams: 0, complement: 0, analyses: 0, bankSettings: 0, transactions: 0, localStorageKeys: 0 },
+      });
+    } finally {
+      setImporting(false);
+      pendingFileRef.current = null;
+    }
+  };
+
+  const handleCancelImport = () => {
+    setConfirmImport(false);
+    pendingFileRef.current = null;
+  };
 
   const settingsSections = [
     {
@@ -41,7 +86,7 @@ const SettingsScreen: React.FC = () => {
     {
       id: 'appearance',
       title: 'Aparência',
-      icon: theme === 'dark' ? Moon : Sun,
+      icon: isDark ? Moon : Sun,
       description: 'Personalize a aparência do aplicativo',
       items: [
         {
@@ -60,6 +105,34 @@ const SettingsScreen: React.FC = () => {
       ],
     },
     {
+      id: 'data',
+      title: 'Dados',
+      icon: Database,
+      description: 'Exportar e importar todos os dados do aplicativo',
+      items: [
+        {
+          id: 'export-data',
+          label: 'Exportar Dados',
+          description: 'Baixar backup completo em JSON (campeonatos, tabelas, análises, apostas, banca)',
+          type: 'action' as const,
+          action: handleExport,
+          loading: exporting,
+          icon: Download,
+          color: 'primary' as const,
+        },
+        {
+          id: 'import-data',
+          label: 'Importar Dados',
+          description: 'Restaurar dados de um backup JSON anterior',
+          type: 'action' as const,
+          action: () => fileInputRef.current?.click(),
+          loading: importing,
+          icon: Upload,
+          color: 'secondary' as const,
+        },
+      ],
+    },
+    {
       id: 'about',
       title: 'Sobre o App',
       icon: Info,
@@ -68,13 +141,7 @@ const SettingsScreen: React.FC = () => {
         {
           id: 'version',
           label: 'Versão',
-          description: 'v3.8.2 Elite Edition',
-          type: 'info' as const,
-        },
-        {
-          id: 'build',
-          label: 'Build',
-          description: '2024.12.30',
+          description: 'v3.9.0',
           type: 'info' as const,
         },
       ],
@@ -83,6 +150,15 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20 md:pb-8">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
       {/* Header */}
       <motion.div
         variants={animations.fadeInUp}
@@ -90,7 +166,7 @@ const SettingsScreen: React.FC = () => {
         animate="animate"
         className="flex items-center gap-3 mb-6"
       >
-        <div className="p-3 rounded-2xl bg-primary/15 border border-primary/20 shadow-lg shadow-primary/5 backdrop-blur-sm">
+        <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
           <Settings className="w-6 h-6 md:w-8 md:h-8 text-primary" />
         </div>
         <div>
@@ -98,6 +174,84 @@ const SettingsScreen: React.FC = () => {
           <p className="text-xs md:text-sm opacity-60">Personalize sua experiência</p>
         </div>
       </motion.div>
+
+      {/* Import Confirmation Dialog */}
+      {confirmImport && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="custom-card p-4 md:p-6 border-2 border-warning bg-warning/5"
+        >
+          <div className="flex items-start gap-3 mb-4">
+            <AlertTriangle className="w-6 h-6 text-warning flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-black text-base">Confirmar Importação</h4>
+              <p className="text-sm opacity-70 mt-1">
+                Isso irá importar todos os dados do backup para o Supabase e localStorage.
+                Dados existentes com o mesmo ID serão substituídos.
+              </p>
+              {pendingFileRef.current && (
+                <p className="text-xs opacity-50 mt-2">
+                  Arquivo: {pendingFileRef.current.name} ({(pendingFileRef.current.size / 1024).toFixed(1)} KB)
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={handleCancelImport} className="btn btn-ghost btn-sm">
+              Cancelar
+            </button>
+            <button onClick={handleConfirmImport} className="btn btn-warning btn-sm gap-2">
+              <Upload className="w-4 h-4" />
+              Importar
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Import Result */}
+      {importResult && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`custom-card p-4 border ${importResult.success ? 'border-success bg-success/5' : 'border-error bg-error/5'}`}
+        >
+          <div className="flex items-start gap-3">
+            {importResult.success ? (
+              <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+            ) : (
+              <XCircle className="w-5 h-5 text-error flex-shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <p className="font-semibold text-sm">{importResult.success ? 'Importação Concluída' : 'Erro na Importação'}</p>
+              <p className="text-xs opacity-70 mt-1">{importResult.message}</p>
+              {importResult.success && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs">
+                  <div className="bg-base-200/50 rounded p-2">
+                    <span className="opacity-50">Campeonatos</span>
+                    <div className="font-bold">{importResult.details.championships}</div>
+                  </div>
+                  <div className="bg-base-200/50 rounded p-2">
+                    <span className="opacity-50">Tabelas</span>
+                    <div className="font-bold">{importResult.details.tables}</div>
+                  </div>
+                  <div className="bg-base-200/50 rounded p-2">
+                    <span className="opacity-50">Análises</span>
+                    <div className="font-bold">{importResult.details.analyses}</div>
+                  </div>
+                  <div className="bg-base-200/50 rounded p-2">
+                    <span className="opacity-50">Chaves Locais</span>
+                    <div className="font-bold">{importResult.details.localStorageKeys}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button onClick={() => setImportResult(null)} className="btn btn-ghost btn-xs">
+              <XCircle className="w-4 h-4" />
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       {/* Settings Sections */}
       {settingsSections.map((section, sectionIndex) => {
@@ -109,10 +263,10 @@ const SettingsScreen: React.FC = () => {
             initial="initial"
             animate="animate"
             custom={sectionIndex}
-            className="custom-card border-white/10 bg-gradient-to-b from-base-100/55 to-base-100/30 p-4 shadow-md shadow-primary/5 backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-primary/15 dark:border-white/10 md:p-6"
+            className="custom-card p-4 md:p-6"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 shadow-inner">
+              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
                 <Icon className="w-5 h-5 text-primary" />
               </div>
               <div>
@@ -121,21 +275,21 @@ const SettingsScreen: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {section.items.map((item) => (
                 <div
                   key={item.id}
-                  className="group flex items-center justify-between rounded-xl border border-white/10 bg-base-300/30 p-4 shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-primary/20 hover:bg-base-300/50 hover:shadow-md dark:border-white/10"
+                  className="flex items-center justify-between p-4 rounded-lg bg-base-200/50 border border-base-300"
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm md:text-base mb-1 group-hover:text-primary transition-colors">{item.label}</p>
+                  <div className="flex-1 min-w-0 mr-4">
+                    <p className="font-semibold text-sm md:text-base mb-1">{item.label}</p>
                     {item.description && <p className="text-xs opacity-60">{item.description}</p>}
                   </div>
 
                   {item.type === 'toggle' && (
                     <input
                       type="checkbox"
-                      className="toggle toggle-primary min-h-[2.75rem] min-w-[3.25rem]"
+                      className="toggle toggle-primary"
                       checked={item.value as boolean}
                       onChange={(e) => item.onChange?.(e.target.checked)}
                     />
@@ -143,7 +297,7 @@ const SettingsScreen: React.FC = () => {
 
                   {item.type === 'select' && (
                     <select
-                      className="select select-bordered select-sm h-11 min-h-[2.75rem] w-36 border-white/15 bg-base-100/55 backdrop-blur-md md:w-44 dark:border-white/10"
+                      className="select select-bordered select-sm w-32 md:w-40"
                       value={item.value as string}
                       onChange={(e) => item.onChange?.(e.target.value as 'light' | 'dark' | 'auto')}
                     >
@@ -157,6 +311,23 @@ const SettingsScreen: React.FC = () => {
 
                   {item.type === 'info' && (
                     <span className="text-sm font-semibold opacity-70">{item.description}</span>
+                  )}
+
+                  {item.type === 'action' && (
+                    <button
+                      onClick={item.action}
+                      disabled={item.loading}
+                      className={`btn btn-sm gap-2 ${
+                        item.color === 'primary' ? 'btn-primary' : 'btn-secondary'
+                      }`}
+                    >
+                      {item.loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : item.icon ? (
+                        <item.icon className="w-4 h-4" />
+                      ) : null}
+                      {item.loading ? 'Processando...' : item.label}
+                    </button>
                   )}
                 </div>
               ))}
@@ -172,14 +343,15 @@ const SettingsScreen: React.FC = () => {
           initial="initial"
           animate="animate"
           custom={settingsSections.length}
-          className="custom-card p-4 md:p-6 bg-info/10 border border-info/20 hover:bg-info/15 transition-all"
+          className="custom-card p-4 md:p-6 bg-info/10 border border-info/20"
         >
           <div className="flex items-center gap-3 mb-3">
             <Shield className="w-5 h-5 text-info" />
             <h4 className="font-black text-sm md:text-base">Segurança</h4>
           </div>
           <p className="text-xs opacity-70">
-            Seus dados são armazenados localmente e sincronizados com segurança no Supabase.
+            Seus dados são armazenados localmente (localStorage) e sincronizados com o Supabase.
+            Se o Supabase ficar indisponível, o app continua funcionando com os dados locais.
           </p>
         </motion.div>
 
@@ -188,14 +360,15 @@ const SettingsScreen: React.FC = () => {
           initial="initial"
           animate="animate"
           custom={settingsSections.length + 1}
-          className="custom-card p-4 md:p-6 bg-secondary/10 border border-secondary/20 hover:bg-secondary/15 transition-all"
+          className="custom-card p-4 md:p-6 bg-secondary/10 border border-secondary/20"
         >
           <div className="flex items-center gap-3 mb-3">
             <Database className="w-5 h-5 text-secondary" />
             <h4 className="font-black text-sm md:text-base">Armazenamento</h4>
           </div>
           <p className="text-xs opacity-70">
-            Dados sincronizados em tempo real. Funciona offline com cache local.
+            Exporte um backup completo定期的に para proteger seus dados.
+            O backup inclui campeonatos, tabelas, análises, apostas e configurações da banca.
           </p>
         </motion.div>
       </div>
@@ -206,14 +379,14 @@ const SettingsScreen: React.FC = () => {
         initial="initial"
         animate="animate"
         custom={settingsSections.length + 2}
-        className="custom-card p-4 md:p-6 bg-gradient-to-br from-primary/15 via-base-100/50 to-secondary/15 border border-white/10 shadow-lg"
+        className="custom-card p-4 md:p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20"
       >
         <div className="flex items-center gap-3 mb-3">
           <Sparkles className="w-5 h-5 text-primary" />
           <h4 className="font-black text-sm md:text-base">GoalScan Pro</h4>
         </div>
         <p className="text-xs opacity-70 mb-2">
-          Sistema avançado de análise de apostas esportivas com modelo estatístico (Poisson) e métricas de valor.
+          Sistema avançado de análise de apostas esportivas com modelo estatístico (Poisson + Dixon-Coles) e métricas de valor.
         </p>
         <p className="text-xs opacity-50">
           Desenvolvido com React, TypeScript e análise estatística avançada.

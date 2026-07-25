@@ -68,7 +68,7 @@ const TableStatus: React.FC<TableStatusProps> = ({ updatedAt, className }) => {
     <div
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-tighter shadow-sm backdrop-blur-xl transition-all duration-300',
-        'bg-base-100/40 ring-1 ring-white/10',
+        'bg-base-100/40 ring-1 ring-base-300/40',
         toneClass,
         className
       )}

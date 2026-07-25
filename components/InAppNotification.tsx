@@ -13,15 +13,14 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, o
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Animação de entrada
-    setTimeout(() => setIsVisible(true), 100);
+    const entranceTimer = setTimeout(() => setIsVisible(true), 100);
 
-    // Auto-fechar após 10 segundos
     const autoCloseTimer = setTimeout(() => {
       handleClose();
     }, 10000);
 
     return () => {
+      clearTimeout(entranceTimer);
       clearTimeout(autoCloseTimer);
     };
   }, []);

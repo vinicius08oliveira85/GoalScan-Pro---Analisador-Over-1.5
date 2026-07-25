@@ -135,7 +135,7 @@ export default function ChampionshipTableUpdateModal({
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.96, opacity: 0, y: 12 }}
         transition={modalVariants.transition}
-        className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden overflow-y-auto rounded-3xl border border-white/10 bg-base-100/50 shadow-2xl shadow-primary/10 ring-1 ring-white/5 backdrop-blur-xl dark:bg-base-100/40"
+        className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden overflow-y-auto rounded-3xl border border-base-300/50 bg-base-100/50 shadow-2xl shadow-primary/10 ring-1 ring-base-300/30 backdrop-blur-xl dark:bg-base-100/40"
         onClick={(e) => e.stopPropagation()}
       >
         {isSaving && (
@@ -152,10 +152,10 @@ export default function ChampionshipTableUpdateModal({
           </div>
         )}
 
-        <div className="sticky top-0 z-10 border-b border-white/10 bg-base-100/60 px-4 py-3 backdrop-blur-md sm:px-5">
+        <div className="sticky top-0 z-10 border-b border-base-300/50 bg-base-100/60 px-4 py-3 backdrop-blur-md sm:px-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-secondary/20 ring-1 ring-white/10">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-secondary/20 ring-1 ring-base-300/40">
                 <FileJson className="h-5 w-5 text-secondary" aria-hidden />
               </div>
               <div className="min-w-0">
@@ -188,7 +188,7 @@ export default function ChampionshipTableUpdateModal({
         </div>
 
         <div className="space-y-4 p-4 sm:p-5">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-primary/20 via-base-100/40 to-secondary/20 p-4 ring-1 ring-white/5">
+          <div className="rounded-2xl border border-base-300/50 bg-gradient-to-br from-primary/20 via-base-100/40 to-secondary/20 p-4 ring-1 ring-base-300/30">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" aria-hidden />
               <span className="text-sm font-black tracking-tight">Atualização de dados</span>
@@ -204,12 +204,12 @@ export default function ChampionshipTableUpdateModal({
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="space-y-3 rounded-2xl border border-white/10 bg-base-100/40 p-4 backdrop-blur-md">
+            <div className="space-y-3 rounded-2xl border border-base-300/50 bg-base-100/40 p-4 backdrop-blur-md">
               <div className="text-sm font-black">Arquivo JSON ou Excel</div>
               <input
                 type="file"
                 accept=".json,.xlsx,.xls,.xlsm,.csv,application/json"
-                className="file-input file-input-bordered file-input-primary w-full rounded-2xl border-white/15 bg-base-200/50 backdrop-blur-sm file:rounded-xl"
+                className="file-input file-input-bordered file-input-primary w-full rounded-2xl border-base-300/50 bg-base-200/50 backdrop-blur-sm file:rounded-xl"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) void handleFileUpload(file);
@@ -217,10 +217,10 @@ export default function ChampionshipTableUpdateModal({
               />
             </div>
 
-            <div className="space-y-3 rounded-2xl border border-white/10 bg-base-100/40 p-4 backdrop-blur-md">
+            <div className="space-y-3 rounded-2xl border border-base-300/50 bg-base-100/40 p-4 backdrop-blur-md">
               <div className="text-sm font-black">Ou cole o JSON</div>
               <textarea
-                className="textarea textarea-bordered min-h-[140px] w-full rounded-2xl border-white/15 bg-base-200/50 font-mono text-xs backdrop-blur-sm focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="textarea textarea-bordered min-h-[140px] w-full rounded-2xl border-base-300/50 bg-base-200/50 font-mono text-xs backdrop-blur-sm focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
                 placeholder='[{"Rk":"1","Squad":"Barcelona","MP":"30",...}]'
                 value={jsonText}
                 onChange={(e) => {
@@ -246,7 +246,7 @@ export default function ChampionshipTableUpdateModal({
           )}
 
           {isSaving && (
-            <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-base-200/40 px-3 py-2 text-xs text-base-content/70">
+            <div className="flex items-center gap-2 rounded-2xl border border-base-300/50 bg-base-200/40 px-3 py-2 text-xs text-base-content/70">
               <span
                 className="loading loading-spinner loading-sm text-primary"
                 aria-hidden
@@ -255,7 +255,7 @@ export default function ChampionshipTableUpdateModal({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pt-4">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-base-300/50 pt-4">
             <motion.button
               type="button"
               className="btn btn-ghost rounded-xl"

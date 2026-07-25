@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Clipboard, CheckCircle, AlertTriangle } from 'lucide-react';
 import { TableRowGeral } from '../types';
-import { parseChampionshipGeneralTable } from '../utils/championshipParser.ts';
+import { parseChampionshipGeneralTable } from '../utils/championshipParser';
 
 interface ChampionshipTablePasteAreaProps {
   onImport: (data: TableRowGeral[]) => void;

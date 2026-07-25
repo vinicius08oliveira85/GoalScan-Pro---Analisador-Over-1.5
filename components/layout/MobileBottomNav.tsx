@@ -17,7 +17,7 @@ interface MobileBottomNavProps {
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange }) => {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-[90] border-t border-white/10 bg-base-200/75 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-8px_32px_-8px_rgba(99,102,241,0.12)] backdrop-blur-xl dark:border-white/10 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-[90] border-t border-base-300/50 bg-base-200/75 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-8px_32px_-8px_rgba(99,102,241,0.12)] backdrop-blur-xl dark:border-base-300/50 md:hidden"
       aria-label="Navegação principal"
     >
       <div className="flex items-stretch justify-around max-w-lg mx-auto">

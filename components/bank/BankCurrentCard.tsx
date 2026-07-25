@@ -33,9 +33,9 @@ const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
       initial="initial"
       animate="animate"
       className={cn(
-        'relative overflow-hidden rounded-3xl border border-white/10',
+        'relative overflow-hidden rounded-3xl border border-base-300/50',
         'bg-gradient-to-br from-secondary/20 via-base-100/35 to-primary/10',
-        'shadow-2xl shadow-primary/15 ring-1 ring-white/10 backdrop-blur-2xl dark:from-secondary/15 dark:via-base-100/20 dark:to-primary/15'
+        'shadow-2xl shadow-primary/15 ring-1 ring-base-300/40 backdrop-blur-2xl dark:from-secondary/15 dark:via-base-100/20 dark:to-primary/15'
       )}
     >
       <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl" aria-hidden />
@@ -56,7 +56,7 @@ const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
               </p>
             </div>
           </div>
-          <span className="inline-flex w-fit shrink-0 items-center gap-1.5 self-start rounded-full border border-white/20 bg-base-100/50 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest text-base-content/80 shadow-md backdrop-blur-md dark:bg-base-200/40 sm:px-3 sm:text-[10px] sm:shadow-lg">
+          <span className="inline-flex w-fit shrink-0 items-center gap-1.5 self-start rounded-full border border-base-300/50 bg-base-100/50 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest text-base-content/80 shadow-md backdrop-blur-md dark:bg-base-200/40 sm:px-3 sm:text-[10px] sm:shadow-lg">
             <span className="text-xs tabular-nums text-primary sm:text-sm">{symbol}</span>
             {currencyCode}
           </span>

@@ -1,18 +1,141 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MatchData, TeamStatistics, GolsStats, Championship, TableRowGeral } from '../types';
+import { MatchData, Championship, TableRowGeral, TableRowComplement } from '../types';
 import { validateMatchData } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { animations } from '../utils/animations';
 import { useChampionships } from '../hooks/useChampionships';
 import { syncTeamStatsFromTable, checkChampionshipTablesAvailability, ChampionshipTablesDiagnostic } from '../services/championshipService';
-import { AlertTriangle, CheckCircle, XCircle, Upload, FileSpreadsheet, Clipboard, Copy } from 'lucide-react';
-import { parseGlobalStatsExcel, isGlobalStatsFile } from '../utils/globalStatsParser';
-import {
-  buildGlobalStatsTableJson,
-  parseGlobalStatsTableJson,
-  parseDualGlobalStatsJson,
-} from '../utils/globalStatsJson';
+import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Loader2, Info } from 'lucide-react';
+import FbrefExtractionModal from './FbrefExtractionModal';
+import InfoIcon from './match-form/InfoIcon';
+import { logger } from '../utils/logger';
+
+interface SyncResult {
+  homeTableData: TableRowGeral | null;
+  awayTableData: TableRowGeral | null;
+  competitionAvg?: number;
+  homeComplementData?: TableRowComplement | null;
+  awayComplementData?: TableRowComplement | null;
+  competitionComplementAvg?: unknown;
+}
+
+interface SyncFeedback {
+  status: 'success' | 'partial' | 'error';
+  homeTeamFound: boolean;
+  awayTeamFound: boolean;
+  hasGeralTable: boolean;
+  hasComplementTable: boolean;
+  competitionAvg: number | null;
+  homeXG: number | null;
+  awayXG: number | null;
+  homeGoalsPerGame: number | null;
+  awayGoalsPerGame: number | null;
+  homeConcededPerGame: number | null;
+  awayConcededPerGame: number | null;
+  homeMP: number | null;
+  awayMP: number | null;
+  tableFormat: 'completa' | 'basica' | null;
+}
+
+const parseNum = (v: unknown): number => {
+  if (v == null) return 0;
+  const raw = String(v).trim();
+  if (!raw) return 0;
+  return Number.parseFloat(raw.replace(/,/g, '')) || 0;
+};
+
+function extractSyncFeedback(result: SyncResult): SyncFeedback {
+  const home = result.homeTableData;
+  const away = result.awayTableData;
+  const hasGeralTable = !!(home && away);
+  const hasComplementTable = !!(result.homeComplementData && result.awayComplementData);
+
+  const homeMP = hasGeralTable ? parseNum(home!['Home MP'] || home!.MP) : null;
+  const awayMP = hasGeralTable ? parseNum(away!['Away MP'] || away!.MP) : null;
+
+  const homeGF = hasGeralTable ? parseNum(home!['Home GF'] || home!.GF) : 0;
+  const homeGA = hasGeralTable ? parseNum(home!['Home GA'] || home!.GA) : 0;
+  const awayGF = hasGeralTable ? parseNum(away!['Away GF'] || away!.GF) : 0;
+  const awayGA = hasGeralTable ? parseNum(away!['Away GA'] || away!.GA) : 0;
+
+  const homeGoalsPerGame = homeMP && homeMP > 0 ? homeGF / homeMP : null;
+  const awayGoalsPerGame = awayMP && awayMP > 0 ? awayGF / awayMP : null;
+  const homeConcededPerGame = homeMP && homeMP > 0 ? homeGA / homeMP : null;
+  const awayConcededPerGame = awayMP && awayMP > 0 ? awayGA / awayMP : null;
+
+  let homeXG: number | null = null;
+  let awayXG: number | null = null;
+  if (hasGeralTable) {
+    const hxg = parseNum(home!['Home xG'] || home!.xG);
+    const axg = parseNum(away!['Away xG'] || away!.xG);
+    homeXG = hxg > 0 ? hxg : null;
+    awayXG = axg > 0 ? axg : null;
+  }
+
+  let tableFormat: 'completa' | 'basica' | null = null;
+  if (hasGeralTable) {
+    tableFormat = (homeXG != null && homeXG > 0) || (awayXG != null && awayXG > 0) ? 'completa' : 'basica';
+  }
+
+  return {
+    status: hasGeralTable ? 'success' : 'error',
+    homeTeamFound: !!home,
+    awayTeamFound: !!away,
+    hasGeralTable,
+    hasComplementTable,
+    competitionAvg: result.competitionAvg ?? null,
+    homeXG,
+    awayXG,
+    homeGoalsPerGame,
+    awayGoalsPerGame,
+    homeConcededPerGame,
+    awayConcededPerGame,
+    homeMP,
+    awayMP,
+    tableFormat,
+  };
+}
+
+function createMatchDataFromTables(
+  data: MatchData,
+  result: SyncResult
+): Partial<MatchData> {
+  const home = result.homeTableData;
+  const away = result.awayTableData;
+  if (!home || !away) return {};
+
+  const homeMP = parseNum(home['Home MP'] || home.MP);
+  const awayMP = parseNum(away['Away MP'] || away.MP);
+  const homeGF = parseNum(home['Home GF'] || home.GF);
+  const homeGA = parseNum(home['Home GA'] || home.GA);
+  const awayGF = parseNum(away['Away GF'] || away.GF);
+  const awayGA = parseNum(away['Away GA'] || away.GA);
+
+  const homeXG = parseNum(home['Home xG'] || home.xG);
+  const awayXG = parseNum(away['Away xG'] || away.xG);
+
+  const updates: Partial<MatchData> = {};
+
+  if (homeMP > 0) {
+    updates.homeGoalsScoredAvg = homeGF / homeMP;
+    updates.homeGoalsConcededAvg = homeGA / homeMP;
+  }
+  if (awayMP > 0) {
+    updates.awayGoalsScoredAvg = awayGF / awayMP;
+    updates.awayGoalsConcededAvg = awayGA / awayMP;
+  }
+  if (homeXG > 0) updates.homeXG = homeXG;
+  if (awayXG > 0) updates.awayXG = awayXG;
+
+  if (result.homeComplementData) {
+    const hComp = result.homeComplementData;
+    const poss = parseNum(hComp.Poss);
+    if (poss > 0) updates.homeBTTSFreq = poss;
+  }
+
+  return updates;
+}
 
 interface MatchFormProps {
   onAnalyze: (data: MatchData) => void | Promise<void>;
@@ -43,16 +166,6 @@ const createEmptyMatchData = (): MatchData => ({
   awayHistory: [],
 });
 
-const createEmptyGols = (): GolsStats => ({
-  avgScored: 0,
-  avgConceded: 0,
-  avgTotal: 0,
-  cleanSheetPct: 0,
-  noGoalsPct: 0,
-  over25Pct: 0,
-  under25Pct: 0,
-});
-
 const MatchForm: React.FC<MatchFormProps> = ({
   onAnalyze,
   initialData,
@@ -65,12 +178,10 @@ const MatchForm: React.FC<MatchFormProps> = ({
   const [selectedHomeSquad, setSelectedHomeSquad] = useState<string>('');
   const [selectedAwaySquad, setSelectedAwaySquad] = useState<string>('');
   const [tablesDiagnostic, setTablesDiagnostic] = useState<ChampionshipTablesDiagnostic | null>(null);
-  const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [showPasteHome, setShowPasteHome] = useState(false);
-  const [showPasteAway, setShowPasteAway] = useState(false);
-  const [pasteTextHome, setPasteTextHome] = useState('');
-  const [pasteTextAway, setPasteTextAway] = useState('');
+  const [showFbrefModal, setShowFbrefModal] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<SyncFeedback | null>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -94,6 +205,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
         setAvailableSquads([]);
         setTablesDiagnostic(null);
       }
+      setSyncFeedback(null);
     };
     loadSquads();
   }, [selectedChampionshipId, getSquads]);
@@ -134,9 +246,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }
   }, [selectedAwaySquad, selectedChampionshipId]);
 
-  // Função para sincronizar dados da tabela
-  // IMPORTANTE: Esta função apenas preenche dados da tabela (homeTableData/awayTableData) para análise da IA.
-  // NÃO afeta as Estatísticas Globais (homeTeamStats/awayTeamStats), que são inseridas manualmente.
+  // Função para sincronizar dados da tabela (geral + complemento)
   const handleSyncWithTable = async () => {
     if (!selectedChampionshipId || !selectedHomeSquad || !selectedAwaySquad) {
       if (onError) {
@@ -145,85 +255,42 @@ const MatchForm: React.FC<MatchFormProps> = ({
       return;
     }
 
+    setSyncing(true);
+    setSyncFeedback(null);
+
     try {
-      const { homeTableData, awayTableData, competitionAvg } = await syncTeamStatsFromTable(
+      const syncResult = await syncTeamStatsFromTable(
         selectedChampionshipId,
         selectedHomeSquad,
         selectedAwaySquad
       );
 
-      // Validação: Verificar que Estatísticas Globais não serão afetadas
-      const previousHomeStats = formData.homeTeamStats;
-      const previousAwayStats = formData.awayTeamStats;
+      const feedback = extractSyncFeedback(syncResult);
+      setSyncFeedback(feedback);
 
-      if (import.meta.env.DEV) {
-        console.log('[MatchForm] Sincronização concluída:', {
-          homeTableData: !!homeTableData,
-          awayTableData: !!awayTableData,
-          competitionAvg,
-          hasPreviousHomeStats: !!previousHomeStats,
-          hasPreviousAwayStats: !!previousAwayStats,
-        });
-      }
+      // Auto-preencher campos do MatchData a partir dos dados da tabela
+      const tableUpdates = createMatchDataFromTables(formData, syncResult);
 
-      // Apenas preencher dados da tabela e média da competição
-      // NÃO modificar homeTeamStats/awayTeamStats (Estatísticas Globais são manuais)
-      setFormData((prev) => {
-        const updated = {
-          ...prev,
-          championshipId: selectedChampionshipId,
-          homeTableData: homeTableData || undefined,
-          awayTableData: awayTableData || undefined,
-          homeComplementData: undefined,
-          awayComplementData: undefined,
-          competitionComplementAvg: undefined,
-          // Preencher automaticamente a média da competição calculada da tabela
-          competitionAvg: competitionAvg !== undefined ? competitionAvg : prev.competitionAvg,
-          // homeTeamStats e awayTeamStats permanecem inalterados (inseridos manualmente)
-        };
+      setFormData((prev) => ({
+        ...prev,
+        ...tableUpdates,
+        championshipId: selectedChampionshipId,
+        homeTableData: syncResult.homeTableData || undefined,
+        awayTableData: syncResult.awayTableData || undefined,
+        homeComplementData: syncResult.homeComplementData || undefined,
+        awayComplementData: syncResult.awayComplementData || undefined,
+        competitionComplementAvg: syncResult.competitionComplementAvg || undefined,
+        competitionAvg: syncResult.competitionAvg !== undefined ? syncResult.competitionAvg : prev.competitionAvg,
+      }));
 
-        // Validação: Garantir que Estatísticas Globais não foram alteradas
-        if (import.meta.env.DEV) {
-          if (updated.homeTeamStats !== previousHomeStats || updated.awayTeamStats !== previousAwayStats) {
-            console.warn('[MatchForm] ATENÇÃO: Estatísticas Globais foram alteradas durante sincronização!', {
-              homeStatsChanged: updated.homeTeamStats !== previousHomeStats,
-              awayStatsChanged: updated.awayTeamStats !== previousAwayStats,
-            });
-          }
-        }
-
-        return updated;
+      logger.log('[MatchForm] Sincronização concluída:', {
+        geral: feedback.hasGeralTable,
+        complement: feedback.hasComplementTable,
+        format: feedback.tableFormat,
+        competitionAvg: feedback.competitionAvg,
+        homeXG: feedback.homeXG,
+        awayXG: feedback.awayXG,
       });
-
-      // Verificar se a tabela geral foi carregada
-      const hasGeralTable = !!(homeTableData && awayTableData);
-
-      // Detectar formato da tabela (básica vs completa)
-      let tableFormat: 'completa' | 'basica' | null = null;
-      if (hasGeralTable && homeTableData && awayTableData) {
-        const hasXg = !!(
-          homeTableData['Home xG'] ||
-          homeTableData['Away xG'] ||
-          homeTableData.xG ||
-          awayTableData['Home xG'] ||
-          awayTableData['Away xG'] ||
-          awayTableData.xG
-        );
-        tableFormat = hasXg ? 'completa' : 'basica';
-      }
-
-      // Log detalhado para diagnóstico
-      if (import.meta.env.DEV) {
-        console.log('[MatchForm] Resultado da sincronização:', {
-          geral: {
-            home: !!homeTableData,
-            away: !!awayTableData,
-            loaded: hasGeralTable,
-          },
-          tableFormat,
-          competitionAvg,
-        });
-      }
 
       // Atualizar diagnóstico após sincronização
       if (selectedChampionshipId) {
@@ -235,29 +302,35 @@ const MatchForm: React.FC<MatchFormProps> = ({
         setTablesDiagnostic(updatedDiagnostic);
       }
 
-      // Mostrar feedback sobre tabela carregada
-      if (hasGeralTable) {
-        // Tabela geral carregada - sucesso silencioso
-        if (import.meta.env.DEV) {
-          console.log('[MatchForm] ✅ Tabela geral carregada com sucesso!');
-        }
-      } else {
-        // Tabela geral não carregada
-        if (import.meta.env.DEV) {
-          console.warn('[MatchForm] ⚠️ Tabela geral não foi carregada.');
-        }
-        // Nenhuma tabela carregada
+      if (!feedback.hasGeralTable) {
         if (onError) {
-          onError(
-            'Nenhuma tabela foi encontrada. Verifique se os times existem no campeonato e se a classificação JSON foi importada em Campeonatos.'
-          );
+          onError('Nenhuma tabela foi encontrada. Verifique se as equipes existem no campeonato e se as tabelas foram extraídas do fbref.com.');
         }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao sincronizar';
+      setSyncFeedback({
+        status: 'error',
+        homeTeamFound: false,
+        awayTeamFound: false,
+        hasGeralTable: false,
+        hasComplementTable: false,
+        competitionAvg: null,
+        homeXG: null,
+        awayXG: null,
+        homeGoalsPerGame: null,
+        awayGoalsPerGame: null,
+        homeConcededPerGame: null,
+        awayConcededPerGame: null,
+        homeMP: null,
+        awayMP: null,
+        tableFormat: null,
+      });
       if (onError) {
         onError(`Erro ao sincronizar com tabela: ${errorMessage}`);
       }
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -278,318 +351,19 @@ const MatchForm: React.FC<MatchFormProps> = ({
     }));
   };
 
-  // Função para atualizar estatísticas de gols
-  // team: 'home' = time da casa, 'away' = time visitante
-  // context: 'home' = jogando em casa, 'away' = jogando fora, 'global' = global
-  const updateTeamStats = (
-    team: 'home' | 'away',
-    context: 'home' | 'away' | 'global',
-    field: keyof GolsStats,
-    value: number | undefined
-  ) => {
-    setFormData((prev) => {
-      const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
-      const currentStats = prev[teamKey] || {
-        percurso: {
-          home: {
-            winStreak: 0,
-            drawStreak: 0,
-            lossStreak: 0,
-            withoutWin: 0,
-            withoutDraw: 0,
-            withoutLoss: 0,
-          },
-          away: {
-            winStreak: 0,
-            drawStreak: 0,
-            lossStreak: 0,
-            withoutWin: 0,
-            withoutDraw: 0,
-            withoutLoss: 0,
-          },
-          global: {
-            winStreak: 0,
-            drawStreak: 0,
-            lossStreak: 0,
-            withoutWin: 0,
-            withoutDraw: 0,
-            withoutLoss: 0,
-          },
-        },
-        gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() },
-      };
-
-      const newStats: TeamStatistics = {
-        ...currentStats,
-        gols: {
-          ...currentStats.gols,
-          [context]: {
-            ...currentStats.gols[context],
-            [field]: value === '' ? 0 : (value ?? 0),
-          },
-        },
-      };
-
-      return {
-        ...prev,
-        [teamKey]: newStats,
-      };
-    });
-  };
-
-  const applyGolsBlock = (
-    team: 'home' | 'away',
-    newGols: { home: GolsStats; away: GolsStats; global: GolsStats }
-  ) => {
-    const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
-    const emptyPercurso = {
-      winStreak: 0,
-      drawStreak: 0,
-      lossStreak: 0,
-      withoutWin: 0,
-      withoutDraw: 0,
-      withoutLoss: 0,
-    };
-    setFormData((prev) => {
-      const currentStats =
-        prev[teamKey] || {
-          percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso },
-          gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() },
-        };
-      return { ...prev, [teamKey]: { ...currentStats, gols: newGols } };
-    });
-    if (team === 'home') {
-      setShowPasteHome(false);
-      setPasteTextHome('');
-    } else {
-      setShowPasteAway(false);
-      setPasteTextAway('');
-    }
-  };
-
-  const processPastedStats = (text: string, team: 'home' | 'away') => {
-    const trimmed = text.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        const parsed: unknown = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) {
-          if (parsed.length !== 2) {
-            alert('Se usar array JSON, deve haver exatamente 2 objetos: [ estatísticasTimeCasa, estatísticasVisitante ].');
-            return;
-          }
-          const gHome = parseGlobalStatsTableJson(parsed[0]);
-          const gAway = parseGlobalStatsTableJson(parsed[1]);
-          const emptyPercurso = {
-            winStreak: 0,
-            drawStreak: 0,
-            lossStreak: 0,
-            withoutWin: 0,
-            withoutDraw: 0,
-            withoutLoss: 0,
-          };
-          setFormData((prev) => ({
-            ...prev,
-            homeTeamStats: {
-              ...(prev.homeTeamStats || {
-                percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso },
-                gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() },
-              }),
-              gols: gHome,
-            },
-            awayTeamStats: {
-              ...(prev.awayTeamStats || {
-                percurso: { home: emptyPercurso, away: emptyPercurso, global: emptyPercurso },
-                gols: { home: createEmptyGols(), away: createEmptyGols(), global: createEmptyGols() },
-              }),
-              gols: gAway,
-            },
-          }));
-          setShowPasteHome(false);
-          setShowPasteAway(false);
-          setPasteTextHome('');
-          setPasteTextAway('');
-          return;
-        }
-
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          const gols = parseGlobalStatsTableJson(parsed);
-          applyGolsBlock(team, gols);
-          return;
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'JSON inválido';
-        alert(`JSON: ${msg}. Tentando formato texto/tabulação…`);
-      }
-    }
-
-    const lines = trimmed.split('\n');
-    if (lines.length < 1) return;
-
-    const newStats = {
-      home: createEmptyGols(),
-      away: createEmptyGols(),
-      global: createEmptyGols(),
-    };
-
-    let found = false;
-
-    const parseVal = (v: string) => {
-      if (!v) return 0;
-      return parseFloat(v.replace('%', '').replace(',', '.').trim()) || 0;
-    };
-
-    lines.forEach((line) => {
-      // Tenta dividir por tabulação primeiro
-      let cols = line.trim().split(/\t/);
-      // Se não tiver colunas suficientes, tenta por múltiplos espaços
-      if (cols.length < 4) {
-        cols = line.trim().split(/\s{2,}/);
-      }
-      
-      if (cols.length >= 4) {
-        const label = cols[0].toLowerCase();
-        let field: keyof GolsStats | null = null;
-
-        if (label.includes('marcados por jogo')) field = 'avgScored';
-        else if (label.includes('sofridos por jogo')) field = 'avgConceded';
-        else if (label.includes('marcados+sofridos') || label.includes('marcados + sofridos')) field = 'avgTotal';
-        else if (label.includes('sem sofrer')) field = 'cleanSheetPct';
-        else if (label.includes('sem marcar')) field = 'noGoalsPct';
-        else if (label.includes('mais de 2,5')) field = 'over25Pct';
-        else if (label.includes('menos de 2,5')) field = 'under25Pct';
-
-        if (field) {
-          found = true;
-          // Index 1: Casa, Index 2: Fora, Index 3: Global
-          newStats.home[field] = parseVal(cols[1]);
-          newStats.away[field] = parseVal(cols[2]);
-          newStats.global[field] = parseVal(cols[3]);
-        }
-      }
-    });
-
-    if (found) {
-      applyGolsBlock(team, newStats);
-    } else {
-      alert('Nenhum dado reconhecido. Use o JSON canônico (objeto com title/headers/rows) ou linhas com Casa, Fora e Global.');
-    }
-  };
-
-  const copyGlobalStatsJson = async (team: 'home' | 'away') => {
-    const title = team === 'home' ? formData.homeTeam || 'Time Casa' : formData.awayTeam || 'Time Visitante';
-    const teamKey = team === 'home' ? 'homeTeamStats' : 'awayTeamStats';
-    const stats = formData[teamKey];
-    const gols = stats?.gols || {
-      home: createEmptyGols(),
-      away: createEmptyGols(),
-      global: createEmptyGols(),
-    };
-    const uuid =
-      typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function'
-        ? globalThis.crypto.randomUUID()
-        : undefined;
-    const payload = buildGlobalStatsTableJson(title, gols, uuid);
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-    } catch {
-      if (onError) onError('Não foi possível copiar para a área de transferência.');
-    }
-  };
-
-  // Handler para importar Estatísticas Globais do Excel
-  const handleGlobalStatsImport = async (file: File) => {
-    setIsImporting(true);
-    setImportFeedback(null);
-
-    try {
-      // Validar tipo de arquivo
-      if (!isGlobalStatsFile(file)) {
-        throw new Error('Arquivo inválido. Use arquivos .xlsx, .xls, .csv ou .json');
-      }
-
-      const isJson = file.name.toLowerCase().endsWith('.json');
-      const { homeTeamStats, awayTeamStats } = isJson
-        ? await new Promise<{
-            homeTeamStats: TeamStatistics;
-            awayTeamStats: TeamStatistics;
-          }>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              try {
-                const text = String(reader.result ?? '');
-                const parsed: unknown = JSON.parse(text);
-                resolve(parseDualGlobalStatsJson(parsed));
-              } catch (e) {
-                reject(e instanceof Error ? e : new Error('Erro ao ler JSON'));
-              }
-            };
-            reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
-            reader.readAsText(file, 'UTF-8');
-          })
-        : await parseGlobalStatsExcel(file);
-
-      // Atualizar formData com as estatísticas importadas
-      setFormData((prev) => ({
-        ...prev,
-        homeTeamStats,
-        awayTeamStats,
-      }));
-
-      // Feedback de sucesso
-      setImportFeedback({
-        type: 'success',
-        message: 'Estatísticas Globais importadas com sucesso!',
-      });
-
-      // Limpar feedback após 5 segundos
-      setTimeout(() => {
-        setImportFeedback(null);
-      }, 5000);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erro desconhecido ao importar arquivo';
-      
-      setImportFeedback({
-        type: 'error',
-        message: errorMessage,
-      });
-
-      if (onError) {
-        onError(`Erro ao importar Estatísticas Globais: ${errorMessage}`);
-      }
-
-      // Limpar feedback após 8 segundos em caso de erro
-      setTimeout(() => {
-        setImportFeedback(null);
-      }, 8000);
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleGlobalStatsImport(file);
-    }
-    // Limpar input para permitir selecionar o mesmo arquivo novamente
-    e.target.value = '';
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAttemptedSubmit(true);
     try {
       // Validar dados antes de enviar
       const validatedData = validateMatchData(formData);
       
       // Log: verificar se a tabela geral foi preservada após validação
-      if (import.meta.env.DEV) {
-        console.log('[MatchForm] Dados após validação (validateMatchData):', {
-          tabela: {
-            geral: !!(validatedData.homeTableData && validatedData.awayTableData),
-          },
-        });
-      }
+      logger.log('[MatchForm] Dados após validação (validateMatchData):', {
+        tabela: {
+          geral: !!(validatedData.homeTableData && validatedData.awayTableData),
+        },
+      });
       
       // onAnalyze agora é assíncrono e executa análise estatística + IA automaticamente
       await onAnalyze(validatedData);
@@ -603,31 +377,10 @@ const MatchForm: React.FC<MatchFormProps> = ({
       if (onError) {
         onError(`Erro ao validar dados: ${errorMessage}`);
       } else {
-        alert(`Erro ao validar dados: ${errorMessage}`);
+        logger.error(`Erro ao validar dados: ${errorMessage}`);
       }
     }
   };
-
-  const InfoIcon = ({ text }: { text: string }) => (
-    <span className="tooltip tooltip-top cursor-help ml-1 inline-flex align-middle" data-tip={text}>
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="w-4 h-4 opacity-60 hover:opacity-100 text-base-content transition-opacity"
-        aria-label={text}
-        role="img"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
-        />
-      </svg>
-    </span>
-  );
 
   return (
     <>
@@ -705,11 +458,28 @@ const MatchForm: React.FC<MatchFormProps> = ({
             <button
               type="button"
               onClick={handleSyncWithTable}
-              disabled={!selectedChampionshipId || !selectedHomeSquad || !selectedAwaySquad}
-              className="btn btn-primary w-full md:w-auto"
+              disabled={!selectedChampionshipId || !selectedHomeSquad || !selectedAwaySquad || syncing}
+              className="btn btn-primary w-full md:w-auto gap-2"
             >
-              Sincronizar com Tabela
+              {syncing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Sincronizando...
+                </>
+              ) : (
+                'Sincronizar com Tabela'
+              )}
             </button>
+            {selectedChampionshipId && tablesDiagnostic && !tablesDiagnostic.tables.geral?.exists && (
+              <button
+                type="button"
+                onClick={() => setShowFbrefModal(true)}
+                className="btn btn-outline btn-warning w-full md:w-auto gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Extrair Tabelas do FBref.com
+              </button>
+            )}
           </div>
 
           {/* Aviso Preventivo: Mostrar antes de sincronizar se tabela geral não existe */}
@@ -722,7 +492,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
                     A tabela geral não foi extraída ainda
                   </p>
                   <p className="text-warning text-xs mb-2">
-                    Importe o arquivo JSON da classificação em Campeonatos (criar ou atualizar tabela).
+                    Para análise completa, extraia a tabela geral do fbref.com primeiro.
                   </p>
                   {tablesDiagnostic.missingTables.includes('geral') && (
                     <div className="text-xs opacity-80">
@@ -749,106 +519,123 @@ const MatchForm: React.FC<MatchFormProps> = ({
             </div>
           )}
 
-          {/* Status da Tabela Sincronizada: Mostrar após sincronização */}
-          {formData.homeTableData && formData.awayTableData ? (
-            <div className="mt-4 p-4 bg-base-300/50 rounded-lg border border-base-content/10 space-y-3">
-              <div className="font-semibold text-sm mb-3">Classificação sincronizada</div>
+          {/* Feedback detalhado da sincronização */}
+          {syncFeedback && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`mt-4 p-4 rounded-xl border ${
+                syncFeedback.status === 'success'
+                  ? 'bg-success/5 border-success/20'
+                  : syncFeedback.status === 'partial'
+                    ? 'bg-warning/5 border-warning/20'
+                    : 'bg-error/5 border-error/20'
+              }`}
+            >
+              <div className="font-semibold text-sm mb-3 flex items-center gap-2">
+                {syncFeedback.status === 'success' && <CheckCircle className="w-4 h-4 text-success" />}
+                {syncFeedback.status === 'partial' && <AlertTriangle className="w-4 h-4 text-warning" />}
+                {syncFeedback.status === 'error' && <XCircle className="w-4 h-4 text-error" />}
+                <span>Resultado da Sincronização</span>
+              </div>
 
-              <div className="flex items-start gap-2 text-xs">
-                <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium">Dados do campeonato carregados</div>
-                  <div className="opacity-70 text-xs mt-0.5">
-                    A análise usa a tabela agregada (GF/GA por jogo) e vantagem de casa calibrada.
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                {/* Tabela Geral */}
+                <div className={`p-2 rounded-lg ${syncFeedback.hasGeralTable ? 'bg-success/10' : 'bg-error/10'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {syncFeedback.hasGeralTable ? (
+                      <CheckCircle className="w-3 h-3 text-success" />
+                    ) : (
+                      <XCircle className="w-3 h-3 text-error" />
+                    )}
+                    <span className="font-medium">Tabela Geral</span>
+                    {syncFeedback.tableFormat && (
+                      <span className={`badge badge-xs ${syncFeedback.tableFormat === 'completa' ? 'badge-success' : 'badge-warning'}`}>
+                        {syncFeedback.tableFormat}
+                      </span>
+                    )}
                   </div>
-                  {(() => {
-                    const tableInfo = tablesDiagnostic?.tables.geral;
-                    const squadIssue =
-                      tableInfo?.squadFound && (!tableInfo.squadFound.home || !tableInfo.squadFound.away);
-                    if (squadIssue) {
-                      return (
-                        <div className="text-warning text-xs mt-1">
-                          {!tableInfo.squadFound?.home && `Time da casa não encontrado`}
-                          {!tableInfo.squadFound?.home && !tableInfo.squadFound?.away && ' e '}
-                          {!tableInfo.squadFound?.away && `Time visitante não encontrado`}
-                          {tableInfo.availableSquads && tableInfo.availableSquads.length > 0 && (
-                            <div className="opacity-70 mt-1">
-                              Squads disponíveis: {tableInfo.availableSquads.slice(0, 3).join(', ')}
-                              {tableInfo.availableSquads.length > 3 && '...'}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-              </div>
-
-              <div className="mt-3 pt-3 border-t border-base-content/10">
-                {(() => {
-                  const h = formData.homeTableData;
-                  const a = formData.awayTableData;
-                  const hasXg = !!(
-                    h?.['Home xG'] ||
-                    h?.['Away xG'] ||
-                    h?.xG ||
-                    a?.['Home xG'] ||
-                    a?.['Away xG'] ||
-                    a?.xG
-                  );
-                  if (hasXg) {
-                    return (
-                      <div className="p-2 bg-info/10 border border-info/30 rounded text-info text-xs font-medium">
-                        Dados com xG detectados (formato legado Home/Away). A análise pode combinar xG com GF/GA.
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="p-2 bg-success/10 border border-success/30 rounded text-success text-xs font-medium">
-                      Classificação agregada (JSON): análise com gols reais (GF/GA) e modelo Poisson.
+                  {syncFeedback.hasGeralTable && (
+                    <div className="ml-5 space-y-0.5 opacity-80">
+                      <div>{selectedHomeSquad}: {syncFeedback.homeMP} jogos</div>
+                      <div>{selectedAwaySquad}: {syncFeedback.awayMP} jogos</div>
                     </div>
-                  );
-                })()}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
+                  )}
+                </div>
 
-      {/* Informações Básicas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="form-control">
-          <label htmlFor="homeTeam" className="label ml-2">
-            <span className="label-text font-bold">Time Casa</span>
-          </label>
-          <input
-            id="homeTeam"
-            name="homeTeam"
-            value={formData.homeTeam}
-            onChange={handleChange}
-            className="input w-full min-h-[44px] text-base focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="Ex: Man City"
-            required
-            aria-required="true"
-            aria-label="Nome do time da casa"
-          />
-        </div>
-        <div className="form-control">
-          <label htmlFor="awayTeam" className="label ml-2">
-            <span className="label-text font-bold">Time Visitante</span>
-          </label>
-          <input
-            id="awayTeam"
-            name="awayTeam"
-            value={formData.awayTeam}
-            onChange={handleChange}
-            className="input w-full min-h-[44px] text-base focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="Ex: Real Madrid"
-            required
-            aria-required="true"
-            aria-label="Nome do time visitante"
-          />
+                {/* Tabela Complemento */}
+                <div className={`p-2 rounded-lg ${syncFeedback.hasComplementTable ? 'bg-success/10' : 'bg-base-300/50'}`}>
+                  <div className="flex items-center gap-2">
+                    {syncFeedback.hasComplementTable ? (
+                      <CheckCircle className="w-3 h-3 text-success" />
+                    ) : (
+                      <Info className="w-3 h-3 opacity-40" />
+                    )}
+                    <span className="font-medium">Tabela Complemento</span>
+                  </div>
+                  <div className="ml-5 mt-1 opacity-70">
+                    {syncFeedback.hasComplementTable ? 'Posse, Performance, Per 90' : 'Não disponível'}
+                  </div>
+                </div>
+
+                {/* Média da Competição */}
+                <div className={`p-2 rounded-lg ${syncFeedback.competitionAvg ? 'bg-primary/10' : 'bg-base-300/50'}`}>
+                  <div className="font-medium mb-1">Média da Competição</div>
+                  <div className="ml-1 text-lg font-bold">
+                    {syncFeedback.competitionAvg ? `${syncFeedback.competitionAvg.toFixed(2)} gols/jogo` : '—'}
+                  </div>
+                </div>
+
+                {/* Métricas Extraídas */}
+                {syncFeedback.hasGeralTable && (
+                  <div className="p-2 rounded-lg bg-base-300/50">
+                    <div className="font-medium mb-1">Métricas Extraídas</div>
+                    <div className="ml-1 space-y-0.5">
+                      <div>
+                        <span className="opacity-70">xG:</span>{' '}
+                        {syncFeedback.homeXG != null ? syncFeedback.homeXG.toFixed(2) : '—'} /{' '}
+                        {syncFeedback.awayXG != null ? syncFeedback.awayXG.toFixed(2) : '—'}
+                      </div>
+                      <div>
+                        <span className="opacity-70">Gols/jogo:</span>{' '}
+                        {syncFeedback.homeGoalsPerGame != null ? syncFeedback.homeGoalsPerGame.toFixed(2) : '—'} /{' '}
+                        {syncFeedback.awayGoalsPerGame != null ? syncFeedback.awayGoalsPerGame.toFixed(2) : '—'}
+                      </div>
+                      <div>
+                        <span className="opacity-70">Sofridos/jogo:</span>{' '}
+                        {syncFeedback.homeConcededPerGame != null ? syncFeedback.homeConcededPerGame.toFixed(2) : '—'} /{' '}
+                        {syncFeedback.awayConcededPerGame != null ? syncFeedback.awayConcededPerGame.toFixed(2) : '—'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Resumo de impacto na análise */}
+              <div className="mt-3 pt-3 border-t border-base-content/10">
+                {syncFeedback.hasGeralTable && syncFeedback.hasComplementTable && (
+                  <div className="p-2 bg-success/10 border border-success/20 rounded text-success text-xs font-medium">
+                    ✅ Análise com máxima precisão disponível (tabela geral + complemento + xG).
+                  </div>
+                )}
+                {syncFeedback.hasGeralTable && !syncFeedback.hasComplementTable && syncFeedback.tableFormat === 'completa' && (
+                  <div className="p-2 bg-success/10 border border-success/20 rounded text-success text-xs font-medium">
+                    ✅ Tabela geral com xG carregada. Análise precisa.
+                  </div>
+                )}
+                {syncFeedback.hasGeralTable && !syncFeedback.hasComplementTable && syncFeedback.tableFormat === 'basica' && (
+                  <div className="p-2 bg-warning/10 border border-warning/20 rounded text-warning text-xs font-medium">
+                    ⚠️ Formato básico (sem xG). A análise usará gols reais (GF/GA). Adicione a tabela de complemento para maior precisão.
+                  </div>
+                )}
+                {!syncFeedback.hasGeralTable && (
+                  <div className="p-2 bg-error/10 border border-error/20 rounded text-error text-xs font-medium">
+                    ❌ Tabela geral não encontrada. Extraia as tabelas do fbref.com primeiro.
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
 
@@ -883,11 +670,16 @@ const MatchForm: React.FC<MatchFormProps> = ({
         </div>
       </div>
 
-      {/* Competição (Média) */}
+      {/* Competição (Média) - Auto-preenchida pelo sync */}
       <div className="form-control">
         <label className="label ml-2 flex items-center">
-          <span className="label-text font-bold">Competição (Média)</span>
-          <InfoIcon text="Média da competição." />
+          <span className="label-text font-bold">
+            Competição (Média)
+            {formData.competitionAvg && formData.competitionAvg > 0 && (
+              <span className="badge badge-success badge-sm ml-2">auto</span>
+            )}
+          </span>
+          <InfoIcon text="Média de gols por jogo da competição. Calculada automaticamente ao sincronizar com a tabela." />
         </label>
         <input
           type="number"
@@ -896,16 +688,23 @@ const MatchForm: React.FC<MatchFormProps> = ({
           value={formData.competitionAvg || ''}
           onChange={handleChange}
           className="input w-full"
-          placeholder="Ex: 76.87"
-          aria-label="Média da competição"
+          placeholder="Calculada ao sincronizar (ex: 2.65)"
+          aria-label="Média de gols por jogo da competição"
         />
+        {formData.competitionAvg && formData.competitionAvg > 0 && (
+          <label className="label">
+            <span className="label-text-alt text-success text-xs">
+              {formData.competitionAvg.toFixed(2)} gols por jogo
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Odd Over 1.5 */}
       <div className="form-control">
         <label className="label ml-2 flex items-center">
           <span className="label-text font-bold">Odd</span>
-          <InfoIcon text="Odd atual do mercado Over 1.5. Com ela o app calcula o EV (retorno médio esperado por unidade apostada). O modelo de probabilidade usa Poisson e os dados que você preencheu abaixo." />
+          <InfoIcon text="Insira a odd atual do mercado Over 1.5 para calcular o EV (Valor Esperado)." />
         </label>
         <input
           type="number"
@@ -919,1117 +718,6 @@ const MatchForm: React.FC<MatchFormProps> = ({
         />
       </div>
 
-      {/* Importação de Estatísticas Globais */}
-      <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-teal-500" />
-            <span className="text-sm font-bold">Importar Estatísticas Globais</span>
-            <InfoIcon text="Excel/CSV: seções Time Casa e Time Fora. JSON: objeto com chaves home e away (ou timeCasa/timeFora), ou array [casa, fora], cada um no formato title/headers/rows (Casa, Fora, Global)." />
-          </div>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <label className="btn btn-outline btn-sm btn-teal cursor-pointer">
-            <Upload className="w-4 h-4 mr-2" />
-            {isImporting ? 'Importando...' : 'Selecionar Arquivo'}
-            <input
-              type="file"
-              accept=".xlsx,.xls,.xlsm,.csv,.json,application/json"
-              onChange={handleFileInputChange}
-              disabled={isImporting}
-              className="hidden"
-              aria-label="Importar Estatísticas Globais"
-            />
-          </label>
-          
-          {importFeedback && (
-            <div
-              className={`flex items-center gap-2 text-sm ${
-                importFeedback.type === 'success' ? 'text-success' : 'text-error'
-              }`}
-            >
-              {importFeedback.type === 'success' ? (
-                <CheckCircle className="w-4 h-4" />
-              ) : (
-                <XCircle className="w-4 h-4" />
-              )}
-              <span>{importFeedback.message}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Estatísticas Globais - Time Casa */}
-      <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
-              Estatísticas Globais - {formData.homeTeam || 'Time Casa'}
-            </span>
-            <InfoIcon text="Estatísticas dos 10 últimos jogos (Poisson). Preencha manualmente, importe Excel ou cole JSON no padrão title/headers/rows. Array [timeCasa, timeVisitante] preenche os dois times de uma vez." />
-          </div>
-          <div className="flex flex-wrap gap-1">
-            <button
-              type="button"
-              onClick={() => void copyGlobalStatsJson('home')}
-              className="btn btn-xs btn-ghost gap-1 text-teal-600"
-              title="Copiar JSON canônico"
-            >
-              <Copy className="w-3 h-3" />
-              Copiar JSON
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPasteHome(!showPasteHome)}
-              className="btn btn-xs btn-ghost gap-1 text-teal-600"
-            >
-              <Clipboard className="w-3 h-3" />
-              Colar
-            </button>
-          </div>
-        </div>
-
-        {showPasteHome && (
-          <div className="mb-4 p-3 bg-base-200 rounded-lg border border-base-300">
-            <p className="text-xs opacity-60 mb-2">
-              Cole o JSON (objeto com title, headers, rows) ou linhas tabuladas. Opcional: array com dois objetos para
-              preencher casa e visitante.
-            </p>
-            <textarea
-              className="textarea textarea-bordered w-full text-xs font-mono min-h-[100px]"
-              placeholder={`JSON: { "title": "Time", "headers": ["Casa","Fora","Global"], "rows": [...] }\n\nOu texto:\nMédia de gols marcados por jogo\t1.75\t1\t1.3`}
-              value={pasteTextHome}
-              onChange={(e) => setPasteTextHome(e.target.value)}
-            />
-            <div className="flex justify-end gap-2 mt-2">
-              <button type="button" className="btn btn-xs" onClick={() => setShowPasteHome(false)}>Cancelar</button>
-              <button type="button" className="btn btn-xs btn-primary" onClick={() => processPastedStats(pasteTextHome, 'home')}>Processar</button>
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {/* Média Marcados */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Média Marcados</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.home.avgScored || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'home',
-                      'avgScored',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.away.avgScored || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'away',
-                      'avgScored',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.global.avgScored || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'global',
-                      'avgScored',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Média Sofridos */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Média Sofridos</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.home.avgConceded || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'home',
-                      'avgConceded',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.away.avgConceded || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'away',
-                      'avgConceded',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.global.avgConceded || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'global',
-                      'avgConceded',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Média Total */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Média Total</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.home.avgTotal || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'home',
-                      'avgTotal',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.away.avgTotal || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'away',
-                      'avgTotal',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.homeTeamStats?.gols.global.avgTotal || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'global',
-                      'avgTotal',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Sem Sofrer % */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Sem Sofrer %</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.home.cleanSheetPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'home',
-                      'cleanSheetPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.away.cleanSheetPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'away',
-                      'cleanSheetPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.global.cleanSheetPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'global',
-                      'cleanSheetPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Sem Marcar % */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Sem Marcar %</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.home.noGoalsPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'home',
-                      'noGoalsPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.away.noGoalsPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'away',
-                      'noGoalsPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.global.noGoalsPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'global',
-                      'noGoalsPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Over 2.5 % */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Over 2.5 %</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.home.over25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'home',
-                      'over25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.away.over25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'away',
-                      'over25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.global.over25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'global',
-                      'over25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Under 2.5 % */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Under 2.5 %</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.home.under25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'home',
-                      'under25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.away.under25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'away',
-                      'under25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.homeTeamStats?.gols.global.under25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'home',
-                      'global',
-                      'under25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Estatísticas Globais - Time Visitante */}
-      <div className="bg-teal-500/5 p-4 rounded-3xl border border-teal-500/10">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <span className="text-[10px] uppercase font-black opacity-40 tracking-widest">
-              Estatísticas Globais - {formData.awayTeam || 'Time Visitante'}
-            </span>
-            <InfoIcon text="Estatísticas dos 10 últimos jogos (Poisson). Preencha manualmente, importe Excel ou cole JSON no padrão title/headers/rows. Array [timeCasa, timeVisitante] preenche os dois times de uma vez." />
-          </div>
-          <div className="flex flex-wrap gap-1">
-            <button
-              type="button"
-              onClick={() => void copyGlobalStatsJson('away')}
-              className="btn btn-xs btn-ghost gap-1 text-teal-600"
-              title="Copiar JSON canônico"
-            >
-              <Copy className="w-3 h-3" />
-              Copiar JSON
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPasteAway(!showPasteAway)}
-              className="btn btn-xs btn-ghost gap-1 text-teal-600"
-            >
-              <Clipboard className="w-3 h-3" />
-              Colar
-            </button>
-          </div>
-        </div>
-
-        {showPasteAway && (
-          <div className="mb-4 p-3 bg-base-200 rounded-lg border border-base-300">
-            <p className="text-xs opacity-60 mb-2">
-              Cole o JSON (objeto com title, headers, rows) ou linhas tabuladas. Opcional: array com dois objetos para
-              preencher casa e visitante.
-            </p>
-            <textarea
-              className="textarea textarea-bordered w-full text-xs font-mono min-h-[100px]"
-              placeholder={`JSON: { "title": "Time", "headers": ["Casa","Fora","Global"], "rows": [...] }\n\nOu texto:\nMédia de gols marcados por jogo\t1.75\t1\t1.3`}
-              value={pasteTextAway}
-              onChange={(e) => setPasteTextAway(e.target.value)}
-            />
-            <div className="flex justify-end gap-2 mt-2">
-              <button type="button" className="btn btn-xs" onClick={() => setShowPasteAway(false)}>Cancelar</button>
-              <button type="button" className="btn btn-xs btn-primary" onClick={() => processPastedStats(pasteTextAway, 'away')}>Processar</button>
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {/* Média Marcados */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Média Marcados</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.home.avgScored || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'home',
-                      'avgScored',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.away.avgScored || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'away',
-                      'avgScored',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.global.avgScored || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'global',
-                      'avgScored',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Média Sofridos */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Média Sofridos</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.home.avgConceded || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'home',
-                      'avgConceded',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.away.avgConceded || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'away',
-                      'avgConceded',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.global.avgConceded || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'global',
-                      'avgConceded',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Média Total */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Média Total</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.home.avgTotal || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'home',
-                      'avgTotal',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.away.avgTotal || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'away',
-                      'avgTotal',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.awayTeamStats?.gols.global.avgTotal || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'global',
-                      'avgTotal',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Sem Sofrer % */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Sem Sofrer %</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.home.cleanSheetPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'home',
-                      'cleanSheetPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.away.cleanSheetPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'away',
-                      'cleanSheetPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.global.cleanSheetPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'global',
-                      'cleanSheetPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Sem Marcar % */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Sem Marcar %</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.home.noGoalsPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'home',
-                      'noGoalsPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.away.noGoalsPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'away',
-                      'noGoalsPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.global.noGoalsPct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'global',
-                      'noGoalsPct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Over 2.5 % */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Over 2.5 %</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.home.over25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'home',
-                      'over25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.away.over25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'away',
-                      'over25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.global.over25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'global',
-                      'over25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Under 2.5 % */}
-          <div>
-            <label className="label py-1">
-              <span className="label-text text-[10px] font-bold">Under 2.5 %</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Casa</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.home.under25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'home',
-                      'under25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Fora</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.away.under25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'away',
-                      'under25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-              <div className="form-control">
-                <label className="label py-0">
-                  <span className="label-text text-[9px] opacity-70">Global</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={formData.awayTeamStats?.gols.global.under25Pct || ''}
-                  onChange={(e) =>
-                    updateTeamStats(
-                      'away',
-                      'global',
-                      'under25Pct',
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
-                  className="input input-sm text-center min-h-[44px]"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <button
         type="submit"
         className="btn btn-primary btn-lg mt-4 uppercase font-black tracking-widest shadow-2xl hover:scale-[1.01] active:scale-95 transition-all min-h-[44px] text-base md:text-lg w-full sm:w-auto"
@@ -2038,6 +726,51 @@ const MatchForm: React.FC<MatchFormProps> = ({
       </button>
     </motion.form>
 
+    {/* Modal de Extração do FBref.com */}
+    {showFbrefModal && selectedChampionshipId && (() => {
+      const championship = championships.find(c => c.id === selectedChampionshipId);
+      if (!championship) return null;
+      
+      return (
+        <FbrefExtractionModal
+          championship={championship}
+          onClose={() => {
+            setShowFbrefModal(false);
+            // Atualizar diagnóstico após fechar o modal (caso tabelas tenham sido salvas)
+            if (selectedChampionshipId) {
+              checkChampionshipTablesAvailability(
+                selectedChampionshipId,
+                selectedHomeSquad,
+                selectedAwaySquad
+              ).then(setTablesDiagnostic);
+            }
+          }}
+          onTableSaved={async () => {
+            // Atualizar diagnóstico após salvar tabelas
+            if (selectedChampionshipId) {
+              const updatedDiagnostic = await checkChampionshipTablesAvailability(
+                selectedChampionshipId,
+                selectedHomeSquad,
+                selectedAwaySquad
+              );
+              setTablesDiagnostic(updatedDiagnostic);
+              
+              // Tentar sincronizar automaticamente se times já estiverem selecionados
+              if (selectedHomeSquad && selectedAwaySquad) {
+                setTimeout(() => {
+                  handleSyncWithTable();
+                }, 500);
+              }
+            }
+          }}
+          onError={(message) => {
+            if (onError) {
+              onError(message);
+            }
+          }}
+        />
+      );
+    })()}
     </>
   );
 };

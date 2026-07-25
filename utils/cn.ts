@@ -1,10 +1,11 @@
-import { twMerge } from 'tailwind-merge';
-
 export type ClassValue = string | undefined | null | false;
 
 /**
- * Compõe classNames e resolve conflitos entre utilitários Tailwind (última classe vence).
+ * Pequeno helper para compor classNames sem dependências extras.
+ * Mantém o bundle leve e evita duplicação de lógica nos componentes.
  */
 export function cn(...values: ClassValue[]): string {
-  return twMerge(values.filter(Boolean).join(' '));
+  return values.filter(Boolean).join(' ');
 }
+
+

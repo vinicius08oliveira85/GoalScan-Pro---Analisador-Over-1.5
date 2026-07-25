@@ -72,23 +72,19 @@ export const SkeletonCard: React.FC<{ className?: string }> = ({ className = '' 
 );
 
 export const SkeletonMetricCard: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div
-    className={`group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-base-200 to-base-300/50 backdrop-blur-xl border border-base-300/50 ${className}`}
-  >
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Skeleton variant="text" height={12} width="40%" />
-        <Skeleton variant="circular" width={24} height={24} />
-      </div>
-      <Skeleton variant="text" height={24} width="60%" />
-      <Skeleton variant="rectangular" height={4} width="100%" />
+  <div className={`custom-card p-4 md:p-6 ${className}`}>
+    <div className="flex items-start justify-between mb-3">
+      <Skeleton variant="circular" width={40} height={40} />
     </div>
+    <Skeleton variant="text" height={12} width="50%" className="mb-1.5" />
+    <Skeleton variant="text" height={30} width="65%" />
+    <Skeleton variant="text" height={10} width="40%" className="mt-1.5" />
   </div>
 );
 
 export const SkeletonMatchCard: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div
-    className={`space-y-4 rounded-3xl border border-white/10 bg-base-100/30 p-4 shadow-lg ring-1 ring-white/5 backdrop-blur-md dark:border-white/10 md:p-6 ${className}`}
+    className={`space-y-4 rounded-3xl border border-base-300/50 bg-base-100/30 p-4 shadow-lg ring-1 ring-base-300/30 backdrop-blur-md dark:bg-base-100/30 md:p-6 ${className}`}
   >
     <div className="flex justify-between items-start">
       <div className="space-y-2 flex-1">

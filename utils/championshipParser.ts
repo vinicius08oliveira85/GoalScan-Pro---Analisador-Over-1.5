@@ -1,5 +1,4 @@
 import { TableRowGeral } from '../types';
-import { parseNumeric } from './numbers';
 
 export const parseChampionshipGeneralTable = (text: string): TableRowGeral[] => {
   const lines = text.trim().split('\n');
@@ -22,7 +21,7 @@ export const parseChampionshipGeneralTable = (text: string): TableRowGeral[] => 
     const values = line.split(separator).map(v => v.trim());
 
     if (values.length > 0) {
-        const row: Record<string, string> = {};
+        const row: any = {};
         
         // Mapear valores para as chaves baseadas nos headers
         headers.forEach((header, index) => {
@@ -33,29 +32,32 @@ export const parseChampionshipGeneralTable = (text: string): TableRowGeral[] => 
 
         // Validação básica
         if (row['Squad'] || row['Rk']) {
+            // Lógica de Agregação: Se tiver dados de Casa/Fora mas não tiver Totais, calcula os Totais
+            const parseNum = (val: any) => parseInt(val) || 0;
+            
             // MP (Matches Played)
             if (!row['MP'] && row['Home MP'] && row['Away MP']) {
-                row['MP'] = (parseNumeric(row['Home MP']) + parseNumeric(row['Away MP'])).toString();
+                row['MP'] = (parseNum(row['Home MP']) + parseNum(row['Away MP'])).toString();
             }
             
             // W (Wins)
             if (!row['W'] && row['Home W'] && row['Away W']) {
-                row['W'] = (parseNumeric(row['Home W']) + parseNumeric(row['Away W'])).toString();
+                row['W'] = (parseNum(row['Home W']) + parseNum(row['Away W'])).toString();
             }
             
             // D (Draws)
             if (!row['D'] && row['Home D'] && row['Away D']) {
-                row['D'] = (parseNumeric(row['Home D']) + parseNumeric(row['Away D'])).toString();
+                row['D'] = (parseNum(row['Home D']) + parseNum(row['Away D'])).toString();
             }
             
             // L (Losses)
             if (!row['L'] && row['Home L'] && row['Away L']) {
-                row['L'] = (parseNumeric(row['Home L']) + parseNumeric(row['Away L'])).toString();
+                row['L'] = (parseNum(row['Home L']) + parseNum(row['Away L'])).toString();
             }
             
             // GF (Goals For)
             if (!row['GF'] && row['Home GF'] && row['Away GF']) {
-                row['GF'] = (parseNumeric(row['Home GF']) + parseNumeric(row['Away GF'])).toString();
+                row['GF'] = (parseNum(row['Home GF']) + parseNum(row['Away GF'])).toString();
             }
             
             // GA (Goals Against)

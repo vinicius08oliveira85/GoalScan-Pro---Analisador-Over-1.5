@@ -1,0 +1,180 @@
+const ptBR = {
+  // App
+  appName: 'GOALSCAN PRO',
+  appTagline: 'AI Goal Analysis Engine',
+  version: 'v3.8.3',
+  loading: 'Carregando...',
+  offline: 'Offline',
+
+  // Navigation
+  navDashboard: 'Dashboard',
+  navMatches: 'Partidas',
+  navChampionships: 'Campeonatos',
+  navBank: 'Banca',
+  navSettings: 'Configurações',
+
+  // Dashboard
+  dashTotalMatches: 'Total de Partidas',
+  dashAvgEV: 'EV Médio',
+  dashWinRate: 'Taxa de Acerto',
+  dashTotalProfit: 'Lucro Total',
+  dashROI: 'ROI',
+  dashCurrentBank: 'Banca Atual',
+  dashAvgOdds: 'Média das Odds',
+  dashBankEvolution: 'Evolução da Banca',
+  dashResultDistribution: 'Distribuição de Resultados',
+  dashRecentMatches: 'Partidas Recentes',
+  dashNoMatches: 'Nenhuma partida analisada',
+  dashNoMatchesHint: 'Comece analisando uma partida na aba "Partidas"',
+
+  // Matches
+  matchesNewAnalysis: 'Nova Análise',
+  matchesPending: 'Pendentes',
+  matchesFinished: 'Finalizadas',
+  matchesAll: 'Todas',
+  matchesNoData: 'Nenhuma partida encontrada',
+  matchesWon: 'Ganhou',
+  matchesLost: 'Perdeu',
+  matchesProcessing: 'Processando...',
+  matchesMarkWon: 'Marcar como ganha',
+  matchesMarkLost: 'Marcar como perdida',
+
+  // MatchForm
+  formChampionship: 'Campeonato',
+  formHomeSquad: 'Time Casa (Squad)',
+  formAwaySquad: 'Time Visitante (Squad)',
+  formSelectChampionship: 'Selecione o campeonato',
+  formSelectHomeSquad: 'Selecione o time casa',
+  formSelectAwaySquad: 'Selecione o time visitante',
+  formSyncTable: 'Sincronizar com Tabela',
+  formExtractFBref: 'Extrair Tabelas do FBref.com',
+  formHomeTeam: 'Time Casa',
+  formAwayTeam: 'Time Visitante',
+  formMatchDate: 'Data da Partida',
+  formMatchTime: 'Hora da Partida',
+  formCompetitionAvg: 'Competição (Média)',
+  formCompetitionAvgInfo: 'Média de gols da competição. Usado para ajustar probabilidades.',
+  formOddOver15: 'Odd Over 1.5',
+  formOddOver15Info: 'Odd oferecida pela casa de apostas para Over 1.5 gols.',
+  formImportStats: 'Importar Estatísticas Globais',
+  formImportExcel: 'Importar Excel/CSV',
+  formImportFeedbackSuccess: 'Estatísticas importadas com sucesso!',
+  formImportFeedbackError: 'Erro ao importar arquivo.',
+  formProcessing: 'Processar',
+  formPasteData: 'Colar Dados',
+  formAvgScored: 'Média Gols Marcados',
+  formAvgConceded: 'Média Gols Sofridos',
+  formAvgTotal: 'Média Total de Gols',
+  formCleanSheet: '% Clean Sheet',
+  formNoGoals: '% Sem Gols',
+  formOver25: '% Over 2.5',
+  formUnder25: '% Under 2.5',
+  formHome: 'Casa',
+  formAway: 'Fora',
+  formGlobal: 'Global',
+  formRequiredField: 'Campo obrigatório',
+
+  // Analysis
+  analysisSave: 'Salvar Partida',
+  analysisSaved: 'Partida salva com sucesso!',
+  analysisProbability: 'Probabilidade',
+  analysisMarket: 'Mercado',
+  analysisPerformance: 'Performance',
+  analysisOver: 'Over',
+  analysisUnder: 'Under',
+  analysisBTTS: 'Ambos Marcam',
+  analysisEdge: 'Edge',
+  analysisOffensive: 'Ataque',
+  analysisDefensive: 'Defesa',
+  analysisTrend: 'Tendência',
+  analysisConfidence: 'Confiança',
+  analysisRecommendation: 'Recomendação',
+  analysisOverUnder: 'Probabilidades Over/Under',
+  analysisCombined: 'Combinada',
+  analysisStats: 'Estatísticas',
+  analysisTable: 'Tabela',
+  analysisClear: 'Limpar',
+  analysisCombinations: 'Combinações Recomendadas',
+  analysisManageBet: 'Gerenciar Aposta',
+  analysisRegisterBet: 'Registrar Aposta',
+  analysisEditBet: 'Editar Aposta',
+  analysisBetAmount: 'Valor Apostado',
+  analysisPotentialReturn: 'Retorno Potencial',
+  analysisProfit: 'Lucro Potencial',
+  analysisBankPct: '% da Banca',
+  analysisAnalyzeResult: 'Analisar Resultado',
+
+  // Risk levels
+  riskLow: 'Baixo',
+  riskModerate: 'Moderado',
+  riskHigh: 'Alto',
+  riskVeryHigh: 'Muito Alto',
+
+  // Settings
+  settingsTitle: 'Configurações',
+  settingsSubtitle: 'Personalize sua experiência',
+  settingsNotifications: 'Notificações',
+  settingsNotificationsDesc: 'Gerencie suas preferências de notificações',
+  settingsEnableNotifications: 'Ativar Notificações',
+  settingsEnableNotificationsDesc: 'Receba alertas sobre suas partidas e apostas',
+  settingsAppearance: 'Aparência',
+  settingsAppearanceDesc: 'Personalize a aparência do aplicativo',
+  settingsTheme: 'Tema',
+  settingsThemeDesc: 'Escolha o tema do aplicativo',
+  settingsThemeLight: 'Claro',
+  settingsThemeDark: 'Escuro',
+  settingsThemeAuto: 'Automático',
+  settingsAbout: 'Sobre o App',
+  settingsAboutDesc: 'Informações sobre o GoalScan Pro',
+  settingsSecurity: 'Segurança',
+  settingsSecurityDesc: 'Seus dados são armazenados localmente e sincronizados com segurança no Supabase.',
+  settingsStorage: 'Armazenamento',
+  settingsStorageDesc: 'Dados sincronizados em tempo real. Funciona offline com cache local.',
+  settingsGoalScanDesc: 'Sistema avançado de análise de apostas esportivas com modelo estatístico (Poisson) e métricas de valor.',
+  settingsDevInfo: 'Desenvolvido com React, TypeScript e análise estatística avançada.',
+
+  // Championships
+  champTitle: 'Campeonatos',
+  champNew: 'Novo Campeonato',
+  champImport: 'Importar',
+  champExport: 'Exportar',
+  champDelete: 'Excluir',
+  champEdit: 'Editar',
+  champNoData: 'Nenhum campeonato encontrado',
+
+  // Bank
+  bankTitle: 'Banca',
+  bankBalance: 'Saldo',
+  bankProfit: 'Lucro',
+  bankROI: 'ROI',
+
+  // Common
+  commonSave: 'Salvar',
+  commonCancel: 'Cancelar',
+  commonDelete: 'Excluir',
+  commonEdit: 'Editar',
+  commonBack: 'Voltar',
+  commonClose: 'Fechar',
+  commonSearch: 'Buscar',
+  commonFilter: 'Filtrar',
+  commonSort: 'Ordenar',
+  commonRefresh: 'Atualizar',
+  commonRetry: 'Tentar novamente',
+  commonError: 'Erro',
+  commonSuccess: 'Sucesso',
+  commonWarning: 'Atenção',
+  commonNoData: 'Sem dados',
+  commonLoading: 'Carregando...',
+} as const;
+
+export type TranslationKey = keyof typeof ptBR;
+
+let currentLocale = ptBR;
+
+export function t(key: TranslationKey): string {
+  return currentLocale[key] ?? key;
+}
+
+export function setLocale(locale: typeof ptBR) {
+  currentLocale = locale;
+}

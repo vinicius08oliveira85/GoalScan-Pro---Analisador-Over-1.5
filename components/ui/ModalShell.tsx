@@ -85,7 +85,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
             animate="animate"
             exit="exit"
             className={cn(
-              'pointer-events-auto relative z-[1] mx-auto flex min-h-0 w-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-base-200/92 shadow-2xl shadow-primary/10 backdrop-blur-xl dark:border-white/10',
+              'pointer-events-auto relative z-[1] mx-auto flex min-h-0 w-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-base-300/50 bg-base-200/92 shadow-2xl shadow-primary/10 backdrop-blur-xl',
               panelClassName
             )}
             role="dialog"
@@ -94,7 +94,7 @@ const ModalShell: React.FC<ModalShellProps> = ({
             {(title || showCloseButton) && (
               <div
                 className={cn(
-                  'sticky top-0 z-[2] flex shrink-0 items-center gap-3 border-b border-white/10 bg-base-200/95 p-4 backdrop-blur-xl dark:border-white/10',
+                  'sticky top-0 z-[2] flex shrink-0 items-center gap-3 border-b border-base-300/50 bg-base-200/95 p-4 backdrop-blur-xl dark:border-base-300/50',
                   headerClassName
                 )}
               >

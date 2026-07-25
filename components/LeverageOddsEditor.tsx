@@ -99,7 +99,7 @@ const LeverageOddsEditor: React.FC<LeverageOddsEditorProps> = ({
               <h3 className="text-xl font-black">Editar Odds por Dia</h3>
               <p className="text-sm opacity-60">Configure a odd individual para cada dia</p>
             </div>
-            <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost">
+            <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost" aria-label="Fechar">
               <X className="w-5 h-5" />
             </button>
           </div>
