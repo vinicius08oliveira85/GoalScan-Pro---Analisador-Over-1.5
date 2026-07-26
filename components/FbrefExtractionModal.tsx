@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X, ClipboardPaste } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
@@ -31,7 +31,7 @@ export default function FbrefExtractionModal({
   const [mode, setMode] = useState<ExtractionMode>('paste');
   const [pasteHtml, setPasteHtml] = useState('');
 
-  const handleExtract = async () => {
+  const handleExtract = useCallback(async () => {
     if (mode === 'paste') {
       if (!pasteHtml.trim()) {
         onError?.('Cole o HTML da página do FBref');
@@ -101,18 +101,17 @@ export default function FbrefExtractionModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [mode, url, pasteHtml, championship, extractTypes, onError]);
 
   // Auto-extrair se a URL já estiver preenchida ao abrir o modal
-  React.useEffect(() => {
+  useEffect(() => {
     if (mode !== 'paste' && url.trim() && url.includes('fbref.com') && !loading && !result && !previewTables) {
       const timer = setTimeout(() => {
         handleExtract();
       }, 300);
       return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, url, loading, result, previewTables, handleExtract]);
 
   const handleSave = async () => {
     if (!previewTables) {
