@@ -468,17 +468,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         <Cell
                           key={`cell-${index}`}
                           fill={color}
-                          style={{
-                            filter: 'url(#shadow)',
-                            transition: 'opacity 0.2s',
-                            cursor: 'pointer',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.opacity = '0.8';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                          }}
+                          className="cursor-pointer transition-opacity duration-200 hover:opacity-80"
+                          style={{ filter: 'url(#shadow)' }}
                         />
                       );
                     })}

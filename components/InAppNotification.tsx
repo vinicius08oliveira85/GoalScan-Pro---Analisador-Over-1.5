@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { SavedAnalysis } from '../types';
 import { Bell, X, Clock, ArrowRight } from 'lucide-react';
 import { getMatchDateInBrasilia, formatMatchTime } from '../utils/dateFormatter';
@@ -11,12 +11,15 @@ interface InAppNotificationProps {
 
 const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, onClick }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const entranceTimer = setTimeout(() => setIsVisible(true), 100);
 
     const autoCloseTimer = setTimeout(() => {
-      handleClose();
+      setIsVisible(false);
+      setTimeout(() => onCloseRef.current(), 300);
     }, 10000);
 
     return () => {
@@ -27,9 +30,7 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, o
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(() => {
-      onClose();
-    }, 300); // Aguardar animação de saída
+    setTimeout(() => onCloseRef.current(), 300);
   };
 
   const handleClick = () => {

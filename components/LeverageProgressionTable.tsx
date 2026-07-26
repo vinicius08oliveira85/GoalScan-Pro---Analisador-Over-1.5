@@ -8,6 +8,7 @@ import LeverageOddsEditor from './LeverageOddsEditor';
 import { useLeveragePlan } from '../hooks/useLeveragePlan';
 import { computeCurrentCycleDayStatuses, computeNextProgressionDay } from '../utils/leverageProgressionSync';
 import { logger } from '../utils/logger';
+import { TIMEOUTS } from '../utils/constants';
 
 interface LeverageProgressionTableProps {
   savedMatches?: SavedAnalysis[];
@@ -59,7 +60,7 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
     try {
       await navigator.clipboard.writeText(tableText);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), TIMEOUTS.COPY_FEEDBACK);
     } catch (error) {
       logger.error('Erro ao copiar tabela:', error);
     }
@@ -184,11 +185,11 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
               type="number"
               step="0.01"
               min="0.01"
-              max="1000000"
+              max={TIMEOUTS.LEVERAGE_MAX_VALUE}
               value={plan.initialInvestment}
               onChange={(e) => {
                 const value = Number(e.target.value);
-                if (value >= 0.01 && value <= 1000000) {
+                if (value >= 0.01 && value <= TIMEOUTS.LEVERAGE_MAX_VALUE) {
                   setInitialInvestment(value);
                 }
               }}

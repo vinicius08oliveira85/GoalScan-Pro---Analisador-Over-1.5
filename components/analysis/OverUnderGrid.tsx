@@ -19,7 +19,7 @@ interface OverUnderGridProps {
   displayProbability: number;
 }
 
-const OverUnderGrid: React.FC<OverUnderGridProps> = ({
+const OverUnderGrid: React.FC<OverUnderGridProps> = React.memo(({
   result,
   overUnderTab,
   onTabChange,
@@ -178,6 +178,6 @@ const OverUnderGrid: React.FC<OverUnderGridProps> = ({
       </div>
     </motion.div>
   );
-};
+});
 
 export default OverUnderGrid;

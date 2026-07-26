@@ -15,7 +15,7 @@ interface MetricCardProps {
   tooltip?: string; // Descrição explicativa para o tooltip
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({
+const MetricCard: React.FC<MetricCardProps> = React.memo(({
   title,
   value,
   icon: Icon,
@@ -183,6 +183,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
   }
 
   return cardContent;
-};
+});
 
 export default MetricCard;

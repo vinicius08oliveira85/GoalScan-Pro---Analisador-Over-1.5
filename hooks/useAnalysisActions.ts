@@ -9,6 +9,7 @@ import {
 import type { AnalysisUiTab } from '../components/AnalysisDashboard';
 import { performAnalysis } from '../services/analysisEngine';
 import { logger } from '../utils/logger';
+import { TIMEOUTS, BREAKPOINTS } from '../utils/constants';
 
 interface UseAnalysisActionsProps {
   saveMatch: (match: SavedAnalysis) => Promise<SavedAnalysis>;
@@ -85,7 +86,7 @@ export const useAnalysisActions = ({
     setAnalysisResult(result);
     setCurrentMatchData(data);
 
-    if (window.innerWidth < 768) {
+    if (window.innerWidth < BREAKPOINTS.MOBILE) {
       window.scrollTo({ top: 600, behavior: 'smooth' });
     }
   }, []);
@@ -132,7 +133,7 @@ export const useAnalysisActions = ({
         setTimeout(() => {
           handleCloseAnalysis();
           setActiveTab('matches');
-        }, 300);
+        }, TIMEOUTS.ANALYSIS_CLOSE_DELAY);
       } catch {
         showError('Erro ao salvar partida. Tente novamente.');
       }

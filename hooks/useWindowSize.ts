@@ -8,10 +8,12 @@ interface WindowSize {
   isDesktop: boolean;
 }
 
+import { BREAKPOINTS } from '../utils/constants';
+
 export function useWindowSize(): WindowSize {
   const [windowSize, setWindowSize] = useState<WindowSize>({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    width: typeof window !== 'undefined' ? window.innerWidth : BREAKPOINTS.TABLET,
+    height: typeof window !== 'undefined' ? window.innerHeight : BREAKPOINTS.MOBILE,
     isMobile: false,
     isTablet: false,
     isDesktop: true,
@@ -24,9 +26,9 @@ export function useWindowSize(): WindowSize {
       setWindowSize({
         width,
         height,
-        isMobile: width < 768,
-        isTablet: width >= 768 && width < 1024,
-        isDesktop: width >= 1024,
+        isMobile: width < BREAKPOINTS.MOBILE,
+        isTablet: width >= BREAKPOINTS.MOBILE && width < BREAKPOINTS.TABLET,
+        isDesktop: width >= BREAKPOINTS.TABLET,
       });
     }
 

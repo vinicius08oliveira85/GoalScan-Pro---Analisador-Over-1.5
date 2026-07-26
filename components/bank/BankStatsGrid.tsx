@@ -17,7 +17,7 @@ interface BankStatsGridProps {
   startCustomIndex?: number;
 }
 
-const BankStatsGrid: React.FC<BankStatsGridProps> = ({ bankStats, startCustomIndex = 3 }) => {
+const BankStatsGrid: React.FC<BankStatsGridProps> = React.memo(({ bankStats, startCustomIndex = 3 }) => {
   const cards: BankStatCard[] = [
     {
       title: 'Lucro Total',
@@ -94,6 +94,6 @@ const BankStatsGrid: React.FC<BankStatsGridProps> = ({ bankStats, startCustomInd
       })}
     </div>
   );
-};
+});
 
 export default BankStatsGrid;
