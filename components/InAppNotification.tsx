@@ -72,6 +72,9 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, o
       <div
         className="custom-card cursor-pointer border border-primary/35 bg-gradient-to-br from-primary/25 via-base-100/45 to-secondary/15 p-4 shadow-2xl shadow-primary/25 backdrop-blur-xl transition-transform duration-200 hover:scale-[1.02]"
         onClick={handleClick}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}
+        role="button"
+        tabIndex={0}
       >
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-xl bg-primary/20 border border-primary/30 flex-shrink-0">

@@ -572,6 +572,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <tr
                       key={match.id}
                       onClick={() => onMatchClick?.(match)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMatchClick?.(match); } }}
+                      role="button"
+                      tabIndex={0}
                       className="border-b border-base-300/50 hover:bg-base-200/50 transition-colors duration-200 cursor-pointer"
                     >
                       <td className="py-3 px-3 md:px-4">
