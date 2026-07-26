@@ -11,10 +11,11 @@ import ConfirmDialog from './ui/ConfirmDialog';
 import EmptyState from './ui/EmptyState';
 import { SkeletonCard } from './Skeleton';
 import Skeleton from './Skeleton';
+import { logger } from '../utils/logger';
 
 const ChampionshipsScreen: React.FC = () => {
   const handleError = (message: string) => {
-    console.error('[ChampionshipsScreen]', message);
+    logger.error('[ChampionshipsScreen]', message);
   };
 
   const { championships, isLoading, isSaving, save, remove, loadTables, removeTable, isRefreshing, lastRefresh, refreshNow } =
@@ -62,7 +63,7 @@ const ChampionshipsScreen: React.FC = () => {
         handleError('Erro ao salvar campeonato');
       }
     } catch (error) {
-      console.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
+      logger.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
       handleError(`Erro ao salvar campeonato: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };

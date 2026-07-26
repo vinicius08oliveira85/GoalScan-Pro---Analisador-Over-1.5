@@ -78,7 +78,7 @@ export const useBankSettings = (onError?: (message: string) => void) => {
             currency: normalizeCurrency(parsedBank.currency),
           });
         } catch (e) {
-          console.error('Erro ao carregar configurações de banca do localStorage:', e);
+          logger.error('Erro ao carregar configurações de banca do localStorage:', e);
         }
       }
     } finally {

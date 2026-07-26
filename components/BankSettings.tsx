@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { BankSettings } from '../types';
+import { logger } from '../utils/logger';
 import {
   Wallet,
   Save,
@@ -196,7 +197,7 @@ const BankSettingsComponent: React.FC<BankSettingsProps> = ({ bankSettings, onSa
       if (onError) {
         onError(`Erro ao validar configurações: ${errorMessage}`);
       } else {
-        console.error(`Erro ao validar configurações: ${errorMessage}`);
+        logger.error(`Erro ao validar configurações: ${errorMessage}`);
       }
 
       // Resetar status após 3 segundos

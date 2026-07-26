@@ -7,6 +7,7 @@ import { animations } from '../utils/animations';
 import LeverageOddsEditor from './LeverageOddsEditor';
 import { useLeveragePlan } from '../hooks/useLeveragePlan';
 import { computeCurrentCycleDayStatuses, computeNextProgressionDay } from '../utils/leverageProgressionSync';
+import { logger } from '../utils/logger';
 
 interface LeverageProgressionTableProps {
   savedMatches?: SavedAnalysis[];
@@ -60,7 +61,7 @@ const LeverageProgressionTable: React.FC<LeverageProgressionTableProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Erro ao copiar tabela:', error);
+      logger.error('Erro ao copiar tabela:', error);
     }
   };
 

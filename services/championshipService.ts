@@ -13,6 +13,7 @@ import { getSupabaseClient } from '../lib/supabase';
 import { errorService } from './errorService';
 import { logger } from '../utils/logger';
 import { detectTableFormatFromData } from '../utils/tableFormatDetector';
+import { parseNumeric } from '../utils/numbers';
 
 export interface ChampionshipRow {
   id: string;
@@ -1387,15 +1388,6 @@ export const calculateCompetitionAverageGoals = async (
   }
 };
 
-function parseNumberFromUnknown(value: unknown): number {
-  if (value == null) return 0;
-  const raw = String(value).trim();
-  if (!raw) return 0;
-  const normalized = raw.replace(/,/g, '');
-  const n = Number.parseFloat(normalized);
-  return Number.isFinite(n) ? n : 0;
-}
-
 /**
  * Calcula média de gols do campeonato a partir de ChampionshipTeam[]
  * Usa campos Home/Away: soma(Home GF) + soma(Away GF) / soma(Home MP) + soma(Away MP)
@@ -1408,8 +1400,8 @@ function calculateCompetitionAverageGoalsFromTeams(teams: ChampionshipTeam[]): n
 
   for (const team of teams) {
     // Usar campos Home
-    const homeGf = parseNumberFromUnknown(team.home_gf);
-    const homeMp = parseNumberFromUnknown(team.home_mp);
+    const homeGf = parseNumeric(team.home_gf);
+    const homeMp = parseNumeric(team.home_mp);
     if (homeGf > 0 && homeMp > 0) {
       totalGoals += homeGf;
       totalMatches += homeMp;
@@ -1418,8 +1410,8 @@ function calculateCompetitionAverageGoalsFromTeams(teams: ChampionshipTeam[]): n
     }
 
     // Usar campos Away
-    const awayGf = parseNumberFromUnknown(team.away_gf);
-    const awayMp = parseNumberFromUnknown(team.away_mp);
+    const awayGf = parseNumeric(team.away_gf);
+    const awayMp = parseNumeric(team.away_mp);
     if (awayGf > 0 && awayMp > 0) {
       totalGoals += awayGf;
       totalMatches += awayMp;
@@ -1447,10 +1439,10 @@ function calculateCompetitionAverageGoalsFromRows(rows: TableRowGeral[]): number
 
   for (const row of rows) {
     // Tentar usar campos Home/Away primeiro (estrutura do CSV)
-    const homeGf = parseNumberFromUnknown(row['Home GF']);
-    const homeMp = parseNumberFromUnknown(row['Home MP']);
-    const awayGf = parseNumberFromUnknown(row['Away GF']);
-    const awayMp = parseNumberFromUnknown(row['Away MP']);
+    const homeGf = parseNumeric(row['Home GF']);
+    const homeMp = parseNumeric(row['Home MP']);
+    const awayGf = parseNumeric(row['Away GF']);
+    const awayMp = parseNumeric(row['Away MP']);
 
     if (homeMp > 0 || awayMp > 0) {
       // Usar campos Home/Away
@@ -1469,8 +1461,8 @@ function calculateCompetitionAverageGoalsFromRows(rows: TableRowGeral[]): number
       }
     } else {
       // Fallback para campos gerais (formato antigo - compatibilidade)
-      const gf = parseNumberFromUnknown(row.GF);
-      const mp = parseNumberFromUnknown(row.MP);
+      const gf = parseNumeric(row.GF);
+      const mp = parseNumeric(row.MP);
       if (gf > 0 && mp > 0) {
         totalGoals += gf;
         totalMatches += mp;

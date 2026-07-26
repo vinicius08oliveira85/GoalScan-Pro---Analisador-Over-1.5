@@ -11,6 +11,7 @@ export interface ErrorContext {
   timestamp: number;
   userAgent?: string;
   url?: string;
+  [key: string]: unknown;
 }
 
 class ErrorService {
@@ -52,7 +53,6 @@ class ErrorService {
     this.logError(error, {
       component: 'Validation',
       action: `validate_${field}`,
-    // @ts-expect-error Adding validation-specific context properties
     validationValue: value,
     });
   }
@@ -66,7 +66,6 @@ class ErrorService {
     this.logError(error, {
       component: 'API',
       action: endpoint,
-      // @ts-expect-error Adding API-specific context properties
       statusCode: status,
     });
   }

@@ -508,7 +508,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
               .sort((a, b) => b.combinedProb - a.combinedProb)
               .map((combo, index) => (
                 <div
-                  key={index}
+                  key={`${combo.overLine}-${combo.underLine}`}
                   className="surface-muted p-4 rounded-xl border border-success/30 bg-success/5"
                 >
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

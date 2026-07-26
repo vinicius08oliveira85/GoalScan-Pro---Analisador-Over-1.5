@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChampionshipTable } from '../types';
 import { Search, ArrowUpDown, Trash2 } from 'lucide-react';
+import { parseNumeric } from '../utils/numbers';
 
 interface ChampionshipTableViewProps {
   table: ChampionshipTable;
@@ -53,10 +54,8 @@ const hiddenFields = ['Top Team Scorer_link', 'Goalkeeper_link'];
 function parseNumberMaybe(value: unknown): number | null {
   if (value == null) return null;
   const raw = String(value).trim();
-  if (!raw) return null;
-  const normalized = raw.replace(/,/g, '');
-  const n = Number.parseFloat(normalized);
-  return Number.isFinite(n) ? n : null;
+  if (!raw || raw === '-' || raw === 'N/A') return null;
+  return parseNumeric(value);
 }
 
 const ChampionshipTableView: React.FC<ChampionshipTableViewProps> = ({

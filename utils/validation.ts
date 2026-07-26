@@ -94,16 +94,16 @@ export const matchDataSchema = z.object({
       })
     )
     .optional(),
-  homeTeamStats: z.any().optional(),
-  awayTeamStats: z.any().optional(),
+  homeTeamStats: z.record(z.unknown()).optional(),
+  awayTeamStats: z.record(z.unknown()).optional(),
 
   // Novos campos
   championshipId: z.string().optional(),
-  homeTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
-  awayTableData: z.any().optional(), // Dados completos da tabela do campeonato (TableRowGeral)
-  homeComplementData: z.any().optional(), // Tabela complemento (TableRowComplement)
-  awayComplementData: z.any().optional(), // Tabela complemento (TableRowComplement)
-  competitionComplementAvg: z.any().optional(), // Médias do campeonato para normalização (CompetitionComplementAverages)
+  homeTableData: z.record(z.unknown()).optional(),
+  awayTableData: z.record(z.unknown()).optional(),
+  homeComplementData: z.record(z.unknown()).optional(),
+  awayComplementData: z.record(z.unknown()).optional(),
+  competitionComplementAvg: z.record(z.unknown()).optional(),
 });
 
 // Schema para validação de BetInfo

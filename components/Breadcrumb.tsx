@@ -35,7 +35,7 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, className = '' }) => {
       </motion.button>
 
       {items.map((item, index) => (
-        <React.Fragment key={index}>
+        <React.Fragment key={item.label}>
           <ChevronRight className="w-3 h-3 text-base-content/40" />
           {index === items.length - 1 ? (
             <span className="font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">

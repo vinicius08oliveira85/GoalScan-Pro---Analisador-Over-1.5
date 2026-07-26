@@ -85,16 +85,12 @@ class AnalyticsService {
    */
   private sendEvent(eventName: string, properties?: Record<string, unknown>): void {
     // Google Analytics 4 (quando configurado)
-    // @ts-expect-error gtag may not be defined
     if (typeof window !== 'undefined' && window.gtag) {
-      // @ts-expect-error gtag may not be defined
       window.gtag('event', eventName, properties);
     }
 
     // Plausible Analytics (quando configurado)
-    // @ts-expect-error plausible may not be defined
     if (typeof window !== 'undefined' && window.plausible) {
-      // @ts-expect-error plausible may not be defined
       window.plausible(eventName, { props: properties });
     }
 

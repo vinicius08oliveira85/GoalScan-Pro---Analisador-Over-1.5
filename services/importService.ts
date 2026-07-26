@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import type { GoalScanBackup } from './exportService';
 
+
 interface ImportResult {
   success: boolean;
   message: string;
@@ -58,7 +59,8 @@ async function upsertComplement(rows: unknown[]): Promise<number> {
       return 0;
     }
     return rows.length;
-  } catch {
+  } catch (e) {
+    logger.warn('[ImportService] Falha ao importar complement:', e);
     return 0;
   }
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Clipboard, CheckCircle, AlertTriangle } from 'lucide-react';
 import { TableRowGeral } from '../types';
 import { parseChampionshipGeneralTable } from '../utils/championshipParser';
+import { logger } from '../utils/logger';
 
 interface ChampionshipTablePasteAreaProps {
   onImport: (data: TableRowGeral[]) => void;
@@ -33,7 +34,7 @@ export const ChampionshipTablePasteArea: React.FC<ChampionshipTablePasteAreaProp
       }
     } catch (err) {
       setError('Erro ao processar dados. Verifique o formato.');
-      console.error(err);
+      logger.error(err);
     }
   };
 

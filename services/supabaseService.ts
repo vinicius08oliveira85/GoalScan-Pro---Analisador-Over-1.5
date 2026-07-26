@@ -221,7 +221,7 @@ export const deleteAnalysis = async (id: string): Promise<void> => {
       throw error;
     }
   } catch (error) {
-    console.error('Erro ao deletar análise:', error);
+    logger.error('Erro ao deletar análise:', error);
     throw error;
   }
 };

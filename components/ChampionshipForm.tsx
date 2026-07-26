@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Championship } from '../types';
 import { animations } from '../utils/animations';
+import { logger } from '../utils/logger';
 
 interface ChampionshipFormProps {
   championship?: Championship | null;
@@ -58,7 +59,7 @@ const ChampionshipForm: React.FC<ChampionshipFormProps> = ({
 
       await onSave(championshipToSave);
     } catch (error) {
-      console.error('Erro ao salvar campeonato:', error);
+      logger.error('Erro ao salvar campeonato:', error);
     } finally {
       setIsSaving(false);
     }

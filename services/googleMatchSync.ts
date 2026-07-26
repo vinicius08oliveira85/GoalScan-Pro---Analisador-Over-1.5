@@ -280,7 +280,7 @@ function extractScoreFromGoogle(html: string, _homeTeam: string, _awayTeam: stri
 
     return null;
   } catch (error) {
-    console.error('Erro ao extrair placar do HTML:', error);
+    logger.error('Erro ao extrair placar do HTML:', error);
     return null;
   }
 }
