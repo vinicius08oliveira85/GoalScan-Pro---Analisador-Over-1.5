@@ -21,7 +21,7 @@ export const parseChampionshipGeneralTable = (text: string): TableRowGeral[] => 
     const values = line.split(separator).map(v => v.trim());
 
     if (values.length > 0) {
-        const row: any = {};
+        const row: Record<string, string> = {};
         
         // Mapear valores para as chaves baseadas nos headers
         headers.forEach((header, index) => {
@@ -33,7 +33,7 @@ export const parseChampionshipGeneralTable = (text: string): TableRowGeral[] => 
         // Validação básica
         if (row['Squad'] || row['Rk']) {
             // Lógica de Agregação: Se tiver dados de Casa/Fora mas não tiver Totais, calcula os Totais
-            const parseNum = (val: any) => parseInt(val) || 0;
+            const parseNum = (val: string) => parseInt(val) || 0;
             
             // MP (Matches Played)
             if (!row['MP'] && row['Home MP'] && row['Away MP']) {

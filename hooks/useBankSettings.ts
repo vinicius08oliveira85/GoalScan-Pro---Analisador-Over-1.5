@@ -106,7 +106,7 @@ export const useBankSettings = (onError?: (message: string) => void) => {
         localStorage.setItem('goalscan_bank_settings', JSON.stringify(normalizedSettings));
         syncBankToWidgets(normalizedSettings);
       } catch (e) {
-        console.warn('Erro ao salvar no localStorage (backup):', e);
+        logger.warn('Erro ao salvar no localStorage (backup):', e);
       }
 
       setLastSyncTime(Date.now());
