@@ -1,89 +1,55 @@
 import { LeverageProgressionRow } from '../types';
 import { decimalMoney, roundMoney2 } from './bankMoney';
 
-/**
- * Calcula a progressão de alavancagem onde o retorno de cada dia vira o investimento do próximo
- * @param initialInvestment Investimento inicial (dia 1)
- * @param odd Odd da aposta
- * @param days Número de dias para calcular
- * @returns Array com a progressão dia a dia
- */
-export function calculateLeverageProgression(
+function computeDay(
+  day: number,
+  currentInvestment: number,
+  dayOdd: number
+): { row: LeverageProgressionRow; nextInvestment: number } {
+  const inv = decimalMoney(currentInvestment);
+  const validOdd = dayOdd > 1.0 && dayOdd <= 50;
+  const returnAmount = validOdd ? roundMoney2(inv.times(dayOdd)) : roundMoney2(inv);
+  return {
+    row: { day, investment: currentInvestment, return: returnAmount, odd: dayOdd },
+    nextInvestment: returnAmount,
+  };
+}
+
+function calculateProgression(
   initialInvestment: number,
-  odd: number,
+  getOdd: (day: number) => number,
   days: number
 ): LeverageProgressionRow[] {
-  if (initialInvestment <= 0 || odd <= 1.0 || days < 1) {
-    return [];
-  }
+  if (initialInvestment <= 0 || days < 1) return [];
 
   const progression: LeverageProgressionRow[] = [];
   let currentInvestment = roundMoney2(initialInvestment);
 
   for (let day = 1; day <= days; day++) {
-    const inv = decimalMoney(currentInvestment);
-    const returnAmount = roundMoney2(inv.times(odd));
-    progression.push({
-      day,
-      investment: currentInvestment,
-      return: returnAmount,
-      odd,
-    });
-    currentInvestment = returnAmount;
+    const { row, nextInvestment } = computeDay(day, currentInvestment, getOdd(day));
+    progression.push(row);
+    currentInvestment = nextInvestment;
   }
 
   return progression;
 }
 
-/**
- * Calcula a progressão de alavancagem com odds variáveis por dia
- * @param initialInvestment Investimento inicial (dia 1)
- * @param odds Array de odds, uma para cada dia
- * @param days Número de dias para calcular
- * @returns Array com a progressão dia a dia
- */
+export function calculateLeverageProgression(
+  initialInvestment: number,
+  odd: number,
+  days: number
+): LeverageProgressionRow[] {
+  if (odd <= 1.0) return [];
+  return calculateProgression(initialInvestment, () => odd, days);
+}
+
 export function calculateLeverageProgressionWithVariableOdds(
   initialInvestment: number,
   odds: number[],
   days: number
 ): LeverageProgressionRow[] {
-  if (initialInvestment <= 0 || days < 1 || odds.length === 0) {
-    return [];
-  }
-
-  const progression: LeverageProgressionRow[] = [];
-  let currentInvestment = roundMoney2(initialInvestment);
-
-  for (let day = 1; day <= days; day++) {
-    // Usar odd do dia ou fallback para primeira odd se não houver
-    const dayOdd = odds[day - 1] || odds[0] || 1.0;
-    
-    // Validar odd
-    if (dayOdd <= 1.0 || dayOdd > 50) {
-      const inv = decimalMoney(currentInvestment);
-      const returnAmount = roundMoney2(inv);
-      progression.push({
-        day,
-        investment: currentInvestment,
-        return: returnAmount,
-        odd: dayOdd,
-      });
-      currentInvestment = returnAmount;
-      continue;
-    }
-
-    const inv = decimalMoney(currentInvestment);
-    const returnAmount = roundMoney2(inv.times(dayOdd));
-    progression.push({
-      day,
-      investment: currentInvestment,
-      return: returnAmount,
-      odd: dayOdd,
-    });
-    currentInvestment = returnAmount;
-  }
-
-  return progression;
+  if (odds.length === 0) return [];
+  return calculateProgression(initialInvestment, (day) => odds[day - 1] || odds[0] || 1.0, days);
 }
 
 /**

@@ -66,8 +66,8 @@ export async function exportAllData(): Promise<GoalScanBackup> {
       if (raw) {
         localStorageData[key] = JSON.parse(raw);
       }
-    } catch {
-      // skip corrupted keys
+    } catch (e) {
+      logger.warn('[Export] Chave corrompida no localStorage:', key, e);
     }
   }
 

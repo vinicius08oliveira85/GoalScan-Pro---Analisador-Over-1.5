@@ -45,8 +45,7 @@ const TTL_EVENT_MS = 6 * 60 * 60 * 1000; // 6 horas
 const { getCache, setCache } = createLocalStorageCache<unknown>('goalscan_thesportsdb_cache_');
 
 function getApiKey(): string | null {
-  const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-  const key = viteEnv.VITE_THESPORTSDB_API_KEY?.trim();
+  const key = import.meta.env.VITE_THESPORTSDB_API_KEY?.trim();
   return key && key.length > 0 ? key : null;
 }
 

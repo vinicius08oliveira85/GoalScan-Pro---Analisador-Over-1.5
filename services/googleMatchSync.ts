@@ -123,7 +123,7 @@ export function clearScoreCache(): void {
       }
     }
     keys.forEach(key => localStorage.removeItem(key));
-  } catch {
-    // Ignorar erros
+  } catch (e) {
+    logger.warn('[GoogleMatchSync] Erro ao limpar cache:', e);
   }
 }

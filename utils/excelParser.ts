@@ -68,7 +68,7 @@ export async function parseExcelToJson(file: File): Promise<TableRowGeral[]> {
             normalized[key] = value != null ? String(value) : '';
           }
 
-          return normalized as unknown as TableRowGeral;
+          return normalized as TableRowGeral;
         });
 
         if (normalizedData.length === 0) {

@@ -1,4 +1,4 @@
-import { MatchData, AnalysisResult, CompetitionComplementAverages } from '../types';
+import { MatchData, AnalysisResult, CompetitionComplementAverages, TableRowComplement } from '../types';
 import { logger } from '../utils/logger';
 import { smoothAdjustment, smoothClamp, poissonProbability, poissonCumulative, calculateDixonColesUnder15, calculateOverUnderProbabilities, combineOverUnderProbabilities, getWeightedTeamStats, calculateOpponentStrength, calculateMomentum, validateStatsConsistency, createDefaultComplementAvg, calculateAdaptiveWeights, calculateTableCompletenessScore, getTableImpactSummary, validateTableDataIntegrity, normalizeMatchData } from './analysisEngineUtils';
 
@@ -416,8 +416,8 @@ function calculateTableProbability(data: MatchData): {
       };
 
       const allRows: Array<Record<string, unknown>> = [];
-      if (hasHomeComplement) allRows.push(data.homeComplementData as unknown as Record<string, unknown>);
-      if (hasAwayComplement) allRows.push(data.awayComplementData as unknown as Record<string, unknown>);
+      if (hasHomeComplement && data.homeComplementData) allRows.push(data.homeComplementData as TableRowComplement);
+      if (hasAwayComplement && data.awayComplementData) allRows.push(data.awayComplementData as TableRowComplement);
 
       if (allRows.length > 0) {
         let possSum = 0;
@@ -492,12 +492,12 @@ function calculateTableProbability(data: MatchData): {
     };
 
     // Usar dados parciais - se não houver um dos times, usar valores neutros
-    const homeRow = hasHomeComplement 
-      ? (data.homeComplementData as unknown as Record<string, unknown>)
-      : ({} as Record<string, unknown>);
-    const awayRow = hasAwayComplement
-      ? (data.awayComplementData as unknown as Record<string, unknown>)
-      : ({} as Record<string, unknown>);
+    const homeRow: Partial<TableRowComplement> = hasHomeComplement && data.homeComplementData
+      ? data.homeComplementData
+      : {};
+    const awayRow: Partial<TableRowComplement> = hasAwayComplement && data.awayComplementData
+      ? data.awayComplementData
+      : {};
 
     // 1. Ajuste por Possession (posse de bola) - times com mais posse tendem a ter mais oportunidades
     const homePoss = hasHomeComplement ? parseNum(homeRow.Poss) : avgToUse.poss;
