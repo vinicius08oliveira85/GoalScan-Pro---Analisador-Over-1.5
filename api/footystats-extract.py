@@ -11,7 +11,8 @@ import random
 import re
 import sys
 import time
-from http.server import BaseHTTPRequestHandler
+from starlette.requests import Request
+from starlette.responses import Response
 from typing import Dict, List, Optional
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
@@ -412,93 +413,94 @@ class FootyStatsScraper:
         return {'matches': matches}
 
 
-class handler(BaseHTTPRequestHandler):
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
+async def handler(request: Request):
+    if request.method == 'OPTIONS':
+        return Response(
+            content='',
+            status_code=200,
+            headers={
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+            }
+        )
 
-    def do_POST(self):
-        try:
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
-            request_data = json.loads(body.decode('utf-8'))
+    if request.method != 'POST':
+        return _send_error(405, 'Método não permitido')
 
-            source = request_data.get('source', 'footystats')
+    try:
+        body = await request.json()
 
-            if source == 'api-football':
-                self._handle_api_football(request_data)
-                return
+        source = body.get('source', 'footystats')
 
-            url = request_data.get('url', '')
-            if not url or 'footystats.org' not in url:
-                self._send_error(400, 'URL invalida. Apenas URLs do footystats.org sao permitidas.')
-                return
-            scraper = FootyStatsScraper()
-            result = scraper.scrape(url)
-            if 'error' in result:
-                self._send_response({'success': False, 'error': result['error']})
-                return
-            self._send_response({
-                'success': True,
-                'data': result.get('data', {}),
-                'type': result.get('type', 'standings'),
-            })
-        except json.JSONDecodeError:
-            self._send_error(400, 'JSON invalido no body da requisicao')
-        except Exception as e:
-            logger.exception('Erro interno no handler')
-            self._send_error(500, f'Erro interno: {str(e)}')
+        if source == 'api-football':
+            return await _handle_api_football(body)
 
-    def _handle_api_football(self, request_data: Dict):
-        endpoint = request_data.get('endpoint', '')
-        params = request_data.get('params', {})
+        url = body.get('url', '')
+        if not url or 'footystats.org' not in url:
+            return _send_error(400, 'URL invalida. Apenas URLs do footystats.org sao permitidas.')
+        scraper = FootyStatsScraper()
+        result = scraper.scrape(url)
+        if 'error' in result:
+            return _send_response({'success': False, 'error': result['error']})
+        return _send_response({
+            'success': True,
+            'data': result.get('data', {}),
+            'type': result.get('type', 'standings'),
+        })
+    except json.JSONDecodeError:
+        return _send_error(400, 'JSON invalido no body da requisicao')
+    except Exception as e:
+        logger.exception('Erro interno no handler')
+        return _send_error(500, f'Erro interno: {str(e)}')
 
-        if not endpoint:
-            self._send_error(400, 'Parametro endpoint obrigatorio')
-            return
 
-        api_key = os.environ.get('VITE_API_FOOTBALL_KEY', '')
-        if not api_key:
-            self._send_error(500, 'VITE_API_FOOTBALL_KEY nao configurada')
-            return
+async def _handle_api_football(request_data: Dict):
+    endpoint = request_data.get('endpoint', '')
+    params = request_data.get('params', {})
 
-        api_url = f'https://v3.football.api-sports.io/{endpoint}'
-        for k, v in params.items():
-            sep = '?' if '?' not in api_url else '&'
-            api_url += f'{sep}{k}={v}'
+    if not endpoint:
+        return _send_error(400, 'Parametro endpoint obrigatorio')
 
-        try:
-            resp = requests.get(api_url, headers={
-                'x-apisports-key': api_key,
-            }, timeout=25)
+    api_key = os.environ.get('VITE_API_FOOTBALL_KEY', '')
+    if not api_key:
+        return _send_error(500, 'VITE_API_FOOTBALL_KEY nao configurada')
 
-            if resp.status_code != 200:
-                logger.error(f'[APIFootball] Erro {resp.status_code}: {resp.text[:200]}')
-                self._send_error(resp.status_code, f'API-Football {resp.status_code}')
-                return
+    api_url = f'https://v3.football.api-sports.io/{endpoint}'
+    for k, v in params.items():
+        sep = '?' if '?' not in api_url else '&'
+        api_url += f'{sep}{k}={v}'
 
-            data = resp.json()
-            self._send_response(data)
-        except requests.exceptions.Timeout:
-            self._send_error(504, 'API-Football timeout')
-        except Exception as e:
-            logger.exception(f'[APIFootball] Erro ao buscar {endpoint}')
-            self._send_error(500, f'Erro: {str(e)}')
+    try:
+        resp = requests.get(api_url, headers={
+            'x-apisports-key': api_key,
+        }, timeout=25)
 
-    def _send_response(self, data: Dict, status_code: int = 200):
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+        if resp.status_code != 200:
+            logger.error(f'[APIFootball] Erro {resp.status_code}: {resp.text[:200]}')
+            return _send_error(resp.status_code, f'API-Football {resp.status_code}')
 
-    def _send_error(self, status_code: int, message: str):
-        self._send_response({'success': False, 'error': message}, status_code)
+        data = resp.json()
+        return _send_response(data)
+    except requests.exceptions.Timeout:
+        return _send_error(504, 'API-Football timeout')
+    except Exception as e:
+        logger.exception(f'[APIFootball] Erro ao buscar {endpoint}')
+        return _send_error(500, f'Erro: {str(e)}')
 
-    def log_message(self, format, *args):
-        pass
+
+def _send_response(data: Dict, status_code: int = 200) -> Response:
+    return Response(
+        content=json.dumps(data, ensure_ascii=False),
+        status_code=status_code,
+        headers={
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+        },
+    )
+
+
+def _send_error(status_code: int, message: str) -> Response:
+    return _send_response({'success': False, 'error': message}, status_code)

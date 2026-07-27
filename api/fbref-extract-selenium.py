@@ -1,4 +1,4 @@
-"""
+﻿"""
 API route Python para extrair dados de tabelas do fbref.com usando Selenium
 Baseado no repositório app-scraper/scraper_selenium.py
 """
@@ -6,7 +6,8 @@ import json
 import time
 import os
 import re
-from http.server import BaseHTTPRequestHandler
+from starlette.requests import Request
+from starlette.responses import Response
 from typing import Dict, List, Optional
 
 try:
@@ -581,97 +582,74 @@ class FBrefSeleniumScraper:
                 pass
 
 
-class handler(BaseHTTPRequestHandler):
-    """Handler HTTP para Vercel Serverless Function"""
+async def handler(request: Request):
+    """Handler para Vercel Serverless Function"""
 
-    def do_OPTIONS(self):
-        """Handle CORS preflight"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
-
-    def do_POST(self):
-        """Handle POST request"""
-        scraper = None
-        try:
-            # Ler body
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
-            request_data = json.loads(body.decode('utf-8'))
-            
-            # Validar request
-            championship_url = request_data.get('championshipUrl', '')
-            championship_id = request_data.get('championshipId', '')
-            extract_types = request_data.get('extractTypes', ['table'])
-            
-            if not championship_url or 'fbref.com' not in championship_url:
-                self._send_error(400, 'URL inválida. Apenas URLs do fbref.com são permitidas.')
-                return
-            
-            # Inicializar scraper
-            scraper = FBrefSeleniumScraper(headless=True)
-            
-            # Extrair tabelas
-            result = scraper.scrape_any_page(championship_url, extract_all_tables=True)
-            
-            if 'error' in result:
-                response_data = {
-                    'success': False,
-                    'error': result['error']
-                }
-                # Incluir detalhes do erro se disponível (para debug)
-                if 'error_details' in result:
-                    response_data['error_details'] = result['error_details']
-                self._send_response(response_data)
-                return
-            
-            # Mapear tabelas para formato esperado
-            tables = result.get('tables', {})
-            mapped_tables = {
-                'geral': tables.get('geral', [])
+    if request.method == 'OPTIONS':
+        return Response(
+            content='',
+            status_code=200,
+            headers={
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
             }
-            
-            # Identificar tabelas faltantes
-            missing_tables = []
-            for table_type in ['geral']:
-                if not mapped_tables[table_type] or len(mapped_tables[table_type]) == 0:
-                    missing_tables.append(table_type)
-            
-            # Retornar resposta
-            self._send_response({
-                'success': True,
-                'data': {
-                    'tables': mapped_tables,
-                    'missingTables': missing_tables
-                }
-            })
-            
-        except json.JSONDecodeError:
-            self._send_error(400, 'JSON inválido no body da requisição')
-        except Exception as e:
-            self._send_error(500, f'Erro interno: {str(e)}')
-        finally:
-            # Sempre fecha o driver
-            if scraper:
+        )
+
+    if request.method != 'POST':
+        return _send_error(405, 'Método não permitido')
+
+    scraper = None
+    try:
+        body = await request.json()
+
+        championship_url = body.get('championshipUrl', '')
+        championship_id = body.get('championshipId', '')
+        extract_types = body.get('extractTypes', ['table'])
+
+        if not championship_url or 'fbref.com' not in championship_url:
+            return _send_error(400, 'URL inválida. Apenas URLs do fbref.com são permitidas.')
+
+        scraper = FBrefSeleniumScraper(headless=True)
+        result = scraper.scrape_any_page(championship_url, extract_all_tables=True)
+
+        if 'error' in result:
+            response_data = {'success': False, 'error': result['error']}
+            if 'error_details' in result:
+                response_data['error_details'] = result['error_details']
+            return _send_response(response_data)
+
+        tables = result.get('tables', {})
+        mapped_tables = {'geral': tables.get('geral', [])}
+        missing_tables = [t for t in ['geral'] if not mapped_tables.get(t) or len(mapped_tables[t]) == 0]
+
+        return _send_response({
+            'success': True,
+            'data': {'tables': mapped_tables, 'missingTables': missing_tables},
+        })
+
+    except json.JSONDecodeError:
+        return _send_error(400, 'JSON inválido no body da requisição')
+    except Exception as e:
+        return _send_error(500, f'Erro interno: {str(e)}')
+    finally:
+        if scraper:
+            try:
                 scraper.close()
+            except:
+                pass
 
-    def _send_response(self, data: Dict, status_code: int = 200):
-        """Envia resposta JSON"""
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
-    def _send_error(self, status_code: int, message: str):
-        """Envia erro"""
-        self._send_response({
-            'success': False,
-            'error': message
-        }, status_code)
+def _send_response(data: Dict, status_code: int = 200) -> Response:
+    return Response(
+        content=json.dumps(data, ensure_ascii=False),
+        status_code=status_code,
+        headers={
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+        },
+    )
 
-    def log_message(self, format, *args):
-        """Suprime logs padrão"""
-        pass
+
+def _send_error(status_code: int, message: str) -> Response:
+    return _send_response({'success': False, 'error': message}, status_code)

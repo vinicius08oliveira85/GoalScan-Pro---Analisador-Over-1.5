@@ -1,12 +1,15 @@
 """
 Leve proxy que retorna o HTML bruto do FBref para parse client-side (DOMParser).
 Usa headers anti-detecção idênticos ao fbref-extract.py para evitar 403.
-Roda como Vercel Serverless Function.
+Rodar como Vercel Serverless Function.
 """
 import json
 import random
 import time
-from http.server import BaseHTTPRequestHandler
+from typing import Dict, Optional
+
+from starlette.requests import Request
+from starlette.responses import Response
 
 try:
     import requests
@@ -31,88 +34,93 @@ HEADERS = {
 }
 
 
-class handler(BaseHTTPRequestHandler):
+async def handler(request: Request):
+    """Handler para Vercel Serverless Function"""
 
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
+    if request.method == 'OPTIONS':
+        return Response(
+            content='',
+            status_code=200,
+            headers={
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+            }
+        )
 
-    def do_POST(self):
-        try:
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
-            data = json.loads(body.decode('utf-8'))
-            url = data.get('url', '')
+    if request.method != 'POST':
+        return _send_error(405, 'Método não permitido')
 
-            if not url or 'fbref.com' not in url:
-                self._send_error(400, 'URL inválida. Apenas URLs do fbref.com são permitidas.')
-                return
+    try:
+        body = await request.json()
+        url = body.get('url', '')
 
-            session = requests.Session()
-            session.headers.update(HEADERS)
-            last_error = None
+        if not url or 'fbref.com' not in url:
+            return _send_error(400, 'URL inválida. Apenas URLs do fbref.com são permitidas.')
 
-            for attempt in range(3):
-                try:
-                    if attempt > 0:
-                        delay = (2 ** attempt) + random.uniform(0.5, 1.5)
-                        time.sleep(delay)
-                    else:
-                        time.sleep(random.uniform(1.0, 2.0))
+        session = requests.Session()
+        session.headers.update(HEADERS)
+        last_error = None
 
-                    resp = session.get(url, timeout=45, allow_redirects=True)
+        for attempt in range(3):
+            try:
+                if attempt > 0:
+                    delay = (2 ** attempt) + random.uniform(0.5, 1.5)
+                    time.sleep(delay)
+                else:
+                    time.sleep(random.uniform(1.0, 2.0))
 
-                    if resp.status_code == 403:
-                        last_error = '403: Acesso negado pelo FBref'
-                        session.headers['Referer'] = 'https://fbref.com/'
-                        continue
+                resp = session.get(url, timeout=45, allow_redirects=True)
 
-                    if resp.status_code >= 400:
-                        last_error = f'HTTP {resp.status_code}: {resp.reason}'
-                        continue
+                if resp.status_code == 403:
+                    last_error = '403: Acesso negado pelo FBref'
+                    session.headers['Referer'] = 'https://fbref.com/'
+                    continue
 
-                    if resp.encoding is None or resp.encoding == 'ISO-8859-1':
-                        resp.encoding = 'utf-8'
+                if resp.status_code >= 400:
+                    last_error = f'HTTP {resp.status_code}: {resp.reason}'
+                    continue
 
-                    html = resp.text
+                if resp.encoding is None or resp.encoding == 'ISO-8859-1':
+                    resp.encoding = 'utf-8'
 
-                    if len(html) < 10000:
-                        last_error = f'Resposta curta ({len(html)} bytes)'
-                        continue
+                html = resp.text
 
-                    if 'stats_table' not in html and 'id="results' not in html:
-                        last_error = 'HTML sem tabelas de estatísticas'
-                        continue
+                if len(html) < 10000:
+                    last_error = f'Resposta curta ({len(html)} bytes)'
+                    continue
 
-                    self._send_response({'html': html})
-                    return
+                if 'stats_table' not in html and 'id="results' not in html:
+                    last_error = 'HTML sem tabelas de estatísticas'
+                    continue
 
-                except requests.exceptions.Timeout:
-                    last_error = 'Timeout (45s)'
-                except requests.exceptions.ConnectionError:
-                    last_error = 'Erro de conexão'
-                except requests.exceptions.RequestException as e:
-                    last_error = str(e)
+                return _send_response({'html': html})
 
-            self._send_error(502, f'Falha ao acessar FBref após 3 tentativas: {last_error}')
+            except requests.exceptions.Timeout:
+                last_error = 'Timeout (45s)'
+            except requests.exceptions.ConnectionError:
+                last_error = 'Erro de conexão'
+            except requests.exceptions.RequestException as e:
+                last_error = str(e)
 
-        except json.JSONDecodeError:
-            self._send_error(400, 'JSON inválido')
-        except Exception as e:
-            self._send_error(500, f'Erro interno: {str(e)}')
+        return _send_error(502, f'Falha ao acessar FBref após 3 tentativas: {last_error}')
 
-    def _send_response(self, data, status_code=200):
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json; charset=utf-8')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+    except json.JSONDecodeError:
+        return _send_error(400, 'JSON inválido')
+    except Exception as e:
+        return _send_error(500, f'Erro interno: {str(e)}')
 
-    def _send_error(self, status_code, message):
-        self._send_response({'error': message}, status_code)
 
-    def log_message(self, format, *args):
-        pass
+def _send_response(data: Dict, status_code: int = 200) -> Response:
+    return Response(
+        content=json.dumps(data, ensure_ascii=False),
+        status_code=status_code,
+        headers={
+            'Content-Type': 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+        },
+    )
+
+
+def _send_error(status_code: int, message: str) -> Response:
+    return _send_response({'error': message}, status_code)
