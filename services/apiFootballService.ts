@@ -1,18 +1,26 @@
 import { logger } from '../utils/logger';
 
-const PROXY_BASE = '/api/football-proxy';
+const PROXY_URL = '/api/footystats-extract';
 
-async function proxyGet<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
-  const url = new URL(PROXY_BASE, window.location.origin);
-  url.searchParams.set('endpoint', endpoint);
+async function proxyPost<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
+  const body: Record<string, unknown> = {
+    source: 'api-football',
+    endpoint,
+    params: {},
+  };
+
   if (params) {
+    body.params = {};
     for (const [k, v] of Object.entries(params)) {
-      url.searchParams.set(k, String(v));
+      (body.params as Record<string, string>)[k] = String(v);
     }
   }
 
-  const resp = await fetch(url.toString(), {
-    signal: AbortSignal.timeout(20000),
+  const resp = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!resp.ok) {
@@ -115,15 +123,15 @@ export interface ApiFixturesResponse {
 
 export async function fetchStandings(leagueId: number, season: number): Promise<ApiStandingsResponse> {
   logger.info(`[APIFootball] Fetching standings: league=${leagueId}, season=${season}`);
-  return proxyGet<ApiStandingsResponse>('standings', { league: leagueId, season });
+  return proxyPost<ApiStandingsResponse>('standings', { league: leagueId, season });
 }
 
 export async function fetchFixtures(leagueId: number, season: number): Promise<ApiFixturesResponse> {
   logger.info(`[APIFootball] Fetching fixtures: league=${leagueId}, season=${season}`);
-  return proxyGet<ApiFixturesResponse>('fixtures', { league: leagueId, season });
+  return proxyPost<ApiFixturesResponse>('fixtures', { league: leagueId, season });
 }
 
 export async function fetchHeadToHead(team1Id: number, team2Id: number): Promise<ApiFixturesResponse> {
   logger.info(`[APIFootball] Fetching H2H: ${team1Id} vs ${team2Id}`);
-  return proxyGet<ApiFixturesResponse>('fixtures/headtohead', { h2h: `${team1Id}-${team2Id}` });
+  return proxyPost<ApiFixturesResponse>('fixtures/headtohead', { h2h: `${team1Id}-${team2Id}` });
 }

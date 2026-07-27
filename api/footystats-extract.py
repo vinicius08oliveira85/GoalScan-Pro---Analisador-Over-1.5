@@ -6,6 +6,7 @@ Parsing por classes CSS (td.position, td.team, td.mp, etc) em vez de indices de 
 """
 import json
 import logging
+import os
 import random
 import re
 import sys
@@ -424,6 +425,13 @@ class handler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
             request_data = json.loads(body.decode('utf-8'))
+
+            source = request_data.get('source', 'footystats')
+
+            if source == 'api-football':
+                self._handle_api_football(request_data)
+                return
+
             url = request_data.get('url', '')
             if not url or 'footystats.org' not in url:
                 self._send_error(400, 'URL invalida. Apenas URLs do footystats.org sao permitidas.')
@@ -443,6 +451,42 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.exception('Erro interno no handler')
             self._send_error(500, f'Erro interno: {str(e)}')
+
+    def _handle_api_football(self, request_data: Dict):
+        endpoint = request_data.get('endpoint', '')
+        params = request_data.get('params', {})
+
+        if not endpoint:
+            self._send_error(400, 'Parametro endpoint obrigatorio')
+            return
+
+        api_key = os.environ.get('VITE_API_FOOTBALL_KEY', '')
+        if not api_key:
+            self._send_error(500, 'VITE_API_FOOTBALL_KEY nao configurada')
+            return
+
+        api_url = f'https://v3.football.api-sports.io/{endpoint}'
+        for k, v in params.items():
+            sep = '?' if '?' not in api_url else '&'
+            api_url += f'{sep}{k}={v}'
+
+        try:
+            resp = requests.get(api_url, headers={
+                'x-apisports-key': api_key,
+            }, timeout=25)
+
+            if resp.status_code != 200:
+                logger.error(f'[APIFootball] Erro {resp.status_code}: {resp.text[:200]}')
+                self._send_error(resp.status_code, f'API-Football {resp.status_code}')
+                return
+
+            data = resp.json()
+            self._send_response(data)
+        except requests.exceptions.Timeout:
+            self._send_error(504, 'API-Football timeout')
+        except Exception as e:
+            logger.exception(f'[APIFootball] Erro ao buscar {endpoint}')
+            self._send_error(500, f'Erro: {str(e)}')
 
     def _send_response(self, data: Dict, status_code: int = 200):
         self.send_response(status_code)
