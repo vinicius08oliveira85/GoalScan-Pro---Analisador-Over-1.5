@@ -1,14 +1,10 @@
-import { API_FOOTBALL_BASE } from '../config/footballLeagues';
 import { logger } from '../utils/logger';
 
-const API_KEY = import.meta.env.VITE_API_FOOTBALL_KEY || '';
+const PROXY_BASE = '/api/football-proxy';
 
-if (!API_KEY) {
-  logger.warn('[APIFootball] VITE_API_FOOTBALL_KEY nao configurada');
-}
-
-async function apiGet<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-  const url = new URL(path, API_FOOTBALL_BASE);
+async function proxyGet<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
+  const url = new URL(PROXY_BASE, window.location.origin);
+  url.searchParams.set('endpoint', endpoint);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       url.searchParams.set(k, String(v));
@@ -16,12 +12,13 @@ async function apiGet<T>(path: string, params?: Record<string, string | number>)
   }
 
   const resp = await fetch(url.toString(), {
-    headers: { 'x-apisports-key': API_KEY },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(20000),
   });
 
   if (!resp.ok) {
-    throw new Error(`API-Football ${resp.status}: ${resp.statusText}`);
+    const msg = `API-Football ${resp.status}`;
+    logger.error(`[APIFootball] ${msg} (${endpoint})`);
+    throw new Error(msg);
   }
 
   return resp.json() as Promise<T>;
@@ -118,15 +115,15 @@ export interface ApiFixturesResponse {
 
 export async function fetchStandings(leagueId: number, season: number): Promise<ApiStandingsResponse> {
   logger.info(`[APIFootball] Fetching standings: league=${leagueId}, season=${season}`);
-  return apiGet<ApiStandingsResponse>('/standings', { league: leagueId, season });
+  return proxyGet<ApiStandingsResponse>('standings', { league: leagueId, season });
 }
 
 export async function fetchFixtures(leagueId: number, season: number): Promise<ApiFixturesResponse> {
   logger.info(`[APIFootball] Fetching fixtures: league=${leagueId}, season=${season}`);
-  return apiGet<ApiFixturesResponse>('/fixtures', { league: leagueId, season });
+  return proxyGet<ApiFixturesResponse>('fixtures', { league: leagueId, season });
 }
 
 export async function fetchHeadToHead(team1Id: number, team2Id: number): Promise<ApiFixturesResponse> {
   logger.info(`[APIFootball] Fetching H2H: ${team1Id} vs ${team2Id}`);
-  return apiGet<ApiFixturesResponse>('/fixtures/headtohead', { h2h: `${team1Id}-${team2Id}` });
+  return proxyGet<ApiFixturesResponse>('fixtures/headtohead', { h2h: `${team1Id}-${team2Id}` });
 }
