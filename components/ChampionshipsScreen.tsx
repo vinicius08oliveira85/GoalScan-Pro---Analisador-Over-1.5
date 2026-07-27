@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, ExternalLink } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Eye, ExternalLink, Download } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
 import FbrefExtractionModal from './FbrefExtractionModal';
+import AutoImportBrasileiraoModal from './AutoImportBrasileiraoModal';
 import ModalShell from './ui/ModalShell';
 import ConfirmDialog from './ui/ConfirmDialog';
 import EmptyState from './ui/EmptyState';
@@ -17,7 +18,7 @@ const ChampionshipsScreen: React.FC = () => {
     console.error('[ChampionshipsScreen]', message);
   };
 
-  const { championships, isLoading, isSaving, save, remove, loadTables, removeTable } =
+  const { championships, isLoading, isSaving, save, remove, loadTables, removeTable, load } =
     useChampionships(handleError);
 
   const [showForm, setShowForm] = useState(false);
@@ -27,6 +28,7 @@ const ChampionshipsScreen: React.FC = () => {
     tables: ChampionshipTable[];
   } | null>(null);
   const [extractingFbref, setExtractingFbref] = useState<Championship | null>(null);
+  const [showAutoImport, setShowAutoImport] = useState(false);
   const [deletingTable, setDeletingTable] = useState<{
     championship: Championship;
     table: ChampionshipTable;
@@ -65,6 +67,14 @@ const ChampionshipsScreen: React.FC = () => {
       console.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
       handleError(`Erro ao salvar campeonato: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
+  };
+
+  const handleAutoImportSuccess = async (championship: Championship, tables: ChampionshipTable[]) => {
+    await load();
+    if (tables.length > 0) {
+      setViewingTables({ championship, tables });
+    }
+    setShowAutoImport(false);
   };
 
   const handleConfirmDeleteTable = async () => {
@@ -108,10 +118,16 @@ const ChampionshipsScreen: React.FC = () => {
             </p>
           </div>
         </div>
-        <button onClick={handleNewChampionship} className="btn btn-primary btn-sm gap-1.5 shadow-lg">
-          <Plus className="w-4 h-4" />
-          Novo
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handleNewChampionship} className="btn btn-primary btn-sm gap-1.5 shadow-lg">
+            <Plus className="w-4 h-4" />
+            Novo
+          </button>
+          <button onClick={() => setShowAutoImport(true)} className="btn btn-secondary btn-sm gap-1.5 shadow-lg">
+            <Download className="w-4 h-4" />
+            Brasileirão 2026
+          </button>
+        </div>
       </div>
 
       {/* Lista de Campeonatos */}
@@ -284,6 +300,14 @@ const ChampionshipsScreen: React.FC = () => {
           onError={handleError}
         />
       )}
+
+      {/* Modal de Importação Automática Brasileirão 2026 */}
+      <AutoImportBrasileiraoModal
+        isOpen={showAutoImport}
+        onClose={() => setShowAutoImport(false)}
+        onSuccess={handleAutoImportSuccess}
+        onError={handleError}
+      />
 
       {/* Confirm Dialog para exclusão de tabela */}
       <ConfirmDialog
