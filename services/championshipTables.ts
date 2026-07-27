@@ -71,13 +71,16 @@ export const loadChampionshipTables = async (
       return Array.from(byType.values());
     };
 
-    const result = await withRetry(async () => {
-      const supabase = await getSupabaseClient();
-      const { data, error } = await supabase
-        .from('championship_tables')
-        .select('*')
-        .eq('championship_id', championshipId)
-        .order('table_type', { ascending: true });
+const result = await withRetry(async () => {
+       const supabase = await getSupabaseClient();
+       if (!supabase) {
+         return loadChampionshipTablesFromLocalStorage(championshipId);
+       }
+       const { data, error } = await supabase
+         .from('championship_tables')
+         .select('*')
+         .eq('championship_id', championshipId)
+         .order('table_type', { ascending: true });
 
       if (error) {
         if (error.code === 'PGRST116' || error.code === '42P01') {
@@ -160,10 +163,13 @@ export const saveChampionshipTable = async (
     return saveChampionshipTableToLocalStorage(table);
   }
 
-  try {
-    const result = await withRetry(async () => {
-      const supabase = await getSupabaseClient();
-      const now = new Date().toISOString();
+try {
+     const result = await withRetry(async () => {
+       const supabase = await getSupabaseClient();
+       if (!supabase) {
+         return saveChampionshipTableToLocalStorage(table);
+       }
+       const now = new Date().toISOString();
       
       if (import.meta.env.DEV) {
         logger.log(`[ChampionshipService] Salvando tabela ${table.table_type} para campeonato ${table.championship_id}`);
@@ -502,10 +508,15 @@ export const deleteChampionshipTable = async (
     throw new Error('championshipId e tableType são obrigatórios para deletar tabela');
   }
 
-  try {
-    await withRetry(async () => {
-      const supabase = await getSupabaseClient();
-      const { error } = await supabase
+try {
+     await withRetry(async () => {
+       const supabase = await getSupabaseClient();
+       if (!supabase) {
+         deleteChampionshipTableFromLocalStorageByType(championshipId, tableType);
+         clearServiceStatus();
+         return;
+       }
+       const { error } = await supabase
         .from('championship_tables')
         .delete()
         .eq('championship_id', championshipId)
@@ -1194,10 +1205,11 @@ function normalizeTeamData(
 export const detectChampionshipTableFormat = async (
   championshipId: string
 ): Promise<TableFormat | null> => {
-  try {
-    const supabase = await getSupabaseClient();
-    
-    // Chamar função SQL de detecção
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return null;
+     
+     // Chamar função SQL de detecção
     const { data, error } = await supabase.rpc('detect_championship_table_format', {
       champ_id: championshipId,
     });
@@ -1225,9 +1237,10 @@ export const updateChampionshipTableFormat = async (
   championshipId: string,
   tableFormat: TableFormat
 ): Promise<void> => {
-  try {
-    const supabase = await getSupabaseClient();
-    const { error } = await supabase
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return;
+     const { error } = await supabase
       .from('championships')
       .update({ table_format: tableFormat })
       .eq('id', championshipId);
@@ -1259,10 +1272,12 @@ export const saveChampionshipTeamsNormalized = async (
   tableName: string,
   teamsData: TableRowGeral[]
 ): Promise<void> => {
-  try {
-    const supabase = await getSupabaseClient();
-
-    // 1. Detectar formato da planilha automaticamente
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) {
+       throw new Error('Supabase nao configurado');
+     }
+     // 1. Detectar formato da planilha automaticamente
     const detectedFormat = detectTableFormatFromData(teamsData);
     
     // 2. Atualizar formato no campeonato (se ainda não estiver definido ou se detectado for diferente)
@@ -1412,9 +1427,10 @@ export const saveChampionshipTeamsNormalized = async (
 export const loadChampionshipTeams = async (
   championshipId: string
 ): Promise<ChampionshipTeam[]> => {
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return [];
+     const { data, error } = await supabase
       .from('championship_teams')
       .select('*')
       .eq('championship_id', championshipId)

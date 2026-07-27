@@ -32,9 +32,10 @@ function validateBackup(data: unknown): data is GoalScanBackup {
 async function upsertAll(table: string, rows: unknown[]): Promise<number> {
   if (!rows || rows.length === 0) return 0;
   try {
-    const { getSupabaseClient } = await import('./championshipService');
-    const supabase = await getSupabaseClient();
-    const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
+const { getSupabaseClient } = await import('./championshipService');
+     const supabase = await getSupabaseClient();
+     if (!supabase) return 0;
+     const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
     if (error) {
       logger.warn(`[ImportService] Erro ao importar ${table}:`, error.message);
       return 0;
@@ -49,11 +50,12 @@ async function upsertAll(table: string, rows: unknown[]): Promise<number> {
 async function upsertComplement(rows: unknown[]): Promise<number> {
   if (!rows || rows.length === 0) return 0;
   try {
-    const { getSupabaseClient } = await import('./championshipService');
-    const supabase = await getSupabaseClient();
-    const { error } = await supabase
-      .from('championship_complement')
-      .upsert(rows, { onConflict: 'championship_id,squad' });
+const { getSupabaseClient } = await import('./championshipService');
+     const supabase = await getSupabaseClient();
+     if (!supabase) return 0;
+     const { error } = await supabase
+       .from('championship_complement')
+       .upsert(rows, { onConflict: 'championship_id,squad' });
     if (error) {
       logger.warn('[ImportService] Erro ao importar complement:', error.message);
       return 0;

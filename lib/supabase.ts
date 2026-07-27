@@ -10,10 +10,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+// Flag indicando se o Supabase está configurado
+export const isSupabaseConfigured = SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
+
 // Importação dinâmica do Supabase
 let supabaseClient: SupabaseClient | null = null;
 let supabaseModule: typeof import('@supabase/supabase-js') | null = null;
-let initializationPromise: Promise<SupabaseClient> | null = null;
+let initializationPromise: Promise<SupabaseClient | null> | null = null;
 
 // Flag para garantir que o interceptor seja configurado apenas uma vez
 let fetchInterceptorSetup = false;
@@ -65,7 +68,7 @@ if (typeof window !== 'undefined') {
   setupFetchInterceptor();
 }
 
-export const getSupabaseClient = async () => {
+export const getSupabaseClient = async (): Promise<SupabaseClient | null> => {
   if (supabaseClient) return supabaseClient;
   if (initializationPromise) return initializationPromise;
 
@@ -73,37 +76,10 @@ export const getSupabaseClient = async () => {
     logger.log('[Supabase] Inicializando cliente...');
 
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      const missingVars: string[] = [];
-      if (!SUPABASE_URL) missingVars.push('VITE_SUPABASE_URL');
-      if (!SUPABASE_ANON_KEY) missingVars.push('VITE_SUPABASE_ANON_KEY');
-
-      const isProduction =
-        window.location.hostname.includes('vercel.app') ||
-        window.location.hostname.includes('vercel.com') ||
-        import.meta.env.PROD;
-
-      let errorMessage = `Variáveis de ambiente do Supabase não configuradas: ${missingVars.join(', ')}.\n\n`;
-
-      if (isProduction) {
-        errorMessage += '🔧 CONFIGURAÇÃO NO VERCEL:\n';
-        errorMessage += '1. Acesse: https://vercel.com/dashboard\n';
-        errorMessage += '2. Selecione seu projeto\n';
-        errorMessage += '3. Vá em Settings > Environment Variables\n';
-        errorMessage += '4. Adicione as seguintes variáveis:\n';
-        errorMessage += '   - VITE_SUPABASE_URL = https://seu-projeto.supabase.co\n';
-        errorMessage += '   - VITE_SUPABASE_ANON_KEY = sua_chave_anonima_aqui\n';
-        errorMessage += '5. Faça um novo deploy (ou aguarde o redeploy automático)\n\n';
-        errorMessage += '💡 As variáveis precisam começar com VITE_ para serem expostas ao cliente.';
-      } else {
-        errorMessage += '🔧 CONFIGURAÇÃO LOCAL:\n';
-        errorMessage += '1. Crie um arquivo .env na raiz do projeto\n';
-        errorMessage += '2. Adicione as seguintes variáveis:\n';
-        errorMessage += '   VITE_SUPABASE_URL=https://seu-projeto.supabase.co\n';
-        errorMessage += '   VITE_SUPABASE_ANON_KEY=sua_chave_anonima_aqui\n';
-        errorMessage += '3. Reinicie o servidor de desenvolvimento (npm run dev)';
+      if (import.meta.env.DEV) {
+        logger.warn('[Supabase] Variáveis de ambiente não configuradas. Usando localStorage como fallback.');
       }
-
-      throw new Error(errorMessage);
+      return null;
     }
 
     try {

@@ -54,9 +54,12 @@ export async function processBetTransactionRpcDirect(
     return { ok: false, error: 'noop' };
   }
 
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase.rpc('process_bet_transaction', {
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) {
+       return { ok: false, error: 'Supabase nao configurado' };
+     }
+     const { data, error } = await supabase.rpc('process_bet_transaction', {
       p_settings_id: params.settingsId ?? 'default',
       p_bet_id: params.betId,
       p_signed_delta: signed,
@@ -115,9 +118,12 @@ export async function commitBetToBankAtomic(payload: CommitBetBankPayload): Prom
     newStatus: payload.betInfo.status,
   });
 
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase.functions.invoke('update-bet-and-bank', {
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) {
+       return { ok: false, error: 'Supabase nao configurado' };
+     }
+     const { data, error } = await supabase.functions.invoke('update-bet-and-bank', {
       body: {
         match_id: payload.matchId,
         bet_info: JSON.parse(JSON.stringify(payload.betInfo)),
@@ -246,13 +252,14 @@ function mapBankTransactionRow(row: Record<string, unknown>): BankTransaction {
  * Busca o histórico de transações da banca (`bank_transactions`).
  */
 export async function fetchBankHistory(limit = 50): Promise<BankTransaction[]> {
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
-      .from('bank_transactions')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return [];
+     const { data, error } = await supabase
+       .from('bank_transactions')
+       .select('*')
+       .order('created_at', { ascending: false })
+       .limit(limit);
 
     if (error) throw error;
     if (!data?.length) return [];

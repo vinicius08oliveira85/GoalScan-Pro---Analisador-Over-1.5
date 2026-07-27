@@ -47,10 +47,11 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
       logger.log('[Supabase] Iniciando carregamento de análises salvas...');
     }
     
-    const supabase = await getSupabaseClient();
-
-    if (import.meta.env.DEV) {
-      logger.log('[Supabase] Cliente inicializado, fazendo query...');
+const supabase = await getSupabaseClient();
+     if (!supabase) return [];
+ 
+     if (import.meta.env.DEV) {
+       logger.log('[Supabase] Cliente inicializado, fazendo query...');
     }
     
     const { data, error } = await supabase
@@ -136,9 +137,10 @@ export const loadSavedAnalyses = async (): Promise<SavedAnalysis[]> => {
  * Salva uma nova análise no Supabase
  */
 export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalysis> => {
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
+   try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) throw new Error('Supabase nao configurado');
+     const { data, error } = await supabase
       .from('saved_analyses')
       .insert({
         id: analysis.id,
@@ -174,9 +176,10 @@ export const saveAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalys
  * Atualiza uma análise existente no Supabase
  */
 export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnalysis> => {
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
+   try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) throw new Error('Supabase nao configurado');
+     const { data, error } = await supabase
       .from('saved_analyses')
       .update({
         timestamp: analysis.timestamp,
@@ -212,9 +215,10 @@ export const updateAnalysis = async (analysis: SavedAnalysis): Promise<SavedAnal
  * Deleta uma análise do Supabase
  */
 export const deleteAnalysis = async (id: string): Promise<void> => {
-  try {
-    const supabase = await getSupabaseClient();
-    const { error } = await supabase.from('saved_analyses').delete().eq('id', id);
+   try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return;
+     const { error } = await supabase.from('saved_analyses').delete().eq('id', id);
 
     if (error) {
       logger.error('Erro ao deletar análise do Supabase:', error);
@@ -259,6 +263,7 @@ export const saveOrUpdateAnalysis = async (
     }
 
     const supabase = await getSupabaseClient();
+    if (!supabase) return analysis;
     const { data, error } = await supabase
       .from('saved_analyses')
       .upsert(
@@ -335,9 +340,10 @@ export const loadBankSettings = async (): Promise<BankSettings | null> => {
     return null;
   }
 
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return null;
+     const { data, error } = await supabase
       .from('bank_settings')
       .select('*')
       .eq('id', 'default')
@@ -406,14 +412,15 @@ export const saveBankSettings = async (settings: BankSettings): Promise<BankSett
     } catch (validationError) {
       logger.error('Erro de validação ao salvar configurações de banca:', validationError);
       throw new Error(
-        `Dados inválidos: ${validationError instanceof Error ? validationError.message : 'Erro desconhecido'}`
-      );
-    }
-
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
-      .from('bank_settings')
-      .upsert(
+`Dados inválidos: ${validationError instanceof Error ? validationError.message : 'Erro desconhecido'}`
+       );
+     }
+ 
+     const supabase = await getSupabaseClient();
+     if (!supabase) throw new Error('Supabase nao configurado');
+     const { data, error } = await supabase
+       .from('bank_settings')
+       .upsert(
         {
           id: 'default',
           total_bank: settings.totalBank,

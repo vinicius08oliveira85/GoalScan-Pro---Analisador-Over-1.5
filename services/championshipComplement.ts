@@ -125,10 +125,11 @@ export const saveChampionshipComplement = async (
   tableName: string,
   complementData: TableRowComplement[]
 ): Promise<void> => {
-  try {
-    const supabase = await getSupabaseClient();
-
-    // 1. Deletar dados existentes do campeonato
+try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) throw new Error('Supabase nao configurado');
+ 
+     // 1. Deletar dados existentes do campeonato
     const { error: deleteError } = await supabase
       .from('championship_complement')
       .delete()
@@ -191,15 +192,16 @@ export const saveChampionshipComplement = async (
  * Carrega todos os dados de complemento de um campeonato
  */
 export const loadChampionshipComplement = async (
-  championshipId: string
-): Promise<ChampionshipComplement[]> => {
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
-      .from('championship_complement')
-      .select('*')
-      .eq('championship_id', championshipId)
-      .order('squad', { ascending: true });
+   championshipId: string
+ ): Promise<ChampionshipComplement[]> => {
+   try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return [];
+     const { data, error } = await supabase
+       .from('championship_complement')
+       .select('*')
+       .eq('championship_id', championshipId)
+       .order('squad', { ascending: true });
 
     if (error) {
       if (error.code === 'PGRST116' || error.code === '42P01') {
@@ -250,16 +252,17 @@ export const loadChampionshipComplement = async (
  * Busca dados de complemento de um time específico
  */
 export const getComplementBySquad = async (
-  championshipId: string,
-  squad: string
-): Promise<ChampionshipComplement | null> => {
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase
-      .from('championship_complement')
-      .select('*')
-      .eq('championship_id', championshipId)
-      .eq('squad', squad)
+championshipId: string,
+   squad: string
+ ): Promise<ChampionshipComplement | null> => {
+   try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return null;
+     const { data, error } = await supabase
+       .from('championship_complement')
+       .select('*')
+       .eq('championship_id', championshipId)
+       .eq('squad', squad)
       .single();
 
     if (error) {

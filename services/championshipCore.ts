@@ -318,21 +318,22 @@ export const loadChampionships = async (): Promise<Championship[]> => {
       logger.log('[ChampionshipService] Carregando campeonatos...');
     }
     
-    const result = await withRetry(async () => {
-      const supabase = await getSupabaseClient();
-      const { data, error } = await supabase
-        .from('championships')
-        .select('*')
-        .order('nome', { ascending: true });
+const result = await withRetry(async () => {
+       const supabase = await getSupabaseClient();
+       if (!supabase) return saveChampionshipToLocalStorage(championship);
+       const { data, error } = await supabase
+         .from('championships')
+         .select('*')
+         .order('nome', { ascending: true });
 
-      if (error) {
-        // Se tabela não existe, usar localStorage
-        if (error.code === 'PGRST116' || error.code === '42P01') {
-          if (import.meta.env.DEV) {
-            logger.warn('[ChampionshipService] Tabela não encontrada, usando localStorage');
-          }
-          return loadChampionshipsFromLocalStorage();
-        }
+       if (error) {
+         // Se tabela não existe, usar localStorage
+         if (error.code === 'PGRST116' || error.code === '42P01') {
+           if (import.meta.env.DEV) {
+             logger.warn('[ChampionshipService] Tabela nao encontrada, usando localStorage');
+           }
+           return loadChampionshipsFromLocalStorage();
+         }
         
         // Se é erro temporário, lançar para que o retry funcione
         if (isTemporaryError(error)) {
@@ -653,9 +654,13 @@ export const saveChampionship = async (championship: Championship): Promise<Cham
  */
 export const deleteChampionship = async (id: string): Promise<void> => {
   try {
-    await withRetry(async () => {
-      const supabase = await getSupabaseClient();
-      const { error } = await supabase.from('championships').delete().eq('id', id);
+await withRetry(async () => {
+       const supabase = await getSupabaseClient();
+       if (!supabase) {
+         deleteChampionshipFromLocalStorage(id);
+         return;
+       }
+       const { error } = await supabase.from('championships').delete().eq('id', id);
 
       if (error) {
         if (error.code === 'PGRST116' || error.code === '42P01') {
@@ -692,9 +697,10 @@ export const deleteChampionship = async (id: string): Promise<void> => {
  * Atualiza o campo uploaded_at do campeonato
  */
 export const updateChampionshipUploadedAt = async (championshipId: string): Promise<void> => {
-  try {
-    const supabase = await getSupabaseClient();
-    const { error } = await supabase
+   try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return;
+     const { error } = await supabase
       .from('championships')
       .update({ uploaded_at: new Date().toISOString() })
       .eq('id', championshipId);

@@ -28,9 +28,10 @@ export interface GoalScanBackup {
 }
 
 async function fetchAll<T>(from: string): Promise<T[]> {
-  try {
-    const supabase = await getSupabaseClient();
-    const { data, error } = await supabase.from(from).select('*');
+   try {
+     const supabase = await getSupabaseClient();
+     if (!supabase) return [];
+     const { data, error } = await supabase.from(from).select('*');
     if (error || !data) return [];
     return data as T[];
   } catch {
