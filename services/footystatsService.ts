@@ -2,7 +2,6 @@ import { logger } from '../utils/logger';
 
 const FOOTYSTATS_API_URL = '/api/footystats-extract';
 
-// CORS proxies gratuitos para fallback client-side
 const CORS_PROXIES = [
   'https://api.allorigins.win/raw?url=',
   'https://corsproxy.io/?url=',
@@ -25,6 +24,14 @@ export interface FootyStatsStanding {
   GA: string;
   GD: string;
   Pts: string;
+  last5?: string;
+  ppg?: string;
+  cs?: string;
+  btts?: string;
+  xg?: string;
+  over15?: string;
+  over25?: string;
+  avg?: string;
   [key: string]: unknown;
 }
 
@@ -32,9 +39,7 @@ export interface FootyStatsMatch {
   homeTeam: string;
   awayTeam: string;
   score?: string;
-  htScore?: string;
   date?: string;
-  time?: string;
   status?: string;
 }
 
@@ -65,11 +70,7 @@ async function callPythonApi<T>(url: string): Promise<FootyStatsResult<T>> {
   return response.json() as Promise<FootyStatsResult<T>>;
 }
 
-/**
- * Tenta extrair tabelas do HTML via DOMParser no navegador (client-side)
- * Usa um CORS proxy para contornar bloqueios
- */
-async function parseHtmlClientSide(fullUrl: string): Promise<string | null> {
+async function fetchViaCorsProxy(fullUrl: string): Promise<string | null> {
   for (const proxy of CORS_PROXIES) {
     try {
       const resp = await fetch(proxy + encodeURIComponent(fullUrl), {
@@ -86,43 +87,150 @@ async function parseHtmlClientSide(fullUrl: string): Promise<string | null> {
   return null;
 }
 
+const HEADER_ALIASES: Record<string, string> = {
+  '#': 'Rk', 'pos': 'Rk', 'position': 'Rk', 'rk': 'Rk',
+  'team': 'Squad', 'club': 'Squad', 'equipe': 'Squad', 'time': 'Squad',
+  'mp': 'MP', 'pld': 'MP', 'played': 'MP', 'j': 'MP',
+  'w': 'W', 'win': 'W', 'vitorias': 'W',
+  'd': 'D', 'draw': 'D', 'empates': 'D',
+  'l': 'L', 'loss': 'L', 'derrotas': 'L',
+  'gf': 'GF', 'goals for': 'GF', 'gols pro': 'GF',
+  'ga': 'GA', 'goals against': 'GA', 'gols contra': 'GA',
+  'gd': 'GD', 'goal diff': 'GD', 'saldo': 'GD',
+  'pts': 'Pts', 'points': 'Pts', 'pontos': 'Pts',
+  'last 5': 'last5', 'last 6': 'last5', 'form': 'last5',
+  'ppg': 'ppg', 'pts/mp': 'ppg', 'pontos/j': 'ppg',
+  'cs': 'cs', 'clean sheet': 'cs',
+  'btts': 'btts', 'both teams': 'btts',
+  'xgf': 'xg', 'x g': 'xg', 'expected goals': 'xg',
+  '1.5+': 'over15', 'over 1.5': 'over15',
+  '2.5+': 'over25', 'over 2.5': 'over25',
+  'avg': 'avg', 'media': 'avg',
+};
+
+function normalizeHeader(text: string): string | null {
+  const cleaned = text.replace(/[^a-zA-Z0-9+#.]/g, ' ').trim().toLowerCase();
+  for (const [key, val] of Object.entries(HEADER_ALIASES)) {
+    if (cleaned === key || cleaned.startsWith(key) || key.startsWith(cleaned)) {
+      return val;
+    }
+  }
+  return null;
+}
+
+function isPremiumLink(text: string): boolean {
+  return text.includes('premium') || text.includes('footystats.org');
+}
+
+function extractStandingsFromTable(table: HTMLTableElement): FootyStatsStanding[] {
+  const thead = table.querySelector('thead');
+  const headerMap: number[] = [];
+  const squadColIdx: number[] = [];
+
+  if (thead) {
+    const headerCells = thead.querySelectorAll('th, td');
+    headerCells.forEach((cell, i) => {
+      const text = cell.textContent?.trim() || '';
+      const normalized = normalizeHeader(text);
+      if (normalized) {
+        if (normalized === 'Squad') squadColIdx.push(i);
+        else headerMap.push(i);
+      }
+    });
+  }
+
+  const rows = table.querySelectorAll('tbody tr');
+  const results: FootyStatsStanding[] = [];
+
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length < 5) return;
+
+    const entry: FootyStatsStanding = { Rk: '', Squad: '', MP: '', W: '', D: '', L: '', GF: '', GA: '', GD: '', Pts: '' };
+
+    let squadFound = false;
+    if (squadColIdx.length > 0) {
+      for (const idx of squadColIdx) {
+        if (idx < cells.length) {
+          const a = cells[idx].querySelector('a');
+          const name = (a || cells[idx]).textContent?.trim() || '';
+          if (name && name.length > 2 && !isPremiumLink(name)) {
+            entry.Squad = name;
+            squadFound = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!squadFound) {
+      cells.forEach((cell, i) => {
+        const a = cell.querySelector('a');
+        if (!a) return;
+        const name = a.textContent?.trim() || '';
+        if (name && name.length > 2 && !isPremiumLink(name)) {
+          const isNumeric = /^\d/.test(name);
+          if (!isNumeric) {
+            entry.Squad = name;
+            squadFound = true;
+          }
+        }
+      });
+    }
+
+    if (!squadFound) return;
+
+    if (headerMap.length > 0) {
+      headerMap.forEach(h => {
+        const val = cells[h]?.textContent?.trim() || '';
+        if (!val || isPremiumLink(val)) return;
+        const headerText = thead?.querySelectorAll('th, td')[h]?.textContent?.trim() || '';
+        const key = normalizeHeader(headerText);
+        if (key && key !== 'Squad' && key !== 'Rk') {
+          (entry as any)[key] = val;
+        }
+      });
+    } else {
+      const textValues: string[] = [];
+      cells.forEach(c => {
+        const t = c.textContent?.trim() || '';
+        if (!isPremiumLink(t)) textValues.push(t);
+      });
+
+      const numericCols = ['MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts'];
+      let dataIdx = 0;
+      for (let i = 0; i < textValues.length && dataIdx < numericCols.length; i++) {
+        if (textValues[i] === entry.Squad) continue;
+        if (/^\d/.test(textValues[i]) || textValues[i] === '0') {
+          (entry as any)[numericCols[dataIdx]] = textValues[i];
+          dataIdx++;
+        }
+      }
+    }
+
+    results.push(entry);
+  });
+
+  return results;
+}
+
 function extractStandingsFromHtml(html: string): FootyStatsStanding[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-
   const tables = doc.querySelectorAll('table');
-  let rows: NodeListOf<HTMLTableRowElement> | null = null;
 
   for (const table of tables) {
-    const trs = table.querySelectorAll('tbody tr');
-    if (trs.length >= 18) { rows = trs as NodeListOf<HTMLTableRowElement>; break; }
+    const rows = table.querySelectorAll('tbody tr');
+    if (rows.length >= 18) {
+      const result = extractStandingsFromTable(table);
+      if (result.length >= 18) return result;
+    }
   }
-
-  if (!rows || rows.length === 0) return [];
-
-  const results: FootyStatsStanding[] = [];
-  for (const row of rows) {
-    const cells = row.querySelectorAll('td');
-    if (cells.length < 8) continue;
-
-    const entry: FootyStatsStanding = { Rk: '', Squad: '', MP: '', W: '', D: '', L: '', GF: '', GA: '', GD: '', Pts: '' };
-    const squadEl = row.querySelector('td.team-name a, td.team-name span, td a');
-    if (squadEl) entry.Squad = squadEl.textContent?.trim() || '';
-    if (!entry.Squad) continue;
-
-    const cellValues: string[] = [];
-    cells.forEach(c => cellValues.push(c.textContent?.trim() || ''));
-
-    entry.Rk = cellValues[0] || '';
-    const colMap = ['MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts'];
-    const startIdx = 1;
-    colMap.forEach((key, i) => {
-      const val = cellValues[startIdx + i];
-      if (val) (entry as any)[key] = val;
-    });
-    results.push(entry);
+  for (const table of tables) {
+    const result = extractStandingsFromTable(table);
+    if (result.length > 0) return result;
   }
-  return results;
+  return [];
 }
 
 function extractFixturesFromHtml(html: string): FootyStatsMatch[] {
@@ -135,24 +243,31 @@ function extractFixturesFromHtml(html: string): FootyStatsMatch[] {
   rows.forEach(row => {
     const cells = row.querySelectorAll('td');
     if (cells.length < 3) return;
-    const text = row.textContent || '';
-    const parts = text.split(/\s{3,}|\t+/).map(s => s.trim()).filter(Boolean);
 
-    const teams = parts.filter(p => /^[A-Z][a-zA-ZáéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ\s]{2,}/.test(p) && p.length > 2);
-    if (teams.length < 2) return;
+    const teamLinks: string[] = [];
+    cells.forEach(cell => {
+      const a = cell.querySelector('a');
+      if (!a) return;
+      const name = a.textContent?.trim() || '';
+      if (name.length > 2 && !isPremiumLink(name) && !/^\d/.test(name)) {
+        teamLinks.push(name);
+      }
+    });
 
-    const home = teams[0], away = teams[teams.length - 1];
+    if (teamLinks.length < 2) return;
+    const home = teamLinks[0], away = teamLinks[teamLinks.length - 1];
     const key = `${home}_${away}`;
     if (seen.has(key)) return;
     seen.add(key);
 
+    const text = row.textContent || '';
     const entry: FootyStatsMatch = { homeTeam: home, awayTeam: away };
+
     const scoreMatch = text.match(/(\d+)\s*[-–:]\s*(\d+)/);
     if (scoreMatch) entry.score = `${scoreMatch[1]}-${scoreMatch[2]}`;
-    const htMatch = text.match(/\((\d+)[-–:](\d+)\)/);
-    if (htMatch) entry.htScore = `${htMatch[1]}-${htMatch[2]}`;
     const dateMatch = text.match(/(\d{2}[-/]\d{2}[-/]\d{4}|\d{4}[-/]\d{2}[-/]\d{2})/);
     if (dateMatch) entry.date = dateMatch[1];
+
     matches.push(entry);
   });
 
@@ -162,30 +277,38 @@ function extractFixturesFromHtml(html: string): FootyStatsMatch[] {
 function extractFormFromHtml(html: string): { last5: FootyStatsFormEntry[]; last10: FootyStatsFormEntry[] } {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  const tables = doc.querySelectorAll('table');
-  const allRows: FootyStatsFormEntry[] = [];
+  const allTables = doc.querySelectorAll('table');
+  const tables: FootyStatsFormEntry[][] = [];
 
-  tables.forEach(table => {
-    const trs = table.querySelectorAll('tbody tr');
-    trs.forEach(row => {
-      const squadEl = row.querySelector('td.team-name a, td.team-name span, td a');
-      if (!squadEl) return;
-      const entry: FootyStatsFormEntry = { Squad: squadEl.textContent?.trim() || '' };
-      if (!entry.Squad) return;
+  allTables.forEach(table => {
+    const entries: FootyStatsFormEntry[] = [];
+    const rows = table.querySelectorAll('tbody tr');
+    if (rows.length < 5) return;
+
+    rows.forEach(row => {
+      const a = row.querySelector('td a');
+      if (!a) return;
+      const name = a.textContent?.trim() || '';
+      if (!name || name.length < 3 || isPremiumLink(name)) return;
+
+      const entry: FootyStatsFormEntry = { Squad: name };
       row.querySelectorAll('td').forEach((td, i) => {
-        const val = td.textContent?.trim();
-        if (val) entry[`col_${i}`] = val;
+        const val = td.textContent?.trim() || '';
+        if (val && !isPremiumLink(val)) entry[`col_${i}`] = val;
       });
-      allRows.push(entry);
+      entries.push(entry);
     });
+
+    if (entries.length > 0) tables.push(entries);
   });
 
-  if (allRows.length === 0) return { last5: [], last10: [] };
-  if (allRows.length >= 40) {
-    const mid = Math.floor(allRows.length / 2);
-    return { last5: allRows.slice(0, mid), last10: allRows.slice(mid) };
+  if (tables.length >= 2) return { last5: tables[0], last10: tables[1] };
+  if (tables.length === 1 && tables[0].length >= 20) {
+    const mid = Math.floor(tables[0].length / 2);
+    return { last5: tables[0].slice(0, mid), last10: tables[0].slice(mid) };
   }
-  return { last5: allRows, last10: [] };
+  if (tables.length === 1) return { last5: tables[0], last10: [] };
+  return { last5: [], last10: [] };
 }
 
 async function callWithFallback<T>(
@@ -193,17 +316,15 @@ async function callWithFallback<T>(
   pythonParser: (url: string) => Promise<FootyStatsResult<T>>,
   clientParser: (html: string) => T,
 ): Promise<FootyStatsResult<T>> {
-  // Tenta Python API primeiro (Vercel)
   const pyResult = await pythonParser(url).catch(() => null);
   if (pyResult?.success && pyResult.data) return pyResult;
 
-  // Fallback: client-side via CORS proxy
   logger.info('[FootyStats] Python falhou, tentando client-side via CORS proxy...');
-  const html = await parseHtmlClientSide(url);
+  const html = await fetchViaCorsProxy(url);
   if (!html) {
     return {
       success: false,
-      error: pyResult?.error || 'Não foi possível acessar o FootyStats por nenhuma via. O site pode estar bloqueado.',
+      error: pyResult?.error || 'Não foi possível acessar o FootyStats por nenhuma via.',
     };
   }
 

@@ -131,6 +131,39 @@ class FootyStatsScraper:
             return 'fixtures'
         return 'standings'
 
+    HEADER_ALIASES = {
+        '#': 'Rk', 'pos': 'Rk', 'position': 'Rk',
+        'team': 'Squad', 'club': 'Squad', 'equipe': 'Squad',
+        'mp': 'MP', 'pld': 'MP', 'played': 'MP',
+        'w': 'W', 'win': 'W',
+        'd': 'D', 'draw': 'D',
+        'l': 'L', 'loss': 'L',
+        'gf': 'GF', 'goals for': 'GF', 'goals for (gf)': 'GF',
+        'ga': 'GA', 'goals against': 'GA', 'goals against (ga)': 'GA',
+        'gd': 'GD', 'goal diff': 'GD', 'goal difference': 'GD',
+        'pts': 'Pts', 'points': 'Pts',
+        'last 5': 'Last 5', 'last 6': 'Last 5', 'form': 'Last 5',
+        'ppg': 'Pts/MP', 'pts/mp': 'Pts/MP',
+        'cs': 'CS', 'clean sheet': 'CS', 'clean sheets': 'CS',
+        'btts': 'BTTS', 'both teams': 'BTTS',
+        'xgf': 'xG', 'x g': 'xG', 'expected goals for': 'xG',
+        '1.5+': 'Over 1.5', 'over 1.5': 'Over 1.5',
+        '2.5+': 'Over 2.5', 'over 2.5': 'Over 2.5',
+        'avg': 'AVG', 'media': 'AVG', 'average goals': 'AVG',
+    }
+
+    @staticmethod
+    def _is_premium(text: str) -> bool:
+        return 'premium' in text.lower() or 'footystats.org' in text.lower()
+
+    @staticmethod
+    def _normalize_header(text: str) -> Optional[str]:
+        cleaned = re.sub(r'[^a-zA-Z0-9+#.]', ' ', text).strip().lower()
+        for pattern, mapped in FootyStatsScraper.HEADER_ALIASES.items():
+            if cleaned == pattern or cleaned.startswith(pattern) or pattern.startswith(cleaned):
+                return mapped
+        return None
+
     def _parse_table_from_html(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
         table = soup.select_one('table.league-table') or soup.select_one('table')
         if not table:
@@ -138,39 +171,81 @@ class FootyStatsScraper:
 
         rows = table.select('tbody tr') or table.select('tr')[1:]
 
-        headers = []
+        header_map = {}  # col_index -> normalized_field_name
         thead = table.select_one('thead')
         if thead:
-            for cell in thead.select('th'):
+            header_cells = thead.select('th, td')
+            for i, cell in enumerate(header_cells):
                 text = cell.get_text(strip=True)
-                if text:
-                    headers.append(text)
+                if not text:
+                    continue
+                mapped = self._normalize_header(text)
+                if mapped:
+                    header_map[i] = mapped
 
-        if not headers and rows:
-            cells = rows[0].select('td, th')
-            for i in range(len(cells)):
-                headers.append(f'col_{i}')
+        has_squad_header = 'Squad' in header_map.values()
+        squad_col_idx = None
+        if has_squad_header:
+            for idx, name in header_map.items():
+                if name == 'Squad':
+                    squad_col_idx = idx
+                    break
 
         results = []
         for row in rows:
             cells = row.select('td')
-            if len(cells) < 3:
+            if len(cells) < 4:
                 continue
+
             row_data = {}
-            team_el = row.select_one('td.team-name a, td.team-name span, td a')
-            if team_el:
-                row_data['Squad'] = re.sub(r'\s+', ' ', team_el.get_text(strip=True))
-            for i, cell in enumerate(cells):
-                text = cell.get_text(strip=True)
-                if not text:
+            squad_found = False
+
+            if squad_col_idx is not None and squad_col_idx < len(cells):
+                a = cells[squad_col_idx].select_one('a')
+                name = (a or cells[squad_col_idx]).get_text(strip=True)
+                if name and len(name) > 2 and not self._is_premium(name):
+                    row_data['Squad'] = re.sub(r'\s+', ' ', name)
+                    squad_found = True
+
+            if not squad_found:
+                for cell in cells:
+                    a = cell.select_one('a')
+                    if not a:
+                        continue
+                    name = a.get_text(strip=True)
+                    if name and len(name) > 2 and not self._is_premium(name) and not re.match(r'^\d', name):
+                        row_data['Squad'] = re.sub(r'\s+', ' ', name)
+                        squad_found = True
+                        break
+
+            if not squad_found:
+                continue
+
+            if header_map:
+                for col_idx, field_name in header_map.items():
+                    if field_name == 'Squad' or field_name == 'Rk':
+                        continue
+                    if col_idx < len(cells):
+                        val = cells[col_idx].get_text(strip=True)
+                        if val and not self._is_premium(val):
+                            row_data[field_name] = val
+
+            for col_idx, cell in enumerate(cells):
+                if col_idx in header_map and header_map[col_idx] != 'Squad':
                     continue
-                key = headers[i] if i < len(headers) else f'col_{i}'
-                if key not in row_data or not row_data[key]:
-                    row_data[key] = text
-            if 'Rk' not in row_data and cells:
-                row_data['Rk'] = cells[0].get_text(strip=True)
-            if row_data.get('Squad'):
-                results.append(row_data)
+                text = cell.get_text(strip=True)
+                if text and not self._is_premium(text) and re.match(r'^\d+$', text):
+                    if 'Rk' not in row_data and re.match(r'^\d{1,2}$', text):
+                        row_data['Rk'] = text
+                    break
+
+            if 'Rk' not in row_data:
+                first_text = cells[0].get_text(strip=True)
+                if first_text and re.match(r'^\d{1,2}$', first_text):
+                    row_data['Rk'] = first_text
+
+            results.append(row_data)
+
         return results
 
     def _parse_standings(self, html: str) -> List[Dict[str, str]]:
@@ -211,26 +286,40 @@ class FootyStatsScraper:
             cells = row.select('td')
             if len(cells) < 3:
                 continue
-            text = row.get_text(' ', strip=True)
-            if not text:
+
+            team_names = []
+            for cell in cells:
+                a = cell.select_one('a')
+                if not a:
+                    continue
+                name = a.get_text(strip=True)
+                if name and len(name) > 2 and not self._is_premium(name) and not re.match(r'^\d', name):
+                    team_names.append(name)
+
+            if len(team_names) < 2:
                 continue
 
-            parts = [p.strip() for p in re.split(r'\s{3,}|\t+', text) if p.strip()]
-            match_data = self._extract_teams_from_parts(parts)
-            if match_data:
-                key = f"{match_data.get('homeTeam', '')}_{match_data.get('awayTeam', '')}"
-                if key not in seen and len(key) > 3:
-                    seen.add(key)
-                    score_match = re.search(r'(\d+)\s*[-–:]\s*(\d+)', text)
-                    if score_match:
-                        match_data['score'] = f"{score_match.group(1)}-{score_match.group(2)}"
-                    ht_match = re.search(r'\((\d+)[-–:](\d+)\)', text)
-                    if ht_match:
-                        match_data['htScore'] = f"{ht_match.group(1)}-{ht_match.group(2)}"
-                    date_match = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4}|\d{4}[-/]\d{2}[-/]\d{2})', text)
-                    if date_match:
-                        match_data['date'] = date_match.group(1)
-                    matches.append(match_data)
+            home = team_names[0]
+            away = team_names[-1]
+            key = f'{home}_{away}'
+            if key in seen:
+                continue
+            seen.add(key)
+
+            text = row.get_text(' ', strip=True)
+            match_data = {'homeTeam': home, 'awayTeam': away}
+
+            score_match = re.search(r'(\d+)\s*[-–:]\s*(\d+)', text)
+            if score_match:
+                match_data['score'] = f"{score_match.group(1)}-{score_match.group(2)}"
+            ht_match = re.search(r'\((\d+)[-–:](\d+)\)', text)
+            if ht_match:
+                match_data['htScore'] = f"{ht_match.group(1)}-{ht_match.group(2)}"
+            date_match = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4}|\d{4}[-/]\d{2}[-/]\d{2})', text)
+            if date_match:
+                match_data['date'] = date_match.group(1)
+
+            matches.append(match_data)
 
         if not matches:
             match_data = self._try_fixtures_from_json(html)
@@ -238,16 +327,6 @@ class FootyStatsScraper:
                 return match_data
 
         return {'matches': matches}
-
-    def _extract_teams_from_parts(self, parts: List[str]) -> Optional[Dict]:
-        teams = [p for p in parts if re.match(r'^[A-Z][a-zA-ZáéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ\s]{2,}', p) and len(p) > 2]
-        if len(teams) >= 2:
-            return {'homeTeam': teams[0], 'awayTeam': teams[-1]}
-        if len(parts) >= 2:
-            p1, p2 = parts[0], parts[-1]
-            if len(p1) > 2 and len(p2) > 2 and not re.match(r'^\d', p1) and not re.match(r'^\d', p2):
-                return {'homeTeam': p1, 'awayTeam': p2}
-        return None
 
     def _try_fixtures_from_json(self, html: str) -> Dict:
         soup = BeautifulSoup(html, 'html.parser')
@@ -286,7 +365,7 @@ class FootyStatsScraper:
 
         for table in tables:
             rows = self._parse_table_from_html(table)
-            if rows:
+            if rows and len(rows) >= 3:
                 form_tables.append(rows)
 
         if len(form_tables) >= 2:
@@ -297,7 +376,7 @@ class FootyStatsScraper:
             return {'last5': all_rows[:mid], 'last10': all_rows[mid:]}
 
         rows = self._parse_table_from_html(soup)
-        if rows:
+        if rows and len(rows) >= 3:
             mid = len(rows) // 2
             return {'last5': rows[:mid], 'last10': rows[mid:]}
 
