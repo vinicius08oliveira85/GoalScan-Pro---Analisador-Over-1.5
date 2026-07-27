@@ -24,14 +24,13 @@ export interface FootyStatsStanding {
   GA: string;
   GD: string;
   Pts: string;
-  last5?: string;
-  ppg?: string;
-  cs?: string;
-  btts?: string;
-  xg?: string;
-  over15?: string;
-  over25?: string;
-  avg?: string;
+  PPG?: string;
+  CS?: string;
+  BTTS?: string;
+  xG?: string;
+  Over15?: string;
+  Over25?: string;
+  AVG?: string;
   [key: string]: unknown;
 }
 
@@ -87,125 +86,74 @@ async function fetchViaCorsProxy(fullUrl: string): Promise<string | null> {
   return null;
 }
 
-const HEADER_ALIASES: Record<string, string> = {
-  '#': 'Rk', 'pos': 'Rk', 'position': 'Rk', 'rk': 'Rk',
-  'team': 'Squad', 'club': 'Squad', 'equipe': 'Squad', 'time': 'Squad',
-  'mp': 'MP', 'pld': 'MP', 'played': 'MP', 'j': 'MP',
-  'w': 'W', 'win': 'W', 'vitorias': 'W',
-  'd': 'D', 'draw': 'D', 'empates': 'D',
-  'l': 'L', 'loss': 'L', 'derrotas': 'L',
-  'gf': 'GF', 'goals for': 'GF', 'gols pro': 'GF',
-  'ga': 'GA', 'goals against': 'GA', 'gols contra': 'GA',
-  'gd': 'GD', 'goal diff': 'GD', 'saldo': 'GD',
-  'pts': 'Pts', 'points': 'Pts', 'pontos': 'Pts',
-  'last 5': 'last5', 'last 6': 'last5', 'form': 'last5',
-  'ppg': 'ppg', 'pts/mp': 'ppg', 'pontos/j': 'ppg',
-  'cs': 'cs', 'clean sheet': 'cs',
-  'btts': 'btts', 'both teams': 'btts',
-  'xgf': 'xg', 'x g': 'xg', 'expected goals': 'xg',
-  '1.5+': 'over15', 'over 1.5': 'over15',
-  '2.5+': 'over25', 'over 2.5': 'over25',
-  'avg': 'avg', 'media': 'avg',
-};
-
-function normalizeHeader(text: string): string | null {
-  const cleaned = text.replace(/[^a-zA-Z0-9+#.]/g, ' ').trim().toLowerCase();
-  for (const [key, val] of Object.entries(HEADER_ALIASES)) {
-    if (cleaned === key || cleaned.startsWith(key) || key.startsWith(cleaned)) {
-      return val;
-    }
-  }
-  return null;
-}
-
 function isPremiumLink(text: string): boolean {
-  return text.includes('premium') || text.includes('footystats.org');
+  return text.includes('premium') || text.includes('footystats.org') || text.includes('lock');
 }
 
-function extractStandingsFromTable(table: HTMLTableElement): FootyStatsStanding[] {
-  const thead = table.querySelector('thead');
-  const headerMap: number[] = [];
-  const squadColIdx: number[] = [];
-
-  if (thead) {
-    const headerCells = thead.querySelectorAll('th, td');
-    headerCells.forEach((cell, i) => {
-      const text = cell.textContent?.trim() || '';
-      const normalized = normalizeHeader(text);
-      if (normalized) {
-        if (normalized === 'Squad') squadColIdx.push(i);
-        else headerMap.push(i);
-      }
-    });
-  }
+function extractStandingsFromHtml(html: string): FootyStatsStanding[] {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const table = doc.querySelector('table.full-league-table');
+  if (!table) return [];
 
   const rows = table.querySelectorAll('tbody tr');
   const results: FootyStatsStanding[] = [];
 
   rows.forEach(row => {
-    const cells = row.querySelectorAll('td');
-    if (cells.length < 5) return;
+    const positionEl = row.querySelector('td.position');
+    const teamEl = row.querySelector('td.team a');
+    if (!positionEl || !teamEl) return;
 
-    const entry: FootyStatsStanding = { Rk: '', Squad: '', MP: '', W: '', D: '', L: '', GF: '', GA: '', GD: '', Pts: '' };
+    const entry: FootyStatsStanding = {
+      Rk: positionEl.textContent?.trim() || '',
+      Squad: teamEl.textContent?.trim() || '',
+      MP: row.querySelector('td.mp')?.textContent?.trim() || '',
+      W: row.querySelector('td.win')?.textContent?.trim() || '',
+      D: row.querySelector('td.draw')?.textContent?.trim() || '',
+      L: row.querySelector('td.loss')?.textContent?.trim() || '',
+      GF: row.querySelector('td.gf')?.textContent?.trim() || '',
+      GA: row.querySelector('td.ga')?.textContent?.trim() || '',
+      GD: row.querySelector('td.gd')?.textContent?.trim() || '',
+      Pts: row.querySelector('td.points')?.textContent?.trim() || '',
+    };
 
-    let squadFound = false;
-    if (squadColIdx.length > 0) {
-      for (const idx of squadColIdx) {
-        if (idx < cells.length) {
-          const a = cells[idx].querySelector('a');
-          const name = (a || cells[idx]).textContent?.trim() || '';
-          if (name && name.length > 2 && !isPremiumLink(name)) {
-            entry.Squad = name;
-            squadFound = true;
-            break;
-          }
-        }
-      }
+    const ppgEl = row.querySelector('td.ppg');
+    if (ppgEl) entry.PPG = ppgEl.textContent?.trim() || '';
+
+    const csEl = row.querySelector('td.cs');
+    if (csEl) {
+      const val = csEl.textContent?.trim() || '';
+      if (!isPremiumLink(val)) entry.CS = val;
     }
 
-    if (!squadFound) {
-      cells.forEach((cell, i) => {
-        const a = cell.querySelector('a');
-        if (!a) return;
-        const name = a.textContent?.trim() || '';
-        if (name && name.length > 2 && !isPremiumLink(name)) {
-          const isNumeric = /^\d/.test(name);
-          if (!isNumeric) {
-            entry.Squad = name;
-            squadFound = true;
-          }
-        }
-      });
+    const bttsEl = row.querySelector('td.btts');
+    if (bttsEl) {
+      const val = bttsEl.textContent?.trim() || '';
+      if (!isPremiumLink(val)) entry.BTTS = val;
     }
 
-    if (!squadFound) return;
+    const xgEl = row.querySelector('td.fts');
+    if (xgEl) {
+      const val = xgEl.textContent?.trim() || '';
+      if (!isPremiumLink(val)) entry.xG = val;
+    }
 
-    if (headerMap.length > 0) {
-      headerMap.forEach(h => {
-        const val = cells[h]?.textContent?.trim() || '';
-        if (!val || isPremiumLink(val)) return;
-        const headerText = thead?.querySelectorAll('th, td')[h]?.textContent?.trim() || '';
-        const key = normalizeHeader(headerText);
-        if (key && key !== 'Squad' && key !== 'Rk') {
-          (entry as any)[key] = val;
-        }
-      });
-    } else {
-      const textValues: string[] = [];
-      cells.forEach(c => {
-        const t = c.textContent?.trim() || '';
-        if (!isPremiumLink(t)) textValues.push(t);
-      });
+    const over15El = row.querySelector('td.over15');
+    if (over15El) {
+      const val = over15El.textContent?.trim() || '';
+      if (!isPremiumLink(val)) entry.Over15 = val;
+    }
 
-      const numericCols = ['MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts'];
-      let dataIdx = 0;
-      for (let i = 0; i < textValues.length && dataIdx < numericCols.length; i++) {
-        if (textValues[i] === entry.Squad) continue;
-        if (/^\d/.test(textValues[i]) || textValues[i] === '0') {
-          (entry as any)[numericCols[dataIdx]] = textValues[i];
-          dataIdx++;
-        }
-      }
+    const over25El = row.querySelector('td.over25');
+    if (over25El) {
+      const val = over25El.textContent?.trim() || '';
+      if (!isPremiumLink(val)) entry.Over25 = val;
+    }
+
+    const avgEl = row.querySelector('td.avg');
+    if (avgEl) {
+      const val = avgEl.textContent?.trim() || '';
+      if (!isPremiumLink(val)) entry.AVG = val;
     }
 
     results.push(entry);
@@ -214,54 +162,28 @@ function extractStandingsFromTable(table: HTMLTableElement): FootyStatsStanding[
   return results;
 }
 
-function extractStandingsFromHtml(html: string): FootyStatsStanding[] {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const tables = doc.querySelectorAll('table');
-
-  for (const table of tables) {
-    const rows = table.querySelectorAll('tbody tr');
-    if (rows.length >= 18) {
-      const result = extractStandingsFromTable(table);
-      if (result.length >= 18) return result;
-    }
-  }
-  for (const table of tables) {
-    const result = extractStandingsFromTable(table);
-    if (result.length > 0) return result;
-  }
-  return [];
-}
-
 function extractFixturesFromHtml(html: string): FootyStatsMatch[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   const matches: FootyStatsMatch[] = [];
   const seen = new Set<string>();
 
-  const rows = doc.querySelectorAll('tr');
+  const rows = doc.querySelectorAll('tr.match');
   rows.forEach(row => {
-    const cells = row.querySelectorAll('td');
-    if (cells.length < 3) return;
+    const homeEl = row.querySelector('td.team-home a span');
+    const awayEl = row.querySelector('td.team-away a span');
+    if (!homeEl || !awayEl) return;
 
-    const teamLinks: string[] = [];
-    cells.forEach(cell => {
-      const a = cell.querySelector('a');
-      if (!a) return;
-      const name = a.textContent?.trim() || '';
-      if (name.length > 2 && !isPremiumLink(name) && !/^\d/.test(name)) {
-        teamLinks.push(name);
-      }
-    });
+    const home = homeEl.textContent?.trim() || '';
+    const away = awayEl.textContent?.trim() || '';
+    if (!home || !away) return;
 
-    if (teamLinks.length < 2) return;
-    const home = teamLinks[0], away = teamLinks[teamLinks.length - 1];
     const key = `${home}_${away}`;
     if (seen.has(key)) return;
     seen.add(key);
 
-    const text = row.textContent || '';
     const entry: FootyStatsMatch = { homeTeam: home, awayTeam: away };
+    const text = row.textContent || '';
 
     const scoreMatch = text.match(/(\d+)\s*[-–:]\s*(\d+)/);
     if (scoreMatch) entry.score = `${scoreMatch[1]}-${scoreMatch[2]}`;
@@ -277,37 +199,38 @@ function extractFixturesFromHtml(html: string): FootyStatsMatch[] {
 function extractFormFromHtml(html: string): { last5: FootyStatsFormEntry[]; last10: FootyStatsFormEntry[] } {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  const allTables = doc.querySelectorAll('table');
-  const tables: FootyStatsFormEntry[][] = [];
+  const tables = doc.querySelectorAll('table.full-league-table');
+  const results: FootyStatsFormEntry[][] = [];
 
-  allTables.forEach(table => {
+  tables.forEach(table => {
     const entries: FootyStatsFormEntry[] = [];
     const rows = table.querySelectorAll('tbody tr');
-    if (rows.length < 5) return;
-
     rows.forEach(row => {
-      const a = row.querySelector('td a');
+      const a = row.querySelector('td.team a');
       if (!a) return;
       const name = a.textContent?.trim() || '';
-      if (!name || name.length < 3 || isPremiumLink(name)) return;
+      if (!name) return;
 
       const entry: FootyStatsFormEntry = { Squad: name };
+      const positionEl = row.querySelector('td.position');
+      if (positionEl) entry.Rk = positionEl.textContent?.trim() || '';
+      const ptsEl = row.querySelector('td.points');
+      if (ptsEl) entry.Pts = ptsEl.textContent?.trim() || '';
       row.querySelectorAll('td').forEach((td, i) => {
         const val = td.textContent?.trim() || '';
         if (val && !isPremiumLink(val)) entry[`col_${i}`] = val;
       });
       entries.push(entry);
     });
-
-    if (entries.length > 0) tables.push(entries);
+    if (entries.length > 0) results.push(entries);
   });
 
-  if (tables.length >= 2) return { last5: tables[0], last10: tables[1] };
-  if (tables.length === 1 && tables[0].length >= 20) {
-    const mid = Math.floor(tables[0].length / 2);
-    return { last5: tables[0].slice(0, mid), last10: tables[0].slice(mid) };
+  if (results.length >= 2) return { last5: results[0], last10: results[1] };
+  if (results.length === 1 && results[0].length >= 20) {
+    const mid = Math.floor(results[0].length / 2);
+    return { last5: results[0].slice(0, mid), last10: results[0].slice(mid) };
   }
-  if (tables.length === 1) return { last5: tables[0], last10: [] };
+  if (results.length === 1) return { last5: results[0], last10: [] };
   return { last5: [], last10: [] };
 }
 

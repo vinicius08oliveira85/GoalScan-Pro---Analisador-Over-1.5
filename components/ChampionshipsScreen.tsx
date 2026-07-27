@@ -7,6 +7,7 @@ import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
 import FbrefExtractionModal from './FbrefExtractionModal';
 import AutoImportBrasileiraoModal from './AutoImportBrasileiraoModal';
+import MultiLeagueImportModal from './MultiLeagueImportModal';
 import ModalShell from './ui/ModalShell';
 import ConfirmDialog from './ui/ConfirmDialog';
 import EmptyState from './ui/EmptyState';
@@ -30,6 +31,7 @@ const ChampionshipsScreen: React.FC = () => {
   } | null>(null);
   const [extractingFbref, setExtractingFbref] = useState<Championship | null>(null);
   const [showAutoImport, setShowAutoImport] = useState(false);
+  const [showMultiLeagueImport, setShowMultiLeagueImport] = useState(false);
   const [deletingTable, setDeletingTable] = useState<{
     championship: Championship;
     table: ChampionshipTable;
@@ -78,6 +80,14 @@ const ChampionshipsScreen: React.FC = () => {
     setShowAutoImport(false);
   };
 
+  const handleMultiLeagueSuccess = async (championships: Championship[], tablesArrays: ChampionshipTable[][]) => {
+    refreshNow();
+    if (championships.length > 0 && tablesArrays.length > 0) {
+      setViewingTables({ championship: championships[0], tables: tablesArrays[0] });
+    }
+    setShowMultiLeagueImport(false);
+  };
+
   const handleConfirmDeleteTable = async () => {
     if (!deletingTable) return;
     const { championship, table } = deletingTable;
@@ -124,9 +134,9 @@ const ChampionshipsScreen: React.FC = () => {
             <Plus className="w-4 h-4" />
             Novo
           </button>
-          <button onClick={() => setShowAutoImport(true)} className="btn btn-secondary btn-sm gap-1.5 shadow-lg">
+          <button onClick={() => setShowMultiLeagueImport(true)} className="btn btn-secondary btn-sm gap-1.5 shadow-lg">
             <Download className="w-4 h-4" />
-            Brasileirão 2026
+            Importar Campeonatos
           </button>
         </div>
       </div>
@@ -330,6 +340,14 @@ const ChampionshipsScreen: React.FC = () => {
         isOpen={showAutoImport}
         onClose={() => setShowAutoImport(false)}
         onSuccess={handleAutoImportSuccess}
+        onError={handleError}
+      />
+
+      {/* Modal de Importação Multi-Liga */}
+      <MultiLeagueImportModal
+        isOpen={showMultiLeagueImport}
+        onClose={() => setShowMultiLeagueImport(false)}
+        onSuccess={handleMultiLeagueSuccess}
         onError={handleError}
       />
 

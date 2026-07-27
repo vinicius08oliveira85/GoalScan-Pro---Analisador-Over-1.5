@@ -3,5 +3,8 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "vite"
+  "framework": "vite",
+  "env": {
+    "VITE_API_FOOTBALL_KEY": "c6bc645cda26d974f143e1b4fb137494"
+  }
 }

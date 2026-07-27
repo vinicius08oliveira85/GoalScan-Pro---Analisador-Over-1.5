@@ -1,7 +1,8 @@
 """
 API route Python para extrair dados do footystats.org
-Suporta 3 páginas: classificação, jogos, forma
+Suporta 3 paginas: classificacao (standings), jogos (fixtures), forma (form-table)
 Usa cloudscraper para bypass de Cloudflare/bot detection
+Parsing por classes CSS (td.position, td.team, td.mp, etc) em vez de indices de coluna
 """
 import json
 import logging
@@ -60,12 +61,6 @@ class FootyStatsScraper:
                 'Referer': 'https://footystats.org/',
                 'DNT': '1',
                 'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-                'Cache-Control': 'max-age=0',
             })
         return sess
 
@@ -87,7 +82,7 @@ class FootyStatsScraper:
                 if resp.status_code == 200:
                     if len(resp.text) > 500:
                         return resp.text
-                    logger.warning(f'Resposta muito curta ({len(resp.text)} chars), possivel bloqueio')
+                    logger.warning(f'Resposta muito curta ({len(resp.text)} chars)')
 
                 elif resp.status_code == 403:
                     logger.warning(f'403 Forbidden (attempt {attempt + 1})')
@@ -131,150 +126,107 @@ class FootyStatsScraper:
             return 'fixtures'
         return 'standings'
 
-    HEADER_ALIASES = {
-        '#': 'Rk', 'pos': 'Rk', 'position': 'Rk',
-        'team': 'Squad', 'club': 'Squad', 'equipe': 'Squad',
-        'mp': 'MP', 'pld': 'MP', 'played': 'MP',
-        'w': 'W', 'win': 'W',
-        'd': 'D', 'draw': 'D',
-        'l': 'L', 'loss': 'L',
-        'gf': 'GF', 'goals for': 'GF', 'goals for (gf)': 'GF',
-        'ga': 'GA', 'goals against': 'GA', 'goals against (ga)': 'GA',
-        'gd': 'GD', 'goal diff': 'GD', 'goal difference': 'GD',
-        'pts': 'Pts', 'points': 'Pts',
-        'last 5': 'Last 5', 'last 6': 'Last 5', 'form': 'Last 5',
-        'ppg': 'Pts/MP', 'pts/mp': 'Pts/MP',
-        'cs': 'CS', 'clean sheet': 'CS', 'clean sheets': 'CS',
-        'btts': 'BTTS', 'both teams': 'BTTS',
-        'xgf': 'xG', 'x g': 'xG', 'expected goals for': 'xG',
-        '1.5+': 'Over 1.5', 'over 1.5': 'Over 1.5',
-        '2.5+': 'Over 2.5', 'over 2.5': 'Over 2.5',
-        'avg': 'AVG', 'media': 'AVG', 'average goals': 'AVG',
-    }
+    @staticmethod
+    def _is_premium(el) -> bool:
+        """Check if a td contains a premium lock icon."""
+        return bool(el.select_one('i.fas.fa-lock, i.fa-lock, a[href*="/premium"]'))
 
     @staticmethod
-    def _is_premium(text: str) -> bool:
-        return 'premium' in text.lower() or 'footystats.org' in text.lower()
+    def _text(el) -> str:
+        return el.get_text(strip=True) if el else ''
 
-    @staticmethod
-    def _normalize_header(text: str) -> Optional[str]:
-        cleaned = re.sub(r'[^a-zA-Z0-9+#.]', ' ', text).strip().lower()
-        for pattern, mapped in FootyStatsScraper.HEADER_ALIASES.items():
-            if cleaned == pattern or cleaned.startswith(pattern) or pattern.startswith(cleaned):
-                return mapped
+    def _get_standings_table(self, soup: BeautifulSoup):
+        """Encontra a tabela de classificacao testando todas as tables."""
+        tables = soup.select('table')
+        candidates = []
+
+        for table in tables:
+            rows = table.select('tbody tr')
+            if len(rows) < 3:
+                continue
+            thead = table.select_one('thead')
+            header_texts = []
+            if thead:
+                header_texts = [th.get_text(strip=True).lower() for th in thead.select('th, td')]
+
+            # Verifica se tem colunas tipicas de classificacao
+            has_position = bool(table.select_one('td.position'))
+            has_team = bool(table.select_one('td.team a, td.team'))
+            has_pts = bool(table.select_one('td.points'))
+            has_mp = bool(table.select_one('td.mp'))
+
+            score = sum([has_position, has_team, has_pts, has_mp])
+            td_count = len(table.select('tbody tr:first-child td')) if rows else 0
+            candidates.append((score, td_count, table))
+
+            if has_position and has_team and has_pts:
+                logger.info(f'Tabela com classes position+team+points: {len(rows)} linhas, {td_count} colunas')
+                return table
+
+        # fallback: melhor candidato
+        if candidates:
+            candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+            best = candidates[0]
+            logger.info(f'Fallback: melhor tabela tem score={best[0]}, {best[1]} colunas')
+            return best[2]
+
         return None
-
-    def _parse_table_from_html(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
-        table = soup.select_one('table.league-table') or soup.select_one('table')
-        if not table:
-            return []
-
-        rows = table.select('tbody tr') or table.select('tr')[1:]
-
-        header_map = {}  # col_index -> normalized_field_name
-        thead = table.select_one('thead')
-        if thead:
-            header_cells = thead.select('th, td')
-            for i, cell in enumerate(header_cells):
-                text = cell.get_text(strip=True)
-                if not text:
-                    continue
-                mapped = self._normalize_header(text)
-                if mapped:
-                    header_map[i] = mapped
-
-        has_squad_header = 'Squad' in header_map.values()
-        squad_col_idx = None
-        if has_squad_header:
-            for idx, name in header_map.items():
-                if name == 'Squad':
-                    squad_col_idx = idx
-                    break
-
-        results = []
-        for row in rows:
-            cells = row.select('td')
-            if len(cells) < 4:
-                continue
-
-            row_data = {}
-            squad_found = False
-
-            if squad_col_idx is not None and squad_col_idx < len(cells):
-                a = cells[squad_col_idx].select_one('a')
-                name = (a or cells[squad_col_idx]).get_text(strip=True)
-                if name and len(name) > 2 and not self._is_premium(name):
-                    row_data['Squad'] = re.sub(r'\s+', ' ', name)
-                    squad_found = True
-
-            if not squad_found:
-                for cell in cells:
-                    a = cell.select_one('a')
-                    if not a:
-                        continue
-                    name = a.get_text(strip=True)
-                    if name and len(name) > 2 and not self._is_premium(name) and not re.match(r'^\d', name):
-                        row_data['Squad'] = re.sub(r'\s+', ' ', name)
-                        squad_found = True
-                        break
-
-            if not squad_found:
-                continue
-
-            if header_map:
-                for col_idx, field_name in header_map.items():
-                    if field_name == 'Squad' or field_name == 'Rk':
-                        continue
-                    if col_idx < len(cells):
-                        val = cells[col_idx].get_text(strip=True)
-                        if val and not self._is_premium(val):
-                            row_data[field_name] = val
-
-            for col_idx, cell in enumerate(cells):
-                if col_idx in header_map and header_map[col_idx] != 'Squad':
-                    continue
-                text = cell.get_text(strip=True)
-                if text and not self._is_premium(text) and re.match(r'^\d+$', text):
-                    if 'Rk' not in row_data and re.match(r'^\d{1,2}$', text):
-                        row_data['Rk'] = text
-                    break
-
-            if 'Rk' not in row_data:
-                first_text = cells[0].get_text(strip=True)
-                if first_text and re.match(r'^\d{1,2}$', first_text):
-                    row_data['Rk'] = first_text
-
-            results.append(row_data)
-
-        return results
 
     def _parse_standings(self, html: str) -> List[Dict[str, str]]:
         soup = BeautifulSoup(html, 'html.parser')
-        results = self._parse_table_from_html(soup)
+        table = self._get_standings_table(soup)
+        if not table:
+            logger.warning('Nenhuma tabela de classificacao encontrada')
+            # fallback: full-league-table
+            table = soup.select_one('table.full-league-table')
+        if not table:
+            return []
 
-        if not results:
-            soup2 = BeautifulSoup(html, 'lxml')
-            results = self._parse_table_from_html(soup2)
+        rows = table.select('tbody tr')
+        logger.info(f'Encontradas {len(rows)} linhas na tabela de classificacao')
+        results = []
 
-        if not results:
-            for line in html.split('\n'):
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                parts = [p for p in re.split(r'\t{2,}|\s{3,}', stripped) if p.strip()]
-                if len(parts) >= 8 and any(c.isdigit() for c in parts[0]):
-                    row = {'Rk': parts[0].strip()}
-                    squad_idx = 1 if len(parts[0]) <= 3 else 0
-                    if squad_idx < len(parts):
-                        row['Squad'] = parts[squad_idx].strip()
-                    col_names = ['MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts']
-                    for i, name in enumerate(col_names):
-                        idx = squad_idx + 1 + i
-                        if idx < len(parts):
-                            row[name] = parts[idx].strip()
-                    if row.get('Squad'):
-                        results.append(row)
+        for row in rows:
+            entry = {}
 
+            pos_el = row.select_one('td.position')
+            if pos_el:
+                entry['Rk'] = self._text(pos_el)
+
+            team_el = row.select_one('td.team a')
+            if not team_el:
+                team_el = row.select_one('td.team')
+            if team_el:
+                name = self._text(team_el)
+                if name and len(name) > 1:
+                    entry['Squad'] = re.sub(r'\s+', ' ', name)
+
+            if 'Squad' not in entry:
+                continue
+
+            for field, selector in [
+                ('MP', 'td.mp'), ('W', 'td.win'), ('D', 'td.draw'),
+                ('L', 'td.loss'), ('GF', 'td.gf'), ('GA', 'td.ga'),
+                ('GD', 'td.gd'), ('Pts', 'td.points'),
+            ]:
+                el = row.select_one(selector)
+                if el:
+                    entry[field] = self._text(el)
+
+            for field, selector in [
+                ('PPG', 'td.ppg'), ('CS', 'td.cs'), ('BTTS', 'td.btts'),
+                ('xG', 'td.fts'), ('Over 1.5', 'td.over15'),
+                ('Over 2.5', 'td.over25'), ('AVG', 'td.avg'),
+            ]:
+                el = row.select_one(selector)
+                if el and not self._is_premium(el):
+                    val = self._text(el)
+                    if val:
+                        entry[field] = val
+
+            results.append(entry)
+
+        logger.info(f'Parseados {len(results)} times')
         return results
 
     def _parse_fixtures(self, html: str) -> Dict:
@@ -282,91 +234,76 @@ class FootyStatsScraper:
         matches = []
         seen = set()
 
-        for row in soup.select('tr'):
-            cells = row.select('td')
-            if len(cells) < 3:
+        # Tenta tr.match primeiro (formato comum footystats)
+        for row in soup.select('tr.match'):
+            home_el = row.select_one('.team-home a, .home a, td:first-child a')
+            away_el = row.select_one('.team-away a, .away a, td:last-child a')
+            if not home_el or not away_el:
                 continue
-
-            team_names = []
-            for cell in cells:
-                a = cell.select_one('a')
-                if not a:
-                    continue
-                name = a.get_text(strip=True)
-                if name and len(name) > 2 and not self._is_premium(name) and not re.match(r'^\d', name):
-                    team_names.append(name)
-
-            if len(team_names) < 2:
+            home = self._text(home_el)
+            away = self._text(away_el)
+            if not home or not away:
                 continue
-
-            home = team_names[0]
-            away = team_names[-1]
             key = f'{home}_{away}'
             if key in seen:
                 continue
             seen.add(key)
 
+            entry = {'homeTeam': home, 'awayTeam': away}
             text = row.get_text(' ', strip=True)
-            match_data = {'homeTeam': home, 'awayTeam': away}
 
             score_match = re.search(r'(\d+)\s*[-–:]\s*(\d+)', text)
             if score_match:
-                match_data['score'] = f"{score_match.group(1)}-{score_match.group(2)}"
-            ht_match = re.search(r'\((\d+)[-–:](\d+)\)', text)
-            if ht_match:
-                match_data['htScore'] = f"{ht_match.group(1)}-{ht_match.group(2)}"
+                entry['score'] = f"{score_match.group(1)}-{score_match.group(2)}"
+
             date_match = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4}|\d{4}[-/]\d{2}[-/]\d{2})', text)
             if date_match:
-                match_data['date'] = date_match.group(1)
+                entry['date'] = date_match.group(1)
 
-            matches.append(match_data)
+            matches.append(entry)
 
+        # Fallback: procurar linhas com 2 links de times
         if not matches:
-            match_data = self._try_fixtures_from_json(html)
-            if match_data.get('matches'):
-                return match_data
+            for row in soup.select('tr'):
+                cells = row.select('td')
+                if len(cells) < 3:
+                    continue
+                team_names = []
+                for cell in cells:
+                    a = cell.select_one('a')
+                    if not a:
+                        continue
+                    name = self._text(a)
+                    if name and len(name) > 2 and not re.match(r'^\d', name) and 'premium' not in name.lower():
+                        team_names.append(name)
+                if len(team_names) >= 2:
+                    home = team_names[0]
+                    away = team_names[-1]
+                    key = f'{home}_{away}'
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    entry = {'homeTeam': home, 'awayTeam': away}
+                    text = row.get_text(' ', strip=True)
+                    score_match = re.search(r'(\d+)\s*[-–:]\s*(\d+)', text)
+                    if score_match:
+                        entry['score'] = f"{score_match.group(1)}-{score_match.group(2)}"
+                    date_match = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4}|\d{4}[-/]\d{2}[-/]\d{2})', text)
+                    if date_match:
+                        entry['date'] = date_match.group(1)
+                    matches.append(entry)
 
-        return {'matches': matches}
-
-    def _try_fixtures_from_json(self, html: str) -> Dict:
-        soup = BeautifulSoup(html, 'html.parser')
-        matches = []
-        for script in soup.select('script'):
-            text = script.string or ''
-            if 'homeTeam' not in text and 'awayTeam' not in text:
-                continue
-            for m in re.finditer(r'"homeTeam"\s*:\s*"([^"]+)"', text):
-                pass
-            try:
-                for item_match in re.finditer(r'\{[^{}]*(?:homeTeam|awayTeam)[^{}]*\}', text):
-                    try:
-                        item = json.loads(item_match.group())
-                        home = item.get('home', item.get('homeTeam', item.get('home_team', '')))
-                        away = item.get('away', item.get('awayTeam', item.get('away_team', '')))
-                        if isinstance(home, dict): home = home.get('name', '')
-                        if isinstance(away, dict): away = away.get('name', '')
-                        if home and away:
-                            matches.append({
-                                'homeTeam': str(home),
-                                'awayTeam': str(away),
-                                'score': str(item.get('score', item.get('ftScore', ''))) or None,
-                                'date': str(item.get('date', item.get('datetime', ''))) or None,
-                            })
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-            except Exception:
-                pass
         return {'matches': matches}
 
     def _parse_form_table(self, html: str) -> Dict:
         soup = BeautifulSoup(html, 'html.parser')
-        tables = soup.select('table')
-        form_tables = []
+        tables = soup.select('table.full-league-table')
 
+        form_tables = []
         for table in tables:
-            rows = self._parse_table_from_html(table)
-            if rows and len(rows) >= 3:
-                form_tables.append(rows)
+            parsed = self._parse_standings_from_table(table)
+            if parsed and len(parsed) >= 3:
+                form_tables.append(parsed)
 
         if len(form_tables) >= 2:
             return {'last5': form_tables[0], 'last10': form_tables[1]}
@@ -375,20 +312,58 @@ class FootyStatsScraper:
             mid = len(all_rows) // 2
             return {'last5': all_rows[:mid], 'last10': all_rows[mid:]}
 
-        rows = self._parse_table_from_html(soup)
-        if rows and len(rows) >= 3:
-            mid = len(rows) // 2
-            return {'last5': rows[:mid], 'last10': rows[mid:]}
+        parsed = self._parse_standings_from_table(soup)
+        if parsed and len(parsed) >= 3:
+            mid = len(parsed) // 2
+            return {'last5': parsed[:mid], 'last10': parsed[mid:]}
 
         return {'last5': [], 'last10': []}
+
+    def _parse_standings_from_table(self, table_soup) -> List[Dict[str, str]]:
+        rows = table_soup.select('tbody tr') if table_soup.name == 'table' else table_soup.select('table.full-league-table tbody tr, table tbody tr')
+        if not rows:
+            return []
+
+        results = []
+        for row in rows:
+            entry = {}
+            pos_el = row.select_one('td.position')
+            if pos_el:
+                entry['Rk'] = self._text(pos_el)
+            team_el = row.select_one('td.team a')
+            if team_el:
+                name = self._text(team_el)
+                if name and len(name) > 1:
+                    entry['Squad'] = re.sub(r'\s+', ' ', name)
+            if 'Squad' not in entry:
+                continue
+            for field, selector in [
+                ('MP', 'td.mp'), ('W', 'td.win'), ('D', 'td.draw'),
+                ('L', 'td.loss'), ('GF', 'td.gf'), ('GA', 'td.ga'),
+                ('GD', 'td.gd'), ('Pts', 'td.points'),
+            ]:
+                el = row.select_one(selector)
+                if el:
+                    entry[field] = self._text(el)
+            results.append(entry)
+        return results
 
     def scrape(self, url: str) -> Dict:
         html = self.get_page(url)
         if not html:
-            return {'error': 'Não foi possível acessar o footystats.org após várias tentativas. O site pode estar bloqueando acessos automatizados.'}
+            return {'error': 'Nao foi possivel acessar o footystats.org apos varias tentativas.'}
 
         page_type = self._detect_page_type(url)
         logger.info(f'Tipo de pagina: {page_type}, HTML size: {len(html)}')
+
+        # DEBUG: log parte do HTML para analise
+        lines = html.split('\n')
+        table_lines = [l for l in lines if 'full-league-table' in l or 'league-table' in l or '<table' in l.lower()]
+        logger.info(f'Total lines: {len(lines)}, table lines found: {len(table_lines)}')
+        for tl in table_lines[:5]:
+            logger.info(f'  TABLE: {tl.strip()[:200]}')
+        head_section = html[:3000]
+        logger.info(f'HTML head/body start: {head_section[:500]}')
 
         if page_type == 'fixtures':
             result = self._parse_fixtures(html)
@@ -402,8 +377,38 @@ class FootyStatsScraper:
 
         result = self._parse_standings(html)
         if not result:
-            return {'error': 'Nenhuma tabela de classificação encontrada na página do FootyStats.'}
+            return {'error': 'Nenhuma tabela de classificacao encontrada na pagina do FootyStats.'}
         return {'type': 'standings', 'data': {'table': result}}
+
+    def _try_fixtures_from_json(self, html: str) -> Dict:
+        soup = BeautifulSoup(html, 'html.parser')
+        matches = []
+        for script in soup.select('script'):
+            text = script.string or ''
+            if 'homeTeam' not in text and 'awayTeam' not in text:
+                continue
+            try:
+                for item_match in re.finditer(r'\{[^{}]*(?:homeTeam|awayTeam)[^{}]*\}', text):
+                    try:
+                        item = json.loads(item_match.group())
+                        home = item.get('home', item.get('homeTeam', item.get('home_team', '')))
+                        away = item.get('away', item.get('awayTeam', item.get('away_team', '')))
+                        if isinstance(home, dict):
+                            home = home.get('name', '')
+                        if isinstance(away, dict):
+                            away = away.get('name', '')
+                        if home and away:
+                            matches.append({
+                                'homeTeam': str(home),
+                                'awayTeam': str(away),
+                                'score': str(item.get('score', item.get('ftScore', ''))) or None,
+                                'date': str(item.get('date', item.get('datetime', ''))) or None,
+                            })
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+            except Exception:
+                pass
+        return {'matches': matches}
 
 
 class handler(BaseHTTPRequestHandler):
@@ -421,7 +426,7 @@ class handler(BaseHTTPRequestHandler):
             request_data = json.loads(body.decode('utf-8'))
             url = request_data.get('url', '')
             if not url or 'footystats.org' not in url:
-                self._send_error(400, 'URL inválida. Apenas URLs do footystats.org são permitidas.')
+                self._send_error(400, 'URL invalida. Apenas URLs do footystats.org sao permitidas.')
                 return
             scraper = FootyStatsScraper()
             result = scraper.scrape(url)
@@ -434,7 +439,7 @@ class handler(BaseHTTPRequestHandler):
                 'type': result.get('type', 'standings'),
             })
         except json.JSONDecodeError:
-            self._send_error(400, 'JSON inválido no body da requisição')
+            self._send_error(400, 'JSON invalido no body da requisicao')
         except Exception as e:
             logger.exception('Erro interno no handler')
             self._send_error(500, f'Erro interno: {str(e)}')
