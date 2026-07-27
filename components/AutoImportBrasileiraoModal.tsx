@@ -66,16 +66,12 @@ export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess,
           <div className="text-sm">
             <p className="font-bold">Campeonato Brasileiro Série A 2026</p>
             <p className="opacity-70 mt-1">
-              Importe automaticamente a tabela completa do Brasileirão 2026 do{' '}
-              <a
-                href="https://fbref.com/en/comps/24/2026/2026-Campeonato-Brasileiro-Serie-A-Stats"
-                target="_blank"
-                rel="noopener"
-                className="link link-primary"
-              >
-                FBref
-              </a>
-              .
+              Busca dados automáticos em múltiplas fontes:
+              <span className="block mt-1 space-x-2">
+                <span className="badge badge-sm badge-ghost">ge.globo.com</span>
+                <span className="badge badge-sm badge-ghost">CBF</span>
+                <span className="badge badge-sm badge-ghost">FBref (fallback)</span>
+              </span>
             </p>
           </div>
         </div>
@@ -119,22 +115,14 @@ export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess,
                 {isConcluded && result && (
                   <div className="mt-2 text-xs opacity-75 space-y-1">
                     <p>{result.tables.length} tabela(s) importada(s)</p>
-                    {result.championship.fbrefUrl && (
-                      <a
-                        href={result.championship.fbrefUrl}
-                        target="_blank"
-                        rel="noopener"
-                        className="link link-primary inline-flex items-center gap-1"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        Ver no FBref
-                      </a>
+                    {progress?.source && (
+                      <p>Fonte: <span className="badge badge-sm">{progress.source}</span></p>
                     )}
                   </div>
                 )}
                 {isError && !importing && (
                   <p className="text-xs opacity-70 mt-2">
-                    Tente usar o botão <strong>FBref</strong> no card do campeonato e cole o HTML manualmente.
+                    Nenhuma fonte automática respondeu. Use o botão <strong>FBref</strong> no card do campeonato e cole o HTML manualmente.
                   </p>
                 )}
               </div>

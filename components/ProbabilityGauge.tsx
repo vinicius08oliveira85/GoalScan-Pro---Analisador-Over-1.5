@@ -14,7 +14,7 @@ interface ProbabilityGaugeProps {
   onOddChange?: (odd: number) => void;
 }
 
-const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({ 
+const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = React.memo(({ 
   probability, 
   selectedProbability,
   selectedLabel,
@@ -274,6 +274,6 @@ const ProbabilityGauge: React.FC<ProbabilityGaugeProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default ProbabilityGauge;

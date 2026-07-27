@@ -78,7 +78,7 @@ export const useBankSettings = (onError?: (message: string) => void) => {
             currency: normalizeCurrency(parsedBank.currency),
           });
         } catch (e) {
-          console.error('Erro ao carregar configurações de banca do localStorage:', e);
+          logger.error('Erro ao carregar configurações de banca do localStorage:', e);
         }
       }
     } finally {
@@ -106,7 +106,7 @@ export const useBankSettings = (onError?: (message: string) => void) => {
         localStorage.setItem('goalscan_bank_settings', JSON.stringify(normalizedSettings));
         syncBankToWidgets(normalizedSettings);
       } catch (e) {
-        console.warn('Erro ao salvar no localStorage (backup):', e);
+        logger.warn('Erro ao salvar no localStorage (backup):', e);
       }
 
       setLastSyncTime(Date.now());

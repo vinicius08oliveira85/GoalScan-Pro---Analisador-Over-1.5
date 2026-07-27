@@ -10,6 +10,7 @@ import { ExternalLink, AlertTriangle, CheckCircle, XCircle, Loader2, Info, Datab
 import FbrefExtractionModal from './FbrefExtractionModal';
 import InfoIcon from './match-form/InfoIcon';
 import { logger } from '../utils/logger';
+import { TIMEOUTS } from '../utils/constants';
 
 interface SyncResult {
   homeTableData: TableRowGeral | null;
@@ -802,7 +803,7 @@ const MatchForm: React.FC<MatchFormProps> = ({
               if (selectedHomeSquad && selectedAwaySquad) {
                 setTimeout(() => {
                   handleSyncWithTable();
-                }, 500);
+                }, TIMEOUTS.MATCH_FORM_SYNC);
               }
             }
           }}

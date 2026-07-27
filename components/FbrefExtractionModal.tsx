@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, CheckCircle, XCircle, AlertCircle, X, ClipboardPaste } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
@@ -20,7 +20,7 @@ export default function FbrefExtractionModal({
   onTableSaved,
   onError,
 }: Props) {
-  const [url, setUrl] = useState((championship as any).fbrefUrl ?? '');
+  const [url, setUrl] = useState(championship.fbrefUrl ?? '');
   const extractTypes: ExtractType[] = ['table'];
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FbrefExtractionResult | null>(null);
@@ -31,7 +31,7 @@ export default function FbrefExtractionModal({
   const [mode, setMode] = useState<ExtractionMode>('paste');
   const [pasteHtml, setPasteHtml] = useState('');
 
-  const handleExtract = async () => {
+  const handleExtract = useCallback(async () => {
     if (mode === 'paste') {
       if (!pasteHtml.trim()) {
         onError?.('Cole o HTML da página do FBref');
@@ -101,10 +101,10 @@ export default function FbrefExtractionModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [mode, url, pasteHtml, championship, extractTypes, onError]);
 
   // Auto-extrair se a URL já estiver preenchida ao abrir o modal
-  React.useEffect(() => {
+  useEffect(() => {
     if (mode !== 'paste' && url.trim() && url.includes('fbref.com') && !loading && !result && !previewTables) {
       const timer = setTimeout(() => {
         handleExtract();

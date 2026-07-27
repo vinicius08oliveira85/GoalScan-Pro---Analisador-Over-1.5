@@ -227,7 +227,7 @@ const MatchResultAnalysisModal: React.FC<MatchResultAnalysisModalProps> = ({
                 </h3>
                 <ul className="space-y-2">
                   {analysis.sources.map((source, index) => (
-                    <li key={index} className="text-sm opacity-70 flex items-center gap-2">
+                    <li key={source} className="text-sm opacity-70 flex items-center gap-2">
                       <span className="w-1.5 h-1.5 bg-primary rounded-full" />
                       {source}
                     </li>

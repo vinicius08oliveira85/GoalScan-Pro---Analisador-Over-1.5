@@ -1,4 +1,3 @@
-import { getTable, getStandings, SUPPORTED_SERIES } from 'campeonato-brasileiro-api';
 import { Championship, ChampionshipTable, TableRowGeral } from '../types';
 import { saveChampionship, saveChampionshipTable, loadChampionships } from './championshipService';
 import { extractFbrefDataClientSide, FbrefExtractionResult } from './fbrefService';
@@ -52,6 +51,7 @@ async function tryCampeonatoApiDirect(
 ): Promise<TableRowGeral[] | null> {
   try {
     onProgress?.({ step: 'extraindo', message: 'Tentando ge.globo.com (fonte oficial Globo Esporte)...', progress: 25, source: 'ge' });
+    const { getTable } = await import('campeonato-brasileiro-api');
     const table = await getTable('a', {
       fetch: globalThis.fetch,
     });
@@ -98,6 +98,7 @@ async function tryCampeonatoApiViaProxy(
     const { html } = await response.json();
     if (!html || html.length < 5000) return null;
 
+    const { getTable } = await import('campeonato-brasileiro-api');
     const table = await getTable('a', { html });
     if (!table?.entries?.length) return null;
 

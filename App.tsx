@@ -6,11 +6,6 @@ import InAppNotification from './components/InAppNotification';
 import ToastContainer from './components/ToastContainer';
 import CommandPalette from './components/CommandPalette';
 import TabNavigation, { TabType } from './components/TabNavigation';
-import DashboardScreen from './components/DashboardScreen';
-import MatchesScreen from './components/MatchesScreen';
-import ChampionshipsScreen from './components/ChampionshipsScreen';
-import BankScreen from './components/BankScreen';
-import SettingsScreen from './components/SettingsScreen';
 import ModalShell from './components/ui/ModalShell';
 import MatchResultAnalysisModal from './components/MatchResultAnalysisModal';
 import { useToast } from './hooks/useToast';
@@ -24,6 +19,17 @@ import { logger } from './utils/logger';
 
 // Lazy loading de componentes pesados para code splitting
 const AnalysisDashboard = lazy(() => import('./components/AnalysisDashboard'));
+const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
+const MatchesScreen = lazy(() => import('./components/MatchesScreen'));
+const ChampionshipsScreen = lazy(() => import('./components/ChampionshipsScreen'));
+const BankScreen = lazy(() => import('./components/BankScreen'));
+const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
+
+const ScreenFallback = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <span className="loading loading-spinner loading-lg text-primary" />
+  </div>
+);
 
 import {
   SavedAnalysis,
@@ -363,12 +369,14 @@ const App: React.FC = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
             >
-              <DashboardScreen
-                savedMatches={savedMatches}
-                bankSettings={bankSettings}
-                onMatchClick={handleNavigateToAnalysis}
-                isLoading={isLoading}
-              />
+              <Suspense fallback={<ScreenFallback />}>
+                <DashboardScreen
+                  savedMatches={savedMatches}
+                  bankSettings={bankSettings}
+                  onMatchClick={handleNavigateToAnalysis}
+                  isLoading={isLoading}
+                />
+              </Suspense>
             </motion.div>
           )}
           {activeTab === 'matches' && (
@@ -379,16 +387,18 @@ const App: React.FC = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
             >
-              <MatchesScreen
-                savedMatches={savedMatches}
-                onMatchClick={handleNavigateToAnalysis}
-                onNewMatch={handleNewMatch}
-                onDeleteMatch={handleDeleteSaved}
-                onUpdateBetStatus={handleUpdateBetStatus}
-                onAnalyzeResult={handleOpenResultAnalysis}
-                isLoading={isLoading}
-                isUpdatingBetStatus={isUpdatingBetStatus}
-              />
+              <Suspense fallback={<ScreenFallback />}>
+                <MatchesScreen
+                  savedMatches={savedMatches}
+                  onMatchClick={handleNavigateToAnalysis}
+                  onNewMatch={handleNewMatch}
+                  onDeleteMatch={handleDeleteSaved}
+                  onUpdateBetStatus={handleUpdateBetStatus}
+                  onAnalyzeResult={handleOpenResultAnalysis}
+                  isLoading={isLoading}
+                  isUpdatingBetStatus={isUpdatingBetStatus}
+                />
+              </Suspense>
             </motion.div>
           )}
           {activeTab === 'championships' && (
@@ -399,7 +409,9 @@ const App: React.FC = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
             >
-              <ChampionshipsScreen />
+              <Suspense fallback={<ScreenFallback />}>
+                <ChampionshipsScreen />
+              </Suspense>
             </motion.div>
           )}
           {activeTab === 'bank' && (
@@ -410,12 +422,14 @@ const App: React.FC = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
             >
-              <BankScreen
-                bankSettings={bankSettings}
-                savedMatches={savedMatches}
-                onSave={handleSaveBankSettings}
-                onError={showError}
-              />
+              <Suspense fallback={<ScreenFallback />}>
+                <BankScreen
+                  bankSettings={bankSettings}
+                  savedMatches={savedMatches}
+                  onSave={handleSaveBankSettings}
+                  onError={showError}
+                />
+              </Suspense>
             </motion.div>
           )}
           {activeTab === 'settings' && (
@@ -426,7 +440,9 @@ const App: React.FC = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
             >
-              <SettingsScreen />
+              <Suspense fallback={<ScreenFallback />}>
+                <SettingsScreen />
+              </Suspense>
             </motion.div>
           )}
         </AnimatePresence>

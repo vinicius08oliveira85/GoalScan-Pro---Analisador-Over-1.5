@@ -69,6 +69,9 @@ const MatchCardCompact: React.FC<MatchCardCompactProps> = React.memo(({
       layout
       key={match.id}
       onClick={() => onMatchClick(match)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMatchClick(match); } }}
+      role="button"
+      tabIndex={0}
       custom={index}
       initial="initial"
       animate="animate"

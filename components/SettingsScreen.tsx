@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { exportAllData, downloadJson } from '../services/exportService';
 import { importFromFile } from '../services/importService';
 import type { ImportResult } from '../services/importService';
+import { logger } from '../utils/logger';
 
 const SettingsScreen: React.FC = () => {
   const { mode: theme, setMode: setTheme } = useTheme();
@@ -25,7 +26,7 @@ const SettingsScreen: React.FC = () => {
       const data = await exportAllData();
       downloadJson(data);
     } catch (e) {
-      console.error('Erro ao exportar:', e);
+      logger.error('Erro ao exportar:', e);
     } finally {
       setExporting(false);
     }

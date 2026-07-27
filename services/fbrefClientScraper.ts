@@ -199,28 +199,108 @@ function findTable(doc: Document, type: string): HTMLTableElement | null {
 
 const FBREF_HTML_PROXY_URL = '/api/fbref-html-proxy';
 
-async function fetchViaProxy(url: string): Promise<string> {
-  const response = await fetch(FBREF_HTML_PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
-    signal: AbortSignal.timeout(45000),
+const CORS_PROXIES = [
+  'https://api.allorigins.win/raw?url=',
+  'https://corsproxy.io/?',
+];
+
+const MAX_EMBED_ATTEMPTS = 3;
+
+function tryEmbedProxy(targetUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = targetUrl;
+
+    const timeout = setTimeout(() => {
+      document.body.removeChild(iframe);
+      reject(new Error('Timeout no embed proxy'));
+    }, 20000);
+
+    iframe.onload = async () => {
+      try {
+        const html = iframe.contentDocument?.documentElement?.innerHTML;
+        if (html && html.length > 10000) {
+          resolve(html);
+        } else {
+          reject(new Error('HTML muito curto ou vazio'));
+        }
+      } catch (e) {
+        reject(new Error('Cross-origin bloqueado no embed'));
+      } finally {
+        clearTimeout(timeout);
+        document.body.removeChild(iframe);
+      }
+    };
+
+    iframe.onerror = () => {
+      clearTimeout(timeout);
+      document.body.removeChild(iframe);
+      reject(new Error('Erro ao carregar iframe'));
+    };
+
+    document.body.appendChild(iframe);
   });
+}
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    const message = errorData?.error || `HTTP ${response.status}: ${response.statusText}`;
-    throw new Error(message);
+async function fetchViaProxy(url: string): Promise<string> {
+  // Tenta 1: API interna do Vercel
+  try {
+    const response = await fetch(FBREF_HTML_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (response.ok) {
+      const json = await response.json();
+      const html = json.html;
+      if (typeof html === 'string' && html.length >= 10000) {
+        return html;
+      }
+    }
+  } catch {
+    logger.warn('[FbrefClientScraper] API Vercel indisponível, tentando proxies CORS...');
   }
 
-  const json = await response.json();
-  const html = json.html;
+  // Tenta 2: Proxies CORS gratuitos
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const response = await fetch(`${proxy}${encodeURIComponent(url)}`, {
+        signal: AbortSignal.timeout(20000),
+      });
 
-  if (typeof html !== 'string' || html.length < 10000) {
-    throw new Error('Resposta do proxy não contém HTML válido do FBref');
+      if (!response.ok) continue;
+
+      let html: string;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json') || contentType.includes('json')) {
+        const json = await response.json();
+        html = json.contents || json.data || json.html || JSON.stringify(json);
+      } else {
+        html = await response.text();
+      }
+
+      if (typeof html === 'string' && html.length >= 10000) {
+        return html;
+      }
+    } catch {
+      logger.warn(`[FbrefClientScraper] Proxy ${proxy} falhou, tentando próximo...`);
+    }
   }
 
-  return html;
+  // Tenta 3: embed iframe (último recurso)
+  for (let i = 0; i < MAX_EMBED_ATTEMPTS; i++) {
+    try {
+      const html = await tryEmbedProxy(url);
+      return html;
+    } catch {
+      logger.warn(`[FbrefClientScraper] Embed attempt ${i + 1} falhou`);
+    }
+  }
+
+  throw new Error('Todos os métodos de proxy falharam. Use o modo "Colar HTML".');
 }
 
 function parseHtml(html: string): Document {

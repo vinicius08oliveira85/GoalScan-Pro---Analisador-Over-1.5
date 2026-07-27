@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { BankSettings } from '../types';
+import { logger } from '../utils/logger';
 import {
   Wallet,
   Save,
@@ -17,6 +18,7 @@ import {
 import { validateBankSettings } from '../utils/validation';
 import { errorService } from '../services/errorService';
 import { normalizeCurrency, getCurrencySymbol } from '../utils/currency';
+import { UI_CONSTANTS, TIMEOUTS } from '../utils/constants';
 
 type SaveStatus = 'idle' | 'loading' | 'success' | 'error';
 type ValidationState = 'idle' | 'valid' | 'invalid';
@@ -27,6 +29,12 @@ interface CurrencyOption {
   label: string;
   icon: React.ReactNode;
 }
+
+const InfoTooltip = ({ text }: { text: string }) => (
+  <div className="tooltip tooltip-top cursor-help" data-tip={text}>
+    <Info className="w-4 h-4 opacity-50 hover:opacity-100 transition-opacity" />
+  </div>
+);
 
 const currencies: CurrencyOption[] = [
   { code: 'BRL', symbol: 'R$', label: 'Real Brasileiro', icon: <DollarSign className="w-5 h-5" /> },
@@ -95,9 +103,9 @@ const BankSettingsComponent: React.FC<BankSettingsProps> = ({ bankSettings, onSa
       return;
     }
 
-    if (totalBank > 100000000) {
+    if (totalBank > UI_CONSTANTS.BANK_MAX_VALUE) {
       setValidationState('invalid');
-      setValidationMessage('Valor muito alto (máximo: 100.000.000)');
+      setValidationMessage(`Valor muito alto (máximo: ${UI_CONSTANTS.BANK_MAX_VALUE.toLocaleString('pt-BR')})`);
       return;
     }
 
@@ -182,8 +190,7 @@ const BankSettingsComponent: React.FC<BankSettingsProps> = ({ bankSettings, onSa
       setHasUnsavedChanges(false);
       setSaveStatus('success');
 
-      // Resetar status após 3 segundos
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      setTimeout(() => setSaveStatus('idle'), UI_CONSTANTS.STATUS_RESET_DELAY);
     } catch (error) {
       // Registrar erro no serviço centralizado
       const errorMessage =
@@ -196,11 +203,10 @@ const BankSettingsComponent: React.FC<BankSettingsProps> = ({ bankSettings, onSa
       if (onError) {
         onError(`Erro ao validar configurações: ${errorMessage}`);
       } else {
-        console.error(`Erro ao validar configurações: ${errorMessage}`);
+        logger.error(`Erro ao validar configurações: ${errorMessage}`);
       }
 
-      // Resetar status após 3 segundos
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      setTimeout(() => setSaveStatus('idle'), UI_CONSTANTS.STATUS_RESET_DELAY);
     }
   }, [totalBank, currency, validationState, onSave, onError]);
 
@@ -248,13 +254,7 @@ const BankSettingsComponent: React.FC<BankSettingsProps> = ({ bankSettings, onSa
       ? ((totalBank - previousBankValue) / previousBankValue) * 100
       : 0;
 
-  const quickValues = [100, 500, 1000, 5000];
-
-  const InfoTooltip = ({ text }: { text: string }) => (
-    <div className="tooltip tooltip-top cursor-help" data-tip={text}>
-      <Info className="w-4 h-4 opacity-50 hover:opacity-100 transition-opacity" />
-    </div>
-  );
+  const quickValues = UI_CONSTANTS.QUICK_BANK_VALUES;
 
   return (
     <div className="custom-card p-4 md:p-6 bg-gradient-to-br from-secondary/10 to-accent/10 border border-secondary/20">

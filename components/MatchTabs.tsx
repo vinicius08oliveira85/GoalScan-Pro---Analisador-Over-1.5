@@ -21,7 +21,7 @@ interface MatchTabsProps {
   };
 }
 
-const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts }) => {
+const MatchTabs: React.FC<MatchTabsProps> = React.memo(({ activeTab, onTabChange, counts }) => {
   const tabs: Tab[] = [
     {
       id: 'pendentes',
@@ -156,6 +156,6 @@ const MatchTabs: React.FC<MatchTabsProps> = ({ activeTab, onTabChange, counts })
       </div>
     </div>
   );
-};
+});
 
 export default MatchTabs;

@@ -22,7 +22,7 @@ interface BetSummaryCardProps {
   savedMatch?: SavedAnalysis;
 }
 
-const BetSummaryCard: React.FC<BetSummaryCardProps> = ({
+const BetSummaryCard: React.FC<BetSummaryCardProps> = React.memo(({
   betInfo,
   bankSettings,
   odd,
@@ -218,6 +218,6 @@ const BetSummaryCard: React.FC<BetSummaryCardProps> = ({
       )}
     </div>
   );
-};
+});
 
 export default BetSummaryCard;

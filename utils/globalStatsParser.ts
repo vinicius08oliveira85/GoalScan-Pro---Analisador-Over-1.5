@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { TeamStatistics, GolsStats, PercursoStats } from '../types';
 import { GLOBAL_STATS_GOLS_METRIC_MAPPINGS } from './globalStatsMetricMappings';
+import { parseNumeric } from './numbers';
 
 interface ParsedGlobalStats {
   homeTeamStats: TeamStatistics;
@@ -12,23 +13,7 @@ interface ParsedGlobalStats {
  * Exportado para reutilização no formato JSON de Estatísticas Globais.
  */
 export function parseNumber(value: string | number | null | undefined): number {
-  if (value === null || value === undefined || value === '') {
-    return 0;
-  }
-  
-  if (typeof value === 'number') {
-    return isNaN(value) ? 0 : value;
-  }
-  
-  const str = String(value).trim();
-  if (str === '' || str === '-' || str === 'N/A') {
-    return 0;
-  }
-  
-  // Remover % e espaços
-  const cleaned = str.replace(/%/g, '').replace(/\s/g, '');
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
+  return parseNumeric(value, 0);
 }
 
 /**

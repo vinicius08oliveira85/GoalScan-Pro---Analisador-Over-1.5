@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, ExternalLink, Download } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Eye, ExternalLink, Download, RefreshCw, Clock } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
@@ -12,13 +12,14 @@ import ConfirmDialog from './ui/ConfirmDialog';
 import EmptyState from './ui/EmptyState';
 import { SkeletonCard } from './Skeleton';
 import Skeleton from './Skeleton';
+import { logger } from '../utils/logger';
 
 const ChampionshipsScreen: React.FC = () => {
   const handleError = (message: string) => {
-    console.error('[ChampionshipsScreen]', message);
+    logger.error('[ChampionshipsScreen]', message);
   };
 
-  const { championships, isLoading, isSaving, save, remove, loadTables, removeTable, load } =
+  const { championships, isLoading, isSaving, save, remove, loadTables, removeTable, isRefreshing, lastRefresh, refreshNow } =
     useChampionships(handleError);
 
   const [showForm, setShowForm] = useState(false);
@@ -64,13 +65,13 @@ const ChampionshipsScreen: React.FC = () => {
         handleError('Erro ao salvar campeonato');
       }
     } catch (error) {
-      console.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
+      logger.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
       handleError(`Erro ao salvar campeonato: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 
   const handleAutoImportSuccess = async (championship: Championship, tables: ChampionshipTable[]) => {
-    await load();
+    refreshNow();
     if (tables.length > 0) {
       setViewingTables({ championship, tables });
     }
@@ -129,6 +130,29 @@ const ChampionshipsScreen: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Status de Refresh */}
+      {championships.length > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-base-200/30 px-4 py-2 text-xs text-base-content/60 backdrop-blur-sm">
+          <Clock className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            {lastRefresh > 0
+              ? `Última atualização: ${new Date(lastRefresh).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+              : 'Dados locais (sem sync ainda)'}
+          </span>
+          <span className="opacity-40">•</span>
+          <span>Refresh automático: meia-noite (00:00)</span>
+          <button
+            onClick={() => refreshNow()}
+            disabled={isRefreshing}
+            className="btn btn-xs btn-ghost gap-1 ml-auto"
+            title="Atualizar agora"
+          >
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Atualizando...' : 'Atualizar'}
+          </button>
+        </div>
+      )}
 
       {/* Lista de Campeonatos */}
       {championships.length === 0 ? (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { SavedAnalysis } from '../types';
 import { Bell, X, Clock, ArrowRight } from 'lucide-react';
 import { getMatchDateInBrasilia, formatMatchTime } from '../utils/dateFormatter';
@@ -11,12 +11,15 @@ interface InAppNotificationProps {
 
 const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, onClick }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const entranceTimer = setTimeout(() => setIsVisible(true), 100);
 
     const autoCloseTimer = setTimeout(() => {
-      handleClose();
+      setIsVisible(false);
+      setTimeout(() => onCloseRef.current(), 300);
     }, 10000);
 
     return () => {
@@ -27,9 +30,7 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, o
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(() => {
-      onClose();
-    }, 300); // Aguardar animação de saída
+    setTimeout(() => onCloseRef.current(), 300);
   };
 
   const handleClick = () => {
@@ -71,6 +72,9 @@ const InAppNotification: React.FC<InAppNotificationProps> = ({ match, onClose, o
       <div
         className="custom-card cursor-pointer border border-primary/35 bg-gradient-to-br from-primary/25 via-base-100/45 to-secondary/15 p-4 shadow-2xl shadow-primary/25 backdrop-blur-xl transition-transform duration-200 hover:scale-[1.02]"
         onClick={handleClick}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}
+        role="button"
+        tabIndex={0}
       >
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-xl bg-primary/20 border border-primary/30 flex-shrink-0">
