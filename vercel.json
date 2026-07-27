@@ -3,5 +3,12 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "vite"
+  "framework": "vite",
+  "functions": {
+    "api/*.py": {
+      "runtime": "python3.9",
+      "memory": 512,
+      "maxDuration": 30
+    }
+  }
 }

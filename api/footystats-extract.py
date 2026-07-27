@@ -1,12 +1,27 @@
 """
 API route Python para extrair dados do footystats.org
 Suporta 3 páginas: classificação, jogos, forma
+Usa cloudscraper para bypass de Cloudflare/bot detection
 """
 import json
+import logging
+import random
 import re
+import sys
 import time
 from http.server import BaseHTTPRequestHandler
 from typing import Dict, List, Optional
+
+logging.basicConfig(level=logging.INFO, stream=sys.stderr)
+logger = logging.getLogger('footystats')
+
+try:
+    import cloudscraper
+    HAS_CLOUDSCRAPER = True
+    logger.info('cloudscraper disponivel')
+except ImportError:
+    HAS_CLOUDSCRAPER = False
+    logger.warning('cloudscraper nao disponivel, usando requests')
 
 try:
     import requests
@@ -14,61 +29,109 @@ try:
 except ImportError:
     pass
 
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+]
+
 
 class FootyStatsScraper:
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8',
-            'Referer': 'https://footystats.org/',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Cache-Control': 'max-age=0',
-        })
+        self.session = self._create_session()
 
-    COLUMN_MAP = {
-        'team': 'Squad', 'mp': 'MP', 'w': 'W', 'd': 'D', 'l': 'L',
-        'gf': 'GF', 'ga': 'GA', 'gd': 'GD', 'pts': 'Pts',
-        'ppg': 'Pts/MP', 'pointspergame': 'Pts/MP',
-        'cs': 'CS', 'cleansheets': 'CS',
-        'btts': 'BTTS', 'bothscore': 'BTTS',
-        'xgf': 'xG', 'xgexpectedgoals': 'xG',
-        'avg': 'AVG', 'avggoals': 'AVG',
-        'win': 'Win%', 'winpercentage': 'Win%',
-        'scored': 'Scored', 'conceded': 'Conceded',
-        'over15': 'Over1.5', 'over25': 'Over2.5',
-    }
+    def _create_session(self):
+        ua = random.choice(USER_AGENTS)
+        if HAS_CLOUDSCRAPER:
+            sess = cloudscraper.create_scraper(
+                browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False},
+                delay=5,
+            )
+            sess.headers.update({'User-Agent': ua, 'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8'})
+        else:
+            sess = requests.Session()
+            sess.headers.update({
+                'User-Agent': ua,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://footystats.org/',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
+            })
+        return sess
 
-    def _normalize_key(self, raw: str) -> str:
-        key = re.sub(r'[^a-zA-Z0-9]', '', raw).strip().lower()
-        return self.COLUMN_MAP.get(key, raw)
-
-    def get_page(self, url: str, max_retries: int = 3) -> Optional[str]:
+    def get_page(self, url: str, max_retries: int = 5) -> Optional[str]:
         for attempt in range(max_retries):
             try:
-                resp = self.session.get(url, timeout=30, allow_redirects=True)
+                ua = random.choice(USER_AGENTS)
+                self.session.headers.update({'User-Agent': ua})
+                if attempt > 0:
+                    wait = 3 * (attempt + 1) + random.uniform(0, 2)
+                    logger.info(f'Tentativa {attempt + 1}/{max_retries}, aguardando {wait:.1f}s...')
+                    time.sleep(wait)
+                    self.session = self._create_session()
+
+                logger.info(f'GET {url} (attempt {attempt + 1})')
+                resp = self.session.get(url, timeout=45, allow_redirects=True)
+                logger.info(f'Status: {resp.status_code}, size: {len(resp.text)}')
+
                 if resp.status_code == 200:
-                    return resp.text
+                    if len(resp.text) > 500:
+                        return resp.text
+                    logger.warning(f'Resposta muito curta ({len(resp.text)} chars), possivel bloqueio')
+
                 elif resp.status_code == 403:
-                    time.sleep(2 * (attempt + 1))
-                    self.session.headers['User-Agent'] = (
-                        f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                        f'AppleWebKit/537.36 (KHTML, like Gecko) '
-                        f'Chrome/{131 + attempt}.0.0.0 Safari/537.36'
-                    )
+                    logger.warning(f'403 Forbidden (attempt {attempt + 1})')
                     continue
+
+                elif resp.status_code == 429:
+                    retry_after = resp.headers.get('Retry-After', '10')
+                    logger.warning(f'429 Rate limited, retry-after: {retry_after}')
+                    time.sleep(int(retry_after) + 2)
+                    continue
+
+                elif resp.status_code in (502, 503):
+                    logger.warning(f'{resp.status_code} Server error')
+                    time.sleep(5)
+                    continue
+
                 else:
-                    time.sleep(1)
+                    logger.warning(f'Status inesperado: {resp.status_code}')
+                    time.sleep(2)
                     continue
-            except requests.RequestException:
-                time.sleep(2 * (attempt + 1))
-                continue
+
+            except requests.exceptions.Timeout:
+                logger.warning(f'Timeout (attempt {attempt + 1})')
+                time.sleep(3)
+
+            except requests.exceptions.ConnectionError as e:
+                logger.warning(f'Erro de conexao: {e}')
+                time.sleep(5)
+
+            except Exception as e:
+                logger.error(f'Erro inesperado: {e}')
+                time.sleep(3)
+
+        logger.error('Todas as tentativas falharam')
         return None
 
-    def _parse_rows_from_table(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+    def _detect_page_type(self, url: str) -> str:
+        if '/form-table' in url:
+            return 'form_table'
+        if '/fixtures' in url:
+            return 'fixtures'
+        return 'standings'
+
+    def _parse_table_from_html(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
         table = soup.select_one('table.league-table') or soup.select_one('table')
         if not table:
             return []
@@ -81,7 +144,7 @@ class FootyStatsScraper:
             for cell in thead.select('th'):
                 text = cell.get_text(strip=True)
                 if text:
-                    headers.append(self._normalize_key(text))
+                    headers.append(text)
 
         if not headers and rows:
             cells = rows[0].select('td, th')
@@ -96,8 +159,7 @@ class FootyStatsScraper:
             row_data = {}
             team_el = row.select_one('td.team-name a, td.team-name span, td a')
             if team_el:
-                name = re.sub(r'\s+', ' ', team_el.get_text(strip=True))
-                row_data['Squad'] = name
+                row_data['Squad'] = re.sub(r'\s+', ' ', team_el.get_text(strip=True))
             for i, cell in enumerate(cells):
                 text = cell.get_text(strip=True)
                 if not text:
@@ -111,275 +173,158 @@ class FootyStatsScraper:
                 results.append(row_data)
         return results
 
-    def _detect_page_type(self, url: str) -> str:
-        if '/form-table' in url:
-            return 'form_table'
-        if '/fixtures' in url:
-            return 'fixtures'
-        return 'standings'
-
     def _parse_standings(self, html: str) -> List[Dict[str, str]]:
         soup = BeautifulSoup(html, 'html.parser')
-        results = self._parse_rows_from_table(soup)
-        if results:
-            return results
-        tab_lines = []
-        for line in html.split('\n'):
-            stripped = line.strip()
-            if not stripped:
-                continue
-            parts = stripped.split('\t')
-            if len(parts) >= 10 and any(c.isdigit() for c in parts[0]):
-                tab_lines.append(parts)
-        if tab_lines:
-            results = []
-            for parts in tab_lines:
-                row = {'Rk': parts[0].strip()}
-                squad_idx = 1 if len(parts[0]) <= 3 else 0
-                if squad_idx < len(parts):
-                    row['Squad'] = parts[squad_idx].strip()
-                col_names = ['MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts']
-                for i, name in enumerate(col_names):
-                    idx = squad_idx + 1 + i
-                    if idx < len(parts):
-                        row[name] = parts[idx].strip()
-                if row.get('Squad'):
-                    results.append(row)
-            return results
-        return self._fallback_json(html)
+        results = self._parse_table_from_html(soup)
+
+        if not results:
+            soup2 = BeautifulSoup(html, 'lxml')
+            results = self._parse_table_from_html(soup2)
+
+        if not results:
+            for line in html.split('\n'):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                parts = [p for p in re.split(r'\t{2,}|\s{3,}', stripped) if p.strip()]
+                if len(parts) >= 8 and any(c.isdigit() for c in parts[0]):
+                    row = {'Rk': parts[0].strip()}
+                    squad_idx = 1 if len(parts[0]) <= 3 else 0
+                    if squad_idx < len(parts):
+                        row['Squad'] = parts[squad_idx].strip()
+                    col_names = ['MP', 'W', 'D', 'L', 'GF', 'GA', 'GD', 'Pts']
+                    for i, name in enumerate(col_names):
+                        idx = squad_idx + 1 + i
+                        if idx < len(parts):
+                            row[name] = parts[idx].strip()
+                    if row.get('Squad'):
+                        results.append(row)
+
+        return results
 
     def _parse_fixtures(self, html: str) -> Dict:
         soup = BeautifulSoup(html, 'html.parser')
         matches = []
-
-        match_blocks = soup.select('[class*="match"], [class*="fixture"], tr, .card, [class*="row"]')
         seen = set()
 
-        for block in soup.select('tr'):
-            cells = block.select('td')
+        for row in soup.select('tr'):
+            cells = row.select('td')
             if len(cells) < 3:
                 continue
-            text = block.get_text(' ', strip=True)
+            text = row.get_text(' ', strip=True)
             if not text:
                 continue
-            match_data = self._extract_match_from_block(block)
-            if match_data:
-                key = f"{match_data.get('homeTeam', '')}_{match_data.get('awayTeam', '')}"
-                if key not in seen and len(key) > 3:
-                    seen.add(key)
-                    matches.append(match_data)
 
-        for block in soup.select('[class*="match"]:not(tr), [class*="fixture"]:not(tr)'):
-            match_data = self._extract_match_from_block(block)
+            parts = [p.strip() for p in re.split(r'\s{3,}|\t+', text) if p.strip()]
+            match_data = self._extract_teams_from_parts(parts)
             if match_data:
                 key = f"{match_data.get('homeTeam', '')}_{match_data.get('awayTeam', '')}"
                 if key not in seen and len(key) > 3:
                     seen.add(key)
+                    score_match = re.search(r'(\d+)\s*[-–:]\s*(\d+)', text)
+                    if score_match:
+                        match_data['score'] = f"{score_match.group(1)}-{score_match.group(2)}"
+                    ht_match = re.search(r'\((\d+)[-–:](\d+)\)', text)
+                    if ht_match:
+                        match_data['htScore'] = f"{ht_match.group(1)}-{ht_match.group(2)}"
+                    date_match = re.search(r'(\d{2}[-/]\d{2}[-/]\d{4}|\d{4}[-/]\d{2}[-/]\d{2})', text)
+                    if date_match:
+                        match_data['date'] = date_match.group(1)
                     matches.append(match_data)
 
         if not matches:
-            lines = html.split('\n')
-            for i, line in enumerate(lines):
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                parts = stripped.split('\t')
-                if len(parts) >= 4:
-                    has_score = False
-                    for p in parts:
-                        if re.match(r'^\d+-\d+$', p.strip()):
-                            has_score = True
-                            break
-                    if has_score:
-                        match_data = {'status': 'played'}
-                        for p in parts:
-                            p = p.strip()
-                            if re.match(r'^\d+-\d+$', p):
-                                match_data['score'] = p
-                                ht = re.search(r'\(\s*(\d+-\d+)\s*\)', stripped)
-                                if ht:
-                                    match_data['htScore'] = ht.group(1)
-                            elif re.match(r'^[A-Z]', p) and len(p) > 2:
-                                if 'homeTeam' not in match_data:
-                                    match_data['homeTeam'] = p
-                                elif 'awayTeam' not in match_data:
-                                    match_data['awayTeam'] = p
-                        if 'homeTeam' in match_data and 'awayTeam' in match_data:
-                            matches.append(match_data)
-
-        for script in soup.select('script'):
-            text = script.string or ''
-            for m in re.finditer(r'"homeTeam"\s*:\s*"([^"]+)"', text):
-                pass
-            for m in re.finditer(r'"awayTeam"\s*:\s*"([^"]+)"', text):
-                pass
+            match_data = self._try_fixtures_from_json(html)
+            if match_data.get('matches'):
+                return match_data
 
         return {'matches': matches}
 
-    def _extract_match_from_block(self, block) -> Optional[Dict]:
-        text = block.get_text('|', strip=True)
-        parts = [p.strip() for p in text.split('|') if p.strip()]
-        if len(parts) < 3:
-            return None
-
-        match_data = {}
-        for p in parts:
-            if re.match(r'^\d+-\d+$', p):
-                match_data['score'] = p
-            elif re.match(r'^\d+:\d+$', p) or re.match(r'^\d+-\d+-\d+', p):
-                match_data['date'] = p
-            elif ':' in p and re.match(r'.*\d+:\d+', p):
-                match_data['time'] = p
-
-        teams = [p for p in parts if re.match(r'^[A-Z][a-z]', p) and not re.match(r'^\d', p) and len(p) > 2]
+    def _extract_teams_from_parts(self, parts: List[str]) -> Optional[Dict]:
+        teams = [p for p in parts if re.match(r'^[A-Z][a-zA-ZáéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ\s]{2,}', p) and len(p) > 2]
         if len(teams) >= 2:
-            match_data['homeTeam'] = teams[0]
-            match_data['awayTeam'] = teams[-1]
-
-        ht = re.search(r'\(\s*(\d+-\d+)\s*\)', text)
-        if ht:
-            match_data['htScore'] = ht.group(1)
-
-        if 'homeTeam' in match_data and 'awayTeam' in match_data:
-            return match_data
+            return {'homeTeam': teams[0], 'awayTeam': teams[-1]}
+        if len(parts) >= 2:
+            p1, p2 = parts[0], parts[-1]
+            if len(p1) > 2 and len(p2) > 2 and not re.match(r'^\d', p1) and not re.match(r'^\d', p2):
+                return {'homeTeam': p1, 'awayTeam': p2}
         return None
 
-    def _parse_form_table(self, html: str) -> Dict:
-        soup = BeautifulSoup(html, 'html.parser')
-        sections = html.split('<h')
-        last5_rows = []
-        last10_rows = []
-        current_section = None
-
-        for section in sections:
-            lower = section.lower()
-            if 'last 5' in lower or 'last5' in lower:
-                current_section = 'last5'
-            elif 'last 10' in lower or 'last10' in lower:
-                current_section = 'last10'
-
-            rows = self._parse_rows_from_table(BeautifulSoup(section, 'html.parser'))
-            if rows:
-                if current_section == 'last10':
-                    last10_rows.extend(rows)
-                else:
-                    last5_rows.extend(rows)
-
-        if not last5_rows and not last10_rows:
-            all_rows = self._parse_rows_from_table(soup)
-            if all_rows:
-                mid = len(all_rows) // 2
-                last5_rows = all_rows[:mid]
-                last10_rows = all_rows[mid:]
-
-        return {
-            'last5': last5_rows,
-            'last10': last10_rows,
-        }
-
-    def _parse_fixtures_from_json(self, html: str) -> Dict:
+    def _try_fixtures_from_json(self, html: str) -> Dict:
         soup = BeautifulSoup(html, 'html.parser')
         matches = []
         for script in soup.select('script'):
             text = script.string or ''
-            patterns = [
-                r'fixtures\s*=\s*(\[[\s\S]*?\])',
-                r'matchData\s*=\s*(\[[\s\S]*?\])',
-                r'upcomingMatches\s*=\s*(\[[\s\S]*?\])',
-                r'results\s*=\s*(\[[\s\S]*?\])',
-            ]
-            for pat in patterns:
-                m = re.search(pat, text)
-                if m:
+            if 'homeTeam' not in text and 'awayTeam' not in text:
+                continue
+            for m in re.finditer(r'"homeTeam"\s*:\s*"([^"]+)"', text):
+                pass
+            try:
+                for item_match in re.finditer(r'\{[^{}]*(?:homeTeam|awayTeam)[^{}]*\}', text):
                     try:
-                        data = json.loads(m.group(1))
-                        if isinstance(data, list):
-                            for item in data:
-                                entry = {}
-                                home = item.get('home', item.get('homeTeam', item.get('home_team', '')))
-                                away = item.get('away', item.get('awayTeam', item.get('away_team', '')))
-                                if isinstance(home, dict):
-                                    home = home.get('name', '')
-                                if isinstance(away, dict):
-                                    away = away.get('name', '')
-                                if home and away:
-                                    entry['homeTeam'] = str(home)
-                                    entry['awayTeam'] = str(away)
-                                score = item.get('score', item.get('ftScore', ''))
-                                if score:
-                                    entry['score'] = str(score)
-                                date = item.get('date', item.get('datetime', item.get('dateTime', '')))
-                                if date:
-                                    entry['date'] = str(date)
-                                if entry.get('homeTeam') and entry.get('awayTeam'):
-                                    matches.append(entry)
-                        if matches:
-                            return {'matches': matches}
+                        item = json.loads(item_match.group())
+                        home = item.get('home', item.get('homeTeam', item.get('home_team', '')))
+                        away = item.get('away', item.get('awayTeam', item.get('away_team', '')))
+                        if isinstance(home, dict): home = home.get('name', '')
+                        if isinstance(away, dict): away = away.get('name', '')
+                        if home and away:
+                            matches.append({
+                                'homeTeam': str(home),
+                                'awayTeam': str(away),
+                                'score': str(item.get('score', item.get('ftScore', ''))) or None,
+                                'date': str(item.get('date', item.get('datetime', ''))) or None,
+                            })
                     except (json.JSONDecodeError, TypeError):
                         pass
+            except Exception:
+                pass
         return {'matches': matches}
+
+    def _parse_form_table(self, html: str) -> Dict:
+        soup = BeautifulSoup(html, 'html.parser')
+        tables = soup.select('table')
+        form_tables = []
+
+        for table in tables:
+            rows = self._parse_table_from_html(table)
+            if rows:
+                form_tables.append(rows)
+
+        if len(form_tables) >= 2:
+            return {'last5': form_tables[0], 'last10': form_tables[1]}
+        elif len(form_tables) == 1:
+            all_rows = form_tables[0]
+            mid = len(all_rows) // 2
+            return {'last5': all_rows[:mid], 'last10': all_rows[mid:]}
+
+        rows = self._parse_table_from_html(soup)
+        if rows:
+            mid = len(rows) // 2
+            return {'last5': rows[:mid], 'last10': rows[mid:]}
+
+        return {'last5': [], 'last10': []}
 
     def scrape(self, url: str) -> Dict:
         html = self.get_page(url)
         if not html:
-            return {'error': 'Não foi possível acessar o footystats.org após várias tentativas'}
+            return {'error': 'Não foi possível acessar o footystats.org após várias tentativas. O site pode estar bloqueando acessos automatizados.'}
 
         page_type = self._detect_page_type(url)
+        logger.info(f'Tipo de pagina: {page_type}, HTML size: {len(html)}')
 
         if page_type == 'fixtures':
             result = self._parse_fixtures(html)
             if not result.get('matches'):
-                result = self._parse_fixtures_from_json(html)
-            return {
-                'type': 'fixtures',
-                'data': result,
-            }
+                result = self._try_fixtures_from_json(html)
+            return {'type': 'fixtures', 'data': result}
 
         if page_type == 'form_table':
             result = self._parse_form_table(html)
-            return {
-                'type': 'form_table',
-                'data': result,
-            }
+            return {'type': 'form_table', 'data': result}
 
         result = self._parse_standings(html)
-        return {
-            'type': 'standings',
-            'data': {'table': result},
-        }
-
-    def _fallback_json(self, html: str) -> List[Dict[str, str]]:
-        soup = BeautifulSoup(html, 'html.parser')
-        for script in soup.select('script'):
-            text = script.string or ''
-            for pat in [r'\[.*?\]', r'(\{[^{}]*"team"[^}]*\})']:
-                for m in re.finditer(pat, text):
-                    try:
-                        data = json.loads(m.group())
-                        entries = data if isinstance(data, list) else [data]
-                        rows = []
-                        for entry in entries:
-                            name = entry.get('team') or entry.get('name') or ''
-                            if isinstance(name, dict):
-                                name = name.get('name', '')
-                            if not name:
-                                continue
-                            row = {'Squad': str(name)}
-                            fm = {
-                                'matchesPlayed': 'MP', 'wins': 'W', 'draws': 'D', 'losses': 'L',
-                                'goalsFor': 'GF', 'goalsAgainst': 'GA', 'goalDifference': 'GD',
-                                'points': 'Pts', 'position': 'Rk',
-                            }
-                            for k, v in fm.items():
-                                val = entry.get(k)
-                                if val is not None:
-                                    row[v] = str(val)
-                            rows.append(row)
-                        if rows:
-                            return rows
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-        return []
+        if not result:
+            return {'error': 'Nenhuma tabela de classificação encontrada na página do FootyStats.'}
+        return {'type': 'standings', 'data': {'table': result}}
 
 
 class handler(BaseHTTPRequestHandler):
@@ -404,16 +349,23 @@ class handler(BaseHTTPRequestHandler):
             if 'error' in result:
                 self._send_response({'success': False, 'error': result['error']})
                 return
-            self._send_response({'success': True, 'data': result.get('data', {}), 'type': result.get('type', 'standings')})
+            self._send_response({
+                'success': True,
+                'data': result.get('data', {}),
+                'type': result.get('type', 'standings'),
+            })
         except json.JSONDecodeError:
             self._send_error(400, 'JSON inválido no body da requisição')
         except Exception as e:
+            logger.exception('Erro interno no handler')
             self._send_error(500, f'Erro interno: {str(e)}')
 
     def _send_response(self, data: Dict, status_code: int = 200):
         self.send_response(status_code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
