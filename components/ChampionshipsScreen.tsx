@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Plus, Edit, Trash2, Eye, ExternalLink, Download, RefreshCw, Clock } from 'lucide-react';
+import { Trophy, Plus, Edit, Trash2, Eye, Download, RefreshCw, Clock } from 'lucide-react';
 import { useChampionships } from '../hooks/useChampionships';
 import { Championship, ChampionshipTable } from '../types';
 import ChampionshipForm from './ChampionshipForm';
 import ChampionshipTableView from './ChampionshipTableView';
-import FbrefExtractionModal from './FbrefExtractionModal';
-import AutoImportBrasileiraoModal from './AutoImportBrasileiraoModal';
 import MultiLeagueImportModal from './MultiLeagueImportModal';
 import ModalShell from './ui/ModalShell';
 import ConfirmDialog from './ui/ConfirmDialog';
@@ -29,8 +27,6 @@ const ChampionshipsScreen: React.FC = () => {
     championship: Championship;
     tables: ChampionshipTable[];
   } | null>(null);
-  const [extractingFbref, setExtractingFbref] = useState<Championship | null>(null);
-  const [showAutoImport, setShowAutoImport] = useState(false);
   const [showMultiLeagueImport, setShowMultiLeagueImport] = useState(false);
   const [deletingTable, setDeletingTable] = useState<{
     championship: Championship;
@@ -62,7 +58,6 @@ const ChampionshipsScreen: React.FC = () => {
       if (savedChampionship) {
         setShowForm(false);
         setEditingChampionship(null);
-        setExtractingFbref(savedChampionship);
       } else {
         handleError('Erro ao salvar campeonato');
       }
@@ -70,14 +65,6 @@ const ChampionshipsScreen: React.FC = () => {
       logger.error('[ChampionshipsScreen] Erro ao salvar campeonato:', error);
       handleError(`Erro ao salvar campeonato: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
-  };
-
-  const handleAutoImportSuccess = async (championship: Championship, tables: ChampionshipTable[]) => {
-    refreshNow();
-    if (tables.length > 0) {
-      setViewingTables({ championship, tables });
-    }
-    setShowAutoImport(false);
   };
 
   const handleMultiLeagueSuccess = async (championships: Championship[], tablesArrays: ChampionshipTable[][]) => {
@@ -169,11 +156,11 @@ const ChampionshipsScreen: React.FC = () => {
         <EmptyState
           icon={<Trophy className="w-12 h-12 md:w-14 md:h-14" aria-hidden="true" />}
           title="Nenhum Campeonato Cadastrado"
-          description="Comece criando seu primeiro campeonato e adicione as tabelas via FBref."
+          description="Importe campeonatos via API-Football ou crie manualmente um novo campeonato."
           actions={
-            <button onClick={handleNewChampionship} className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl">
-              <Plus className="w-5 h-5" aria-hidden="true" />
-              Criar Primeiro Campeonato
+            <button onClick={() => setShowMultiLeagueImport(true)} className="btn btn-primary btn-lg gap-2 shadow-xl hover:shadow-2xl">
+              <Download className="w-5 h-5" aria-hidden="true" />
+              Importar Campeonatos
             </button>
           }
         />
@@ -239,14 +226,6 @@ const ChampionshipsScreen: React.FC = () => {
                 >
                   <Eye className="w-3.5 h-3.5" />
                   Tabelas
-                </button>
-                <button
-                  onClick={() => setExtractingFbref(championship)}
-                  className="btn btn-sm btn-ghost flex-1 gap-1 text-xs"
-                  title="Extrair Dados do FBref.com"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  FBref
                 </button>
                 <button
                   onClick={() => handleEditChampionship(championship)}

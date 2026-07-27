@@ -6,7 +6,6 @@ import {
   ApiStandingTeam,
   ApiFixture,
 } from './apiFootballService';
-import { saveChampionship, saveChampionshipTable, loadChampionships } from './championshipService';
 import { Championship, ChampionshipTable, TableRowGeral } from '../types';
 import { logger } from '../utils/logger';
 import { H2HMatch } from '../types';
@@ -235,6 +234,45 @@ export async function importMultipleLeagues(
   return results;
 }
 
+const LS_CHAMPIONSHIPS = 'goalscan_championships';
+const LS_TABLES = 'goalscan_championship_tables';
+
+function saveChampionshipToLocal(championship: Championship): Championship {
+  try {
+    const raw = localStorage.getItem(LS_CHAMPIONSHIPS);
+    const list: Championship[] = raw ? JSON.parse(raw) : [];
+    const idx = list.findIndex((c) => c.id === championship.id);
+    if (idx >= 0) list[idx] = championship;
+    else list.push(championship);
+    localStorage.setItem(LS_CHAMPIONSHIPS, JSON.stringify(list));
+  } catch (e) {
+    logger.error('[MultiLeague] Erro ao salvar championship no localStorage:', e);
+  }
+  return championship;
+}
+
+function saveTableToLocal(table: ChampionshipTable): ChampionshipTable {
+  try {
+    const raw = localStorage.getItem(LS_TABLES);
+    const list: ChampionshipTable[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter((t) => t.championship_id !== table.championship_id || t.table_type !== table.table_type);
+    filtered.push(table);
+    localStorage.setItem(LS_TABLES, JSON.stringify(filtered));
+  } catch (e) {
+    logger.error('[MultiLeague] Erro ao salvar tabela no localStorage:', e);
+  }
+  return table;
+}
+
+function loadChampionshipsFromLocal(): Championship[] {
+  try {
+    const raw = localStorage.getItem(LS_CHAMPIONSHIPS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function saveLeagueAsChampionship(
   league: FootballLeague,
   data: LeagueData,
@@ -246,7 +284,7 @@ export async function saveLeagueAsChampionship(
 
   const championshipId = `league_${league.id}_${league.season}`;
 
-  const existing = await loadChampionships();
+  const existing = loadChampionshipsFromLocal();
   const found = existing.find((c) => c.id === championshipId);
 
   const championship: Championship = {
@@ -257,11 +295,7 @@ export async function saveLeagueAsChampionship(
     updated_at: new Date().toISOString(),
   };
 
-  const savedChamp = await saveChampionship(championship);
-  if (!savedChamp) {
-    logger.error(`[MultiLeague] Falha ao salvar campeonato ${league.name}`);
-    return result;
-  }
+  const savedChamp = saveChampionshipToLocal(championship);
   result.championship = savedChamp;
 
   if (data.standings.length > 0) {
@@ -275,8 +309,7 @@ export async function saveLeagueAsChampionship(
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const savedGeral = await saveChampionshipTable(geralTable);
-    if (savedGeral) result.tables.push(savedGeral);
+    result.tables.push(saveTableToLocal(geralTable));
   }
 
   if (data.fixtures.length > 0) {
@@ -289,8 +322,7 @@ export async function saveLeagueAsChampionship(
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const savedJogos = await saveChampionshipTable(jogosTable);
-    if (savedJogos) result.tables.push(savedJogos);
+    result.tables.push(saveTableToLocal(jogosTable));
   }
 
   return result;
