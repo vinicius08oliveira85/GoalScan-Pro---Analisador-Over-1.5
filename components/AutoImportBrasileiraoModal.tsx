@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { Trophy, Loader2, CheckCircle, XCircle, AlertCircle, Table2, Swords, TrendingUp } from 'lucide-react';
 import ModalShell from './ui/ModalShell';
 import { importBrasileirao2026, ImportProgress } from '../services/brasileirao2026Service';
 import { Championship, ChampionshipTable } from '../types';
@@ -13,10 +13,50 @@ interface Props {
   onError?: (message: string) => void;
 }
 
+type PreviewTab = 'geral' | 'jogos' | 'forma';
+
+const TAB_CONFIG: { key: PreviewTab; label: string; icon: React.ReactNode }[] = [
+  { key: 'geral', label: 'Classificação', icon: <Table2 className="w-4 h-4" /> },
+  { key: 'jogos', label: 'Jogos', icon: <Swords className="w-4 h-4" /> },
+  { key: 'forma', label: 'Forma', icon: <TrendingUp className="w-4 h-4" /> },
+];
+
+function PreviewTable({ rows, maxRows = 10 }: { rows: Record<string, unknown>[]; maxRows?: number }) {
+  if (!rows.length) return <p className="text-sm opacity-60 text-center py-4">Nenhum dado disponível</p>;
+  const cols = Object.keys(rows[0]).filter(k => k !== 'importExtras');
+  const display = rows.slice(0, maxRows);
+  return (
+    <div className="overflow-x-auto max-h-64 overflow-y-auto rounded-lg border border-base-300">
+      <table className="table table-sm table-zebra w-full">
+        <thead>
+          <tr>
+            {cols.map(col => (
+              <th key={col} className="text-xs uppercase font-bold opacity-70 whitespace-nowrap">{col}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {display.map((row, i) => (
+            <tr key={i}>
+              {cols.map(col => (
+                <td key={col} className="text-xs whitespace-nowrap">{String(row[col] ?? '')}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {rows.length > maxRows && (
+        <p className="text-xs text-center opacity-50 py-1">+{rows.length - maxRows} linhas</p>
+      )}
+    </div>
+  );
+}
+
 export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess, onError }: Props) {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [result, setResult] = useState<{ championship: Championship; tables: ChampionshipTable[] } | null>(null);
+  const [activeTab, setActiveTab] = useState<PreviewTab>('geral');
 
   const handleImport = async () => {
     setImporting(true);
@@ -31,7 +71,6 @@ export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess,
 
     if (res.championship && res.tables.length > 0) {
       setResult({ championship: res.championship, tables: res.tables });
-      onSuccess?.(res.championship, res.tables);
     } else if (progress?.step === 'erro') {
       onError?.(progress.message);
     }
@@ -47,6 +86,21 @@ export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess,
   const isError = progress?.step === 'erro';
   const isConcluded = progress?.step === 'concluido';
 
+  const previewData = (tab: PreviewTab): Record<string, unknown>[] => {
+    if (!result) return [];
+    const t = result.tables.find(t => t.table_type === tab);
+    if (!t?.table_data) return [];
+    const data = t.table_data;
+    if (tab === 'forma' && typeof data === 'object' && data !== null && !Array.isArray(data)) {
+      const d = data as { last5?: unknown[]; last10?: unknown[] };
+      if (activeTab === 'forma') {
+        return (d.last5 || d.last10 || []) as Record<string, unknown>[];
+      }
+    }
+    if (Array.isArray(data)) return data as Record<string, unknown>[];
+    return [];
+  };
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -55,10 +109,9 @@ export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess,
       closeOnEscape={!importing}
       showCloseButton={!importing}
       title="Importar Brasileirão Série A 2026"
-      panelClassName="max-w-lg"
+      panelClassName="max-w-2xl"
     >
       <div className="p-6 space-y-5">
-        {/* Info */}
         <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
           <div className="p-2 rounded-lg bg-primary/10 shrink-0">
             <Trophy className="w-5 h-5 text-primary" />
@@ -66,17 +119,16 @@ export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess,
           <div className="text-sm">
             <p className="font-bold">Campeonato Brasileiro Série A 2026</p>
             <p className="opacity-70 mt-1">
-              Busca dados automáticos em múltiplas fontes:
+              Dados extraídos do FootyStats.org:
               <span className="block mt-1 space-x-2">
-                <span className="badge badge-sm badge-ghost">ge.globo.com</span>
-                <span className="badge badge-sm badge-ghost">CBF</span>
-                <span className="badge badge-sm badge-ghost">FBref (fallback)</span>
+                <span className="badge badge-sm badge-ghost">Classificação</span>
+                <span className="badge badge-sm badge-ghost">Jogos</span>
+                <span className="badge badge-sm badge-ghost">Forma</span>
               </span>
             </p>
           </div>
         </div>
 
-        {/* Progress / Result */}
         {progress && (
           <motion.div
             initial="initial"
@@ -100,7 +152,7 @@ export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess,
               ) : (
                 <AlertCircle className="w-5 h-5 text-info mt-0.5 shrink-0" />
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-bold text-sm">{progress.message}</p>
                 {importing && (
                   <div className="mt-3 w-full bg-base-300 rounded-full h-2 overflow-hidden">
@@ -112,25 +164,47 @@ export default function AutoImportBrasileiraoModal({ isOpen, onClose, onSuccess,
                     />
                   </div>
                 )}
-                {isConcluded && result && (
-                  <div className="mt-2 text-xs opacity-75 space-y-1">
-                    <p>{result.tables.length} tabela(s) importada(s)</p>
-                    {progress?.source && (
-                      <p>Fonte: <span className="badge badge-sm">{progress.source}</span></p>
-                    )}
-                  </div>
-                )}
-                {isError && !importing && (
-                  <p className="text-xs opacity-70 mt-2">
-                    Nenhuma fonte automática respondeu. Use o botão <strong>FBref</strong> no card do campeonato e cole o HTML manualmente.
-                  </p>
-                )}
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* Actions */}
+        {isConcluded && result && (
+          <div className="space-y-3">
+            <div className="tabs tabs-boxed gap-1">
+              {TAB_CONFIG.map(tab => {
+                const count = result.tables.find(t => t.table_type === tab.key)?.table_data;
+                const itemCount = Array.isArray(count) ? count.length
+                  : typeof count === 'object' && count ? Object.values(count as object).reduce((a, b) => a + (Array.isArray(b) ? b.length : 0), 0)
+                  : 0;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`tab gap-1.5 text-xs ${activeTab === tab.key ? 'tab-active' : ''}`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                    {itemCount > 0 && <span className="badge badge-xs">{itemCount}</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <PreviewTable rows={previewData(activeTab)} maxRows={8} />
+
+            <div className="text-xs opacity-60 text-center">
+              {result.tables.length} tabela(s) importadas &middot; Fonte: FootyStats
+            </div>
+          </div>
+        )}
+
+        {isError && !importing && (
+          <p className="text-xs text-center opacity-70">
+            FootyStats pode estar bloqueado ou temporariamente indisponível. Tente novamente mais tarde.
+          </p>
+        )}
+
         <div className="flex gap-3">
           {!importing && !isConcluded && (
             <button onClick={handleImport} className="btn btn-primary flex-1 gap-2">

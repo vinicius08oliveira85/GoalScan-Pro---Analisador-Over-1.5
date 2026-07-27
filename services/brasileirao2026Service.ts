@@ -1,11 +1,7 @@
 import { Championship, ChampionshipTable, TableRowGeral } from '../types';
 import { saveChampionship, saveChampionshipTable, loadChampionships } from './championshipService';
-import { extractFbrefDataClientSide, FbrefExtractionResult } from './fbrefService';
-import { extractFootyStatsTable } from './footystatsService';
+import { extractStandings, extractFixtures, extractFormTable, FootyStatsStanding, FootyStatsMatch, FootyStatsFormEntry } from './footystatsService';
 import { logger } from '../utils/logger';
-
-const FBREF_BRASILEIRAO_URL = 'https://fbref.com/en/comps/24/2026/2026-Campeonato-Brasileiro-Serie-A-Stats';
-const GE_PROXY_URL = '/api/brasileirao-proxy';
 
 export interface ImportProgress {
   step: 'criando' | 'extraindo' | 'salvando' | 'concluido' | 'erro';
@@ -33,7 +29,6 @@ export async function findOrCreateBrasileiraoChampionship(
     const championship: Championship = {
       id: getChampionshipId(),
       nome: 'Campeonato Brasileiro Série A 2026',
-      fbrefUrl: FBREF_BRASILEIRAO_URL,
       table_format: 'basica',
       created_at: new Date().toISOString(),
     };
@@ -46,177 +41,19 @@ export async function findOrCreateBrasileiraoChampionship(
   }
 }
 
-async function tryCampeonatoApiDirect(
-  onProgress?: ProgressCallback
-): Promise<TableRowGeral[] | null> {
-  try {
-    onProgress?.({ step: 'extraindo', message: 'Tentando ge.globo.com (fonte oficial Globo Esporte)...', progress: 25, source: 'ge' });
-    const { getTable } = await import('campeonato-brasileiro-api');
-    const table = await getTable('a', {
-      fetch: globalThis.fetch,
-    });
-    if (!table?.entries?.length) return null;
-
-    return table.entries.map((entry: any) => ({
-      Rk: String(entry.position || ''),
-      Squad: entry.team?.name || '',
-      MP: String(entry.matches || ''),
-      W: String(entry.wins || ''),
-      D: String(entry.draws || ''),
-      L: String(entry.losses || ''),
-      GF: String(entry.goalsFor || ''),
-      GA: String(entry.goalsAgainst || ''),
-      GD: String(entry.goalDifference || ''),
-      Pts: String(entry.points || ''),
-      'Pts/MP': entry.matches ? String((entry.points / entry.matches).toFixed(2)) : '',
-      'Last 5': Array.isArray(entry.recentForm) ? entry.recentForm.join('') : '',
-    }));
-  } catch (error) {
-    logger.warn('[Brasileirao2026] ge.globo.com direto falhou (provável CORS):', error);
-    return null;
-  }
-}
-
-async function tryCampeonatoApiViaProxy(
-  onProgress?: ProgressCallback
-): Promise<TableRowGeral[] | null> {
-  try {
-    onProgress?.({ step: 'extraindo', message: 'Tentando via proxy ge.globo.com...', progress: 30, source: 'ge' });
-
-    const response = await fetch(GE_PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ serie: 'a' }),
-    });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => null);
-      logger.warn('[Brasileirao2026] Proxy ge.globo.com falhou:', errData?.error || response.statusText);
-      return null;
-    }
-
-    const { html } = await response.json();
-    if (!html || html.length < 5000) return null;
-
-    const { getTable } = await import('campeonato-brasileiro-api');
-    const table = await getTable('a', { html });
-    if (!table?.entries?.length) return null;
-
-    return table.entries.map((entry: any) => ({
-      Rk: String(entry.position || ''),
-      Squad: entry.team?.name || '',
-      MP: String(entry.matches || ''),
-      W: String(entry.wins || ''),
-      D: String(entry.draws || ''),
-      L: String(entry.losses || ''),
-      GF: String(entry.goalsFor || ''),
-      GA: String(entry.goalsAgainst || ''),
-      GD: String(entry.goalDifference || ''),
-      Pts: String(entry.points || ''),
-      'Pts/MP': entry.matches ? String((entry.points / entry.matches).toFixed(2)) : '',
-      'Last 5': Array.isArray(entry.recentForm) ? entry.recentForm.join('') : '',
-    }));
-  } catch (error) {
-    logger.warn('[Brasileirao2026] Proxy ge.globo.com falhou:', error);
-    return null;
-  }
-}
-
-async function tryFbrefClientSide(
-  championshipId: string,
-  onProgress?: ProgressCallback
-): Promise<FbrefExtractionResult | null> {
-  try {
-    onProgress?.({ step: 'extraindo', message: 'Tentando FBref (proxy)...', progress: 40, source: 'fbref' });
-    const result = await extractFbrefDataClientSide({
-      championshipUrl: FBREF_BRASILEIRAO_URL,
-      championshipId,
-      extractTypes: ['table'],
-    });
-    return result;
-  } catch (error) {
-    logger.warn('[Brasileirao2026] FBref falhou:', error);
-    return null;
-  }
-}
-
-async function tryFootyStats(
-  onProgress?: ProgressCallback
-): Promise<FbrefExtractionResult | null> {
-  try {
-    onProgress?.({ step: 'extraindo', message: 'Tentando FootyStats...', progress: 35, source: 'footystats' });
-    const result = await extractFootyStatsTable();
-    return result as unknown as FbrefExtractionResult;
-  } catch (error) {
-    logger.warn('[Brasileirao2026] FootyStats falhou:', error);
-    return null;
-  }
-}
-
-interface TableEntry {
-  position?: number | null;
-  team?: { name?: string | null };
-  points?: number | null;
-  matches?: number | null;
-  wins?: number | null;
-  draws?: number | null;
-  losses?: number | null;
-  goalsFor?: number | null;
-  goalsAgainst?: number | null;
-  goalDifference?: number | null;
-  recentForm?: Array<string | null>;
-}
-
-function apiEntriesToGeralRows(entries: TableEntry[]): TableRowGeral[] {
-  return entries.map((entry) => ({
-    Rk: String(entry.position ?? ''),
-    Squad: entry.team?.name ?? '',
-    MP: String(entry.matches ?? ''),
-    W: String(entry.wins ?? ''),
-    D: String(entry.draws ?? ''),
-    L: String(entry.losses ?? ''),
-    GF: String(entry.goalsFor ?? ''),
-    GA: String(entry.goalsAgainst ?? ''),
-    GD: String(entry.goalDifference ?? ''),
-    Pts: String(entry.points ?? ''),
-    'Pts/MP': entry.matches && entry.points ? String((entry.points / entry.matches).toFixed(2)) : '',
-    'Last 5': Array.isArray(entry.recentForm) ? entry.recentForm.filter(Boolean).join('') : '',
-  }));
-}
-
-function mergeTables(extractionResult: FbrefExtractionResult): Record<string, unknown[]> {
-  const tables = extractionResult.data?.tables as Record<string, unknown[]> | undefined;
-  if (!tables) return {};
-
-  const mergeBySquad = (tableArrays: unknown[][]): Record<string, unknown>[] => {
-    const merged = new Map<string, Record<string, unknown>>();
-    for (const tableRows of tableArrays) {
-      if (!Array.isArray(tableRows)) continue;
-      for (const row of tableRows) {
-        const r = row as Record<string, unknown>;
-        const squad = r.Squad || r.squad;
-        if (!squad) continue;
-        const key = String(squad);
-        const existing = merged.get(key);
-        if (existing) {
-          Object.assign(existing, r);
-        } else {
-          merged.set(key, { ...r });
-        }
-      }
-    }
-    return Array.from(merged.values());
-  };
-
+function standingToGeralRow(s: FootyStatsStanding): TableRowGeral {
   return {
-    geral: tables.geral || [],
-    complement: mergeBySquad([
-      tables.standard || [],
-      tables.goalkeeping || [],
-      tables.shooting || [],
-      tables.playing_time || [],
-      tables.misc || [],
-    ]),
+    Rk: s.Rk || '',
+    Squad: s.Squad || '',
+    MP: s.MP || '',
+    W: s.W || '',
+    D: s.D || '',
+    L: s.L || '',
+    GF: s.GF || '',
+    GA: s.GA || '',
+    GD: s.GD || '',
+    Pts: s.Pts || '',
+    'Pts/MP': s['Pts/MP'] || '',
   };
 }
 
@@ -236,64 +73,34 @@ export async function importBrasileirao2026(
     }
     result.championship = championship;
 
-    let geralRows: TableRowGeral[] | null = null;
-    let extractionResult: FbrefExtractionResult | null = null;
-    let usedSource = '';
+    onProgress?.({ step: 'extraindo', message: 'Extraindo classificação do FootyStats...', progress: 25, source: 'footystats' });
+    const standingsRes = await extractStandings();
 
-    geralRows = await tryCampeonatoApiDirect(onProgress);
-    if (geralRows?.length) {
-      usedSource = 'ge.globo.com (direto)';
-      onProgress?.({ step: 'extraindo', message: `Dados encontrados no ${usedSource}!`, progress: 60, source: 'ge' });
-    }
+    onProgress?.({ step: 'extraindo', message: 'Extraindo jogos do FootyStats...', progress: 45, source: 'footystats' });
+    const fixturesRes = await extractFixtures();
 
-    if (!geralRows?.length) {
-      geralRows = await tryCampeonatoApiViaProxy(onProgress);
-      if (geralRows?.length) {
-        usedSource = 'ge.globo.com (proxy)';
-        onProgress?.({ step: 'extraindo', message: `Dados encontrados no ${usedSource}!`, progress: 60, source: 'ge' });
-      }
-    }
+    onProgress?.({ step: 'extraindo', message: 'Extraindo forma do FootyStats...', progress: 65, source: 'footystats' });
+    const formRes = await extractFormTable();
 
-    if (!geralRows?.length) {
-      extractionResult = await tryFootyStats(onProgress);
-      if (extractionResult?.success && extractionResult.data?.tables) {
-        usedSource = 'FootyStats';
-        onProgress?.({
-          step: 'extraindo',
-          message: `Dados encontrados no ${usedSource}!`,
-          progress: 60,
-          source: 'footystats',
-        });
-      }
-    }
-
-    if (!geralRows?.length && !extractionResult?.success) {
-      extractionResult = await tryFbrefClientSide(championship.id, onProgress);
-      if (extractionResult?.success && extractionResult.data?.tables) {
-        usedSource = 'FBref';
-        onProgress?.({ step: 'extraindo', message: `Dados encontrados no ${usedSource}!`, progress: 60, source: 'fbref' });
-      }
-    }
-
-    if (!geralRows?.length && !extractionResult?.success) {
+    if (!standingsRes.success) {
       onProgress?.({
         step: 'erro',
-        message: 'Não foi possível obter dados automáticos de nenhuma fonte. Tente colar o HTML manualmente pelo botão FBref.',
+        message: standingsRes.error || 'Não foi possível obter dados do FootyStats.',
         progress: 0,
       });
       return result;
     }
 
-    onProgress?.({ step: 'salvando', message: `Salvando tabelas (fonte: ${usedSource})...`, progress: 70 });
-
+    onProgress?.({ step: 'salvando', message: 'Salvando tabelas...', progress: 80 });
     const savedTables: ChampionshipTable[] = [];
 
-    if (geralRows?.length) {
+    if (standingsRes.data?.table?.length) {
+      const geralRows = standingsRes.data.table.map(standingToGeralRow);
       const table: ChampionshipTable = {
         id: `${championship.id}_geral`,
         championship_id: championship.id,
         table_type: 'geral',
-        table_name: 'Geral',
+        table_name: 'Classificação',
         table_data: geralRows,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -302,36 +109,42 @@ export async function importBrasileirao2026(
       if (saved) savedTables.push(saved);
     }
 
-    if (extractionResult?.success && extractionResult.data?.tables) {
-      const tablesToSave = mergeTables(extractionResult);
-      for (const [tableType, rows] of Object.entries(tablesToSave)) {
-        if (!Array.isArray(rows) || rows.length === 0) continue;
-        if (!['geral', 'complement'].includes(tableType)) continue;
+    if (fixturesRes.data?.matches?.length) {
+      const table: ChampionshipTable = {
+        id: `${championship.id}_jogos`,
+        championship_id: championship.id,
+        table_type: 'jogos',
+        table_name: 'Jogos',
+        table_data: fixturesRes.data.matches as unknown[],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const saved = await saveChampionshipTable(table);
+      if (saved) savedTables.push(saved);
+    }
 
-        if (tableType === 'geral' && savedTables.length > 0) continue;
-
-        const table: ChampionshipTable = {
-          id: `${championship.id}_${tableType}`,
-          championship_id: championship.id,
-          table_type: tableType as 'geral' | 'complement',
-          table_name: tableType === 'geral' ? 'Geral' : 'Complemento',
-          table_data: rows,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        const saved = await saveChampionshipTable(table);
-        if (saved) savedTables.push(saved);
-      }
+    if (formRes.data?.last5?.length || formRes.data?.last10?.length) {
+      const table: ChampionshipTable = {
+        id: `${championship.id}_forma`,
+        championship_id: championship.id,
+        table_type: 'forma',
+        table_name: 'Forma',
+        table_data: formRes.data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const saved = await saveChampionshipTable(table);
+      if (saved) savedTables.push(saved);
     }
 
     result.tables = savedTables;
 
-    const totalRows = geralRows?.length || extractionResult?.data?.tables?.geral?.length || 0;
+    const totalSquads = standingsRes.data?.table?.length || 0;
     onProgress?.({
       step: 'concluido',
-      message: `Importação concluída via ${usedSource}! ${savedTables.length} tabela(s) com ${totalRows} times.`,
+      message: `Importação concluída via FootyStats! ${savedTables.length} tabela(s), ${totalSquads} times.`,
       progress: 100,
-      source: usedSource,
+      source: 'FootyStats',
     });
 
     return result;

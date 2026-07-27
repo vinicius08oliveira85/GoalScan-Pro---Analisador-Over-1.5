@@ -359,7 +359,7 @@ export interface MatchResultAnalysis {
 export type TableFormat = 'completa' | 'basica';
 
 // Tipos de tabela de campeonato
-export type TableType = 'geral' | 'complement';
+export type TableType = 'geral' | 'complement' | 'jogos' | 'forma';
 
 // Interface para linha da tabela "Geral" baseada no CSV Bundesliga.csv
 // Estrutura com estatísticas separadas para Casa (Home) e Fora (Away)
