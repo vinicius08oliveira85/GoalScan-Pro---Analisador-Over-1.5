@@ -298,32 +298,8 @@ const ChampionshipsScreen: React.FC = () => {
         </div>
       </ModalShell>
 
-      {/* Modal de Extração FBref */}
-      {extractingFbref && (
-        <FbrefExtractionModal
-          championship={extractingFbref}
-          onClose={() => setExtractingFbref(null)}
-          onTableSaved={async () => {
-            if (viewingTables?.championship.id === extractingFbref.id) {
-              const tables = await loadTables(extractingFbref.id);
-              setViewingTables({ championship: extractingFbref, tables });
-            }
-            setExtractingFbref(null);
-          }}
-          onError={handleError}
-        />
-      )}
-
-      {/* Modal de Importação Automática Brasileirão 2026 */}
-      <AutoImportBrasileiraoModal
-        isOpen={showAutoImport}
-        onClose={() => setShowAutoImport(false)}
-        onSuccess={handleAutoImportSuccess}
-        onError={handleError}
-      />
-
-      {/* Modal de Importação Multi-Liga */}
-      <MultiLeagueImportModal
+       {/* Modal de Importação Multi-Liga */}
+       <MultiLeagueImportModal
         isOpen={showMultiLeagueImport}
         onClose={() => setShowMultiLeagueImport(false)}
         onSuccess={handleMultiLeagueSuccess}
