@@ -186,35 +186,14 @@ const App: React.FC = () => {
     setWebSearchResults([]); // Limpar resultados quando fechar
   };
 
-  // Função wrapper para busca web que será passada ao modal
-  // Nota: Esta função será chamada pelo modal para fazer busca web
-  // A busca será feita usando a ferramenta web_search quando disponível
-  // Como web_search só pode ser chamada pelo assistente, vamos fazer a busca aqui
-  // através de uma chamada que será interceptada pelo assistente
-  const handleWebSearch = async (query: string) => {
+  const handleWebSearch = async (_query: string) => {
     try {
-      logger.log('[App] Solicitando busca web:', query);
-      
-      // Se já temos resultados em cache, retornar eles
       if (webSearchResults.length > 0) {
         return { results: webSearchResults };
       }
-      
-      // Nota: A busca web real precisa ser feita pelo assistente usando a ferramenta web_search
-      // Como a ferramenta web_search só pode ser chamada pelo assistente, vamos fazer a busca aqui
-      // através de uma chamada que será interceptada pelo assistente quando o usuário clicar no botão
-      
-      // Por enquanto, vamos retornar um resultado vazio
-      // O assistente será chamado para fazer a busca quando o modal abrir
-      // e o usuário clicar no botão de análise
-      
-      // TODO: Implementar busca web real usando uma API ou backend proxy
-      // Por enquanto, retornamos estrutura vazia - a busca será feita pelo assistente
-      
       return { results: [] };
     } catch (error) {
       logger.error('Erro ao buscar informações:', error);
-      showError(`Erro ao buscar na web: ${error instanceof Error ? error.message : String(error)}`);
       return { results: [] };
     }
   };

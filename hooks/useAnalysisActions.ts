@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { TabType } from '../components/TabNavigation';
 import {
   MatchData,
@@ -91,15 +91,23 @@ export const useAnalysisActions = ({
     }
   }, []);
 
-  const handleOddChange = useCallback((newOdd: number) => {
-    if (currentMatchData) {
-      const updatedData = { ...currentMatchData, oddOver15: newOdd };
-      setCurrentMatchData(updatedData);
+  const oddChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-      if (analysisResult) {
+  const handleOddChange = useCallback((newOdd: number) => {
+    if (!currentMatchData) return;
+
+    const updatedData = { ...currentMatchData, oddOver15: newOdd };
+    setCurrentMatchData(updatedData);
+
+    if (analysisResult) {
+      if (oddChangeTimerRef.current) {
+        clearTimeout(oddChangeTimerRef.current);
+      }
+      oddChangeTimerRef.current = setTimeout(() => {
         const updatedResult = performAnalysis(updatedData);
         setAnalysisResult(updatedResult);
-      }
+        oddChangeTimerRef.current = null;
+      }, 300);
     }
   }, [currentMatchData, analysisResult]);
 

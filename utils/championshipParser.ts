@@ -1,6 +1,6 @@
 import { TableRowGeral } from '../types';
 
-export const parseChampionshipGeneralTable = (text: string): TableRowGeral[] => {
+const parseChampionshipGeneralTable = (text: string): TableRowGeral[] => {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
 

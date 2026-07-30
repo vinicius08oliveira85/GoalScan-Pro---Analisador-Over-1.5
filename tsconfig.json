@@ -6,6 +6,8 @@
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
     "types": ["node"],
     "moduleResolution": "bundler",
     "isolatedModules": true,

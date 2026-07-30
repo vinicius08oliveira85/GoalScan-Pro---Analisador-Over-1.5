@@ -111,48 +111,7 @@ export function calculateOverUnderProbabilities(lambdaTotal: number): {
   return probabilities;
 }
 
-/**
- * Combina probabilidades Over/Under das estatísticas e da tabela usando pesos ponderados
- * @param statsOverUnder - Probabilidades Over/Under baseadas nas estatísticas (últimos 10 jogos)
- * @param tableOverUnder - Probabilidades Over/Under baseadas na tabela (temporada completa)
- * @param statsWeight - Peso para as probabilidades das estatísticas (0-1)
- * @param tableWeight - Peso para as probabilidades da tabela (0-1)
- * @returns Probabilidades Over/Under combinadas para todas as linhas
- */
-export function combineOverUnderProbabilities(
-  statsOverUnder: { [line: string]: { over: number; under: number } } | undefined,
-  tableOverUnder: { [line: string]: { over: number; under: number } } | undefined,
-  statsWeight: number,
-  tableWeight: number
-): { [line: string]: { over: number; under: number } } {
-  const lines = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5];
-  const combined: { [line: string]: { over: number; under: number } } = {};
 
-  for (const line of lines) {
-    const lineKey = line.toString();
-    const statsProb = statsOverUnder?.[lineKey];
-    const tableProb = tableOverUnder?.[lineKey];
-
-    if (statsProb && tableProb) {
-      // Combinar usando os mesmos pesos
-      combined[lineKey] = {
-        over: Math.max(0, Math.min(100, statsProb.over * statsWeight + tableProb.over * tableWeight)),
-        under: Math.max(0, Math.min(100, statsProb.under * statsWeight + tableProb.under * tableWeight)),
-      };
-    } else if (statsProb) {
-      // Se só temos estatísticas, usar 100% delas
-      combined[lineKey] = { ...statsProb };
-    } else if (tableProb) {
-      // Se só temos tabela, usar 100% dela
-      combined[lineKey] = { ...tableProb };
-    } else {
-      // Fallback: valores padrão
-      combined[lineKey] = { over: 50, under: 50   };
-    }
-  }
-
-  return combined;
-}
 
 /**
  * Combina estatísticas home, away e global com pesos adaptativos baseados no contexto
@@ -402,7 +361,6 @@ export function createDefaultComplementAvg(): CompetitionComplementAverages {
  */
 export function calculateAdaptiveWeights(
   estimatedOver15Freq: number,
-  _awayOver15Freq: number, // Mantido para compatibilidade, mas não usado
   competitionAvg: number,
   hasTeamStats: boolean
 ): { homeWeight: number; awayWeight: number; competitionWeight: number } {
@@ -449,6 +407,7 @@ export function calculateTableCompletenessScore(data: MatchData): {
 } {
   const availableTables: string[] = [];
   const missingTables: string[] = [];
+  const TABLE_TYPES = 2; // geral e complement
 
   if (data.homeTableData && data.awayTableData) {
     availableTables.push('geral');
@@ -466,17 +425,7 @@ export function calculateTableCompletenessScore(data: MatchData): {
     missingTables.push('complement');
   }
 
-  if (
-    data.homeComplementData &&
-    data.awayComplementData &&
-    data.competitionComplementAvg
-  ) {
-    availableTables.push('complement');
-  } else {
-    missingTables.push('complement');
-  }
-
-  const score = availableTables.length / 2; // 0.0 a 1.0 (geral e complement)
+  const score = availableTables.length / TABLE_TYPES;
 
   return { score, availableTables, missingTables };
 }
@@ -486,8 +435,7 @@ export function calculateTableCompletenessScore(data: MatchData): {
  */
 export function getTableImpactSummary(data: MatchData): {
   geral: { available: boolean; impact: string };
-  homeAway: { available: boolean; impact: string };
-  standardFor: { available: boolean; impact: string };
+  complement: { available: boolean; impact: string };
 } {
   const hasGeral = !!(data.homeTableData && data.awayTableData);
   const hasComplement =
@@ -500,11 +448,7 @@ export function getTableImpactSummary(data: MatchData): {
       available: hasGeral,
       impact: hasGeral ? 'Alto (base para cálculo de lambda)' : 'Não disponível',
     },
-    homeAway: {
-      available: false,
-      impact: 'Não disponível',
-    },
-    standardFor: {
+    complement: {
       available: hasComplement,
       impact: hasComplement ? 'Médio-Alto (ajuste de posse, performance e idade)' : 'Não disponível',
     },

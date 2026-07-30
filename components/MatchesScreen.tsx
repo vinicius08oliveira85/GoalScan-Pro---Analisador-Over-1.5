@@ -340,7 +340,6 @@ const MatchesScreen: React.FC<MatchesScreenProps> = ({
                     onMatchClick={onMatchClick}
                     onDeleteMatch={onDeleteMatch}
                     onUpdateBetStatus={onUpdateBetStatus}
-                    onAnalyzeResult={onAnalyzeResult}
                     isUpdatingBetStatus={isUpdatingBetStatus}
                   />
               );

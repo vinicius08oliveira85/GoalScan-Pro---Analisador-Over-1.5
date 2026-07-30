@@ -1,6 +1,6 @@
 import { MatchData, AnalysisResult, CompetitionComplementAverages, TableRowComplement } from '../types';
 import { logger } from '../utils/logger';
-import { smoothAdjustment, smoothClamp, poissonProbability, poissonCumulative, calculateDixonColesUnder15, calculateOverUnderProbabilities, combineOverUnderProbabilities, getWeightedTeamStats, calculateOpponentStrength, calculateMomentum, validateStatsConsistency, createDefaultComplementAvg, calculateAdaptiveWeights, calculateTableCompletenessScore, getTableImpactSummary, validateTableDataIntegrity, normalizeMatchData } from './analysisEngineUtils';
+import { smoothAdjustment, smoothClamp, poissonProbability, poissonCumulative, calculateDixonColesUnder15, calculateOverUnderProbabilities, getWeightedTeamStats, calculateOpponentStrength, calculateMomentum, validateStatsConsistency, createDefaultComplementAvg, calculateAdaptiveWeights, calculateTableCompletenessScore, getTableImpactSummary, validateTableDataIntegrity, normalizeMatchData } from './analysisEngineUtils';
 
 /**
  * Calcula probabilidade Over 1.5 baseada apenas nas estatísticas dos últimos 10 jogos.
@@ -266,14 +266,12 @@ function calculateTableProbability(data: MatchData): {
   const homeXgd = parseFloat(data.homeTableData['Home xGD'] || data.homeTableData.xGD || '0');
   const homePtsPerGame = parseFloat(data.homeTableData['Home Pts/MP'] || data.homeTableData['Pts/MP'] || '0');
 
-  // Para time visitante: usar Away MP, Away GF, etc.
+  // Para time visitante: usar Away MP, Away GF, Away GA, etc.
   const awayMp = parseFloat(data.awayTableData['Away MP'] || data.awayTableData.MP || '0');
   const awayGf = parseFloat(data.awayTableData['Away GF'] || data.awayTableData.GF || '0');
-  // Defesa do visitante: gols sofridos pelo time da casa em casa (Home GA do time da casa)
-  const awayGa = parseFloat(data.homeTableData['Home GA'] || data.homeTableData.GA || '0');
+  const awayGa = parseFloat(data.awayTableData['Away GA'] || data.awayTableData.GA || '0');
   const awayXg = parseFloat(data.awayTableData['Away xG'] || data.awayTableData.xG || '0');
-  // Defesa esperada do visitante: Home xGA do time da casa
-  const awayXga = parseFloat(data.homeTableData['Home xGA'] || data.homeTableData.xGA || '0');
+  const awayXga = parseFloat(data.awayTableData['Away xGA'] || data.awayTableData.xGA || '0');
   const awayRk = parseFloat(data.awayTableData.Rk || '0');
   const awayGd = parseFloat(data.awayTableData['Away GD'] || data.awayTableData.GD || '0');
   const awayXgd = parseFloat(data.awayTableData['Away xGD'] || data.awayTableData.xGD || '0');
@@ -841,592 +839,471 @@ function combineStatisticsAndTable(
 }
 
 /**
- * Executa análise completa de uma partida para Over 1.5 goals usando algoritmo Poisson v3.8.
- * Combina estatísticas históricas (últimos 10 jogos) com dados da tabela (temporada completa)
- * para calcular probabilidade, EV, risco e recomendações de aposta.
- *
- * @param data - Dados da partida incluindo estatísticas dos times e competição
- * @returns Resultado da análise com probabilidades, métricas e recomendações
- * @throws Error se dados de entrada forem inválidos
+ * Valida os dados de entrada da análise
  */
-export function performAnalysis(data: MatchData): AnalysisResult {
-  // Validar entrada
+function validateAnalysisInput(data: MatchData): void {
   if (!data || typeof data !== 'object') {
     throw new Error('Dados de entrada inválidos: data deve ser um objeto');
   }
-
   if (!data.homeTeam || !data.awayTeam) {
     throw new Error('Dados de entrada inválidos: homeTeam e awayTeam são obrigatórios');
   }
+}
 
-  // Log inicial: verificar dados recebidos ANTES de normalizar
+/**
+ * Extrai estatísticas de avgTotal com fallback para dados da tabela
+ */
+function extractTeamAverages(
+  data: MatchData
+): { homeAvgTotal: number; awayAvgTotal: number; avgTotal: number } {
+  let homeAvgTotal = data.homeTeamStats?.gols?.home?.avgTotal || 0;
+  let awayAvgTotal = data.awayTeamStats?.gols?.away?.avgTotal || 0;
+
+  if (homeAvgTotal === 0 && data.homeTableData) {
+    const mp = parseFloat(data.homeTableData['Home MP'] || data.homeTableData.MP || '0');
+    const gf = parseFloat(data.homeTableData['Home GF'] || data.homeTableData.GF || '0');
+    const ga = parseFloat(data.homeTableData['Home GA'] || data.homeTableData.GA || '0');
+    if (mp > 0) homeAvgTotal = (gf / mp) + (ga / mp);
+  }
+
+  if (awayAvgTotal === 0 && data.awayTableData) {
+    const mp = parseFloat(data.awayTableData['Away MP'] || data.awayTableData.MP || '0');
+    const gf = parseFloat(data.awayTableData['Away GF'] || data.awayTableData.GF || '0');
+    const ga = parseFloat(data.awayTableData['Away GA'] || data.awayTableData.GA || '0');
+    if (mp > 0) awayAvgTotal = (gf / mp) + (ga / mp);
+  }
+
+  return { homeAvgTotal, awayAvgTotal, avgTotal: (homeAvgTotal + awayAvgTotal) / 2 };
+}
+
+/**
+ * Calcula métricas avançadas
+ */
+function computeAdvancedMetrics(
+  avgTotal: number,
+  homeGoalsConceded: number,
+  awayGoalsConceded: number,
+  avgCleanSheet: number,
+  data: MatchData
+): { offensiveVolume: number; defensiveLeaking: number; bttsCorrelation: number; formTrend: number } {
+  const offensiveVolume = Math.min(100, Math.max(0, (avgTotal / 3) * 100));
+  const defensiveLeaking = Math.min(100, Math.max(0, ((homeGoalsConceded + awayGoalsConceded) / 2) * 50));
+  const bttsCorrelation = Math.min(100, Math.max(0, 100 - avgCleanSheet));
+
+  let formTrend = 0;
+  if (data.homeHistory?.length && data.awayHistory?.length) {
+    const recentHome = data.homeHistory.slice(0, 3);
+    const recentAway = data.awayHistory.slice(0, 3);
+    const homeRecentGoals = recentHome.reduce((sum, m) => sum + m.homeScore + m.awayScore, 0) / recentHome.length;
+    const awayRecentGoals = recentAway.reduce((sum, m) => sum + m.homeScore + m.awayScore, 0) / recentAway.length;
+    const recentAvg = (homeRecentGoals + awayRecentGoals) / 2;
+    if (recentAvg > avgTotal) formTrend = Math.min(10, (recentAvg - avgTotal) * 2);
+    else if (recentAvg < avgTotal) formTrend = Math.max(-10, (recentAvg - avgTotal) * 2);
+  }
+
+  return { offensiveVolume, defensiveLeaking, bttsCorrelation, formTrend };
+}
+
+/**
+ * Calcula score de confiança baseado em qualidade e completude dos dados
+ */
+function computeConfidenceScore(params: {
+  estimatedOver15Freq: number;
+  competitionAvg: number;
+  hasTeamStats: boolean;
+  homeAvgTotal: number;
+  awayAvgTotal: number;
+  avgCleanSheet: number;
+  avgNoGoals: number;
+  tableCompleteness: { score: number; missingTables: string[] };
+  hasHomeTeamStats: boolean;
+  hasHomeTableData: boolean;
+  hasAwayTeamStats: boolean;
+  hasAwayTableData: boolean;
+  normalizedData: MatchData;
+}): number {
+  let confidence = 30;
+  const { estimatedOver15Freq, competitionAvg, hasTeamStats, homeAvgTotal, awayAvgTotal, avgCleanSheet, avgNoGoals, tableCompleteness, hasHomeTeamStats, hasHomeTableData, hasAwayTeamStats, hasAwayTableData, normalizedData } = params;
+
+  if (estimatedOver15Freq > 50) confidence += 30;
+  if (competitionAvg > 0) confidence += 10;
+  if (hasTeamStats) {
+    confidence += 20;
+    if (homeAvgTotal > 0 && awayAvgTotal > 0) confidence += 5;
+    if (avgCleanSheet > 0 || avgNoGoals > 0) confidence += 5;
+  }
+  if (normalizedData.h2hOver15Freq > 0) confidence += 5;
+  if (normalizedData.homeXG && normalizedData.awayXG && normalizedData.homeXG > 0 && normalizedData.awayXG > 0) confidence += 5;
+
+  if (tableCompleteness.score === 1.0) confidence += 15;
+  else if (tableCompleteness.score >= 0.5) confidence += 8;
+  else confidence = Math.max(confidence - 5, 20);
+
+  let crossValidationScore = 0;
+  if (hasHomeTeamStats && hasHomeTableData && normalizedData.homeTeamStats) {
+    const homeWeighted = getWeightedTeamStats(
+      normalizedData.homeTeamStats.gols.home,
+      normalizedData.homeTeamStats.gols.away,
+      normalizedData.homeTeamStats.gols.global,
+      'home'
+    );
+    const mp = parseFloat(normalizedData.homeTableData?.MP || '0');
+    const gf = parseFloat(normalizedData.homeTableData?.GF || '0');
+    const ga = parseFloat(normalizedData.homeTableData?.GA || '0');
+    if (mp > 0 && homeWeighted.avgScored > 0) {
+      const scoredDiff = Math.abs(homeWeighted.avgScored - gf / mp);
+      const concededDiff = Math.abs(homeWeighted.avgConceded - ga / mp);
+      if (scoredDiff < 0.3 && concededDiff < 0.3) {
+        confidence += 3;
+        crossValidationScore += 0.5;
+      } else if (scoredDiff < 0.5 && concededDiff < 0.5) {
+        confidence += 1;
+        crossValidationScore += 0.25;
+      }
+    }
+  }
+
+  if (hasAwayTeamStats && hasAwayTableData && normalizedData.awayTeamStats) {
+    const awayWeighted = getWeightedTeamStats(
+      normalizedData.awayTeamStats.gols.home,
+      normalizedData.awayTeamStats.gols.away,
+      normalizedData.awayTeamStats.gols.global,
+      'away'
+    );
+    const mp = parseFloat(normalizedData.awayTableData?.MP || '0');
+    const gf = parseFloat(normalizedData.awayTableData?.GF || '0');
+    const ga = parseFloat(normalizedData.awayTableData?.GA || '0');
+    if (mp > 0 && awayWeighted.avgScored > 0) {
+      const scoredDiff = Math.abs(awayWeighted.avgScored - gf / mp);
+      const concededDiff = Math.abs(awayWeighted.avgConceded - ga / mp);
+      if (scoredDiff < 0.3 && concededDiff < 0.3) {
+        confidence += 3;
+        crossValidationScore += 0.5;
+      } else if (scoredDiff < 0.5 && concededDiff < 0.5) {
+        confidence += 1;
+        crossValidationScore += 0.25;
+      }
+    }
+  }
+
+  if (crossValidationScore >= 1.0) confidence += 5;
+  else if (crossValidationScore >= 0.5) confidence += 2;
+
+  if (homeAvgTotal > 0 && homeAvgTotal < 6 && awayAvgTotal > 0 && awayAvgTotal < 6) confidence += 2;
+  if (competitionAvg > 0 && competitionAvg < 5) confidence += 2;
+
+  const dataCompletenessScore = (estimatedOver15Freq > 50 ? 1 : 0) + (competitionAvg > 0 ? 1 : 0) + (hasTeamStats ? 1 : 0);
+  if (dataCompletenessScore < 2) confidence = Math.max(confidence - 10, 20);
+
+  return Math.min(100, Math.max(0, confidence));
+}
+
+/**
+ * Extrai lambdas base para Poisson a partir dos dados disponíveis
+ */
+function computeBaseLambdas(
+  data: MatchData
+): { lambdaHome: number; lambdaAway: number; homeGoalsScored: number; homeGoalsConceded: number; awayGoalsScored: number; awayGoalsConceded: number } {
+  let homeGoalsScored = 0;
+  let homeGoalsConceded = 0;
+  let awayGoalsScored = 0;
+  let awayGoalsConceded = 0;
+
+  if (data.homeTeamStats && data.awayTeamStats) {
+    const hw = getWeightedTeamStats(data.homeTeamStats.gols.home, data.homeTeamStats.gols.away, data.homeTeamStats.gols.global, 'home');
+    const aw = getWeightedTeamStats(data.awayTeamStats.gols.home, data.awayTeamStats.gols.away, data.awayTeamStats.gols.global, 'away');
+    homeGoalsScored = hw.avgScored;
+    homeGoalsConceded = hw.avgConceded;
+    awayGoalsScored = aw.avgScored;
+    awayGoalsConceded = aw.avgConceded;
+  }
+
+  if (data.homeTableData) {
+    const mp = parseFloat(data.homeTableData['Home MP'] || data.homeTableData.MP || '0');
+    const gf = parseFloat(data.homeTableData['Home GF'] || data.homeTableData.GF || '0');
+    const ga = parseFloat(data.homeTableData['Home GA'] || data.homeTableData.GA || '0');
+    if (mp > 0) { homeGoalsScored = gf / mp; homeGoalsConceded = ga / mp; }
+  }
+
+  if (data.awayTableData) {
+    const mp = parseFloat(data.awayTableData['Away MP'] || data.awayTableData.MP || '0');
+    const gf = parseFloat(data.awayTableData['Away GF'] || data.awayTableData.GF || '0');
+    const ga = parseFloat(data.awayTableData['Away GA'] || data.awayTableData.GA || '0');
+    if (mp > 0) { awayGoalsScored = gf / mp; awayGoalsConceded = ga / mp; }
+  }
+
+  homeGoalsScored = homeGoalsScored || 1.0;
+  homeGoalsConceded = homeGoalsConceded || 1.0;
+  awayGoalsScored = awayGoalsScored || 1.0;
+  awayGoalsConceded = awayGoalsConceded || 1.0;
+
+  const homeXg = data.homeTableData?.['Home xG'] || data.homeTableData?.xG;
+  const awayXga = data.awayTableData?.['Away xGA'] || data.awayTableData?.['Home xGA'] || data.awayTableData?.xGA;
+  if (homeXg && awayXga && parseFloat(String(homeXg)) > 0 && parseFloat(String(awayXga)) > 0) {
+    homeGoalsScored = (homeGoalsScored + parseFloat(String(homeXg))) / 2;
+    awayGoalsConceded = (awayGoalsConceded + parseFloat(String(awayXga))) / 2;
+  }
+
+  const awayXg = data.awayTableData?.['Away xG'] || data.awayTableData?.xG;
+  const homeXga = data.homeTableData?.['Home xGA'] || data.homeTableData?.xGA;
+  if (awayXg && homeXga && parseFloat(String(awayXg)) > 0 && parseFloat(String(homeXga)) > 0) {
+    awayGoalsScored = (awayGoalsScored + parseFloat(String(awayXg))) / 2;
+    homeGoalsConceded = (homeGoalsConceded + parseFloat(String(homeXga))) / 2;
+  }
+
+  let lambdaHome = (homeGoalsScored + awayGoalsConceded) / 2;
+  let lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;
+
+  if (data.homeTeamStats && data.awayTeamStats) {
+    const hw = getWeightedTeamStats(data.homeTeamStats.gols.home, data.homeTeamStats.gols.away, data.homeTeamStats.gols.global, 'home');
+    const aw = getWeightedTeamStats(data.awayTeamStats.gols.home, data.awayTeamStats.gols.away, data.awayTeamStats.gols.global, 'away');
+
+    const homeOS = calculateOpponentStrength(aw, data.awayTableData);
+    const awayOS = calculateOpponentStrength(hw, data.homeTableData);
+    lambdaHome *= (1 - homeOS.defensiveStrength * 0.08) * (1 + homeOS.offensiveStrength * 0.04);
+    lambdaAway *= (1 - awayOS.defensiveStrength * 0.08) * (1 + awayOS.offensiveStrength * 0.04);
+
+    const hm = calculateMomentum(data.homeHistory || [], hw.avgScored, hw.avgConceded, true);
+    const am = calculateMomentum(data.awayHistory || [], aw.avgScored, aw.avgConceded, false);
+    lambdaHome *= (1 + hm.offensiveMomentum * 0.08 - hm.defensiveMomentum * 0.04);
+    lambdaAway *= (1 + am.offensiveMomentum * 0.08 - am.defensiveMomentum * 0.04);
+
+    const cs = (hw.cleanSheetPct + aw.cleanSheetPct) / 2;
+    const ng = (hw.noGoalsPct + aw.noGoalsPct) / 2;
+    if (cs > 40) { const r = Math.min(0.06, (cs - 40) / 100); lambdaHome *= (1 - r * 0.5); lambdaAway *= (1 - r * 0.5); }
+    if (ng > 20) { const r = Math.min(0.05, (ng - 20) / 100); lambdaHome *= (1 - r * 0.5); lambdaAway *= (1 - r * 0.5); }
+
+    const ov25 = (hw.over25Pct + aw.over25Pct) / 2;
+    if (ov25 > 50) { const inc = Math.min(0.04, (ov25 - 50) / 100); lambdaHome *= (1 + inc * 0.5); lambdaAway *= (1 + inc * 0.5); }
+
+    const hc = validateStatsConsistency(data.homeTeamStats.gols.home, data.homeTeamStats.gols.away, data.homeTeamStats.gols.global);
+    const ac = validateStatsConsistency(data.awayTeamStats.gols.home, data.awayTeamStats.gols.away, data.awayTeamStats.gols.global);
+    if ((hc.consistencyScore + ac.consistencyScore) / 2 < 0.7) { lambdaHome *= 0.97; lambdaAway *= 0.97; }
+  }
+
+  return { lambdaHome, lambdaAway, homeGoalsScored, homeGoalsConceded, awayGoalsScored, awayGoalsConceded };
+}
+
+/**
+ * Combina lambdas de estatísticas e tabela com shrinkage para a média da competição
+ */
+function combineLambdas(
+  statsLambdaHome: number | undefined,
+  statsLambdaAway: number | undefined,
+  tableLambdaHome: number | undefined,
+  tableLambdaAway: number | undefined,
+  lambdaHome: number,
+  lambdaAway: number,
+  statsWeight: number,
+  tableWeight: number,
+  competitionAvg: number,
+  confidence: number,
+  minMp: number,
+  statsProb: number,
+  tableProb: number | null,
+  hasStatsSide: boolean,
+  hasTableSide: boolean
+): { lambdaHomeFinal: number; lambdaAwayFinal: number; lambdaFinal: number; bttsProbability: number } {
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+  let lambdaHomeCombined = lambdaHome;
+  let lambdaAwayCombined = lambdaAway;
+  let baseShrink = 0.18;
+
+  if (hasStatsSide && hasTableSide) {
+    lambdaHomeCombined = statsLambdaHome! * statsWeight + tableLambdaHome! * tableWeight;
+    lambdaAwayCombined = statsLambdaAway! * statsWeight + tableLambdaAway! * tableWeight;
+    baseShrink = 0.08;
+  } else if (hasStatsSide) {
+    lambdaHomeCombined = statsLambdaHome!;
+    lambdaAwayCombined = statsLambdaAway!;
+    baseShrink = 0.12;
+  } else if (hasTableSide) {
+    lambdaHomeCombined = tableLambdaHome!;
+    lambdaAwayCombined = tableLambdaAway!;
+    baseShrink = 0.12;
+  }
+
+  const lambdaCombined = lambdaHomeCombined + lambdaAwayCombined;
+  const divergenceProb = tableProb != null ? Math.abs(statsProb - tableProb) : 0;
+  const confidencePenalty = clamp((80 - confidence) / 250, 0, 0.18);
+  const mpPenalty = minMp > 0 ? clamp((10 - minMp) / 40, 0, 0.1) : 0;
+  const divergencePenalty = hasStatsSide && hasTableSide ? clamp((divergenceProb - 15) / 250, 0, 0.1) : 0;
+  const shrink = clamp(baseShrink + confidencePenalty + mpPenalty + divergencePenalty, 0.05, 0.28);
+
+  let lambdaFinal = lambdaCombined;
+  if (competitionAvg > 0 && Number.isFinite(competitionAvg)) {
+    lambdaFinal = (1 - shrink) * lambdaCombined + shrink * competitionAvg;
+  }
+
+  const maxLambdaFinal = competitionAvg > 0 && Number.isFinite(competitionAvg)
+    ? clamp(competitionAvg * 2.2, 4.5, 6.5) : 6.5;
+  lambdaFinal = clamp(lambdaFinal, 0.2, maxLambdaFinal);
+
+  const ratioHome = Math.max(0, Math.min(1, lambdaCombined > 0 ? lambdaHomeCombined / lambdaCombined : 0.5));
+  const lambdaHomeFinal = lambdaFinal * ratioHome;
+  const lambdaAwayFinal = Math.max(0, lambdaFinal - lambdaHomeFinal);
+
+  const bttsProbability = Math.max(0, Math.min(100, (1 - Math.exp(-lambdaHomeFinal)) * (1 - Math.exp(-lambdaAwayFinal)) * 100));
+
+  return { lambdaHomeFinal, lambdaAwayFinal, lambdaFinal, bttsProbability };
+}
+
+/**
+ * Determina nível de risco baseado na probabilidade final
+ */
+function determineRiskLevel(finalProb: number): AnalysisResult['riskLevel'] {
+  if (finalProb > 88) return 'Baixo';
+  if (finalProb > 78) return 'Moderado';
+  if (finalProb > 68) return 'Alto';
+  return 'Muito Alto';
+}
+
+/**
+ * Monta o objeto de resultado final da análise
+ */
+function buildAnalysisResult(params: {
+  statsProb: number;
+  tableProb: number | null;
+  finalProb: number;
+  bttsProbability: number;
+  confidence: number;
+  pHome: number[];
+  pAway: number[];
+  ev: number;
+  finalEv: number;
+  advancedMetrics: ReturnType<typeof computeAdvancedMetrics>;
+  overUnderProbabilities: { [line: string]: { over: number; under: number } };
+  tableOverUnderProbabilities?: { [line: string]: { over: number; under: number } };
+  statsOverUnderProbabilities?: { [line: string]: { over: number; under: number } };
+}): AnalysisResult {
+  const { statsProb, tableProb, finalProb, bttsProbability, confidence, pHome, pAway, ev, finalEv, advancedMetrics, overUnderProbabilities, tableOverUnderProbabilities, statsOverUnderProbabilities } = params;
+
+  return {
+    probabilityOver15: statsProb,
+    tableProbability: tableProb,
+    combinedProbability: finalProb,
+    bttsProbability,
+    confidenceScore: confidence,
+    poissonHome: pHome,
+    poissonAway: pAway,
+    riskLevel: determineRiskLevel(finalProb),
+    ev: finalEv,
+    verdict: finalProb > 80 ? 'ALTA CONFIANÇA EM GOLS' : finalProb > 70 ? 'CENÁRIO FAVORÁVEL' : 'JOGO TRANCADO',
+    recommendation: finalProb > 82
+      ? 'Entrada recomendada pré-live ou Over 1.0 HT no minuto 15.'
+      : 'Aguarde o Live. Só entre se houver 3 chutes a gol nos primeiros 10 minutos.',
+    advancedMetrics,
+    overUnderProbabilities,
+    tableOverUnderProbabilities,
+    statsOverUnderProbabilities,
+  };
+}
+
+/**
+ * Executa análise completa de uma partida para Over 1.5 goals usando algoritmo Poisson v3.8.
+ * Combina estatísticas históricas (últimos 10 jogos) com dados da tabela (temporada completa)
+ * para calcular probabilidade, EV, risco e recomendações de aposta.
+ */
+export function performAnalysis(data: MatchData): AnalysisResult {
+  validateAnalysisInput(data);
+
   logger.log('[AnalysisEngine] ===== INÍCIO DA ANÁLISE =====');
-  logger.log('[AnalysisEngine] Dados recebidos (ANTES de normalizar):', {
-    homeTeam: data.homeTeam,
-    awayTeam: data.awayTeam,
-    tabelas: {
-      geral: !!(data.homeTableData && data.awayTableData),
-      complement: !!(data.homeComplementData && data.awayComplementData && data.competitionComplementAvg),
-    },
-  });
+  logger.log('[AnalysisEngine] Times:', { homeTeam: data.homeTeam, awayTeam: data.awayTeam });
 
-  // Normalizar dados para garantir valores padrão seguros
   const normalizedData = normalizeMatchData(data);
-
-  // Log após normalização: verificar se dados foram preservados
-  logger.log('[AnalysisEngine] Dados normalizados (APÓS normalizar):', {
-    tabelas: {
-      geral: !!(normalizedData.homeTableData && normalizedData.awayTableData),
-      complement: !!(normalizedData.homeComplementData && normalizedData.awayComplementData && normalizedData.competitionComplementAvg),
-    },
-  });
-  
-  // Extrair campos deprecated com valores padrão (para compatibilidade com dados antigos)
-  const homeOver15Freq = normalizedData.homeOver15Freq ?? 0;
-  const awayOver15Freq = normalizedData.awayOver15Freq ?? 0;
-
-  // Validação e observabilidade de dados
   const hasHomeTeamStats = !!normalizedData.homeTeamStats;
   const hasAwayTeamStats = !!normalizedData.awayTeamStats;
   const hasHomeTableData = !!normalizedData.homeTableData;
   const hasAwayTableData = !!normalizedData.awayTableData;
   const competitionAvg = normalizedData.competitionAvg || 0;
-  const hasCompetitionAvg = competitionAvg > 0;
-
-  // Validação das 2 tabelas do campeonato
-  const hasComplement =
-    !!normalizedData.homeComplementData &&
-    !!normalizedData.awayComplementData &&
-    !!normalizedData.competitionComplementAvg;
-
-  // Validar completude dos dados essenciais
-  const dataCompleteness = {
-    hasHomeTeamStats,
-    hasAwayTeamStats,
-    hasHomeTableData,
-    hasAwayTableData,
-    hasCompetitionAvg,
-    hasComplement,
-  };
-
-  const missingData: string[] = [];
-  if (!hasHomeTeamStats) missingData.push('Estatísticas Globais do time da casa');
-  if (!hasAwayTeamStats) missingData.push('Estatísticas Globais do time visitante');
-  if (!hasCompetitionAvg) missingData.push('Média da competição');
-
-  const missingTables: string[] = [];
-  if (!hasHomeTableData || !hasAwayTableData) {
-    missingTables.push('geral');
-  }
-  if (!hasComplement) {
-    missingTables.push('complement');
-  }
-
-  // Calcular resumo de impacto das tabelas
-  const tableImpactSummary = getTableImpactSummary(normalizedData);
+  const hasTeamStats = hasHomeTeamStats && hasAwayTeamStats;
   const tableCompleteness = calculateTableCompletenessScore(normalizedData);
 
-  logger.log('[AnalysisEngine] ===== RESUMO DE DADOS E TABELAS =====');
-  logger.log('[AnalysisEngine] Dados normalizados:', {
-    homeOver15Freq,
-    awayOver15Freq,
-    dataCompleteness,
-    missingData: missingData.length > 0 ? missingData : 'Nenhum',
-    missingTables: missingTables.length > 0 ? missingTables : 'Nenhuma',
-  });
+  logger.log('[AnalysisEngine] Dados:', { hasHomeTeamStats, hasAwayTeamStats, hasHomeTableData, hasAwayTableData, competitionAvg, tableCompleteness: `${(tableCompleteness.score * 100).toFixed(0)}%` });
 
-  // Avisar se dados essenciais estão faltando
-  if (missingData.length > 0) {
-    logger.warn('[AnalysisEngine] Dados essenciais faltando:', missingData);
-    logger.warn('[AnalysisEngine] A análise pode ser menos confiável sem esses dados.');
-  }
-
-  logger.log('[AnalysisEngine] --- Status das 3 Tabelas ---');
-  logger.log('[AnalysisEngine] 1. Tabela GERAL:', {
-    disponível: tableImpactSummary.geral.available,
-    impacto: tableImpactSummary.geral.impact,
-  });
-  logger.log('[AnalysisEngine] 2. Tabela HOME_AWAY:', {
-    disponível: tableImpactSummary.homeAway.available,
-    impacto: tableImpactSummary.homeAway.impact,
-  });
-  logger.log('[AnalysisEngine] 3. Tabela STANDARD_FOR:', {
-    disponível: tableImpactSummary.standardFor.available,
-    impacto: tableImpactSummary.standardFor.impact,
-  });
-
-  logger.log('[AnalysisEngine] --- Completude das Tabelas ---');
-  logger.log('[AnalysisEngine] Score de completude:', `${(tableCompleteness.score * 100).toFixed(0)}%`);
-  logger.log('[AnalysisEngine] Tabelas disponíveis:', tableCompleteness.availableTables.join(', ') || 'Nenhuma');
-  if (tableCompleteness.missingTables.length > 0) {
-    logger.warn('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables.join(', '));
-  }
-
-  if (tableCompleteness.score === 1.0) {
-    logger.log('[AnalysisEngine] ✅ TODAS AS 3 TABELAS DISPONÍVEIS - Análise com máxima precisão');
-  } else if (tableCompleteness.score >= 0.67) {
-    logger.warn('[AnalysisEngine] ⚠️ 2 de 3 tabelas disponíveis - Análise com boa precisão');
-  } else {
-    logger.warn('[AnalysisEngine] ⚠️ Apenas 1 de 3 tabelas disponíveis - Análise com precisão reduzida');
-  }
-
-  if (missingTables.length > 0) {
-    logger.warn(
-      `[AnalysisEngine] ⚠️ ATENÇÃO: ${missingTables.length} tabela(s) não disponível(is): ${missingTables.join(', ')}`
-    );
-    logger.warn(
-      '[AnalysisEngine] A análise será feita apenas com as tabelas disponíveis, o que pode reduzir a precisão.'
-    );
-    logger.warn(
-      '[AnalysisEngine] Recomendação: Extraia todas as 2 tabelas (geral, complement) do fbref.com para análise completa.'
-    );
-  } else {
-    logger.log('[AnalysisEngine] ✅ Todas as 3 tabelas disponíveis! A análise usará todos os dados.');
-  }
-
-  // NOVO ALGORITMO: Baseado em estatísticas da tabela e dados disponíveis
-
-  // 1. Obter média da competição (baseline importante)
-  // 2. Calcular média total de gols (avgTotal de ambos times)
-  // Usar estatísticas específicas: home para time da casa, away para visitante
-  // Se não disponíveis, usar dados da tabela como fallback
-  let homeAvgTotal = normalizedData.homeTeamStats?.gols?.home?.avgTotal || 0;
-  let awayAvgTotal = normalizedData.awayTeamStats?.gols?.away?.avgTotal || 0;
-  
-  // Fallback: usar dados da tabela se Estatísticas Globais não estiverem disponíveis
-  if (homeAvgTotal === 0 && normalizedData.homeTableData) {
-    const mp = parseFloat(normalizedData.homeTableData['Home MP'] || normalizedData.homeTableData.MP || '0');
-    const gf = parseFloat(normalizedData.homeTableData['Home GF'] || normalizedData.homeTableData.GF || '0');
-    const ga = parseFloat(normalizedData.homeTableData['Home GA'] || normalizedData.homeTableData.GA || '0');
-    if (mp > 0) {
-      const avgScored = gf / mp;
-      const avgConceded = ga / mp;
-      homeAvgTotal = avgScored + avgConceded;
-      logger.log('[AnalysisEngine] Usando dados da tabela como fallback para time da casa:', {
-        mp, gf, ga,
-        avgScored,
-        avgConceded,
-        avgTotal: homeAvgTotal,
-      });
-    }
-  }
-  
-  if (awayAvgTotal === 0 && normalizedData.awayTableData) {
-    const mp = parseFloat(normalizedData.awayTableData['Away MP'] || normalizedData.awayTableData.MP || '0');
-    const gf = parseFloat(normalizedData.awayTableData['Away GF'] || normalizedData.awayTableData.GF || '0');
-    const ga = parseFloat(normalizedData.awayTableData['Away GA'] || normalizedData.awayTableData.GA || '0');
-    if (mp > 0) {
-      const avgScored = gf / mp;
-      const avgConceded = ga / mp;
-      awayAvgTotal = avgScored + avgConceded;
-      logger.log('[AnalysisEngine] Usando dados da tabela como fallback para time visitante:', {
-        mp, gf, ga,
-        avgScored,
-        avgConceded,
-        avgTotal: awayAvgTotal,
-      });
-    }
-  }
-  
-  const avgTotal = (homeAvgTotal + awayAvgTotal) / 2;
-
-  // 3. Calcular médias de cleanSheet e noGoals
+  // --- Probabilidade base ---
+  const { homeAvgTotal, awayAvgTotal, avgTotal } = extractTeamAverages(normalizedData);
   const homeCleanSheet = normalizedData.homeTeamStats?.gols?.home?.cleanSheetPct || 0;
   const awayCleanSheet = normalizedData.awayTeamStats?.gols?.away?.cleanSheetPct || 0;
   const avgCleanSheet = (homeCleanSheet + awayCleanSheet) / 2;
-
   const homeNoGoals = normalizedData.homeTeamStats?.gols?.home?.noGoalsPct || 0;
   const awayNoGoals = normalizedData.awayTeamStats?.gols?.away?.noGoalsPct || 0;
   const avgNoGoals = (homeNoGoals + awayNoGoals) / 2;
-
-  // 4. Calcular média de Over 2.5% (confirma tendência ofensiva)
   const homeOver25 = normalizedData.homeTeamStats?.gols?.home?.over25Pct || 0;
   const awayOver25 = normalizedData.awayTeamStats?.gols?.away?.over25Pct || 0;
   const avgOver25 = (homeOver25 + awayOver25) / 2;
 
-  // 5. Calcular Over 1.5% estimado baseado em médias de gols e estatísticas
-  // Se avgTotal > 1.5, probabilidade base é alta
-  // Usar dados da tabela quando disponíveis
-  const hasTeamStats = !!(normalizedData.homeTeamStats && normalizedData.awayTeamStats);
-  
-  // MELHORIA: Calcular probabilidade base com pesos adaptativos para dados recentes
-  // Estatísticas Globais (últimos 10 jogos) têm mais peso que dados históricos da tabela
-  let estimatedOver15Freq = 50; // Baseline
-  
-  // Calcular probabilidade base usando dados mais recentes quando disponíveis
+  let estimatedOver15Freq = 50;
   if (avgTotal > 0) {
-    // Ajustar baseado em recência dos dados
-    // Se temos Estatísticas Globais (últimos 10 jogos), dar mais peso
-    // Se só temos dados da tabela (temporada completa), dar menos peso
-    const recencyWeight = hasTeamStats ? 1.0 : 0.85; // Estatísticas Globais = 100%, Tabela = 85%
-    
-    if (avgTotal >= 2.5) {
-      estimatedOver15Freq = 90 + (avgTotal - 2.5) * 4; // 90-100%
-    } else if (avgTotal >= 2.0) {
-      estimatedOver15Freq = 75 + (avgTotal - 2.0) * 30; // 75-90%
-    } else if (avgTotal >= 1.5) {
-      estimatedOver15Freq = 60 + (avgTotal - 1.5) * 30; // 60-75%
-    } else {
-      estimatedOver15Freq = 30 + (avgTotal / 1.5) * 30; // 30-60%
-    }
-    
-    // Aplicar peso de recência
+    const recencyWeight = hasTeamStats ? 1.0 : 0.85;
+    if (avgTotal >= 2.5) estimatedOver15Freq = 90 + (avgTotal - 2.5) * 4;
+    else if (avgTotal >= 2.0) estimatedOver15Freq = 75 + (avgTotal - 2.0) * 30;
+    else if (avgTotal >= 1.5) estimatedOver15Freq = 60 + (avgTotal - 1.5) * 30;
+    else estimatedOver15Freq = 30 + (avgTotal / 1.5) * 30;
     estimatedOver15Freq = estimatedOver15Freq * recencyWeight + 50 * (1 - recencyWeight);
   }
 
-  // Ajustar baseado em cleanSheet e noGoals (com peso adaptativo)
-  const cleanSheetWeight = hasTeamStats ? 0.3 : 0.2; // Menos peso se usando dados da tabela
-  const noGoalsWeight = hasTeamStats ? 0.2 : 0.15;
-  const over25Weight = hasTeamStats ? 0.2 : 0.15;
-  
-  estimatedOver15Freq -= avgCleanSheet * cleanSheetWeight; // Reduzir se muitas clean sheets
-  estimatedOver15Freq -= avgNoGoals * noGoalsWeight; // Reduzir se muitos jogos sem gols
-  estimatedOver15Freq += avgOver25 * over25Weight; // Aumentar se muitos Over 2.5
-
-  // Limitar entre 10% e 98%
+  const csWeight = hasTeamStats ? 0.3 : 0.2;
+  const ngWeight = hasTeamStats ? 0.2 : 0.15;
+  const ov25Weight = hasTeamStats ? 0.2 : 0.15;
+  estimatedOver15Freq -= avgCleanSheet * csWeight;
+  estimatedOver15Freq -= avgNoGoals * ngWeight;
+  estimatedOver15Freq += avgOver25 * ov25Weight;
   estimatedOver15Freq = Math.max(10, Math.min(98, estimatedOver15Freq));
 
-  // 6. Calcular pesos adaptativos
-  const weights = calculateAdaptiveWeights(
-    estimatedOver15Freq,
-    estimatedOver15Freq, // Usar mesma estimativa para ambos (já calculada com dados de ambos)
-    competitionAvg,
-    hasTeamStats
-  );
+  const weights = calculateAdaptiveWeights(estimatedOver15Freq, competitionAvg, hasTeamStats);
+  let prob = estimatedOver15Freq * (weights.homeWeight + weights.awayWeight) + competitionAvg * weights.competitionWeight;
 
-  // Aplicar fórmula ponderada adaptativa
-  let prob =
-    estimatedOver15Freq * weights.homeWeight +
-    estimatedOver15Freq * weights.awayWeight +
-    competitionAvg * weights.competitionWeight;
+  if (avgTotal > 0) prob += smoothAdjustment(avgTotal, 2.0, 8);
+  if (avgCleanSheet > 0) prob += smoothAdjustment(avgCleanSheet, 40, -6);
+  if (avgNoGoals > 0) prob += smoothAdjustment(avgNoGoals, 20, -4);
+  if (avgOver25 > 0) prob += smoothAdjustment(avgOver25, 50, 3);
 
-  // Ajustes suaves baseados em métricas (usando funções sigmoid em vez de if/else fixos)
-  // Ajuste baseado em média total de gols
-  if (avgTotal > 0) {
-    const avgTotalAdjustment = smoothAdjustment(avgTotal, 2.0, 8);
-    prob += avgTotalAdjustment;
-  }
-
-  // Ajuste baseado em clean sheet (defesas muito boas reduzem probabilidade)
-  if (avgCleanSheet > 0) {
-    const cleanSheetAdjustment = smoothAdjustment(avgCleanSheet, 40, -6);
-    prob += cleanSheetAdjustment;
-  }
-
-  // Ajuste baseado em jogos sem marcar (ataques fracos reduzem probabilidade)
-  if (avgNoGoals > 0) {
-    const noGoalsAdjustment = smoothAdjustment(avgNoGoals, 20, -4);
-    prob += noGoalsAdjustment;
-  }
-
-  // Ajuste baseado em Over 2.5% (confirma tendência ofensiva)
-  if (avgOver25 > 0) {
-    const over25Adjustment = smoothAdjustment(avgOver25, 50, 3);
-    prob += over25Adjustment;
-  }
-
-  // Analisar forma recente (Last 5) da tabela
-  let recentFormAdjustment = 0;
+  // Forma recente (Last 5)
   if (normalizedData.homeTableData?.['Last 5'] || normalizedData.awayTableData?.['Last 5']) {
     const parseRecentForm = (last5: string | undefined): number => {
-      if (!last5 || last5.trim() === '') return 0;
-      
-      // Converter "WWDLW" em tendência ofensiva
-      // W (Win) = +1, D (Draw) = 0, L (Loss) = -1
-      // Times que ganham mais tendem a marcar mais gols
-      let offensiveTrend = 0;
-      const matches = last5.trim().toUpperCase().split('');
-      
-      for (const match of matches) {
-        if (match === 'W') offensiveTrend += 1;
-        else if (match === 'D') offensiveTrend += 0;
-        else if (match === 'L') offensiveTrend -= 0.5; // Derrotas podem indicar problemas ofensivos
-      }
-      
-      // Normalizar para -1 a 1 (5 jogos)
-      return offensiveTrend / 5;
+      if (!last5) return 0;
+      let t = 0;
+      for (const m of last5.trim().toUpperCase()) { if (m === 'W') t += 1; else if (m === 'L') t -= 0.5; }
+      return t / 5;
     };
-    
-    const homeForm = parseRecentForm(normalizedData.homeTableData?.['Last 5']);
-    const awayForm = parseRecentForm(normalizedData.awayTableData?.['Last 5']);
-    const avgForm = (homeForm + awayForm) / 2;
-    
-    // Ajustar probabilidade baseado em forma recente
-    // Forma positiva (+1) aumenta probabilidade em até 3%
-    // Forma negativa (-1) reduz probabilidade em até 3%
-    recentFormAdjustment = avgForm * 3;
-    prob += recentFormAdjustment;
-    
-    logger.log('[AnalysisEngine] Análise de forma recente:', {
-      homeLast5: normalizedData.homeTableData?.['Last 5'],
-      awayLast5: normalizedData.awayTableData?.['Last 5'],
-      homeForm,
-      awayForm,
-      avgForm,
-      adjustment: recentFormAdjustment,
-    });
+    const avgForm = (parseRecentForm(normalizedData.homeTableData?.['Last 5']) + parseRecentForm(normalizedData.awayTableData?.['Last 5'])) / 2;
+    prob += avgForm * 3;
   }
 
-  // Considerar H2H se disponível - análise melhorada
-  let h2hAdjustment = 0;
-  if (normalizedData.h2hOver15Freq > 0) {
-    const h2hWeight = 0.15; // Peso moderado para H2H
-    prob = prob * (1 - h2hWeight) + normalizedData.h2hOver15Freq * h2hWeight;
-  }
-  
-  // Análise detalhada de confrontos diretos se disponível
-  if (normalizedData.h2hMatches && normalizedData.h2hMatches.length > 0) {
-    const h2hMatches = normalizedData.h2hMatches;
-    
-    // Calcular média de gols nos confrontos diretos
-    const h2hTotalGoals = h2hMatches.reduce((sum, m) => sum + m.totalGoals, 0);
-    const h2hAvgGoals = h2hTotalGoals / h2hMatches.length;
-    
-    // Analisar padrões
-    const over15Count = h2hMatches.filter((m) => m.totalGoals > 1.5).length;
-    const over25Count = h2hMatches.filter((m) => m.totalGoals > 2.5).length;
-    const h2hOver15Pct = (over15Count / h2hMatches.length) * 100;
-    const h2hOver25Pct = (over25Count / h2hMatches.length) * 100;
-    
-    // Ajustar probabilidade baseado em padrões H2H
-    if (h2hAvgGoals > 2.5) {
-      // Confrontos históricos com muitos gols
-      h2hAdjustment += 2;
-    } else if (h2hAvgGoals < 1.5) {
-      // Confrontos históricos com poucos gols
-      h2hAdjustment -= 2;
-    }
-    
-    // Se H2H mostra padrão consistente de Over 1.5, aumentar probabilidade
-    if (h2hOver15Pct >= 80) {
-      h2hAdjustment += 1.5;
-    } else if (h2hOver15Pct <= 20) {
-      h2hAdjustment -= 1.5;
-    }
-    
-    // Se H2H mostra padrão de Over 2.5, também aumenta Over 1.5
-    if (h2hOver25Pct >= 60) {
-      h2hAdjustment += 1;
-    }
-    
-    prob += h2hAdjustment;
-    
-    logger.log('[AnalysisEngine] Análise H2H detalhada:', {
-      matchesCount: h2hMatches.length,
-      h2hAvgGoals,
-      h2hOver15Pct,
-      h2hOver25Pct,
-      adjustment: h2hAdjustment,
-    });
+  // H2H
+  if (normalizedData.h2hOver15Freq > 0) prob = prob * 0.85 + normalizedData.h2hOver15Freq * 0.15;
+  if (normalizedData.h2hMatches?.length) {
+    const h2h = normalizedData.h2hMatches;
+    const avgGoals = h2h.reduce((s, m) => s + m.totalGoals, 0) / h2h.length;
+    const o15 = (h2h.filter(m => m.totalGoals > 1.5).length / h2h.length) * 100;
+    const o25 = (h2h.filter(m => m.totalGoals > 2.5).length / h2h.length) * 100;
+    let adj = 0;
+    if (avgGoals > 2.5) adj += 2;
+    else if (avgGoals < 1.5) adj -= 2;
+    if (o15 >= 80) adj += 1.5;
+    else if (o15 <= 20) adj -= 1.5;
+    if (o25 >= 60) adj += 1;
+    prob += adj;
   }
 
-  // Considerar xG se disponível (Expected Goals)
-  if (normalizedData.homeXG > 0 && normalizedData.awayXG > 0) {
+  if (normalizedData.homeXG && normalizedData.awayXG && normalizedData.homeXG > 0 && normalizedData.awayXG > 0) {
     const avgXG = (normalizedData.homeXG + normalizedData.awayXG) / 2;
-    // xG > 2.5 indica alta probabilidade de gols
-    if (avgXG > 2.5) {
-      prob += 3;
-    } else if (avgXG < 1.5) {
-      prob -= 3;
-    }
+    if (avgXG > 2.5) prob += 3;
+    else if (avgXG < 1.5) prob -= 3;
   }
 
-  // Se não temos dados suficientes (nem campos deprecated nem dados novos), usar apenas média da competição como baseline
-  // Usar estimatedOver15Freq em vez de campos deprecated
-  if (estimatedOver15Freq === 50 && competitionAvg > 0) {
-    prob = competitionAvg;
-  }
-
-  // Suavizar limites usando sigmoid (10-98% mais realista)
+  if (estimatedOver15Freq === 50 && competitionAvg > 0) prob = competitionAvg;
   prob = smoothClamp(prob, 10, 98);
 
-  // Calcular Poisson para visualização (usando médias de gols se disponíveis)
-  // PRIORIDADE: Usar dados weighted (combinam home/away/global) se disponíveis
-  let homeGoalsScored = 0;
-  let homeGoalsConceded = 0;
-  let awayGoalsScored = 0;
-  let awayGoalsConceded = 0;
-  
-  // Usar dados weighted se temos estatísticas globais
-  if (normalizedData.homeTeamStats && normalizedData.awayTeamStats) {
-    const homeWeighted = getWeightedTeamStats(
-      normalizedData.homeTeamStats.gols.home,
-      normalizedData.homeTeamStats.gols.away,
-      normalizedData.homeTeamStats.gols.global,
-      'home'
-    );
-    const awayWeighted = getWeightedTeamStats(
-      normalizedData.awayTeamStats.gols.home,
-      normalizedData.awayTeamStats.gols.away,
-      normalizedData.awayTeamStats.gols.global,
-      'away'
-    );
-    
-    homeGoalsScored = homeWeighted.avgScored;
-    homeGoalsConceded = homeWeighted.avgConceded;
-    awayGoalsScored = awayWeighted.avgScored;
-    awayGoalsConceded = awayWeighted.avgConceded;
-  }
-  
-  // Usar dados da tabela geral
-  if (normalizedData.homeTableData) {
-    const mp = parseFloat(normalizedData.homeTableData['Home MP'] || normalizedData.homeTableData.MP || '0');
-    const gf = parseFloat(normalizedData.homeTableData['Home GF'] || normalizedData.homeTableData.GF || '0');
-    const ga = parseFloat(normalizedData.homeTableData['Home GA'] || normalizedData.homeTableData.GA || '0');
-    if (mp > 0) {
-      homeGoalsScored = gf / mp;
-      homeGoalsConceded = ga / mp;
-    }
-  }
-  
-  if (normalizedData.awayTableData) {
-    const mp = parseFloat(normalizedData.awayTableData['Away MP'] || normalizedData.awayTableData.MP || '0');
-    const gf = parseFloat(normalizedData.awayTableData['Away GF'] || normalizedData.awayTableData.GF || '0');
-    const ga = parseFloat(normalizedData.awayTableData['Away GA'] || normalizedData.awayTableData.GA || '0');
-    if (mp > 0) {
-      awayGoalsScored = gf / mp;
-      awayGoalsConceded = ga / mp;
-    }
-  }
-  
-  // Garantir valores mínimos para evitar divisão por zero
-  homeGoalsScored = homeGoalsScored || 1.0;
-  homeGoalsConceded = homeGoalsConceded || 1.0;
-  awayGoalsScored = awayGoalsScored || 1.0;
-  awayGoalsConceded = awayGoalsConceded || 1.0;
-  
-  // Usar xG e xGA da tabela para ajustes finos se disponíveis (formato completo)
-  // Verificar se dados xG existem e têm valores válidos
-  const hasHomeXg = normalizedData.homeTableData?.['Home xG'] || normalizedData.homeTableData?.xG;
-  const hasAwayXga = normalizedData.awayTableData?.['Away xGA'] || normalizedData.awayTableData?.['Home xGA'] || normalizedData.awayTableData?.xGA;
-  const homeXgValue = hasHomeXg ? parseFloat(String(hasHomeXg)) : 0;
-  const awayXgaValue = hasAwayXga ? parseFloat(String(hasAwayXga)) : 0;
-  
-  if (homeXgValue > 0 && awayXgaValue > 0) {
-    // Ajustar lambdaHome considerando xG (mais preciso que GF/MP)
-    const adjustedHomeGoals = (homeGoalsScored + homeXgValue) / 2;
-    const adjustedAwayConceded = (awayGoalsConceded + awayXgaValue) / 2;
-    homeGoalsScored = adjustedHomeGoals;
-    awayGoalsConceded = adjustedAwayConceded;
-  }
-  
-  const hasAwayXg = normalizedData.awayTableData?.['Away xG'] || normalizedData.awayTableData?.xG;
-  const hasHomeXga = normalizedData.homeTableData?.['Home xGA'] || normalizedData.homeTableData?.xGA;
-  const awayXgValue = hasAwayXg ? parseFloat(String(hasAwayXg)) : 0;
-  const homeXgaValue = hasHomeXga ? parseFloat(String(hasHomeXga)) : 0;
-  
-  if (awayXgValue > 0 && homeXgaValue > 0) {
-    // Ajustar lambdaAway considerando xG (mais preciso que GF/MP)
-    const adjustedAwayGoals = (awayGoalsScored + awayXgValue) / 2;
-    const adjustedHomeConceded = (homeGoalsConceded + homeXgaValue) / 2;
-    awayGoalsScored = adjustedAwayGoals;
-    homeGoalsConceded = adjustedHomeConceded;
-  }
+  // --- Lambdas base ---
+  const baseLambdas = computeBaseLambdas(normalizedData);
+  const { lambdaHome, lambdaAway } = baseLambdas;
 
-  // Calcular lambda base usando dados weighted (já combinam home/away/global)
-  let lambdaHome = (homeGoalsScored + awayGoalsConceded) / 2;
-  let lambdaAway = (awayGoalsScored + homeGoalsConceded) / 2;
-  
-  // Aplicar melhorias profissionais ao lambda se temos dados completos
-  if (normalizedData.homeTeamStats && normalizedData.awayTeamStats) {
-    const homeWeighted = getWeightedTeamStats(
-      normalizedData.homeTeamStats.gols.home,
-      normalizedData.homeTeamStats.gols.away,
-      normalizedData.homeTeamStats.gols.global,
-      'home'
-    );
-    const awayWeighted = getWeightedTeamStats(
-      normalizedData.awayTeamStats.gols.home,
-      normalizedData.awayTeamStats.gols.away,
-      normalizedData.awayTeamStats.gols.global,
-      'away'
-    );
-    
-    // 1. Ajustar baseado na força do oponente
-    const homeOpponentStrength = calculateOpponentStrength(awayWeighted, normalizedData.awayTableData);
-    const awayOpponentStrength = calculateOpponentStrength(homeWeighted, normalizedData.homeTableData);
-    
-    lambdaHome *= (1 - homeOpponentStrength.defensiveStrength * 0.08); // Até -8% se defesa muito forte
-    lambdaHome *= (1 + homeOpponentStrength.offensiveStrength * 0.04); // Até +4% se ataque forte
-    
-    lambdaAway *= (1 - awayOpponentStrength.defensiveStrength * 0.08);
-    lambdaAway *= (1 + awayOpponentStrength.offensiveStrength * 0.04);
-    
-    // 2. Ajustar baseado em momentum (forma recente)
-    const homeMomentum = calculateMomentum(
-      normalizedData.homeHistory || [],
-      homeWeighted.avgScored,
-      homeWeighted.avgConceded,
-      true
-    );
-    const awayMomentum = calculateMomentum(
-      normalizedData.awayHistory || [],
-      awayWeighted.avgScored,
-      awayWeighted.avgConceded,
-      false
-    );
-    
-    const homeMomentumAdjustment = homeMomentum.offensiveMomentum * 0.08 - homeMomentum.defensiveMomentum * 0.04;
-    const awayMomentumAdjustment = awayMomentum.offensiveMomentum * 0.08 - awayMomentum.defensiveMomentum * 0.04;
-    
-    lambdaHome *= (1 + homeMomentumAdjustment);
-    lambdaAway *= (1 + awayMomentumAdjustment);
-    
-    // 3. Ajustar baseado em clean sheet e no goals (usando dados weighted)
-    const avgCleanSheet = (homeWeighted.cleanSheetPct + awayWeighted.cleanSheetPct) / 2;
-    const avgNoGoals = (homeWeighted.noGoalsPct + awayWeighted.noGoalsPct) / 2;
-    
-    if (avgCleanSheet > 40) {
-      const reduction = Math.min(0.06, (avgCleanSheet - 40) / 100);
-      lambdaHome *= (1 - reduction * 0.5);
-      lambdaAway *= (1 - reduction * 0.5);
-    }
-    
-    if (avgNoGoals > 20) {
-      const reduction = Math.min(0.05, (avgNoGoals - 20) / 100);
-      lambdaHome *= (1 - reduction * 0.5);
-      lambdaAway *= (1 - reduction * 0.5);
-    }
-    
-    // 4. Ajustar baseado em over 2.5% (confirma tendência ofensiva)
-    const avgOver25 = (homeWeighted.over25Pct + awayWeighted.over25Pct) / 2;
-    if (avgOver25 > 50) {
-      const increase = Math.min(0.04, (avgOver25 - 50) / 100);
-      lambdaHome *= (1 + increase * 0.5);
-      lambdaAway *= (1 + increase * 0.5);
-    }
-    
-    // 5. Validar consistência e aplicar penalidade se necessário
-    const homeConsistency = validateStatsConsistency(
-      normalizedData.homeTeamStats.gols.home,
-      normalizedData.homeTeamStats.gols.away,
-      normalizedData.homeTeamStats.gols.global
-    );
-    const awayConsistency = validateStatsConsistency(
-      normalizedData.awayTeamStats.gols.home,
-      normalizedData.awayTeamStats.gols.away,
-      normalizedData.awayTeamStats.gols.global
-    );
-    
-    const consistencyAdjustment = (homeConsistency.consistencyScore + awayConsistency.consistencyScore) / 2;
-    if (consistencyAdjustment < 0.7) {
-      // Penalidade de 3% se dados inconsistentes
-      lambdaHome *= 0.97;
-      lambdaAway *= 0.97;
-    }
-  }
+  logger.log('[AnalysisEngine] Lambdas base:', { lambdaHome, lambdaAway });
 
-  logger.log('[AnalysisEngine] performAnalysis - Lambdas iniciais (base estatísticas):', {
-    lambdaHome,
-    lambdaAway,
-    homeGoalsScored,
-    awayGoalsConceded,
-    awayGoalsScored,
-    homeGoalsConceded,
-  });
-
-  const lambdaTotal = lambdaHome + lambdaAway; // Média total de gols esperados no jogo (para Poisson combinado)
-
+  // Poisson base
   const pHome: number[] = [];
   const pAway: number[] = [];
   for (let i = 0; i <= 5; i++) {
@@ -1434,370 +1311,54 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     pAway.push(poissonProbability(i, lambdaAway));
   }
 
-  // Cálculo de EV: (Probabilidade * Odd) - 100
+  // EV inicial
   let ev = 0;
   if (normalizedData.oddOver15 && normalizedData.oddOver15 > 1) {
     ev = ((prob / 100) * normalizedData.oddOver15 - 1) * 100;
   }
 
-  // Métricas avançadas melhoradas
-  const offensiveVolume = Math.min(100, Math.max(0, (avgTotal / 3) * 100));
-  const defensiveLeaking = Math.min(
-    100,
-    Math.max(0, ((homeGoalsConceded + awayGoalsConceded) / 2) * 50)
-  );
-  const bttsCorrelation = Math.min(100, Math.max(0, 100 - avgCleanSheet));
+  // --- Métricas avançadas ---
+  const advancedMetrics = computeAdvancedMetrics(avgTotal, baseLambdas.homeGoalsConceded, baseLambdas.awayGoalsConceded, avgCleanSheet, normalizedData);
 
-  // Calcular tendência de forma baseada em histórico recente se disponível
-  let formTrend = 0;
-  if (
-    normalizedData.homeHistory &&
-    normalizedData.awayHistory &&
-    normalizedData.homeHistory.length > 0 &&
-    normalizedData.awayHistory.length > 0
-  ) {
-    // Analisar últimos 3 jogos de cada time
-    const recentHome = normalizedData.homeHistory.slice(0, 3);
-    const recentAway = normalizedData.awayHistory.slice(0, 3);
-
-    // Contar gols totais nos últimos jogos
-    const homeRecentGoals =
-      recentHome.reduce((sum, m) => sum + m.homeScore + m.awayScore, 0) / recentHome.length;
-    const awayRecentGoals =
-      recentAway.reduce((sum, m) => sum + m.homeScore + m.awayScore, 0) / recentAway.length;
-    const recentAvg = (homeRecentGoals + awayRecentGoals) / 2;
-
-    // Comparar com média histórica
-    if (recentAvg > avgTotal) {
-      formTrend = Math.min(10, (recentAvg - avgTotal) * 2); // Tendência positiva
-    } else if (recentAvg < avgTotal) {
-      formTrend = Math.max(-10, (recentAvg - avgTotal) * 2); // Tendência negativa
-    }
-  }
-
-  // Score de confiança melhorado baseado na qualidade, completude e consistência dos dados
-  let confidence = 30; // Base mais baixa
-
-  // Pontos por dados fundamentais (usar estimatedOver15Freq em vez de campos deprecated)
-  // Se temos dados estimados válidos (não é o baseline de 50), considerar como dados disponíveis
-  if (estimatedOver15Freq > 50) confidence += 15;
-  if (estimatedOver15Freq > 50) confidence += 15; // Mesmo valor para ambos (já calculado com dados de ambos)
-  if (competitionAvg > 0) confidence += 10;
-
-  // Pontos por estatísticas detalhadas
-  if (hasTeamStats) {
-    confidence += 20;
-    if (homeAvgTotal > 0 && awayAvgTotal > 0) confidence += 5;
-    if (avgCleanSheet > 0 || avgNoGoals > 0) confidence += 5;
-  }
-
-  // Pontos por dados adicionais
-  if (normalizedData.h2hOver15Freq > 0) confidence += 5;
-  if (normalizedData.homeXG > 0 && normalizedData.awayXG > 0) confidence += 5;
-
-  // Bônus por completude das 3 tabelas
-  // tableCompleteness já foi calculado anteriormente na função
-  if (tableCompleteness.score === 1.0) {
-    // Todas as 3 tabelas disponíveis
-    confidence += 15;
-    logger.log('[AnalysisEngine] ✅ Bônus de confiança: todas as 3 tabelas disponíveis (+15)');
-  } else if (tableCompleteness.score >= 0.67) {
-    // 2 de 3 tabelas disponíveis
-    confidence += 8;
-    logger.log('[AnalysisEngine] ⚠️ Bônus parcial de confiança: 2 de 3 tabelas disponíveis (+8)');
-    logger.log('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables);
-  } else {
-    // Menos de 2 tabelas disponíveis - penalizar
-    confidence = Math.max(confidence - 5, 20);
-    logger.warn('[AnalysisEngine] ⚠️ Penalidade de confiança: menos de 2 tabelas disponíveis (-5)');
-    logger.warn('[AnalysisEngine] Tabelas faltando:', tableCompleteness.missingTables);
-  }
-
-  // Validação cruzada melhorada: comparar Estatísticas Globais (home/away/global) com dados da tabela
-  let consistencyBonus = 0;
-  let crossValidationScore = 0;
-  
-  if (hasHomeTeamStats && hasHomeTableData) {
-    // Usar dados weighted (já combinam home/away/global)
-    const homeWeighted = getWeightedTeamStats(
-      normalizedData.homeTeamStats.gols.home,
-      normalizedData.homeTeamStats.gols.away,
-      normalizedData.homeTeamStats.gols.global,
-      'home'
-    );
-    
-    const mp = parseFloat(normalizedData.homeTableData.MP || '0');
-    const gf = parseFloat(normalizedData.homeTableData.GF || '0');
-    const ga = parseFloat(normalizedData.homeTableData.GA || '0');
-    
-    if (mp > 0 && homeWeighted.avgScored > 0) {
-      const tableAvgScored = gf / mp;
-      const tableAvgConceded = ga / mp;
-      const scoredDiff = Math.abs(homeWeighted.avgScored - tableAvgScored);
-      const concededDiff = Math.abs(homeWeighted.avgConceded - tableAvgConceded);
-      
-      // Se diferença < 0.3 gols, dados são consistentes
-      if (scoredDiff < 0.3 && concededDiff < 0.3) {
-        consistencyBonus += 3;
-        crossValidationScore += 0.5;
-      } else if (scoredDiff < 0.5 && concededDiff < 0.5) {
-        // Consistência moderada
-        consistencyBonus += 1;
-        crossValidationScore += 0.25;
-      }
-      
-      // Validar também dados Global separadamente
-      const globalScoredDiff = Math.abs(normalizedData.homeTeamStats.gols.global.avgScored - tableAvgScored);
-      const globalConcededDiff = Math.abs(normalizedData.homeTeamStats.gols.global.avgConceded - tableAvgConceded);
-      
-      if (globalScoredDiff < 0.3 && globalConcededDiff < 0.3) {
-        crossValidationScore += 0.3; // Bônus adicional se Global também é consistente
-      }
-    }
-  }
-  
-  if (hasAwayTeamStats && hasAwayTableData) {
-    // Usar dados weighted (já combinam home/away/global)
-    const awayWeighted = getWeightedTeamStats(
-      normalizedData.awayTeamStats.gols.home,
-      normalizedData.awayTeamStats.gols.away,
-      normalizedData.awayTeamStats.gols.global,
-      'away'
-    );
-    
-    const mp = parseFloat(normalizedData.awayTableData.MP || '0');
-    const gf = parseFloat(normalizedData.awayTableData.GF || '0');
-    const ga = parseFloat(normalizedData.awayTableData.GA || '0');
-    
-    if (mp > 0 && awayWeighted.avgScored > 0) {
-      const tableAvgScored = gf / mp;
-      const tableAvgConceded = ga / mp;
-      const scoredDiff = Math.abs(awayWeighted.avgScored - tableAvgScored);
-      const concededDiff = Math.abs(awayWeighted.avgConceded - tableAvgConceded);
-      
-      if (scoredDiff < 0.3 && concededDiff < 0.3) {
-        consistencyBonus += 3;
-        crossValidationScore += 0.5;
-      } else if (scoredDiff < 0.5 && concededDiff < 0.5) {
-        consistencyBonus += 1;
-        crossValidationScore += 0.25;
-      }
-      
-      // Validar também dados Global separadamente
-      const globalScoredDiff = Math.abs(normalizedData.awayTeamStats.gols.global.avgScored - tableAvgScored);
-      const globalConcededDiff = Math.abs(normalizedData.awayTeamStats.gols.global.avgConceded - tableAvgConceded);
-      
-      if (globalScoredDiff < 0.3 && globalConcededDiff < 0.3) {
-        crossValidationScore += 0.3;
-      }
-    }
-  }
-  
-  confidence += consistencyBonus;
-  
-  // Aplicar bônus de validação cruzada (até +5 pontos se todos os dados são consistentes)
-  if (crossValidationScore >= 1.0) {
-    confidence += 5;
-    logger.log('[AnalysisEngine] ✅ Validação cruzada: todos os dados (home/away/global) consistentes com tabela');
-  } else if (crossValidationScore >= 0.5) {
-    confidence += 2;
-    logger.log('[AnalysisEngine] ⚠️ Validação cruzada: consistência parcial entre dados');
-  }
-
-  // Verificar qualidade dos dados (se são realistas)
-  let qualityBonus = 0;
-  if (homeAvgTotal > 0 && homeAvgTotal < 6 && awayAvgTotal > 0 && awayAvgTotal < 6) {
-    // Médias entre 0 e 6 são realistas
-    qualityBonus += 2;
-  }
-  if (competitionAvg > 0 && competitionAvg < 5) {
-    // Média da competição entre 0 e 5 é realista
-    qualityBonus += 2;
-  }
-  
-  confidence += qualityBonus;
-
-  // Penalidade por dados incompletos
-  // Usar estimatedOver15Freq e hasTeamStats em vez de campos deprecated
-  const dataCompletenessScore =
-    (estimatedOver15Freq > 50 ? 1 : 0) + // Temos dados estimados válidos
-    (competitionAvg > 0 ? 1 : 0) +
-    (hasTeamStats ? 1 : 0);
-  if (dataCompletenessScore < 2) {
-    confidence = Math.max(confidence - 10, 20); // Penalizar se muito poucos dados
-    logger.warn('[AnalysisEngine] Confiança reduzida devido a dados incompletos:', {
-      dataCompletenessScore,
-      estimatedOver15Freq,
-      hasCompetitionAvg: competitionAvg > 0,
-      hasTeamStats,
-    });
-  }
-
-  logger.log('[AnalysisEngine] Cálculo de confiança:', {
-    base: 30,
-    consistencyBonus,
-    qualityBonus,
-    finalConfidence: Math.min(100, Math.max(0, confidence)),
+  // --- Confiança ---
+  const confidence = computeConfidenceScore({
+    estimatedOver15Freq, competitionAvg, hasTeamStats, homeAvgTotal, awayAvgTotal,
+    avgCleanSheet, avgNoGoals, tableCompleteness, hasHomeTeamStats, hasHomeTableData,
+    hasAwayTeamStats, hasAwayTableData, normalizedData,
   });
 
-  confidence = Math.min(100, Math.max(0, confidence));
-
-  // Calcular Prob. Estatísticas separadamente (baseada apenas em últimos 10 jogos)
+  // --- Probabilidades das fontes ---
   const statsResult = calculateStatisticsProbability(normalizedData);
-  const statsProb = statsResult?.probability ?? prob; // Usar prob calculado anteriormente como fallback
-  const statsOverUnderProbabilities = statsResult?.overUnderProbabilities;
-  const statsLambdaTotal = statsResult?.lambdaTotal;
+  const statsProb = statsResult?.probability ?? prob;
   const statsLambdaHome = statsResult?.lambdaHome;
   const statsLambdaAway = statsResult?.lambdaAway;
-
-  // Calcular Prob. Tabela separadamente (baseada apenas em dados da tabela)
-  const hasGeralTable = !!(normalizedData.homeTableData && normalizedData.awayTableData);
-  const hasHomeComplement = !!normalizedData.homeComplementData;
-  const hasAwayComplement = !!normalizedData.awayComplementData;
-  const hasCompetitionComplementAvg = !!normalizedData.competitionComplementAvg;
-  const hasFullComplement = hasHomeComplement && hasAwayComplement && hasCompetitionComplementAvg;
-  const hasPartialComplement = hasHomeComplement || hasAwayComplement;
-
-  logger.log('[AnalysisEngine] performAnalysis - Verificando disponibilidade de tabelas antes de calcular probabilidade:', {
-    tabelaGeral: {
-      disponivel: hasGeralTable,
-      homeTableData: !!normalizedData.homeTableData,
-      awayTableData: !!normalizedData.awayTableData,
-    },
-    tabelaComplemento: {
-      disponivel: hasPartialComplement,
-      completo: hasFullComplement,
-      parcial: hasPartialComplement && !hasFullComplement,
-      homeComplementData: hasHomeComplement,
-      awayComplementData: hasAwayComplement,
-      competitionComplementAvg: hasCompetitionComplementAvg,
-    },
-    estatisticas: {
-      homeTeamStats: !!normalizedData.homeTeamStats,
-      awayTeamStats: !!normalizedData.awayTeamStats,
-    },
-  });
-
-  // Validação: garantir que a tabela geral esteja disponível (obrigatória)
-  if (!hasGeralTable) {
-    logger.warn('[AnalysisEngine] ⚠️ Tabela geral não disponível - análise pode ser imprecisa');
-  }
+  const statsOverUnderProbabilities = statsResult?.overUnderProbabilities;
 
   const tableResult = calculateTableProbability(normalizedData);
   const tableProb = tableResult?.probability ?? null;
-  const tableOverUnderProbabilities = tableResult?.overUnderProbabilities;
-  const tableLambdaTotal = tableResult?.lambdaTotal;
   const tableLambdaHome = tableResult?.lambdaHome;
   const tableLambdaAway = tableResult?.lambdaAway;
+  const tableOverUnderProbabilities = tableResult?.overUnderProbabilities;
 
-  logger.log('[AnalysisEngine] performAnalysis - Resultado de calculateTableProbability:', {
-    tableProb,
-    tableLambdaTotal,
-    tableLambdaHome,
-    tableLambdaAway,
-    tabelasUsadas: {
-      geral: hasGeralTable,
-      complemento: hasPartialComplement,
-      complementoCompleto: hasFullComplement,
-    },
-    'análiseCompleta': hasGeralTable && hasPartialComplement,
-  });
-  if (!tableResult) {
-    logger.warn('[AnalysisEngine] ⚠️ calculateTableProbability retornou null - tabela geral pode estar incompleta');
-  }
+  // --- Pesos ---
+  const { statsWeight, tableWeight } = combineStatisticsAndTable(statsProb, tableProb, normalizedData);
 
-  // Obter pesos para combinar lambdas (mesmos pesos usados na combinação de probabilidades)
-  const { probability: _, statsWeight, tableWeight } = combineStatisticsAndTable(
-    statsProb,
-    tableProb,
-    normalizedData
-  );
-
-  logger.log('[AnalysisEngine] performAnalysis - Pesos para combinação:', {
-    statsWeight: statsWeight.toFixed(3),
-    tableWeight: tableWeight.toFixed(3),
-    'fonteEstatisticas': !!normalizedData.homeTeamStats && !!normalizedData.awayTeamStats,
-    'fonteTabelaGeral': hasGeralTable,
-    'fonteTabelaComplemento': hasPartialComplement,
-  });
-
-  // Calcular probabilidades Over/Under combinadas via λ (gols esperados) para manter consistência entre linhas
   const isPosFinite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
   const hasStatsSide = isPosFinite(statsLambdaHome) && isPosFinite(statsLambdaAway);
   const hasTableSide = isPosFinite(tableLambdaHome) && isPosFinite(tableLambdaAway);
 
-  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+  const minMp = hasHomeTableData && hasAwayTableData
+    ? Math.min(parseFloat(normalizedData.homeTableData?.MP || '0') || 0, parseFloat(normalizedData.awayTableData?.MP || '0') || 0)
+    : 0;
 
-  // Fallback: usar λ calculado no performAnalysis (mantém compatibilidade com dados mínimos)
-  let lambdaHomeCombined = lambdaHome;
-  let lambdaAwayCombined = lambdaAway;
-  let baseShrink = 0.18;
-
-  if (hasStatsSide && hasTableSide) {
-    lambdaHomeCombined = statsLambdaHome * statsWeight + tableLambdaHome * tableWeight;
-    lambdaAwayCombined = statsLambdaAway * statsWeight + tableLambdaAway * tableWeight;
-    baseShrink = 0.08;
-  } else if (hasStatsSide) {
-    lambdaHomeCombined = statsLambdaHome;
-    lambdaAwayCombined = statsLambdaAway;
-    baseShrink = 0.12;
-  } else if (hasTableSide) {
-    lambdaHomeCombined = tableLambdaHome;
-    lambdaAwayCombined = tableLambdaAway;
-    baseShrink = 0.12;
-  } else {
-    baseShrink = 0.18;
-  }
-
-  let lambdaCombined = lambdaHomeCombined + lambdaAwayCombined;
-
-  // Shrinkage calibrado para a média do campeonato (estabiliza extremos)
-  const hasStandardFor = false; // Não implementado no momento
-  const minMp =
-    hasHomeTableData && hasAwayTableData
-      ? Math.min(
-          parseFloat(normalizedData.homeTableData?.MP || '0') || 0,
-          parseFloat(normalizedData.awayTableData?.MP || '0') || 0
-        )
-      : 0;
-  const divergenceProb = tableProb != null ? Math.abs(statsProb - tableProb) : 0;
-
-  const confidencePenalty = clamp((80 - confidence) / 250, 0, 0.18);
-  const mpPenalty = minMp > 0 ? clamp((10 - minMp) / 40, 0, 0.1) : 0;
-  const divergencePenalty =
-    hasStatsSide && hasTableSide ? clamp((divergenceProb - 15) / 250, 0, 0.1) : 0;
-  const standardBonus = hasStandardFor ? 0.01 : 0;
-
-  const shrink = clamp(
-    baseShrink + confidencePenalty + mpPenalty + divergencePenalty - standardBonus,
-    0.05,
-    0.28
+  // --- Lambda final combinado ---
+  const { lambdaHomeFinal, lambdaAwayFinal, lambdaFinal, bttsProbability } = combineLambdas(
+    statsLambdaHome, statsLambdaAway, tableLambdaHome, tableLambdaAway,
+    lambdaHome, lambdaAway, statsWeight, tableWeight, competitionAvg,
+    confidence, minMp, statsProb, tableProb, hasStatsSide, hasTableSide
   );
 
-  let lambdaFinal = lambdaCombined;
-  if (competitionAvg > 0 && Number.isFinite(competitionAvg)) {
-    lambdaFinal = (1 - shrink) * lambdaCombined + shrink * competitionAvg;
-  }
-
-  // Garantir faixa realista (cap dinâmico por competição quando disponível)
-  const maxLambdaFinal =
-    competitionAvg > 0 && Number.isFinite(competitionAvg)
-      ? clamp(competitionAvg * 2.2, 4.5, 6.5)
-      : 6.5;
-  lambdaFinal = clamp(lambdaFinal, 0.2, maxLambdaFinal);
-
-  // Distribuição home/away preservando o ratio da combinação (mais consistente que usar o λ base)
-  const ratioHomeRaw = lambdaCombined > 0 ? lambdaHomeCombined / lambdaCombined : 0.5;
-  const ratioHome = Math.max(0, Math.min(1, ratioHomeRaw));
-  const lambdaHomeFinal = lambdaFinal * ratioHome;
-  const lambdaAwayFinal = Math.max(0, lambdaFinal - lambdaHomeFinal);
-
-  // Calcular BTTS (Ambas Marcam) via Poisson a partir do λ final combinado (home/away)
-  const pHomeScores = 1 - Math.exp(-lambdaHomeFinal);
-  const pAwayScores = 1 - Math.exp(-lambdaAwayFinal);
-  const bttsProbability = Math.max(0, Math.min(100, pHomeScores * pAwayScores * 100));
-
-  // Garantir que a distribuição exibida (Poisson por time) reflita a combinação final
+  // Poisson final
   pHome.length = 0;
   pAway.length = 0;
   for (let i = 0; i <= 5; i++) {
@@ -1805,129 +1366,25 @@ export function performAnalysis(data: MatchData): AnalysisResult {
     pAway.push(poissonProbability(i, lambdaAwayFinal));
   }
 
-  // Calcular probabilidades Over/Under combinadas via Poisson usando λ final
   const overUnderProbabilities = calculateOverUnderProbabilities(lambdaFinal);
-
-  // Calcular Prob. Final (Over 1.5) usando Dixon-Coles para maior precisão nos placares baixos
-  // Isso corrige a suposição de independência do Poisson padrão para 0-0, 1-0 e 0-1
   const under15ProbDC = calculateDixonColesUnder15(lambdaHomeFinal, lambdaAwayFinal);
   const finalProb = (1 - under15ProbDC) * 100;
-  
-  // Atualizar a linha 1.5 no objeto de probabilidades para refletir o cálculo mais preciso
+
   if (overUnderProbabilities['1.5']) {
     overUnderProbabilities['1.5'].over = finalProb;
     overUnderProbabilities['1.5'].under = under15ProbDC * 100;
   }
 
-  logger.log('[AnalysisEngine] Over/Under combinada via λ:', {
-    statsWeight,
-    tableWeight,
-    statsLambdaTotal,
-    statsLambdaHome,
-    statsLambdaAway,
-    tableLambdaTotal,
-    tableLambdaHome,
-    tableLambdaAway,
-    lambdaHomeCombined,
-    lambdaAwayCombined,
-    lambdaCombined,
-    competitionAvg,
-    baseShrink,
-    confidencePenalty,
-    mpPenalty,
-    divergencePenalty,
-    standardBonus,
-    shrink,
-    lambdaFinal,
-    lambdaHomeFinal,
-    lambdaAwayFinal,
-    bttsProbability,
-  });
-
-  let riskLevel: AnalysisResult['riskLevel'] = 'Moderado';
-  if (finalProb > 88) riskLevel = 'Baixo';
-  else if (finalProb > 78) riskLevel = 'Moderado';
-  else if (finalProb > 68) riskLevel = 'Alto';
-  else riskLevel = 'Muito Alto';
-
-  // Recalcular EV com probabilidade combinada se odd disponível
   let finalEv = ev;
   if (normalizedData.oddOver15 && normalizedData.oddOver15 > 1) {
     finalEv = ((finalProb / 100) * normalizedData.oddOver15 - 1) * 100;
   }
 
-  // VALIDAÇÃO FINAL: Verificar se todas as 3 tabelas disponíveis foram usadas
-  const finalTableCompleteness = calculateTableCompletenessScore(normalizedData);
-  const tablesUsedInAnalysis: string[] = [];
-  
-  // Verificar novamente quais tabelas estão disponíveis (para garantir que não perdemos dados)
-  const finalHasHomeTableData = !!normalizedData.homeTableData;
-  const finalHasAwayTableData = !!normalizedData.awayTableData;
-  const finalHasComplement =
-    !!normalizedData.homeComplementData &&
-    !!normalizedData.awayComplementData &&
-    !!normalizedData.competitionComplementAvg;
-  if (finalHasHomeTableData && finalHasAwayTableData) {
-    tablesUsedInAnalysis.push('geral');
-  }
-  if (finalHasComplement) {
-    tablesUsedInAnalysis.push('complement');
-  }
+  logger.log('[AnalysisEngine] Final:', { finalProb, confidence, finalEv, bttsProbability });
 
-  logger.log('[AnalysisEngine] ===== RESUMO FINAL DA ANÁLISE =====');
-  logger.log('[AnalysisEngine] Tabelas disponíveis:', finalTableCompleteness.availableTables.join(', ') || 'Nenhuma');
-  logger.log('[AnalysisEngine] Tabelas usadas na análise:', tablesUsedInAnalysis.join(', ') || 'Nenhuma');
-  logger.log('[AnalysisEngine] Score de completude:', `${(finalTableCompleteness.score * 100).toFixed(0)}%`);
-   
-  if (finalTableCompleteness.availableTables.length !== tablesUsedInAnalysis.length) {
-    logger.warn('[AnalysisEngine] ⚠️ ATENÇÃO: Nem todas as tabelas disponíveis foram usadas!');
-    logger.warn('[AnalysisEngine] Disponíveis:', finalTableCompleteness.availableTables);
-    logger.warn('[AnalysisEngine] Usadas:', tablesUsedInAnalysis);
-  } else if (finalTableCompleteness.score === 1.0) {
-    logger.log('[AnalysisEngine] ✅ TODAS AS 3 TABELAS FORAM USADAS NA ANÁLISE!');
-  }
-   
-  // Mostrar impacto de cada tabela
-  if (tableResult) {
-    logger.log('[AnalysisEngine] Impacto das tabelas nos lambdas finais:', {
-      tableLambdaHome: tableLambdaHome,
-      tableLambdaAway: tableLambdaAway,
-      tableLambdaTotal: tableLambdaTotal,
-      'complement aplicado': finalHasComplement,
-    });
-  }
-
-  return {
-    probabilityOver15: statsProb, // Probabilidade estatística pura (baseada em últimos 10 jogos)
-    tableProbability: tableProb, // Probabilidade baseada apenas em dados da tabela
-    combinedProbability: finalProb, // Probabilidade final combinada (estatísticas + tabela)
-    bttsProbability,
-    confidenceScore: confidence,
-    poissonHome: pHome,
-    poissonAway: pAway,
-    riskLevel,
-    ev: finalEv,
-    verdict:
-      finalProb > 80
-        ? 'ALTA CONFIANÇA EM GOLS'
-        : finalProb > 70
-          ? 'CENÁRIO FAVORÁVEL'
-          : 'JOGO TRANCADO',
-    recommendation:
-      finalProb > 82
-        ? 'Entrada recomendada pré-live ou Over 1.0 HT no minuto 15.'
-        : 'Aguarde o Live. Só entre se houver 3 chutes a gol nos primeiros 10 minutos.',
-    advancedMetrics: {
-      offensiveVolume,
-      defensiveLeaking,
-      bttsCorrelation,
-      formTrend,
-    },
-    // Probabilidades Over/Under combinadas (final)
-    overUnderProbabilities,
-    // Probabilidades Over/Under baseadas apenas na tabela
-    tableOverUnderProbabilities,
-    // Probabilidades Over/Under baseadas apenas nas estatísticas
-    statsOverUnderProbabilities,
-  };
+  return buildAnalysisResult({
+    statsProb, tableProb, finalProb, bttsProbability, confidence,
+    pHome, pAway, ev, finalEv, advancedMetrics,
+    overUnderProbabilities, tableOverUnderProbabilities, statsOverUnderProbabilities,
+  });
 }

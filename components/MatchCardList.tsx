@@ -32,7 +32,6 @@ interface MatchCardListProps {
   onMatchClick: (match: SavedAnalysis) => void;
   onDeleteMatch: (e: React.MouseEvent, id: string) => void;
   onUpdateBetStatus?: (match: SavedAnalysis, status: 'won' | 'lost') => void;
-  onAnalyzeResult?: (match: SavedAnalysis) => void;
   isUpdatingBetStatus?: boolean;
   bankCurrency?: string;
 }
@@ -43,11 +42,9 @@ const MatchCardList: React.FC<MatchCardListProps> = React.memo(({
   onMatchClick,
   onDeleteMatch,
   onUpdateBetStatus,
-  onAnalyzeResult,
   isUpdatingBetStatus = false,
   bankCurrency,
 }) => {
-  void onAnalyzeResult;
   const currencySymbol = getCurrencySymbol(bankCurrency ?? 'BRL');
   const betMoney =
     match.betInfo && match.betInfo.betAmount > 0 ? getBetDisplayFinancials(match) : null;

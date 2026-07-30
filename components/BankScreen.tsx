@@ -32,7 +32,6 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
       <BankCurrentCard
         totalBank={state.totalBank}
         pendingExposure={state.bankStats.pendingExposure}
-        totalBets={state.bankStats.totalBets}
         updatedAt={bankSettings?.updatedAt}
         currencyCode={bankSettings?.currency ?? 'BRL'}
         formatMoney={formatMoneyPtBr}
@@ -41,7 +40,6 @@ const BankScreen: React.FC<BankScreenProps> = ({ bankSettings, savedMatches, onS
       <BankEditCard
         inputRef={state.inputRef}
         inputValue={state.inputValue}
-        totalBank={state.totalBank}
         currencyCode={bankSettings?.currency ?? 'BRL'}
         validationState={state.validationState}
         validationMessage={state.validationMessage}

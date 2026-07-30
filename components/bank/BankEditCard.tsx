@@ -9,7 +9,6 @@ import { cn } from '../../utils/cn';
 interface BankEditCardProps {
   inputRef: React.RefObject<HTMLInputElement>;
   inputValue: string;
-  totalBank: number;
   validationState: ValidationState;
   validationMessage: string;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -28,7 +27,6 @@ interface BankEditCardProps {
 const BankEditCard: React.FC<BankEditCardProps> = ({
   inputRef,
   inputValue,
-  totalBank,
   validationState,
   validationMessage,
   onInputChange,
@@ -42,7 +40,6 @@ const BankEditCard: React.FC<BankEditCardProps> = ({
   isSaveDisabled,
   currencyCode,
 }) => {
-  void totalBank;
   const symbol = getCurrencySymbol(currencyCode);
 
   return (

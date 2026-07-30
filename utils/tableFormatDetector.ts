@@ -66,7 +66,7 @@ export function detectTableFormatFromData(data: TableRowGeral[]): TableFormat {
  * @param expectedFormat Formato esperado ('completa' ou 'basica')
  * @returns Array de avisos sobre campos faltantes (vazio se tudo estiver OK)
  */
-export function validateTableFormat(
+function validateTableFormat(
   data: TableRowGeral[],
   expectedFormat: TableFormat
 ): string[] {

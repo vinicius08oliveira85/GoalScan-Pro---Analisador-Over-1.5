@@ -8,7 +8,6 @@ import { cn } from '../../utils/cn';
 interface BankCurrentCardProps {
   totalBank: number;
   pendingExposure: number;
-  totalBets: number;
   updatedAt?: number;
   currencyCode: string;
   formatMoney: (value: number) => string;
@@ -17,12 +16,10 @@ interface BankCurrentCardProps {
 const BankCurrentCard: React.FC<BankCurrentCardProps> = ({
   totalBank,
   pendingExposure,
-  totalBets,
   updatedAt,
   currencyCode,
   formatMoney,
 }) => {
-  void totalBets;
   const equity = totalBank + pendingExposure;
   const symbol = getCurrencySymbol(currencyCode);
 
