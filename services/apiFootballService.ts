@@ -1,16 +1,15 @@
 import { logger } from '../utils/logger';
 
-const PROXY_URL = '/api/footystats-extract';
+const PROXY_URL = '/api/football-api';
+const EXPORT_URL = '/api/export-championship';
 
 async function proxyPost<T>(endpoint: string, params?: Record<string, string | number>): Promise<T> {
   const body: Record<string, unknown> = {
-    source: 'api-football',
     endpoint,
     params: {},
   };
 
   if (params) {
-    body.params = {};
     for (const [k, v] of Object.entries(params)) {
       (body.params as Record<string, string>)[k] = String(v);
     }
@@ -121,6 +120,48 @@ export interface ApiFixturesResponse {
   response: ApiFixture[];
 }
 
+export interface ExportedLeague {
+  version: string;
+  exported_at: string;
+  league: {
+    id: number;
+    name: string;
+    season: number;
+  };
+  standings: Array<{
+    rank: number;
+    team: string;
+    team_id: number;
+    played: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    goals_for: number;
+    goals_against: number;
+    goal_diff: number;
+    points: number;
+    form: string;
+    home: { played: number; wins: number; draws: number; losses: number; goals_for: number; goals_against: number };
+    away: { played: number; wins: number; draws: number; losses: number; goals_for: number; goals_against: number };
+  }>;
+  fixtures: Array<{
+    fixture_id: number;
+    date: string;
+    status: string;
+    round: string;
+    home_team: string;
+    home_team_id: number;
+    away_team: string;
+    away_team_id: number;
+    goals_home: number | null;
+    goals_away: number | null;
+  }>;
+  stats: {
+    total_teams: number;
+    total_matches: number;
+  };
+}
+
 export async function fetchStandings(leagueId: number, season: number): Promise<ApiStandingsResponse> {
   logger.info(`[APIFootball] Fetching standings: league=${leagueId}, season=${season}`);
   return proxyPost<ApiStandingsResponse>('standings', { league: leagueId, season });
@@ -134,4 +175,22 @@ export async function fetchFixtures(leagueId: number, season: number): Promise<A
 export async function fetchHeadToHead(team1Id: number, team2Id: number): Promise<ApiFixturesResponse> {
   logger.info(`[APIFootball] Fetching H2H: ${team1Id} vs ${team2Id}`);
   return proxyPost<ApiFixturesResponse>('fixtures/headtohead', { h2h: `${team1Id}-${team2Id}` });
+}
+
+export async function exportLeagueData(
+  leagueId: number,
+  season: number,
+): Promise<ExportedLeague> {
+  logger.info(`[APIFootball] Exporting league: ${leagueId}, season=${season}`);
+  const resp = await fetch(`${EXPORT_URL}?league_id=${leagueId}&season=${season}`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+    signal: AbortSignal.timeout(35000),
+  });
+  if (!resp.ok) {
+    const msg = `Export ${resp.status}`;
+    logger.error(`[APIFootball] ${msg} (league=${leagueId})`);
+    throw new Error(msg);
+  }
+  return resp.json() as Promise<ExportedLeague>;
 }

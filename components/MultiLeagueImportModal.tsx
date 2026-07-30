@@ -8,6 +8,7 @@ import { FOOTBALL_LEAGUES, FootballLeague } from '../config/footballLeagues';
 import {
   importMultipleLeagues,
   saveLeagueAsChampionship,
+  clearLeagueCache,
   ImportProgress,
   LeagueData,
 } from '../services/multiLeagueImportService';
@@ -107,6 +108,7 @@ export default function MultiLeagueImportModal({ isOpen, onClose, onSuccess, onE
   const [results, setResults] = useState<LeagueResult[]>([]);
   const [expandedLeague, setExpandedLeague] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'geral' | 'jogos'>('geral');
+  const [forceRefresh, setForceRefresh] = useState(false);
 
   const toggleLeague = (id: number) => {
     const next = new Set(selectedIds);
@@ -121,6 +123,10 @@ export default function MultiLeagueImportModal({ isOpen, onClose, onSuccess, onE
     setProgress({ step: 'extraindo', league: '', message: 'Iniciando importacao...', progress: 0 });
     setResults([]);
 
+    if (forceRefresh) {
+      selectedIds.forEach((id) => clearLeagueCache(id));
+    }
+
     const leagueResults: LeagueResult[] = FOOTBALL_LEAGUES
       .filter((l) => selectedIds.has(l.id))
       .map((l) => ({ league: l, data: null, championship: null, tables: [], status: 'loading' as const }));
@@ -130,6 +136,7 @@ export default function MultiLeagueImportModal({ isOpen, onClose, onSuccess, onE
     const dataMap = await importMultipleLeagues(
       Array.from(selectedIds),
       (p) => setProgress(p),
+      forceRefresh,
     );
 
     for (let i = 0; i < leagueResults.length; i++) {
@@ -345,14 +352,25 @@ export default function MultiLeagueImportModal({ isOpen, onClose, onSuccess, onE
 
         <div className="flex gap-3">
           {!importing && !isConcluded && (
-            <button
-              onClick={handleImport}
-              disabled={selectedIds.size === 0}
-              className="btn btn-primary flex-1 gap-2"
-            >
-              <Trophy className="w-4 h-4" />
-              Importar {selectedIds.size} Campeonato{selectedIds.size !== 1 ? 's' : ''}
-            </button>
+            <>
+              <label className="flex items-center gap-2 btn btn-ghost btn-sm">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-xs"
+                  checked={forceRefresh}
+                  onChange={(e) => setForceRefresh(e.target.checked)}
+                />
+                <span className="text-xs">Ignorar cache</span>
+              </label>
+              <button
+                onClick={handleImport}
+                disabled={selectedIds.size === 0}
+                className="btn btn-primary flex-1 gap-2"
+              >
+                <Trophy className="w-4 h-4" />
+                Importar {selectedIds.size} Campeonato{selectedIds.size !== 1 ? 's' : ''}
+              </button>
+            </>
           )}
           {isConcluded && (
             <button onClick={handleViewTables} className="btn btn-primary flex-1 gap-2">

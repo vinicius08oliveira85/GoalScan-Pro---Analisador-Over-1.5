@@ -2,13 +2,11 @@ import { FootballLeague, CACHE_TTL_MS, getLeagueById } from '../config/footballL
 import {
   fetchStandings,
   fetchFixtures,
-  fetchHeadToHead,
   ApiStandingTeam,
   ApiFixture,
 } from './apiFootballService';
-import { Championship, ChampionshipTable, TableRowGeral } from '../types';
+import { Championship, ChampionshipTable, TableRowGeral, TeamStatistics } from '../types';
 import { logger } from '../utils/logger';
-import { H2HMatch } from '../types';
 
 export interface ImportProgress {
   step: 'extraindo' | 'salvando' | 'concluido' | 'erro';
@@ -48,6 +46,14 @@ export interface LeagueData {
   cachedAt: number;
 }
 
+export interface TeamStatsFromFixtures {
+  teamId: number;
+  teamName: string;
+  home: { played: number; scored: number; conceded: number; cleanSheets: number; noGoals: number; over25: number };
+  away: { played: number; scored: number; conceded: number; cleanSheets: number; noGoals: number; over25: number };
+  global: { played: number; scored: number; conceded: number; cleanSheets: number; noGoals: number; over25: number };
+}
+
 interface CacheEntry {
   data: LeagueData;
   timestamp: number;
@@ -59,7 +65,8 @@ function cacheKey(leagueId: number): string {
   return `${CACHE_PREFIX}${leagueId}`;
 }
 
-function getFromCache(leagueId: number): LeagueData | null {
+function getFromCache(leagueId: number, forceRefresh = false): LeagueData | null {
+  if (forceRefresh) return null;
   try {
     const raw = localStorage.getItem(cacheKey(leagueId));
     if (!raw) return null;
@@ -152,14 +159,109 @@ function standingToTableRow(s: LeagueStandingRow): TableRowGeral {
   };
 }
 
+export function computeTeamStatsFromFixtures(fixtures: LeagueMatch[]): Map<number, TeamStatsFromFixtures> {
+  const stats = new Map<number, TeamStatsFromFixtures>();
+
+  function ensure(id: number, name: string): TeamStatsFromFixtures {
+    let s = stats.get(id);
+    if (!s) {
+      s = { teamId: id, teamName: name, home: { played: 0, scored: 0, conceded: 0, cleanSheets: 0, noGoals: 0, over25: 0 }, away: { played: 0, scored: 0, conceded: 0, cleanSheets: 0, noGoals: 0, over25: 0 }, global: { played: 0, scored: 0, conceded: 0, cleanSheets: 0, noGoals: 0, over25: 0 } };
+      stats.set(id, s);
+    }
+    return s;
+  }
+
+  for (const f of fixtures) {
+    if (f.goals.home === null || f.goals.away === null) continue;
+    const home = f.goals.home;
+    const away = f.goals.away;
+    const total = home + away;
+
+    const hs = ensure(f.homeTeam.id, f.homeTeam.name);
+    hs.home.played++;
+    hs.home.scored += home;
+    hs.home.conceded += away;
+    if (away === 0) hs.home.cleanSheets++;
+    if (home === 0) hs.home.noGoals++;
+    if (total > 2.5) hs.home.over25++;
+    hs.global.played++;
+    hs.global.scored += home;
+    hs.global.conceded += away;
+    if (away === 0) hs.global.cleanSheets++;
+    if (home === 0) hs.global.noGoals++;
+    if (total > 2.5) hs.global.over25++;
+
+    const as = ensure(f.awayTeam.id, f.awayTeam.name);
+    as.away.played++;
+    as.away.scored += away;
+    as.away.conceded += home;
+    if (home === 0) as.away.cleanSheets++;
+    if (away === 0) as.away.noGoals++;
+    if (total > 2.5) as.away.over25++;
+    as.global.played++;
+    as.global.scored += away;
+    as.global.conceded += home;
+    if (home === 0) as.global.cleanSheets++;
+    if (away === 0) as.global.noGoals++;
+    if (total > 2.5) as.global.over25++;
+  }
+
+  return stats;
+}
+
+export function teamStatsToAnalysisFormat(ts: TeamStatsFromFixtures): TeamStatistics {
+  const pct = (num: number, denom: number) => denom > 0 ? (num / denom) * 100 : 0;
+  const avg = (num: number, denom: number) => denom > 0 ? num / denom : 0;
+
+  return {
+    percurso: {
+      home: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 },
+      away: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 },
+      global: { winStreak: 0, drawStreak: 0, lossStreak: 0, withoutWin: 0, withoutDraw: 0, withoutLoss: 0 },
+    },
+    gols: {
+      home: {
+        avgTotal: avg(ts.home.scored + ts.home.conceded, ts.home.played),
+        cleanSheetPct: pct(ts.home.cleanSheets, ts.home.played),
+        noGoalsPct: pct(ts.home.noGoals, ts.home.played),
+        over25Pct: pct(ts.home.over25, ts.home.played),
+        under25Pct: 100 - pct(ts.home.over25, ts.home.played),
+        avgScored: avg(ts.home.scored, ts.home.played),
+        avgConceded: avg(ts.home.conceded, ts.home.played),
+      },
+      away: {
+        avgTotal: avg(ts.away.scored + ts.away.conceded, ts.away.played),
+        cleanSheetPct: pct(ts.away.cleanSheets, ts.away.played),
+        noGoalsPct: pct(ts.away.noGoals, ts.away.played),
+        over25Pct: pct(ts.away.over25, ts.away.played),
+        under25Pct: 100 - pct(ts.away.over25, ts.away.played),
+        avgScored: avg(ts.away.scored, ts.away.played),
+        avgConceded: avg(ts.away.conceded, ts.away.played),
+      },
+      global: {
+        avgTotal: avg(ts.global.scored + ts.global.conceded, ts.global.played),
+        cleanSheetPct: pct(ts.global.cleanSheets, ts.global.played),
+        noGoalsPct: pct(ts.global.noGoals, ts.global.played),
+        over25Pct: pct(ts.global.over25, ts.global.played),
+        under25Pct: 100 - pct(ts.global.over25, ts.global.played),
+        avgScored: avg(ts.global.scored, ts.global.played),
+        avgConceded: avg(ts.global.conceded, ts.global.played),
+      },
+    },
+  };
+}
+
 export async function importLeague(
   league: FootballLeague,
   onProgress?: (p: ImportProgress) => void,
+  forceRefresh = false,
 ): Promise<LeagueData> {
-  const cached = getFromCache(league.id);
-  if (cached) {
-    logger.info(`[MultiLeague] Cache hit for ${league.name}`);
-    return cached;
+  if (!forceRefresh) {
+    const cached = getFromCache(league.id);
+    if (cached) {
+      logger.info(`[MultiLeague] Cache hit for ${league.name}`);
+      return cached;
+    }
   }
 
   onProgress?.({
@@ -200,6 +302,7 @@ export async function importLeague(
 export async function importMultipleLeagues(
   leagueIds: number[],
   onProgress?: (p: ImportProgress) => void,
+  forceRefresh = false,
 ): Promise<Map<number, LeagueData>> {
   const results = new Map<number, LeagueData>();
   let completed = 0;
@@ -209,7 +312,7 @@ export async function importMultipleLeagues(
     if (!league) continue;
 
     try {
-      const data = await importLeague(league, onProgress);
+      const data = await importLeague(league, onProgress, forceRefresh);
       results.set(id, data);
       completed++;
 
@@ -298,9 +401,10 @@ export async function saveLeagueAsChampionship(
   const savedChamp = saveChampionshipToLocal(championship);
   result.championship = savedChamp;
 
+  let geralTable: ChampionshipTable | null = null;
   if (data.standings.length > 0) {
     const geralRows = data.standings.map(standingToTableRow);
-    const geralTable: ChampionshipTable = {
+    geralTable = {
       id: `${championshipId}_geral`,
       championship_id: championshipId,
       table_type: 'geral',
@@ -310,6 +414,19 @@ export async function saveLeagueAsChampionship(
       updated_at: new Date().toISOString(),
     };
     result.tables.push(saveTableToLocal(geralTable));
+  }
+
+  if (result.tables.length > 0) {
+    try {
+      const { saveChampionship, saveChampionshipTable } = await import('./championshipTables');
+      await saveChampionship(championship);
+      for (const t of result.tables) {
+        await saveChampionshipTable(t);
+      }
+      logger.info(`[MultiLeague] Synced ${league.name} to Supabase`);
+    } catch (e) {
+      logger.warn(`[MultiLeague] Supabase sync failed for ${league.name}, localStorage only:`, e);
+    }
   }
 
   if (data.fixtures.length > 0) {
@@ -323,46 +440,35 @@ export async function saveLeagueAsChampionship(
       updated_at: new Date().toISOString(),
     };
     result.tables.push(saveTableToLocal(jogosTable));
+    try {
+      const { saveChampionshipTable } = await import('./championshipTables');
+      await saveChampionshipTable(jogosTable);
+    } catch (e) {
+      logger.warn(`[MultiLeague] Supabase sync failed for fixtures of ${league.name}:`, e);
+    }
+  }
+
+  if (data.fixtures.length > 0 && geralTable) {
+    const teamFixturesStats = computeTeamStatsFromFixtures(data.fixtures);
+    const geralRows = data.standings.map(standingToTableRow);
+    for (const row of geralRows) {
+      const tfs = teamFixturesStats.get(
+        data.standings.find((s) => s.teamName === row.Squad)?.teamId ?? -1,
+      );
+      if (tfs) {
+        (row as Record<string, unknown>)['teamStats'] = teamStatsToAnalysisFormat(tfs);
+      }
+    }
   }
 
   return result;
 }
 
-export async function fetchH2H(
-  homeTeamId: number,
-  awayTeamId: number,
-): Promise<{ matches: H2HMatch[]; avgGoals: number; over15Freq: number }> {
-  const cacheKeyStr = `h2h_${homeTeamId}_${awayTeamId}`;
-  const cached = localStorage.getItem(cacheKeyStr);
-  if (cached) {
-    const entry: CacheEntry = JSON.parse(cached);
-    if (Date.now() - entry.timestamp < CACHE_TTL_MS) {
-      return entry.data;
-    }
-    localStorage.removeItem(cacheKeyStr);
+export function clearLeagueCache(leagueId: number): void {
+  try {
+    localStorage.removeItem(cacheKey(leagueId));
+    logger.info(`[MultiLeague] Cache cleared for league ${leagueId}`);
+  } catch (e) {
+    logger.error('[MultiLeague] Erro ao limpar cache:', e);
   }
-
-  const resp = await fetchHeadToHead(homeTeamId, awayTeamId);
-  const fixtures = resp.response || [];
-
-  const matches: H2HMatch[] = fixtures
-    .filter((f) => f.goals.home !== null && f.goals.away !== null)
-    .map((f) => ({
-      date: f.fixture.date,
-      homeScore: f.goals.home!,
-      awayScore: f.goals.away!,
-      totalGoals: f.goals.home! + f.goals.away!,
-    }));
-
-  const recent = matches.slice(0, 10);
-  const avgGoals = recent.length > 0
-    ? recent.reduce((sum, m) => sum + m.totalGoals, 0) / recent.length
-    : 0;
-  const over15Count = recent.filter((m) => m.totalGoals > 1.5).length;
-  const over15Freq = recent.length > 0 ? (over15Count / recent.length) * 100 : 0;
-
-  const result = { matches: recent, avgGoals, over15Freq };
-  localStorage.setItem(cacheKeyStr, JSON.stringify({ data: result, timestamp: Date.now() }));
-
-  return result;
 }

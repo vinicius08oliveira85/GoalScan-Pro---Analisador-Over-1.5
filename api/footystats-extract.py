@@ -431,11 +431,6 @@ async def handler(request: Request):
     try:
         body = await request.json()
 
-        source = body.get('source', 'footystats')
-
-        if source == 'api-football':
-            return await _handle_api_football(body)
-
         url = body.get('url', '')
         if not url or 'footystats.org' not in url:
             return _send_error(400, 'URL invalida. Apenas URLs do footystats.org sao permitidas.')
@@ -453,40 +448,6 @@ async def handler(request: Request):
     except Exception as e:
         logger.exception('Erro interno no handler')
         return _send_error(500, f'Erro interno: {str(e)}')
-
-
-async def _handle_api_football(request_data: Dict):
-    endpoint = request_data.get('endpoint', '')
-    params = request_data.get('params', {})
-
-    if not endpoint:
-        return _send_error(400, 'Parametro endpoint obrigatorio')
-
-    api_key = os.environ.get('VITE_API_FOOTBALL_KEY', '')
-    if not api_key:
-        return _send_error(500, 'VITE_API_FOOTBALL_KEY nao configurada')
-
-    api_url = f'https://v3.football.api-sports.io/{endpoint}'
-    for k, v in params.items():
-        sep = '?' if '?' not in api_url else '&'
-        api_url += f'{sep}{k}={v}'
-
-    try:
-        resp = requests.get(api_url, headers={
-            'x-apisports-key': api_key,
-        }, timeout=25)
-
-        if resp.status_code != 200:
-            logger.error(f'[APIFootball] Erro {resp.status_code}: {resp.text[:200]}')
-            return _send_error(resp.status_code, f'API-Football {resp.status_code}')
-
-        data = resp.json()
-        return _send_response(data)
-    except requests.exceptions.Timeout:
-        return _send_error(504, 'API-Football timeout')
-    except Exception as e:
-        logger.exception(f'[APIFootball] Erro ao buscar {endpoint}')
-        return _send_error(500, f'Erro: {str(e)}')
 
 
 def _send_response(data: Dict, status_code: int = 200) -> Response:
